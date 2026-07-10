@@ -11,23 +11,23 @@
 </head>
 <body>
 <div class="app" id="app">
-
   <header class="topbar">
     <div class="logo">
-      <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-label="Chief AI" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="8" fill="currentColor" opacity="0.12"/>
-        <path d="M8 10h4v12H8V10zm6 0h2l6 12h-4l-1-2h-4l-1 2H12l6-12zm3.5 7.5-1.5-3-1.5 3h3z" fill="currentColor"/>
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Chief AI Machine" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="24" height="24" rx="6" fill="currentColor" opacity="0.12"/>
+        <path d="M8 14h12M14 8v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="3" fill="currentColor"/>
       </svg>
-      Chief<span class="os">AI</span>
+      <span>Chief<b>AI</b></span>
     </div>
     <div class="search-wrap">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input class="search" id="search" placeholder="Search prompts..." autocomplete="off">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="search" id="search" placeholder="Search prompts…" autocomplete="off">
     </div>
     <div class="top-actions">
       <span class="count-pill" id="countPill">— prompts</span>
       <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
     </div>
   </header>
@@ -40,38 +40,37 @@
     <button class="nav-item" data-page="custom">✨ My Prompts <span class="n-count" id="navCustom">0</span></button>
     <button class="nav-item" data-page="anatomy">🧠 Anatomy</button>
     <button class="nav-item" data-page="bench">📊 Benchmarks</button>
-    <div class="side-label" style="margin-top:16px">Data</div>
+    <div class="side-label">Data</div>
     <button class="nav-item" id="exportBtn">⬇️ Export JSON</button>
     <button class="nav-item" id="importBtn">⬆️ Import JSON</button>
     <input type="file" id="importFile" accept="application/json" hidden>
     <button class="nav-item" id="resetBtn">🗑 Reset saved state</button>
-    <div class="side-foot">Chief AI Prompt Machine © Jussray.<br>Licensed for internal use only.<br><br>Stars, custom prompts &amp; theme persist locally.</div>
+    <div class="side-foot">Chief AI Prompt Machine © Jussray.<br>Internal use only. Stars &amp; custom prompts persist.</div>
   </aside>
 
   <nav class="mobile-nav" id="mobileNav">
-    <button class="nav-item active" data-page="library">📚 Lib</button>
-    <button class="nav-item" data-page="builder">🛠 Build</button>
-    <button class="nav-item" data-page="freestyle">🎲 Free</button>
-    <button class="nav-item" data-page="custom">✨ Mine</button>
-    <button class="nav-item" data-page="anatomy">🧠 Anat</button>
-    <button class="nav-item" data-page="bench">📊 Bench</button>
+    <button class="nav-item active" data-page="library">📚</button>
+    <button class="nav-item" data-page="builder">🛠</button>
+    <button class="nav-item" data-page="freestyle">🎲</button>
+    <button class="nav-item" data-page="custom">✨</button>
+    <button class="nav-item" data-page="anatomy">🧠</button>
+    <button class="nav-item" data-page="bench">📊</button>
   </nav>
 
   <main class="main">
-
     <!-- LIBRARY -->
     <section class="page on" id="page-library">
       <div class="page-head">
         <div class="crumb">chief-ai <span>/</span> <b>library</b></div>
         <h2>Prompt ops for Bip · Think Tank · JBH · L99.</h2>
-        <p>Production prompts across ChatGPT, Claude, Perplexity, Figma, and Canva. Search, filter, star, copy. Open a card to see every version.</p>
+        <p>Production prompts across ChatGPT, Claude, Perplexity, Figma, and Canva. Search, filter, star, copy.</p>
       </div>
       <div class="repo-bar">
         <span class="repo-bar-label">Filter by</span>
         <button class="repo-btn" data-repo="bip">🧠 Bip</button>
         <button class="repo-btn" data-repo="think-tank">🔬 Think Tank</button>
         <button class="repo-btn" data-repo="jbh">🏪 JBH</button>
-        <button class="repo-btn" data-repo="l99">🆙 L99</button>
+        <button class="repo-btn" data-repo="l99">🅱️ L99</button>
         <button class="repo-clear" id="repoClear" hidden>Clear ✕</button>
       </div>
       <div class="stat-row">
@@ -89,7 +88,7 @@
       <div class="page-head">
         <div class="crumb">chief-ai <span>/</span> <b>builder</b></div>
         <h2>Prompt Builder</h2>
-        <p>Compose a session prompt from a pack. Output updates live — Claude switches to XML structure automatically.</p>
+        <p>Compose a session prompt from a pack. Output updates live.</p>
       </div>
       <div class="split">
         <div class="panel">
@@ -100,14 +99,14 @@
           <div class="field"><label>Task</label><textarea id="bTask">Audit my auth flow and identify trust-layer gaps before implementing new session logic.</textarea></div>
           <div class="field"><label>Constraints</label><textarea id="bConstraints">TypeScript only, minimal edits, audit first, do not remove working functionality.</textarea></div>
           <div class="field"><label>Output format</label><select id="bFormat"><option>Diagnosis + patch + risks</option><option>Phased plan</option><option>Bullet analysis</option><option>Code diff</option><option>OODA loop</option><option>7-day action plan</option></select></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="mini-btn solid" id="copyBuilder">Copy prompt</button>
             <button class="mini-btn" id="saveBuilder">Save to My Prompts</button>
           </div>
         </div>
         <div class="panel">
           <div class="panel-title"><span class="dot"></span>Output</div>
-          <div class="output" id="builderOut">Select a pack and platform above — output appears here live.</div>
+          <div class="output" id="builderOut"></div>
         </div>
       </div>
     </section>
@@ -117,12 +116,12 @@
       <div class="page-head">
         <div class="crumb">chief-ai <span>/</span> <b>freestyle</b></div>
         <h2>Freestyle</h2>
-        <p>Describe what you need in plain language. Choose platforms and get a structured prompt back instantly.</p>
+        <p>Describe what you need. Get a structured prompt back — per platform.</p>
       </div>
       <div class="split">
         <div class="panel">
           <div class="panel-title"><span class="dot"></span>What do you need?</div>
-          <div class="field"><textarea id="fsAsk" placeholder="e.g. Audit my Zustand store for stale closures before I wire it into Bip room hotspots" style="min-height:140px"></textarea></div>
+          <div class="field"><textarea id="fsAsk" placeholder="e.g. Audit my Zustand store for stale closures before I wire it into Bip room hotspots" style="min-height:150px"></textarea></div>
           <div class="field">
             <label>Platforms</label>
             <div class="platform-check">
@@ -137,14 +136,14 @@
             <button class="mini-btn solid" id="fsGenerate">✨ Generate</button>
             <button class="mini-btn" id="fsClear">Clear</button>
           </div>
-          <div class="hint">⌘ / Ctrl + Enter to generate. Category inferred automatically.</div>
+          <div class="hint">⌘ / Ctrl + Enter to generate.</div>
         </div>
         <div class="panel">
           <div class="panel-title"><span class="dot"></span>Result</div>
           <div class="fs-placeholder" id="fsPlaceholder">Describe what you need and hit Generate.</div>
           <div class="fs-preview" id="fsPreview">
             <div class="fs-head">
-              <div id="fsEmoji" style="font-size:20px;line-height:1.3"></div>
+              <div id="fsEmoji" style="font-size:19px;line-height:1.3"></div>
               <div style="min-width:0"><h3 id="fsTitle"></h3><div class="sub" id="fsSub"></div></div>
             </div>
             <div class="badges" id="fsBadges"></div>
@@ -152,8 +151,8 @@
             <div class="fs-body" id="fsBody"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="mini-btn solid" id="fsSave">Save to My Prompts</button>
-              <button class="mini-btn" id="fsCopyBtn">Copy this version</button>
-              <button class="mini-btn" id="fsRegenerate">Regenerate</button>
+              <button class="mini-btn" id="fsCopy">Copy this version</button>
+              <button class="mini-btn push" id="fsRegenerate">Regenerate</button>
             </div>
           </div>
         </div>
@@ -165,7 +164,7 @@
       <div class="page-head">
         <div class="crumb">chief-ai <span>/</span> <b>my-prompts</b></div>
         <h2>My Prompts</h2>
-        <p>Your own prompts, saved to this app. They show up in Library under the custom filter.</p>
+        <p>Your own prompts, saved to this app. Show up in Library under the custom filter.</p>
       </div>
       <div class="split">
         <div class="panel">
@@ -174,7 +173,7 @@
           <div class="field"><label>Subtitle</label><input id="cSub" placeholder="What this prompt is for"></div>
           <div class="field"><label>Category</label><select id="cCat"><option>coding</option><option>research</option><option>redteam</option><option>system</option><option>shopify</option><option>shipping</option><option>strategy</option><option>growth</option></select></div>
           <div class="field"><label>Platforms (comma-separated)</label><input id="cPlatforms" placeholder="chatgpt, claude, perplexity"></div>
-          <div class="field"><label>Prompt body</label><textarea id="cBody" placeholder="Paste your prompt here" style="min-height:130px"></textarea></div>
+          <div class="field"><label>Prompt body</label><textarea id="cBody" placeholder="Paste your prompt here" style="min-height:140px"></textarea></div>
           <button class="mini-btn solid" id="saveCustom">Save prompt</button>
         </div>
         <div class="panel">
@@ -207,16 +206,10 @@
       <div class="page-head">
         <div class="crumb">chief-ai <span>/</span> <b>benchmarks</b></div>
         <h2>Model Routing</h2>
-        <p>Which model to reach for, by job type.</p>
+        <p>Which model to reach for, by job.</p>
       </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Task</th><th>ChatGPT</th><th>Claude</th><th>Perplexity</th><th>Best fit</th></tr></thead>
-          <tbody id="benchBody"></tbody>
-        </table>
-      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>Task</th><th>ChatGPT</th><th>Claude</th><th>Perplexity</th><th>Best fit</th></tr></thead><tbody id="benchBody"></tbody></table></div>
     </section>
-
   </main>
 </div>
 
@@ -224,14 +217,11 @@
 <div class="modal-wrap" id="modalWrap" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-head">
-      <div style="flex:1;min-width:0">
-        <h3 id="mTitle"></h3>
-        <div class="sub" id="mSub"></div>
-      </div>
+      <div style="flex:1;min-width:0"><h3 id="mTitle"></h3><div class="sub" id="mSub"></div></div>
       <button class="star-btn" id="mStar" title="Star">☆</button>
       <button class="icon-btn" id="mClose" aria-label="Close">✕</button>
     </div>
-    <div class="modal-note" id="mNote" hidden><b>When to use — </b><span id="mNoteText"></span></div>
+    <div class="modal-note" id="mNote" hidden><b>When to use</b><span id="mNoteText"></span></div>
     <div class="ptabs" id="mTabs"></div>
     <div class="modal-body"><pre id="mBody"></pre></div>
     <div class="modal-foot">
@@ -240,9 +230,7 @@
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
-
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
