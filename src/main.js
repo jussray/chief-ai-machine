@@ -1,6 +1,4 @@
-// Copyright © 2026 Juss Ray. All rights reserved. Proprietary and confidential.
 import { PROMPTS } from './data/prompts.js';
-import { GOALFIX_V1_PROMPTS } from './data/goalfix-v1.js';
 import { BENCHMARKS } from './data/benchmarks.js';
 import { initThemeToggle, showToast, initNav } from './modules/ui.js';
 import { initLibrary } from './modules/library.js';
@@ -8,173 +6,66 @@ import { initBuilder } from './modules/builder.js';
 import { initFreestyle } from './modules/freestyle.js';
 import { initCustom } from './modules/custom.js';
 import { initModal } from './modules/modal.js';
-import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
-import { initFriendMode } from './modules/friend-mode.js';
-import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
-import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence-history.js';
-import { readCustomPromptState, readStarState } from './modules/prompt-state.js';
-
-const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
-
-function readArrayState(key) {
-  if (key === 'chief-custom') {
-    const s = readCustomPromptState();
-    if (s.state !== 'ready') throw new Error('Export blocked: custom prompt state is UNKNOWN.');
-    return s.prompts;
-  }
-  if (key === 'chief-stars') {
-    const s = readStarState();
-    if (s.state !== 'ready') throw new Error('Export blocked: star state is UNKNOWN.');
-    return s.values;
-  }
-  const raw = localStorage.getItem(key);
-  if (raw === null) return [];
-
-  let value;
-  try {
-    value = JSON.parse(raw);
-  } catch {
-    throw new Error(`Portable export blocked: ${key} contains invalid JSON`);
-  }
-
-  if (!Array.isArray(value)) {
-    throw new Error(`Portable export blocked: ${key} is not an array`);
-  }
-  return value;
-}
-
-function commitPortableImport(imported) {
-  const writes = [
-    [INTELLIGENCE_STORAGE_KEY, imported.assets],
-    ['chief-custom', imported.customPrompts],
-    ['chief-stars', imported.stars],
-  ];
-  if (imported.goals !== null) writes.push([GOAL_STORAGE_KEY, imported.goals]);
-
-  const previous = new Map();
-  try {
-    for (const [key] of writes) previous.set(key, localStorage.getItem(key));
-  } catch {
-    throw new Error('Import failed: local storage is unavailable. Nothing was changed.');
-  }
-
-  try {
-    for (const [key, value] of writes) localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    let rollbackFailed = false;
-    for (const [key] of writes) {
-      try {
-        const before = previous.get(key);
-        if (before === null) localStorage.removeItem(key);
-        else localStorage.setItem(key, before);
-      } catch {
-        rollbackFailed = true;
-      }
-    }
-    if (rollbackFailed) {
-      throw new Error('Import failed and previous local state could not be fully restored.');
-    }
-    throw new Error('Import failed; previous local state was restored.');
-  }
-}
-
-function mountBrainPortabilityControls() {
-  const head = document.querySelector('#page-brain .page-head');
-  if (!head || document.getElementById('brainExportBtn')) return;
-
-  const controls = document.createElement('div');
-  controls.style.display = 'flex';
-  controls.style.gap = '8px';
-  controls.style.flexWrap = 'wrap';
-  controls.style.marginTop = '14px';
-  controls.setAttribute('aria-label', 'Company brain portability');
-
-  const exportButton = document.createElement('button');
-  exportButton.type = 'button';
-  exportButton.id = 'brainExportBtn';
-  exportButton.className = 'mini-btn solid';
-  exportButton.textContent = '⬇️ Export company brain';
-
-  const importButton = document.createElement('button');
-  importButton.type = 'button';
-  importButton.id = 'brainImportBtn';
-  importButton.className = 'mini-btn';
-  importButton.textContent = '⬆️ Import company brain';
-
-  controls.append(exportButton, importButton);
-  head.appendChild(controls);
-}
 
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
-  initFriendMode();
   initNav();
-  const modal = initModal(PUBLIC_PROMPTS);
-  initGoals();
-  initLibrary(PUBLIC_PROMPTS, modal);
-  initBuilder(PUBLIC_PROMPTS);
-  initFreestyle(PUBLIC_PROMPTS);
-  initCustom(modal);
-  initBrain();
-  mountBrainPortabilityControls();
 
+  const modal = initModal();
+  initLibrary(PROMPTS, modal);
+  initBuilder(PROMPTS);
+  initFreestyle(PROMPTS, modal);
+  initCustom(modal);
+
+  // Benchmarks table
   const tbody = document.getElementById('benchBody');
   if (tbody) {
     BENCHMARKS.forEach(row => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${row.task}</td><td>${row.chatgpt}</td><td>${row.claude}</td><td>${row.perplexity}</td><td><span class="best">${row.best}</span></td>`;
+      tr.innerHTML = `
+        <td>${row.task}</td>
+        <td class="col-gpt">${row.chatgpt}</td>
+        <td class="col-claude">${row.claude}</td>
+        <td class="col-perp">${row.perplexity}</td>
+        <td><span class="best">${row.best}</span></td>
+      `;
       tbody.appendChild(tr);
     });
   }
 
-  function exportCompanyBrain() {
-    try {
-      const snapshot = createPortableSnapshot({
-        assets: readArrayState(INTELLIGENCE_STORAGE_KEY),
-        customPrompts: readArrayState('chief-custom'),
-        stars: readArrayState('chief-stars'),
-        goals: readArrayState(GOAL_STORAGE_KEY),
-      });
-      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'chief-ai-founder-intelligence.json';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('Portable company brain exported.');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Portable company brain export blocked.');
-    }
-  }
+  // Export
+  document.getElementById('exportBtn')?.addEventListener('click', () => {
+    const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
+    const stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
+    const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), custom, stars }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'chief-ai-machine-export.json';
+    a.click();
+    showToast('Exported!');
+  });
 
-  document.getElementById('exportBtn')?.addEventListener('click', exportCompanyBrain);
-  document.getElementById('brainExportBtn')?.addEventListener('click', exportCompanyBrain);
-
-  const openImportPicker = () => document.getElementById('importFile')?.click();
-  document.getElementById('importBtn')?.addEventListener('click', openImportPicker);
-  document.getElementById('brainImportBtn')?.addEventListener('click', openImportPicker);
-
+  // Import
+  document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
   document.getElementById('importFile')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const raw = JSON.parse(ev.target.result);
-        const imported = parsePortableSnapshot(raw);
-        commitPortableImport(imported);
-        showToast('Company brain imported. Refreshing…');
-        setTimeout(() => location.reload(), 300);
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : 'Import failed — unsupported or invalid file.');
-      }
+        const data = JSON.parse(ev.target.result);
+        if (data.custom) localStorage.setItem('chief-custom', JSON.stringify(data.custom));
+        if (data.stars) localStorage.setItem('chief-stars', JSON.stringify(data.stars));
+        showToast('Imported! Refresh to apply.');
+      } catch { showToast('Import failed — invalid file.'); }
     };
     reader.readAsText(file);
   });
 
+  // Reset
   document.getElementById('resetBtn')?.addEventListener('click', () => {
-    if (confirm('Reset all saved goals, intelligence, prompts, stars, and theme?')) {
-      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+    if (confirm('Reset all saved stars, custom prompts, and theme?')) {
+      ['chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });
