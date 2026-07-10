@@ -15,8 +15,7 @@ export function initLibrary(PROMPTS, modal) {
 
   let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
   let custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-  const customMapped = custom.map((c, i) => ({ ...c, id: 'c' + i, cat: c.cat || 'custom' }));
-  let allPrompts = [...PROMPTS, ...customMapped];
+  let allPrompts = [...PROMPTS, ...custom.map((c, i) => ({ ...c, id: 'c' + i, cat: c.cat || 'custom' }))];
   let activeFilter = null;
   let activeRepo = null;
   let searchQuery = '';
@@ -26,17 +25,24 @@ export function initLibrary(PROMPTS, modal) {
 
   function buildChips() {
     chips.innerHTML = '';
-    const makeChip = (label, key, cls) => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (activeFilter === key ? ' active' : '') + (cls ? ' ' + cls : '');
-      btn.textContent = label;
-      btn.addEventListener('click', () => { activeFilter = activeFilter === key ? null : key; render(); buildChips(); });
-      chips.appendChild(btn);
-    };
-    makeChip('All', null);
-    makeChip('★ Starred', '__star', 'c-star');
+    const all = document.createElement('button');
+    all.className = 'chip' + (!activeFilter ? ' active' : '');
+    all.textContent = 'All';
+    all.addEventListener('click', () => { activeFilter = null; render(); buildChips(); });
+    chips.appendChild(all);
+    const starChip = document.createElement('button');
+    starChip.className = 'chip c-star' + (activeFilter === '__star' ? ' active' : '');
+    starChip.textContent = '★ Starred';
+    starChip.addEventListener('click', () => { activeFilter = activeFilter === '__star' ? null : '__star'; render(); buildChips(); });
+    chips.appendChild(starChip);
     const sep = document.createElement('div'); sep.className = 'chip-sep'; chips.appendChild(sep);
-    CATS.forEach(cat => makeChip(cat, cat));
+    CATS.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'chip' + (activeFilter === cat ? ' active' : '');
+      btn.textContent = cat;
+      btn.addEventListener('click', () => { activeFilter = activeFilter === cat ? null : cat; render(); buildChips(); });
+      chips.appendChild(btn);
+    });
   }
 
   function filtered() {
@@ -46,7 +52,7 @@ export function initLibrary(PROMPTS, modal) {
     else if (activeFilter) list = list.filter(p => p.cat === activeFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(p => [p.title, p.sub, p.notes, p.cat].some(s => s?.toLowerCase().includes(q)));
+      list = list.filter(p => p.title?.toLowerCase().includes(q) || p.sub?.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q) || p.cat?.toLowerCase().includes(q));
     }
     return list;
   }
@@ -55,17 +61,17 @@ export function initLibrary(PROMPTS, modal) {
     const list = filtered();
     grid.innerHTML = '';
     if (!list.length) {
-      grid.innerHTML = '<div class="empty">No prompts match. Try a different filter or search.</div>';
+      grid.innerHTML = '<div class="empty">No prompts match. Try a different filter.</div>';
     } else {
       list.forEach(p => grid.appendChild(makeCard(p)));
     }
     const count = list.length;
-    if (countPill) countPill.textContent = count + ' prompt' + (count !== 1 ? 's' : '');
-    if (navCount) navCount.textContent = count;
-    if (statTotal) statTotal.textContent = allPrompts.length;
-    if (statStar) statStar.textContent = stars.length;
-    if (statCustom) statCustom.textContent = custom.length;
-    if (statPlatforms) statPlatforms.textContent = PLATFORMS.length;
+    countPill.textContent = count + ' prompt' + (count !== 1 ? 's' : '');
+    navCount.textContent = count;
+    statTotal.textContent = allPrompts.length;
+    statStar.textContent = stars.length;
+    statCustom.textContent = custom.length;
+    statPlatforms.textContent = PLATFORMS.length;
   }
 
   function makeCard(p) {
@@ -73,49 +79,43 @@ export function initLibrary(PROMPTS, modal) {
     card.className = 'pcard';
     const platforms = (p.platforms || []).map(pl => `<span class="badge">${pl}</span>`).join('');
     const starred = stars.includes(p.id);
-    const versions = Object.keys(p.versions || {});
+    const vcount = Object.keys(p.versions || {}).length;
     card.innerHTML = `
       <div class="top">
         <span class="emoji">${p.emoji || '💬'}</span>
         <div style="min-width:0;flex:1"><h3>${p.title}</h3><div class="sub">${p.sub || ''}</div></div>
-        <button class="star-btn${starred ? ' on' : ''}" data-id="${p.id}">${starred ? '★' : '☆'}</button>
+        <button class="star-btn ${starred ? 'on' : ''}" data-id="${p.id}">${starred ? '★' : '☆'}</button>
       </div>
       <div class="badges"><span class="badge cat">${p.cat}</span>${platforms}</div>
       ${p.notes ? `<div class="snippet">${p.notes}</div>` : ''}
-      <div class="foot">
-        <span class="kind">${versions.length} version${versions.length !== 1 ? 's' : ''}</span>
-        <button class="mini-btn">Open →</button>
-      </div>
-    `;
-    card.querySelector('.star-btn').addEventListener('click', e => {
+      <div class="foot"><span class="kind">${vcount} version${vcount !== 1 ? 's' : ''}</span><button class="mini-btn push">Open →</button></div>`;
+    card.querySelector('.star-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = stars.indexOf(p.id);
       if (idx === -1) stars.push(p.id); else stars.splice(idx, 1);
       localStorage.setItem('chief-stars', JSON.stringify(stars));
       render();
     });
-    card.querySelector('.mini-btn').addEventListener('click', e => { e.stopPropagation(); modal.open(p); });
+    card.querySelector('.mini-btn').addEventListener('click', (e) => { e.stopPropagation(); modal.open(p); });
     card.addEventListener('click', () => modal.open(p));
     return card;
   }
 
-  repoBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeRepo = activeRepo === btn.dataset.repo ? null : btn.dataset.repo;
-      repoBtns.forEach(b => b.classList.toggle('active', b.dataset.repo === activeRepo));
-      if (repoClear) repoClear.hidden = !activeRepo;
-      render();
-    });
-  });
+  repoBtns.forEach(btn => btn.addEventListener('click', () => {
+    const repo = btn.dataset.repo;
+    activeRepo = activeRepo === repo ? null : repo;
+    repoBtns.forEach(b => b.classList.toggle('active', b.dataset.repo === activeRepo));
+    repoClear.hidden = !activeRepo;
+    render();
+  }));
   repoClear?.addEventListener('click', () => {
     activeRepo = null;
     repoBtns.forEach(b => b.classList.remove('active'));
-    if (repoClear) repoClear.hidden = true;
+    repoClear.hidden = true;
     render();
   });
 
-  search?.addEventListener('input', e => { searchQuery = e.target.value; render(); });
-
+  search?.addEventListener('input', (e) => { searchQuery = e.target.value; render(); });
   buildChips();
   render();
 }
