@@ -13,15 +13,15 @@ export function initModal() {
   const mClose = document.getElementById('mClose');
   const mClose2 = document.getElementById('mClose2');
 
-  let current = null;
+  let currentPrompt = null;
   let currentTab = null;
   let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
 
   function open(prompt) {
-    current = prompt;
+    currentPrompt = prompt;
     mTitle.textContent = (prompt.emoji || '') + '  ' + prompt.title;
     mSub.textContent = prompt.sub || '';
-    if (prompt.notes) { mNote.hidden = false; mNoteText.textContent = prompt.notes; }
+    if (prompt.notes) { mNote.hidden = false; mNoteText.textContent = ' ' + prompt.notes; }
     else mNote.hidden = true;
     const platforms = Object.keys(prompt.versions || {});
     mTabs.innerHTML = '';
@@ -31,9 +31,7 @@ export function initModal() {
       btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
       btn.addEventListener('click', () => {
         mTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentTab = p;
-        mBody.textContent = prompt.versions[p];
+        btn.classList.add('active'); currentTab = p; mBody.textContent = prompt.versions[p];
       });
       mTabs.appendChild(btn);
     });
@@ -48,26 +46,25 @@ export function initModal() {
   function close() {
     wrap.classList.remove('open');
     document.body.style.overflow = '';
-    current = null;
   }
 
   mStar?.addEventListener('click', () => {
-    if (!current) return;
-    const idx = stars.indexOf(current.id);
-    if (idx === -1) stars.push(current.id); else stars.splice(idx, 1);
+    if (!currentPrompt) return;
+    const idx = stars.indexOf(currentPrompt.id);
+    if (idx === -1) stars.push(currentPrompt.id); else stars.splice(idx, 1);
     localStorage.setItem('chief-stars', JSON.stringify(stars));
-    mStar.textContent = stars.includes(current.id) ? '★' : '☆';
-    mStar.classList.toggle('on', stars.includes(current.id));
+    mStar.textContent = stars.includes(currentPrompt.id) ? '★' : '☆';
+    mStar.classList.toggle('on', stars.includes(currentPrompt.id));
   });
 
   mCopy?.addEventListener('click', () => {
-    if (current && currentTab) { copyText(current.versions[currentTab]); showToast('Copied!'); }
+    if (currentPrompt && currentTab) { copyText(currentPrompt.versions[currentTab]); showToast('Copied!'); }
   });
 
   mClose?.addEventListener('click', close);
   mClose2?.addEventListener('click', close);
-  wrap?.addEventListener('click', e => { if (e.target === wrap) close(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  wrap?.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
-  return { open, getStars: () => stars };
+  return { open, stars: () => stars };
 }

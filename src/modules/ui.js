@@ -24,11 +24,8 @@ export function initNav() {
 export function showToast(msg) {
   const t = document.getElementById('toast');
   if (!t) return;
-  t.textContent = msg;
-  t.classList.add('show');
+  t.innerHTML = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-export function copyText(text) {
-  navigator.clipboard?.writeText(text);
-}
+export function copyText(text) { navigator.clipboard?.writeText(text); }

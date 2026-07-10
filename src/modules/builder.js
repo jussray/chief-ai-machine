@@ -14,12 +14,9 @@ export function initBuilder(PROMPTS) {
     const repo = repoEl?.value || '[REPO]';
     const task = taskEl?.value || '[TASK]';
     const constraints = constraintsEl?.value || '[CONSTRAINTS]';
-    const matches = PROMPTS.filter(p => p.cat === pack && p.versions?.[platform]);
-    if (!matches.length) {
-      out.textContent = `No prompts found for pack "${pack}" on ${platform}. Try a different combination.`;
-      return;
-    }
-    let text = matches[0].versions[platform];
+    const matches = PROMPTS.filter(p => p.cat === pack && p.platforms?.includes(platform));
+    if (!matches.length) { out.textContent = `No prompts for pack "${pack}" on ${platform}. Try a different combo.`; return; }
+    let text = matches[0].versions[platform] || Object.values(matches[0].versions)[0];
     text = text.replaceAll('[REPO]', repo).replaceAll('[TASK]', task).replaceAll('[CONSTRAINTS]', constraints);
     out.textContent = text;
   }
@@ -27,15 +24,12 @@ export function initBuilder(PROMPTS) {
   [packEl, platformEl, repoEl, taskEl, constraintsEl].forEach(el => el?.addEventListener('input', build));
 
   document.getElementById('copyBuilder')?.addEventListener('click', () => {
-    const text = out?.textContent;
-    if (text) { copyText(text); showToast('Copied!'); }
+    const text = out.textContent; if (text) { copyText(text); showToast('Copied!'); }
   });
-
   document.getElementById('saveBuilder')?.addEventListener('click', () => {
-    const text = out?.textContent;
-    if (!text || text.startsWith('No prompts')) return;
+    const text = out.textContent; if (!text) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({ id: 'b-' + Date.now(), title: 'Builder: ' + (packEl?.value || 'prompt'), sub: 'Saved from Builder', cat: packEl?.value || 'custom', platforms: [platformEl?.value || 'chatgpt'], versions: { [platformEl?.value || 'chatgpt']: text }, emoji: '🛠' });
+    custom.push({ id: 'b-' + Date.now(), title: 'Builder: ' + (packEl?.value || 'prompt'), sub: 'Saved from Builder', cat: packEl?.value || 'custom', platforms: [platformEl?.value || 'chatgpt'], versions: { [platformEl?.value || 'chatgpt']: text } });
     localStorage.setItem('chief-custom', JSON.stringify(custom));
     showToast('Saved to My Prompts!');
   });
