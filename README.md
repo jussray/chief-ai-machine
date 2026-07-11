@@ -45,6 +45,7 @@ These distinguish product-level tools such as Claude, Codex, and ChatGPT from pr
 
 - [`docs/OPERATING_MODES.md`](./docs/OPERATING_MODES.md) — founder mode definitions and two-pass redteam sequence
 - [`docs/PLATFORM_ROUTING.md`](./docs/PLATFORM_ROUTING.md) — provider roles and cross-tool handoffs
+- [`docs/REPO_ROLLOUT.md`](./docs/REPO_ROLLOUT.md) — downstream repository PRs, exclusions, and merge discipline
 
 ## Platform guides
 
