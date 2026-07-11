@@ -1,0 +1,36 @@
+language: "en-US"
+tone_instructions: >
+  This is the operating system for production AI agents. Flag any change
+  that weakens guardrails, bypasses approval gates, or reduces evidence
+  requirements. Treat prompt logic as production code, not documentation.
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+
+  path_filters:
+    - "!**/*.lock"
+    - "!**/dist/**"
+
+  path_instructions:
+    - path: "prompts/**"
+      instructions: >
+        Prompt changes are behavioral changes. Flag any removal of a safety
+        instruction, guardrail, or evidence requirement. Flag any instruction
+        that could make an agent self-approve or skip the proof gate.
+    - path: "contracts/**"
+      instructions: >
+        Operating contracts. Flag any weakening of approval rules, risk lane
+        definitions, or rollback requirements.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+
+chat:
+  auto_reply: true
