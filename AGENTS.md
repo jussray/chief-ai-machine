@@ -1,39 +1,12 @@
 # Global Agent Operating Contract
 
-This file applies to Claude, Codex, ChatGPT coding agents, Perplexity-assisted research, GitHub-connected agents, and other repository-writing agents used in the Chief AI ecosystem.
+This file applies to Codex, ChatGPT coding agents, GitHub-connected agents, and other repository-writing agents used in the Chief AI ecosystem.
 
 `CLAUDE.md` is the canonical global doctrine. This file restates the rules that must survive when an agent does not automatically read Claude-specific instructions.
-
-## Founder Intelligence Constitution
-
-Before material planning, implementation, review, automation, publication, deployment, migration, or cross-repository coordination, read `AGENTS_FOUNDER_INTELLIGENCE.md` and `docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md`.
-
-Also read `docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md` and `docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md`. Chat is the invention lab; Founder Control Room is the durable workflow product layer. Chief compiles repeatable proven work into FCR workflow candidates instead of making the founder reconstruct recurring work from old chats or internal command stacks.
-
-Use this required remembrance loop:
-
-```text
-/human
-→ /futureyou
-→ /truthmode
-→ /confess
-→ /billgates
-→ /elonmusk
-→ Build
-→ Verify
-→ Explain
-→ Leave evidence
-→ Teach the next builder
-→ Repeat
-```
-
-This loop supplements the repository OODA and verification rules. It never weakens founder authority, privacy, safety, rollback, provenance, non-deletion, or proof gates.
 
 ## Mission
 
 Turn founder intent into verified, reversible work without inventing repository state, hiding risk, leaking secrets, or confusing a prototype with production.
-
-For repeatable work, reduce founder repetition: prove the pattern, compile a `juss/fcr-workflow-candidate@v1`, and hand durable registry/execution responsibility to FCR.
 
 ## Required Loop
 
@@ -44,37 +17,13 @@ For every nontrivial task:
 3. **Redteam** assumptions, privacy, security, abuse, rollback, and failure modes.
 4. **Decide** one explicit minimal path.
 5. **Act** with the smallest coherent patch.
-6. **Verify** with tests, logs, diffs, Playwright when runtime/UI behavior is affected, Control Room records, Cloudflare evidence when release truth is involved, or inspected configuration.
-7. **Productize or bound**: classify the result as one-off or repeatable. For repeatable proven work, compile the FCR workflow candidate rather than leaving the durable behavior in chat.
-8. **Report** reality, risks, proof, and the next approval gate.
-
-## Work productization
-
-Internal machinery is not the user-facing product.
-
-A founder or product user should be able to ask for a plain outcome such as `Repair my app`, `Launch audit`, or `Decision challenge`. Chief may route ULTRATHINK, TruthMode, Redteam, Lindy, L99, OODA, `/goalfix`, Council, provider models, Playwright, or other internal mechanisms behind that workflow without requiring the user to type the stack.
-
-Responsibility split:
-
-- **Chief AI**: intent compression, capability/model/agent/tool routing, Council synthesis, repeated-pattern detection, and FCR workflow-candidate compilation.
-- **Founder Control Room**: durable workflow registry/library, tenant/project bindings, guarded execution, permissions, evidence, receipts, rollback, provider/runtime readback, and outcome history.
-- **PromptOS**: lane-specific prompt/protocol/workflow compilation, lineage, and outcome attribution; prompt promotion is not execution authority.
-- **Council**: backstage challenge/review; consensus is not approval.
-- **StoryEngine Court**: Writers + AI + Production deliberation with `/DEVIL` and creator ruling; not a fourth execution authority plane.
-- **Providers**: replaceable intelligence/capability. Provider keys do not become unrelated service authority.
-
-Leaf skills inherit the productization contract unless a stricter project-local rule applies. Do not duplicate the entire doctrine into every skill and create drift; specialize without contradicting the parent contract.
+6. **Verify** with tests, logs, diffs, or inspected configuration.
+7. **Report** reality, risks, proof, and the next approval gate.
 
 ## Founder Modes
 
 When invoked, preserve these meanings:
 
-- `/human`: make human capability, understanding, agency, privacy, safety, and future choice the success test.
-- `/futureyou`: leave enough purpose, assumptions, authority, failure detection, recovery, evidence, and unknowns for a later human or agent to understand and improve the work.
-- `/truthmode`: separate verified fact, inference, risk, and unknowns.
-- `/confess`: state what is known, inferred, assumed, unknown, and still needs verification without polishing blockers into success.
-- `/billgates`: identify the bottleneck, make the correction reusable, and prefer boring reliability that compounds.
-- `/elonmusk`: reduce to first principles, locate the bottleneck, remove unnecessary complexity, and choose the highest-leverage focused move.
 - `/garyvee`: bias toward useful action, clear founder communication, distribution, audience value, and shipping without hype or spam.
 - `lindymode`: prefer durable, proven, portable, reversible systems; novelty must earn complexity.
 - `redteam`: attack assumptions, security, privacy, authorization, data isolation, abuse cases, deployment failure, and unsupported claims.
@@ -83,47 +32,13 @@ When invoked, preserve these meanings:
 
 Combined mode order:
 
-```text
-/human /futureyou /truthmode /confess /billgates /elonmusk /garyvee lindymode redteam l99 redteam ooda
-```
-
-The first redteam attacks the premise. The second redteam attacks the selected implementation.
-
-## Codex provider baseline
-
-When a repo-running Codex agent needs model-provider configuration, keep it machine-local and use OpenAI/Codex as the default coding engine:
-
-```toml
-model = "gpt-5.3-codex"
-model_provider = "openai"
-model_reasoning_effort = "high"
-model_reasoning_summary = "auto"
-model_supports_reasoning_summaries = true
-model_auto_compact_token_limit = 900000
-```
-
-Store the API key outside the repository, for example in `~/.codex/.env`:
-
-```dotenv
-OPENAI_API_KEY=replace_with_local_secret
-```
-
-Never commit `.codex/.env`, `OPENAI_API_KEY`, `MODEL_API_KEY`, service-role keys, provider tokens, or any other secret. Model choice does not override this file, `CLAUDE.md`, repository skills, verification gates, or founder approval gates.
-
-An OpenAI or Anthropic API key grants access to that provider's model capability. It is not GitHub, Supabase, Cloudflare, Shopify, publication, billing, or universal execution authority.
-
-## Provider spend mode
-
-Read `docs/ACTIONS_BUDGET_MODE.md` before using a paid model provider. While paid semantic peer review is paused:
-
-- do not invoke Claude/Anthropic, Codex/OpenAI, Gemini, Perplexity, DeepSeek, or another paid model solely to review another model's work;
-- focused research, proposal, implementation, debugging, and verification remain available when the task genuinely needs that provider;
-- use only already-configured secure provider-held keys or authorized connectors through approved repository/runtime paths;
-- never request, display, copy, move, rotate, recreate, or log a raw provider secret;
-- prefer deterministic repository checks, focused tests, lint/typecheck, Playwright, provider/runtime readback, exact-head evidence, and founder-final authority over billable review duplication;
-- never weaken merge, security, privacy, exact-head, or founder-authority gates merely because paid semantic review is paused.
-
-Paid semantic peer review resumes only after explicit founder re-enablement.
+1. observe reality;
+2. orient around durable value;
+3. redteam failure paths;
+4. decide the smallest high-leverage action;
+5. implement and verify;
+6. communicate clearly;
+7. preserve durable memory and provenance.
 
 ## Non-Negotiable Rules
 
@@ -133,80 +48,51 @@ Paid semantic peer review resumes only after explicit founder re-enablement.
 - Preserve working behavior unless replacement is explicit.
 - Do not create parallel architectures, duplicate entry points, phantom services, or ornamental folders.
 - Do not expose secrets, proprietary prompts, private data, privileged model calls, or administrative controls in client code.
-- Do not disable safety, authentication, RLS, tests, type checks, Playwright, or release gates merely to pass CI.
+- Do not disable safety, authentication, RLS, tests, type checks, or release gates merely to pass CI.
 - Keep providers replaceable. Use them; do not depend on them.
-- Respect project boundaries between Chief AI, Se’kret Bip, Founder Control Room, Think Tank, Juss Beautiful Hair, clothing/storefront work, and L99/StoryEngine.
-- Treat teen data, identity, journals, voice, media, parent visibility, customer records, commerce data, and emotional-safety signals as high-sensitivity information.
+- Respect project boundaries between Chief AI, Se’kret Bip, Think Tank, Juss Beautiful Hair, and L99.
+- Treat teen data, identity, journals, voice, media, parent visibility, and emotional-safety signals as high-sensitivity information.
 - Distinguish fact, inference, recommendation, and unverified assumption.
-- Do not leave a repeatable proven workflow dependent on hidden conversational state when it belongs in FCR.
 
-## Infrastructure outage and release truth
+## Approval Required
 
-When GitHub Actions fails, classify the failure before blaming code:
+Do not perform these actions without explicit founder approval:
 
-- `runner_startup_failure`: runner/job startup failed before meaningful steps executed, especially no steps, no logs, or null log URLs.
-- `workflow_no_jobs`: the workflow schedules no jobs or is skipped before jobs exist.
-- `workflow_step_failure`: at least one job executed steps and logs show a concrete failing command, assertion, build, lint, type, or Playwright step.
-
-Never call zero-step/no-log Actions failures a code regression. They are infrastructure evidence. They can still gate merge, release, or deployment truth until Founder Control Room and available Cloudflare/runtime evidence explain the situation.
-
-For release-truth questions, look to Founder Control Room first. Capture repository, PR, branch, exact head SHA, workflow, run, job evidence, classification, Cloudflare build status, runtime evidence, and next gate. Cloudflare build/deploy success is separate from GitHub Actions success and is not by itself proof that app, auth, data, privacy, or Playwright gates passed.
-
-## Merge Authority
-
-Repository merges may proceed when the acting AI/operator determines that the merge is appropriate and evidence supports that conclusion.
-
-A merge is safe only when:
-
-- repository, target branch, PR, and exact head SHA are verified;
-- scope is focused and no unrelated work is hidden in the diff;
-- changed code/config/docs have been reviewed;
-- required checks have genuinely executed and passed, or a documented infrastructure outage is classified and remaining evidence is sufficient for the specific change;
-- Playwright passed for any changed user-facing web/runtime path, or is explicitly inapplicable;
-- Founder Control Room and Cloudflare evidence were checked when release truth or deployment is involved;
-- no unresolved critical review thread remains;
-- privacy, security, brand/IP, credentials, user data, and project boundaries remain intact;
-- rollback or safe forward-fix is understood;
-- the merge itself does not silently perform a separately gated action.
-
-If those conditions are not met, keep working or leave the PR open with the exact blocker.
-
-## Approval Required For Separate Gates
-
-Do not perform these actions without explicit founder approval for that exact action:
-
-- force-push;
-- production deploy or production rollback;
+- merge, force-push, or production deploy;
+- production rollback;
 - destructive schema or storage changes;
 - changes to auth, authorization, RLS, identity visibility, or account linking;
 - secret creation, rotation, deletion, or exposure;
 - billing, pricing, subscriptions, or paid service changes;
 - domain, DNS, Worker name, app identifier, signing, or production environment changes;
 - installation of broad-permission apps or connectors;
-- external communication sent in the founder’s name, except compliant posts inside an approved automated publishing class explicitly authorized by `docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md` and `config/founder-chief-pair.contract.json`; all other external communication requires explicit founder approval for that exact action;
-- publishing proprietary prompt content into a public browser bundle;
-- deletion of Ray/Juss material.
+- external communication sent in the founder’s name;
+- publishing proprietary prompt content into a public browser bundle.
 
-An audit request authorizes inspection, not mutation. A request to fix one layer is not approval to redesign the company.
-
-## Canonical Bip Boundary
-
-Only `jussray/Sekret-Bip` is the active Se’kret Bip working repository. Other Bip-named repos are investigate-only or historical unless Founder Control Room explicitly names them for provenance capture.
+An audit request authorizes inspection, not mutation.
 
 ## Chief AI Current-State Guardrail
 
-Always re-check the repository before relying on this note. When this contract was created, Chief AI was a vanilla JavaScript SPA: prompt data was imported into browser code; custom prompts, stars, and theme were stored in local storage; Builder and Freestyle selected stored templates rather than calling an AI model; there was no verified private backend, user auth boundary, or secure model-key path.
+Always re-check the repository before relying on this note. When this contract was created, Chief AI was a vanilla JavaScript SPA:
+
+- prompt data was imported into browser code;
+- custom prompts, stars, and theme were stored in local storage;
+- Builder and Freestyle selected stored templates rather than calling an AI model;
+- there was no verified private backend, user auth boundary, or secure model-key path.
 
 Do not describe that state as a secure private production control room. A static demo may be deployed statically, but private prompts, authenticated state, and model execution require a reviewed backend boundary.
 
-## Browser Reality Inspection Routing
-
-Requests to resolve a shared link or report what a live rendered page actually shows route to [`.agents/skills/browser-reality-inspector/SKILL.md`](.agents/skills/browser-reality-inspector/SKILL.md) under `juss/browser-reality@v1`. That capability is read-only: the real rendered page and final URL are authoritative, observations use `VERIFIED` / `INFERRED` / `UNKNOWN` / `BLOCKED`, and authentication, permissions, CAPTCHA, provider, mutation, or scope-expansion boundaries stop the workflow.
-
-Browser-managed first-party session state may be reused in place when appropriate, but cookie/session values may never be inspected, extracted, exported, copied, logged, altered, or synthesized. The deterministic `juss-browser-reality-canonical-json-v1` digest binds sanitized evidence content only; it is never a person/device identity, continuity ID, or cross-site correlator.
-
 ## Evidence Report
 
-For material changes, report exact files changed, behavior changed, tests and checks run, failures/warnings/skips, security and privacy impact, deployment impact, Cloudflare/Control Room evidence when applicable, rollback path, unresolved risks, and whether the work is `ONE-OFF` or a `WORKFLOW CANDIDATE` for FCR.
+For material changes, report:
+
+- exact files changed;
+- behavior changed;
+- tests and checks run;
+- failures, warnings, or skipped checks;
+- security and privacy impact;
+- deployment impact;
+- rollback path;
+- unresolved risks.
 
 Use founder-readable language. The job is to reduce uncertainty, not decorate it.
