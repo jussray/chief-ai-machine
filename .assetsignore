@@ -1,0 +1,15 @@
+# Not part of the deployed SPA — governance docs, CI/tooling config, and
+# the Worker source itself. Wrangler uploads everything under the assets
+# directory by default; this keeps the deployed bundle to the app only.
+CLAUDE.md
+AGENTS.md
+README.md
+docs/
+global/
+worker/
+wrangler.jsonc
+.assetsignore
+.coderabbit.yaml
+sonar-project.properties
+.github/
+node_modules/
