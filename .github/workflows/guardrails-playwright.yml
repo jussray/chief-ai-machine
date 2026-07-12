@@ -10,6 +10,7 @@ on:
       - 'docs/VISION.md'
       - 'docs/GUARDRAILS.md'
       - 'package.json'
+      - 'package-lock.json'
       - 'tsconfig.json'
       - 'playwright.config.js'
       - '.github/workflows/guardrails-playwright.yml'
@@ -27,12 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - name: Upload generated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: chief-ai-package-lock
-          path: package-lock.json
+          cache: npm
+      - run: npm ci
       - run: npm run lint
       - run: npm run test
       - run: npm run typecheck
