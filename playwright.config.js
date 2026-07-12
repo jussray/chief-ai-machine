@@ -13,8 +13,8 @@ export default defineConfig({
     trace: 'retain-on-failure'
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-chromium', use: { ...devices['iPhone 13'] } }
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], browserName: 'chromium' } },
+    { name: 'mobile-chromium', use: { ...devices['iPhone 13'], browserName: 'chromium' } }
   ],
   webServer: {
     command: 'python3 -m http.server 4173 --bind 127.0.0.1',
