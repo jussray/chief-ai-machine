@@ -14,6 +14,21 @@ The shared decision protocol is:
 
 The first redteam attacks the premise. The second attacks the chosen implementation plan. The canonical specification is [`docs/OPERATING_MODES.md`](./docs/OPERATING_MODES.md).
 
+## Vision and executable guardrails
+
+- [`docs/VISION.md`](./docs/VISION.md) — product north star, present stage, and promises
+- [`docs/GUARDRAILS.md`](./docs/GUARDRAILS.md) — guardrail IDs, enforcement, and verification contract
+- [`src/config/visionGuardrails.js`](./src/config/visionGuardrails.js) — runtime registry and bounded import validation
+- [`tests/guardrails.spec.js`](./tests/guardrails.spec.js) — Playwright verification
+
+Run:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:guardrails
+```
+
 ## Repository-loaded contracts
 
 - [`CLAUDE.md`](./CLAUDE.md) — Claude and Claude Code repository contract
