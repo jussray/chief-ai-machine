@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "node --check src/main.js && node --check src/config/visionGuardrails.js",
+    "test": "node scripts/run-quality-tests.js",
+    "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:guardrails": "playwright test tests/guardrails.spec.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.61.1",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20"
