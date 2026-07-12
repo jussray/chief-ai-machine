@@ -6,9 +6,11 @@ on:
       - 'index.html'
       - 'src/**'
       - 'tests/**'
+      - 'scripts/**'
       - 'docs/VISION.md'
       - 'docs/GUARDRAILS.md'
       - 'package.json'
+      - 'tsconfig.json'
       - 'playwright.config.js'
       - '.github/workflows/guardrails-playwright.yml'
   workflow_dispatch:
@@ -26,6 +28,14 @@ jobs:
         with:
           node-version: 20
       - run: npm install
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: chief-ai-package-lock
+          path: package-lock.json
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run typecheck
       - run: npx playwright install --with-deps chromium
       - run: npm run test:guardrails -- --project=chromium
       - name: Upload Playwright report
