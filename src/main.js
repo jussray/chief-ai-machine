@@ -6,8 +6,10 @@ import { initBuilder } from './modules/builder.js';
 import { initFreestyle } from './modules/freestyle.js';
 import { initCustom } from './modules/custom.js';
 import { initModal } from './modules/modal.js';
+import { installChiefGuardrailRuntime, validateChiefImportPayload } from './config/visionGuardrails.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  installChiefGuardrailRuntime();
   initThemeToggle();
   initNav();
   const modal = initModal(PROMPTS);
@@ -28,9 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('exportBtn')?.addEventListener('click', () => {
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
     const stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
-    const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), custom, stars }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), state_scope: 'browser-local', custom, stars }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'chief-ai-export.json'; a.click();
-    showToast('Exported!');
+    showToast('Exported browser-local state.');
   });
 
   document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
@@ -39,12 +41,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const data = JSON.parse(ev.target.result);
-        if (data.custom) localStorage.setItem('chief-custom', JSON.stringify(data.custom));
-        if (data.stars) localStorage.setItem('chief-stars', JSON.stringify(data.stars));
-        showToast('Imported! Refresh to see changes.');
-      } catch { showToast('Import failed — invalid file.'); }
+        const data = JSON.parse(String(ev.target?.result || ''));
+        const safe = validateChiefImportPayload(data, file.size);
+        localStorage.setItem('chief-custom', JSON.stringify(safe.custom));
+        localStorage.setItem('chief-stars', JSON.stringify(safe.stars));
+        showToast('Imported validated browser-local state. Refresh to see changes.');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid file.';
+        showToast(`Import failed — ${message}`);
+      } finally {
+        e.target.value = '';
+      }
     };
+    reader.onerror = () => showToast('Import failed — file could not be read.');
     reader.readAsText(file);
   });
 
