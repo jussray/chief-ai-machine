@@ -1,0 +1,21 @@
+# Not part of the deployed SPA — governance docs, CI/tooling config, and
+# the Worker source itself. Wrangler uploads everything under the assets
+# directory by default; this keeps the deployed bundle to the app only.
+#
+# Unlike Pages, Workers static assets do NOT auto-exclude .git — it must
+# be listed explicitly or the full repo history (and anything ever
+# committed to it) ships as publicly servable files.
+.git/
+**/.git
+CLAUDE.md
+AGENTS.md
+README.md
+docs/
+global/
+worker/
+wrangler.jsonc
+.assetsignore
+.coderabbit.yaml
+sonar-project.properties
+.github/
+node_modules/
