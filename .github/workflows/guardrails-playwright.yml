@@ -1,0 +1,38 @@
+name: Guardrails Playwright
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/VISION.md'
+      - 'docs/GUARDRAILS.md'
+      - 'package.json'
+      - 'playwright.config.js'
+      - '.github/workflows/guardrails-playwright.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-guardrails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:guardrails -- --project=chromium
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chief-ai-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
