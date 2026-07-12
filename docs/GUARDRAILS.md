@@ -38,6 +38,6 @@ The Playwright suite must verify:
 - import validation rejects unsafe payloads;
 - no privileged controls are exposed;
 - no obvious secret material is rendered or requested;
-- only same-origin static resources load during the guardrail test.
+- loaded resources remain same-origin except for the explicitly approved Google Fonts stylesheet and font origins.
 
 A green browser test does not prove authentication, private storage, or model execution exists. It proves the prototype does not falsely present or accidentally bypass the guardrails it currently claims.
