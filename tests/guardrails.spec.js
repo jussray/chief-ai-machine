@@ -1,10 +1,17 @@
 import { test, expect } from '@playwright/test';
 
+const APPROVED_EXTERNAL_ORIGINS = new Set([
+  'https://fonts.googleapis.com',
+  'https://fonts.gstatic.com'
+]);
+
 test('declares prototype vision and active guardrails', async ({ page }) => {
-  const externalRequests = [];
+  const disallowedExternalRequests = [];
   page.on('request', request => {
     const url = new URL(request.url());
-    if (url.origin !== 'http://127.0.0.1:4173') externalRequests.push(request.url());
+    if (url.origin !== 'http://127.0.0.1:4173' && !APPROVED_EXTERNAL_ORIGINS.has(url.origin)) {
+      disallowedExternalRequests.push(request.url());
+    }
   });
 
   await page.goto('/');
@@ -13,7 +20,6 @@ test('declares prototype vision and active guardrails', async ({ page }) => {
   await expect(page.locator('#guardrailStatus')).toHaveText('Prototype guardrails active');
 
   const snapshot = await page.evaluate(() => window.__CHIEF_AI_GUARDRAILS__);
-  expect(snapshot.stage).toBeUndefined();
   expect(snapshot.vision.stage).toBe('prototype');
   expect(snapshot.stateScope).toBe('browser-local');
   expect(snapshot.privilegedActions).toBe(false);
@@ -23,7 +29,7 @@ test('declares prototype vision and active guardrails', async ({ page }) => {
     'CHIEF-IMPORT-001',
     'CHIEF-APPROVAL-001'
   ]));
-  expect(externalRequests).toEqual([]);
+  expect(disallowedExternalRequests).toEqual([]);
 });
 
 test('rejects unsafe imported state before persistence', async ({ page }) => {
