@@ -1,106 +1,19 @@
-import { BUILD_RELEASE_SHA } from './release-sha.js';
-import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
-import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
-import { generateNonce, buildCspHeader } from './csp-policy.js';
-import { verifyStripeWebhookSignature } from './stripe-webhook-verify.js';
-
-function getReleaseSha(env) {
-  const candidates = [
-    env?.RELEASE_SHA,
-    env?.GITHUB_SHA,
-    env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
-  ];
-  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
-  return value?.trim() || 'unknown';
-}
-
-function addSecurityHeaders(response) {
-  const headers = new Headers(response.headers);
-  const nonce = generateNonce();
-  const csp = buildCspHeader(nonce, true);
-  headers.set(csp.headerName, csp.value);
-  headers.set('X-Content-Type-Options', 'nosniff');
-  headers.set('X-Frame-Options', 'DENY');
-  headers.set('X-XSS-Protection', '1; mode=block');
-  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-async function handleStripeWebhook(request, env) {
-  if (request.method !== 'POST') {
-    return new Response('Method not allowed', {
-      status: 405,
-      headers: { Allow: 'POST' },
-    });
-  }
-
-  const body = await request.text();
-  const signature = request.headers.get('stripe-signature');
-  const verified = await verifyStripeWebhookSignature(
-    body,
-    signature,
-    env?.STRIPE_WEBHOOK_SECRET,
-  );
-
-  if (!verified) {
-    return Response.json(
-      { ok: false, error: 'invalid_signature' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
-
-  return Response.json(
-    { ok: false, verified: true, error: 'event_processing_not_implemented' },
-    {
-      status: 501,
-      headers: {
-        'Cache-Control': 'no-store',
-        'X-Chief-Stripe-Signature-Verified': 'true',
-      },
-    },
-  );
-}
-
+// Chief AI Worker entry point.
+//
+// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
+// /api/* is routed here first (see wrangler.jsonc run_worker_first) so
+// authenticated API routes and private prompt storage have somewhere to
+// live without a routing/config change. No API routes exist yet — this
+// intentionally returns 501 instead of silently 404ing through to assets,
+// so it's obvious the route is reserved, not missing.
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    let response;
 
-    if (url.pathname === '/version') {
-      response = Response.json(
-        { ok: true, sha: getReleaseSha(env) },
-        { headers: { 'Cache-Control': 'no-store' } },
-      );
-    } else if (url.pathname === '/mcp') {
-      response = await handleProofModeMcp(request, env);
-    } else if (url.pathname === '/api/chief/capability-plan') {
-      response = await handleChiefCapabilityPlan(request);
-    } else if (url.pathname === '/api/chief/founder-content-proposal') {
-      response = await handleChiefFounderContentProposal(request);
-    } else if (url.pathname === '/api/stripe-webhook') {
-      response = await handleStripeWebhook(request, env);
-    } else if (url.pathname === '/.well-known/mcp/server-card.json') {
-      response = Response.json(buildProofModeServerCard(url.origin), {
-        headers: { 'Cache-Control': 'public, max-age=300' },
-      });
-    } else if (url.pathname.startsWith('/.well-known/') || url.pathname === '/auth.md') {
-      response = new Response('Not found', {
-        status: 404,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      });
-    } else if (url.pathname.startsWith('/api/')) {
-      response = new Response('Not implemented', { status: 501 });
-    } else {
-      response = await env.ASSETS.fetch(request);
+    if (url.pathname.startsWith('/api/')) {
+      return new Response('Not implemented', { status: 501 });
     }
 
-    return addSecurityHeaders(response);
+    return env.ASSETS.fetch(request);
   },
 };
