@@ -1,0 +1,16 @@
+{
+  "name": "chief-ai-machine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:guardrails": "playwright test tests/guardrails.spec.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
