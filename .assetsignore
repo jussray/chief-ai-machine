@@ -19,3 +19,11 @@ wrangler.jsonc
 sonar-project.properties
 .github/
 node_modules/
+package.json
+package-lock.json
+tsconfig.json
+eslint.config.js
+vitest.config.js
+LICENSE
+**/*.test.js
+coverage/
