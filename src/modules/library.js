@@ -1,5 +1,3 @@
-import { showToast, copyText } from './ui.js';
-
 export function initLibrary(PROMPTS, modal) {
   const grid = document.getElementById('grid');
   const chips = document.getElementById('chips');
