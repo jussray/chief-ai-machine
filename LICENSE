@@ -30,7 +30,7 @@ obtaining a copy of this Software to:
 without the prior express written permission of Juss Ray.
 
 Any use not explicitly authorized in writing by the copyright owner is
-prohibited and constitutes infringement of copyright.
+prohibited and may constitute infringement of copyright or other rights.
 
 LEGAL REALITY NOTICE
 Copyright protects the specific expression in this Software — source code,
@@ -41,12 +41,11 @@ may protect additional dimensions of the intellectual property contained
 herein.
 
 THIRD-PARTY COMPONENTS
-This Software incorporates third-party libraries and components that are
-licensed separately under their own terms (including but not limited to MIT,
-Apache 2.0, BSD, and ISC licenses). This license applies solely to the
-first-party source code and content authored by Juss Ray. All required
-third-party notices and license texts are preserved in their respective
-package directories and are not affected by this license.
+Third-party libraries and components remain governed by their respective
+licenses and notices. This proprietary license applies only to first-party
+source code and content authored by Juss Ray and does not replace or restrict
+rights granted by third-party licensors. Consult the dependency manifests,
+lockfiles, and upstream package metadata for applicable third-party terms.
 
 DISCLAIMER
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -54,4 +53,5 @@ IMPLIED. IN NO EVENT SHALL THE COPYRIGHT OWNER BE LIABLE FOR ANY CLAIM,
 DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OF IT.
 
-For licensing inquiries, contact: hello@jussbeautifulhair.com
+For licensing inquiries, contact Juss Ray through the GitHub account associated
+with this repository.
