@@ -17,7 +17,7 @@ The current application is a vanilla JavaScript SPA containing the prompt librar
 
 ## Strategy and research
 
-- [`docs/strategy/AI_TOOLING_SIGNALS_2026.md`](./docs/strategy/AI_TOOLING_SIGNALS_2026.md) — evidence-ranked under-the-radar AI tooling trends, risks, and product opportunities
+- [`docs/industry-signals/ai-tooling-under-the-radar-2026.md`](./docs/industry-signals/ai-tooling-under-the-radar-2026.md) — canonical evidence-ranked under-the-radar AI tooling trends, risks, and product opportunities
 
 ## Platform guides
 
