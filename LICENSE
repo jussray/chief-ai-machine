@@ -1,62 +1,23 @@
-CLOSED / PROPRIETARY — NO REUSE WITHOUT WRITTEN PERMISSION.
+PROPRIETARY AND CONFIDENTIAL
 
-No use, copying, modification, distribution, AI training, or other reuse of this repository or its contents is permitted without the prior express written permission of Juss Ray.
+Copyright © 2026 Juss Ray. All rights reserved.
 
-PROPRIETARY SOFTWARE LICENSE
+This repository and all of its contents — including but not limited to
+source code, compiled code, configuration, assets, documentation, and
+any other materials — are the exclusive proprietary property of Juss Ray.
 
-Copyright © 2024–2026 Juss Ray. All rights reserved.
+No part of this repository may be accessed, copied, reproduced, modified,
+merged, published, distributed, sublicensed, sold, or used to train
+machine learning or AI models, in whole or in part, for any purpose
+whatsoever, without the express prior written permission of the copyright
+holder.
 
-This software, its source code, documentation, assets, and all associated
-files (collectively, the "Software") are the exclusive proprietary property
-of Juss Ray and are protected by copyright law and international copyright
-treaties.
+No license, express or implied, is granted by making this repository
+accessible on GitHub or any other platform.
 
-NO PERMISSION IS GRANTED — express, implied, or otherwise — to any person
-obtaining a copy of this Software to:
+Unauthorized use, reproduction, or distribution of this material may
+result in civil and criminal penalties and will be prosecuted to the
+maximum extent possible under applicable law.
 
-  • use, execute, or run the Software;
-  • copy, reproduce, or duplicate the Software or any portion of it;
-  • modify, adapt, translate, or create derivative works based on the Software;
-  • merge the Software into another work;
-  • publish, display, or make the Software available to the public;
-  • distribute, sublicense, sell, rent, lease, lend, or otherwise transfer
-    the Software or any rights in it;
-  • reverse-engineer, decompile, disassemble, or otherwise attempt to derive
-    the source code from a compiled or distributed form of the Software;
-  • use the Software, or any part of it, to train, fine-tune, or otherwise
-    develop machine-learning or artificial-intelligence models;
-  • include the Software in any dataset, benchmark, evaluation corpus, or
-    data-collection pipeline;
-  • scrape, crawl, extract, or otherwise harvest the Software for the purpose
-    of replication or model development; or
-  • create competing or derivative products based on the Software
-
-without the prior express written permission of Juss Ray.
-
-Any use not explicitly authorized in writing by the copyright owner is
-prohibited and constitutes infringement of copyright.
-
-LEGAL REALITY NOTICE
-Copyright protects the specific expression in this Software — source code,
-documentation, artwork, and other authored content. It does not automatically
-protect underlying product ideas, workflows, or general functionality.
-Trademark, trade-secret practices, access controls, contracts, and patents
-may protect additional dimensions of the intellectual property contained
-herein.
-
-THIRD-PARTY COMPONENTS
-This Software incorporates third-party libraries and components that are
-licensed separately under their own terms (including but not limited to MIT,
-Apache 2.0, BSD, and ISC licenses). This license applies solely to the
-first-party source code and content authored by Juss Ray. All required
-third-party notices and license texts are preserved in their respective
-package directories and are not affected by this license.
-
-DISCLAIMER
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED. IN NO EVENT SHALL THE COPYRIGHT OWNER BE LIABLE FOR ANY CLAIM,
-DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OF IT.
-
-For licensing inquiries, contact Juss Ray through the GitHub account associated
-with this repository.
+For permissions and licensing inquiries, contact the copyright holder
+directly.
