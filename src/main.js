@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const modal = initModal(PROMPTS);
   initLibrary(PROMPTS, modal);
   initBuilder(PROMPTS);
-  initFreestyle(PROMPTS, modal);
+  initFreestyle(PROMPTS);
   initCustom(PROMPTS, modal);
 
   const tbody = document.getElementById('benchBody');
