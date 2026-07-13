@@ -1,3 +1,4 @@
+// Copyright © 2026 Juss Ray. All rights reserved. Proprietary and confidential.
 import { PROMPTS } from './data/prompts.js';
 import { BENCHMARKS } from './data/benchmarks.js';
 import { initThemeToggle, showToast, initNav } from './modules/ui.js';
