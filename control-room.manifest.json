@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "repository": "jussray/chief-ai-machine",
+  "portfolioHub": "jussray/founder-control-room",
+  "role": "product-workbench",
+  "authority": {
+    "sourceOfTruth": "Repository main, Prompt OS data, Builder tests, and repository-level verification evidence",
+    "portfolioMode": "sanitized-read-only-observer",
+    "productionMutation": "separate-founder-gate"
+  },
+  "controlRoom": {
+    "localSurface": false,
+    "surfaces": [
+      "GLOBAL_AI.md",
+      "AGENTS.md",
+      ".github/workflows"
+    ],
+    "privateContentAllowed": false
+  },
+  "evidence": {
+    "status": "blocked",
+    "commit": "d8c6b163001e95b80640f870aa9fb590e3c96b40",
+    "observedAt": "2026-07-12",
+    "proofRefs": [
+      "GLOBAL_AI.md",
+      ".github/workflows"
+    ]
+  },
+  "risk": {
+    "level": "medium",
+    "blockers": [
+      "Guardrail PR #3 remains blocked by the broader SonarQube quality gate",
+      "Cloudflare deployment remains a separate unverified decision",
+      "Prompt quality, duplication, routing, and public-data minimization audits remain open"
+    ]
+  },
+  "nextGate": "Resolve the repository quality gate, merge verified guardrails, then perform a separate production deployment proof."
+}
