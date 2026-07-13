@@ -45,7 +45,22 @@ Third-party libraries and components remain governed by their respective
 licenses and notices. This proprietary license applies only to first-party
 source code and content authored by Juss Ray and does not replace or restrict
 rights granted by third-party licensors. Consult the dependency manifests,
-lockfiles, and upstream package metadata for applicable third-party terms.
+lockfiles, upstream package metadata, and THIRD_PARTY_NOTICES.md for applicable
+third-party terms and release obligations.
+
+EVALUATION, DUE DILIGENCE, AND INVESTMENT ACCESS
+Access to this repository, a branch, build, demonstration, presentation, or
+other review material does not grant any ownership interest, commercialization
+right, or implied license. Any evaluation or due-diligence access is limited
+to the written scope provided by Juss Ray, non-transferable, revocable, and
+subject to applicable confidentiality obligations. Access or discussion does
+not create a partnership, joint venture, fiduciary relationship, or obligation
+to complete a transaction.
+
+Any narrow hosted-use permission expressly stated in
+INVESTMENT_EVALUATION_NOTICE.md is an exception only for the owner-authorized
+hosted interface and does not grant source-code, redistribution, replication,
+or derivative-product rights.
 
 DISCLAIMER
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -53,5 +68,5 @@ IMPLIED. IN NO EVENT SHALL THE COPYRIGHT OWNER BE LIABLE FOR ANY CLAIM,
 DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OF IT.
 
-For licensing inquiries, contact Juss Ray through the GitHub account associated
-with this repository.
+For licensing, partnership, or investment inquiries, contact Juss Ray through
+the GitHub account associated with this repository.
