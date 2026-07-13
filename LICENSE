@@ -1,22 +1,57 @@
-PROPRIETARY RIGHTS NOTICE
+PROPRIETARY SOFTWARE LICENSE
 
-Copyright © 2026 Juss Ray ("Owner"). All rights reserved.
+Copyright © 2024–2026 Juss Ray. All rights reserved.
 
-All software, source code, designs, documentation, data, and other
-materials (the "Materials") made available by the Owner are proprietary
-and confidential.
+This software, its source code, documentation, assets, and all associated
+files (collectively, the "Software") are the exclusive proprietary property
+of Juss Ray and are protected by copyright law and international copyright
+treaties.
 
-No part of the Materials may be accessed, copied, modified, distributed,
-hosted, sublicensed, sold, used to train or fine-tune machine learning
-or AI models, or otherwise exploited in any form or by any means,
-without the express prior written permission of the Owner.
+NO PERMISSION IS GRANTED — express, implied, or otherwise — to any person
+obtaining a copy of this Software to:
 
-Access to or viewing of the Materials does not grant any license, right,
-or permission to use, reproduce, distribute, or create derivative works
-from them. No license, express or implied, is granted by making the
-Materials accessible on GitHub or any other platform.
+  • use, execute, or run the Software;
+  • copy, reproduce, or duplicate the Software or any portion of it;
+  • modify, adapt, translate, or create derivative works based on the Software;
+  • merge the Software into another work;
+  • publish, display, or make the Software available to the public;
+  • distribute, sublicense, sell, rent, lease, lend, or otherwise transfer
+    the Software or any rights in it;
+  • reverse-engineer, decompile, disassemble, or otherwise attempt to derive
+    the source code from a compiled or distributed form of the Software;
+  • use the Software, or any part of it, to train, fine-tune, or otherwise
+    develop machine-learning or artificial-intelligence models;
+  • include the Software in any dataset, benchmark, evaluation corpus, or
+    data-collection pipeline;
+  • scrape, crawl, extract, or otherwise harvest the Software for the purpose
+    of replication or model development; or
+  • create competing or derivative products based on the Software
 
-Any unauthorized use of the Materials is strictly prohibited and will be
-prosecuted to the maximum extent possible under applicable law.
+without the prior express written permission of Juss Ray.
 
-For licensing or permission requests, contact the Owner directly.
+Any use not explicitly authorized in writing by the copyright owner is
+prohibited and constitutes infringement of copyright.
+
+LEGAL REALITY NOTICE
+Copyright protects the specific expression in this Software — source code,
+documentation, artwork, and other authored content. It does not automatically
+protect underlying product ideas, workflows, or general functionality.
+Trademark, trade-secret practices, access controls, contracts, and patents
+may protect additional dimensions of the intellectual property contained
+herein.
+
+THIRD-PARTY COMPONENTS
+This Software incorporates third-party libraries and components that are
+licensed separately under their own terms (including but not limited to MIT,
+Apache 2.0, BSD, and ISC licenses). This license applies solely to the
+first-party source code and content authored by Juss Ray. All required
+third-party notices and license texts are preserved in their respective
+package directories and are not affected by this license.
+
+DISCLAIMER
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE COPYRIGHT OWNER BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OF IT.
+
+For licensing inquiries, contact: hello@jussbeautifulhair.com
