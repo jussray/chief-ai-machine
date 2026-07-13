@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          # npm caching requires a committed package-lock.json.
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci
       - run: npx tsc --noEmit
 
   lint:
@@ -29,7 +29,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci
       - run: npm run lint
 
   unit-tests:
@@ -40,7 +41,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci
       - run: npm test -- --coverage --reporter=json --outputFile=test-results.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -58,7 +60,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@master
         env:
