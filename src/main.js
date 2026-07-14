@@ -7,6 +7,17 @@ import { initBuilder } from './modules/builder.js';
 import { initFreestyle } from './modules/freestyle.js';
 import { initCustom } from './modules/custom.js';
 import { initModal } from './modules/modal.js';
+import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
+import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
+
+function readArray(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
@@ -16,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initBuilder(PROMPTS);
   initFreestyle(PROMPTS);
   initCustom(PROMPTS, modal);
+  initBrain();
 
   const tbody = document.getElementById('benchBody');
   if (tbody) {
@@ -27,31 +39,43 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('exportBtn')?.addEventListener('click', () => {
-    const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    const stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
-    const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), custom, stars }, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'chief-ai-export.json'; a.click();
-    showToast('Exported!');
+    const snapshot = createPortableSnapshot({
+      assets: readArray(INTELLIGENCE_STORAGE_KEY),
+      customPrompts: readArray('chief-custom'),
+      stars: readArray('chief-stars'),
+    });
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'chief-ai-founder-intelligence.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Portable company brain exported.');
   });
 
   document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
   document.getElementById('importFile')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const data = JSON.parse(ev.target.result);
-        if (data.custom) localStorage.setItem('chief-custom', JSON.stringify(data.custom));
-        if (data.stars) localStorage.setItem('chief-stars', JSON.stringify(data.stars));
-        showToast('Imported! Refresh to see changes.');
-      } catch { showToast('Import failed — invalid file.'); }
+        const imported = parsePortableSnapshot(JSON.parse(ev.target.result));
+        localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
+        localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
+        localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
+        showToast('Company brain imported. Refreshing…');
+        setTimeout(() => location.reload(), 300);
+      } catch {
+        showToast('Import failed — unsupported or invalid file.');
+      }
     };
     reader.readAsText(file);
   });
 
   document.getElementById('resetBtn')?.addEventListener('click', () => {
-    if (confirm('Reset all saved stars, custom prompts, and theme?')) {
-      ['chief-custom','chief-stars','chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+    if (confirm('Reset all saved intelligence, prompts, stars, and theme?')) {
+      [INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });
