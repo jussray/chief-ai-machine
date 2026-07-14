@@ -1,11 +1,7 @@
 {
-  // Scoped deliberately, not by accident: src/modules/**/*.js and src/main.js are
-  // untyped DOM-glue code (document.getElementById(...).value etc.) that would need
-  // a JSDoc type-cast on nearly every line to satisfy strict DOM typing — a large,
-  // unrequested rewrite of otherwise-working code. Typechecking is scoped to where
-  // it catches real bugs cheaply: the data layer (malformed prompt/benchmark
-  // entries) and the Worker (small, easily fully-typed). This is a disclosed scope
-  // boundary, not a suppressed failure — see .github/workflows/quality-gate.yml.
+  // DOM modules remain lightweight prototype glue. Typechecking is focused on
+  // portable domain contracts, static data, and the Worker where malformed state
+  // or provider drift would create durable product errors.
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -17,5 +13,5 @@
     "skipLibCheck": true,
     "strict": false
   },
-  "include": ["src/data/**/*.js", "worker/**/*.js"]
+  "include": ["src/data/**/*.js", "src/domain/**/*.js", "worker/**/*.js"]
 }
