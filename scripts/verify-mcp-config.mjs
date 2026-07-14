@@ -1,3 +1,5 @@
+/* global process, console */
+
 import fs from 'node:fs';
 import path from 'node:path';
 
