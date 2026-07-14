@@ -3,20 +3,15 @@ import {
   ASSET_KINDS,
   ASSET_STATUSES,
   createIntelligenceAsset,
-} from '../domain/intelligence.js';
-import {
   upsertIntelligenceAsset,
-  validateIntelligenceAsset,
-} from '../domain/intelligence-history.js';
+} from '../domain/intelligence.js';
 
 export const INTELLIGENCE_STORAGE_KEY = 'chief-intelligence-assets-v1';
 
 function readAssets() {
   try {
     const parsed = JSON.parse(localStorage.getItem(INTELLIGENCE_STORAGE_KEY) || '[]');
-    return Array.isArray(parsed)
-      ? parsed.filter((asset) => validateIntelligenceAsset(asset).valid)
-      : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -26,22 +21,8 @@ function writeAssets(assets) {
   localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(assets));
 }
 
-function fillSelect(select, values) {
-  if (!select) return;
-  select.replaceChildren(...values.map((value) => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = value;
-    return option;
-  }));
-}
-
-function resetEditor(fields, save) {
-  fields.forEach((element) => {
-    if (element) element.value = '';
-  });
-  save.dataset.assetId = '';
-  save.textContent = 'Save intelligence asset';
+function options(values) {
+  return values.map((value) => `<option value="${value}">${value}</option>`).join('');
 }
 
 export function initBrain() {
@@ -60,27 +41,17 @@ export function initBrain() {
 
   if (!list || !save) return;
 
-  fillSelect(kind, ASSET_KINDS);
-  fillSelect(status, ASSET_STATUSES);
+  if (kind) kind.innerHTML = options(ASSET_KINDS);
+  if (status) status.innerHTML = options(ASSET_STATUSES);
 
-  const editableFields = [title, project, provider, tags, content, outcome, summary];
   let assets = readAssets();
 
-  function renderEmptyState() {
-    const empty = document.createElement('div');
-    empty.className = 'empty';
-    empty.style.border = 'none';
-    empty.style.padding = '16px 0';
-    empty.textContent = 'No company intelligence assets yet. Save a decision, workflow, benchmark, research note, brand voice, playbook, or prompt.';
-    list.replaceChildren(empty);
-  }
-
   function render() {
-    list.replaceChildren();
+    list.innerHTML = '';
     if (count) count.textContent = String(assets.length);
 
     if (!assets.length) {
-      renderEmptyState();
+      list.innerHTML = '<div class="empty" style="border:none;padding:16px 0">No company intelligence assets yet. Save a decision, workflow, benchmark, research note, brand voice, playbook, or prompt.</div>';
       return;
     }
 
@@ -89,23 +60,18 @@ export function initBrain() {
       .forEach((asset) => {
         const item = document.createElement('div');
         item.className = 'citem';
+        item.innerHTML = `
+          <div class="row">
+            <strong>${asset.title}</strong>
+            <span class="badge cat" style="margin-left:auto">${asset.kind}</span>
+            <button class="mini-btn" data-delete="${asset.id}" style="margin-left:8px">Delete</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+            ${asset.projectId} · ${asset.status} · ${asset.provider} · v${asset.version}
+          </div>
+          <div style="font-size:13px;margin-top:8px;white-space:pre-wrap">${asset.summary || asset.content.slice(0, 180)}</div>`;
 
-        const row = document.createElement('div');
-        row.className = 'row';
-
-        const itemTitle = document.createElement('strong');
-        itemTitle.textContent = asset.title;
-
-        const kindBadge = document.createElement('span');
-        kindBadge.className = 'badge cat';
-        kindBadge.style.marginLeft = 'auto';
-        kindBadge.textContent = asset.kind;
-
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'mini-btn';
-        deleteButton.style.marginLeft = '8px';
-        deleteButton.textContent = 'Delete';
-        deleteButton.addEventListener('click', (event) => {
+        item.querySelector('[data-delete]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           assets = assets.filter((entry) => entry.id !== asset.id);
           writeAssets(assets);
@@ -113,21 +79,6 @@ export function initBrain() {
           showToast('Intelligence asset deleted.');
         });
 
-        row.append(itemTitle, kindBadge, deleteButton);
-
-        const metadata = document.createElement('div');
-        metadata.style.fontSize = '12px';
-        metadata.style.color = 'var(--text-muted)';
-        metadata.style.marginTop = '4px';
-        metadata.textContent = `${asset.projectId} · ${asset.status} · ${asset.provider} · v${asset.version}`;
-
-        const excerpt = document.createElement('div');
-        excerpt.style.fontSize = '13px';
-        excerpt.style.marginTop = '8px';
-        excerpt.style.whiteSpace = 'pre-wrap';
-        excerpt.textContent = asset.summary || asset.content.slice(0, 180);
-
-        item.append(row, metadata, excerpt);
         item.addEventListener('click', () => {
           if (title) title.value = asset.title;
           if (project) project.value = asset.projectId;
@@ -167,8 +118,11 @@ export function initBrain() {
 
       assets = upsertIntelligenceAsset(assets, next);
       writeAssets(assets);
-      resetEditor(editableFields, save);
-      if (provider) provider.value = 'provider-neutral';
+      save.dataset.assetId = '';
+      save.textContent = 'Save intelligence asset';
+      [title, project, provider, tags, content, outcome, summary].forEach((element) => {
+        if (element) element.value = '';
+      });
       if (kind) kind.value = 'prompt';
       if (status) status.value = 'draft';
       render();
@@ -179,8 +133,11 @@ export function initBrain() {
   });
 
   document.getElementById('brainCancel')?.addEventListener('click', () => {
-    resetEditor(editableFields, save);
-    if (provider) provider.value = 'provider-neutral';
+    save.dataset.assetId = '';
+    save.textContent = 'Save intelligence asset';
+    [title, project, provider, tags, content, outcome, summary].forEach((element) => {
+      if (element) element.value = '';
+    });
   });
 
   render();
