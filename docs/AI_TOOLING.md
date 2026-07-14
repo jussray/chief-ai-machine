@@ -5,10 +5,14 @@ Chief AI is a prompt-operations system. Tooling should make prompts testable and
 ## MCP servers
 
 - **GitHub:** repository, pull-request, Actions, and security evidence with lockdown mode.
+- **Bright Data:** VS Code/Codespaces only, prompted at runtime for `API_TOKEN`, and restricted to `GROUPS=code` for current npm and PyPI package metadata. Pro Mode and broad web/browser groups are not enabled.
+- **Microsoft Learn:** current official Microsoft technical documentation and code samples; no authentication required.
 - **Figma:** approved interface frames and design context for the prompt-library SPA.
 - **Playwright:** pinned isolated Chromium for prompt-builder, benchmark, and browser-state verification.
 
 No Supabase or Cloudflare production MCP is connected because neither is a verified runtime authority for this prototype.
+
+The committed root `.mcp.json` remains credential-free. MCP hosts other than VS Code/Codespaces must configure Bright Data locally and keep the API token outside the repository.
 
 ## GitHub Models
 
