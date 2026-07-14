@@ -4,6 +4,7 @@ import {
   ASSET_STATUSES,
   createIntelligenceAsset,
   upsertIntelligenceAsset,
+  validateIntelligenceAsset,
 } from '../domain/intelligence.js';
 
 export const INTELLIGENCE_STORAGE_KEY = 'chief-intelligence-assets-v1';
@@ -11,7 +12,9 @@ export const INTELLIGENCE_STORAGE_KEY = 'chief-intelligence-assets-v1';
 function readAssets() {
   try {
     const parsed = JSON.parse(localStorage.getItem(INTELLIGENCE_STORAGE_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((asset) => validateIntelligenceAsset(asset).valid)
+      : [];
   } catch {
     return [];
   }
