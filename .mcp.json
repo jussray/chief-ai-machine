@@ -8,6 +8,10 @@
         "X-MCP-Lockdown": "true"
       }
     },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
     "figma": {
       "type": "http",
       "url": "https://mcp.figma.com/mcp"
