@@ -1,6 +1,6 @@
 import { showToast, copyText } from './ui.js';
 
-export function initFreestyle(PROMPTS, modal) {
+export function initFreestyle(PROMPTS) {
   const askEl = document.getElementById('fsAsk');
   const placeholder = document.getElementById('fsPlaceholder');
   const preview = document.getElementById('fsPreview');

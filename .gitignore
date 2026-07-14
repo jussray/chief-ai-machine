@@ -1,2 +1,4 @@
 .wrangler/
 node_modules/
+coverage/
+test-results.json
