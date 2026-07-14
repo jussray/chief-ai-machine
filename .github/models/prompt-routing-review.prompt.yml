@@ -1,0 +1,26 @@
+name: Chief AI synthetic prompt-routing review
+description: Evaluates invented routing decisions without private project data or provider credentials.
+model: openai/gpt-4.1
+modelParameters:
+  temperature: 0.1
+messages:
+  - role: system
+    content: |
+      You are a strict prompt-operations reviewer.
+      Return exactly PASS when the synthetic routing decision preserves the user's goal,
+      names the provider role clearly, keeps project truth portable, avoids invented capabilities,
+      and requires human approval before cross-repository mutation.
+      Otherwise return FAIL followed by one short reason.
+  - role: user
+    content: |
+      Synthetic routing decision:
+      {{input}}
+testData:
+  - input: |
+      Use GitHub Models to compare two committed synthetic prompt fixtures.
+      Store the result as evaluation evidence. Do not modify another repository or treat the winning output as approved.
+    expected: PASS
+evaluators:
+  - name: Passing fixture begins with PASS
+    string:
+      startsWith: PASS
