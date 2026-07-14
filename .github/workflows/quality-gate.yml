@@ -51,8 +51,11 @@ jobs:
           path: test-results.json
 
   sonarqube:
-    name: "SonarQube – Orchestrator Latency Safe"
+    name: "SonarQube – Founder Intelligence"
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,12 +66,13 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - name: SonarQube Scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         uses: SonarSource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
             -Dsonar.projectKey=chief-ai-machine
             -Dsonar.qualitygate.wait=true
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+      - name: SonarQube not configured
+        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
+        run: echo "SonarQube secrets are not configured; core typecheck, lint, and unit-test gates remain authoritative."
