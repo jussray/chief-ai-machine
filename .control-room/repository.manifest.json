@@ -34,12 +34,33 @@
         "src/main.js",
         "src/data/prompts.js",
         "src/data/benchmarks.js",
+        "src/modules/library.js",
         "index.html"
       ],
       "requiredSignals": [
         "typecheck",
         "lint",
         "unit-tests"
+      ],
+      "usageAssertions": [
+        {
+          "id": "entrypoint-imports-prompts",
+          "path": "src/main.js",
+          "marker": "./data/prompts.js",
+          "description": "The browser entrypoint imports the versioned prompt library."
+        },
+        {
+          "id": "entrypoint-initializes-library",
+          "path": "src/main.js",
+          "marker": "initLibrary(PROMPTS, modal)",
+          "description": "The prompt library module is initialized after DOM readiness."
+        },
+        {
+          "id": "entrypoint-renders-benchmarks",
+          "path": "src/main.js",
+          "marker": "BENCHMARKS.forEach",
+          "description": "Versioned benchmark rows are rendered into the current prototype."
+        }
       ]
     },
     {
@@ -47,6 +68,7 @@
       "description": "Builds repository- and platform-specific prompts in the current client-side prototype.",
       "status": "active",
       "evidencePaths": [
+        "src/main.js",
         "src/modules/builder.js",
         "src/modules/freestyle.js",
         "src/modules/custom.js"
@@ -54,6 +76,26 @@
       "requiredSignals": [
         "typecheck",
         "lint"
+      ],
+      "usageAssertions": [
+        {
+          "id": "entrypoint-initializes-builder",
+          "path": "src/main.js",
+          "marker": "initBuilder(PROMPTS)",
+          "description": "The browser entrypoint initializes the structured prompt builder."
+        },
+        {
+          "id": "entrypoint-initializes-freestyle",
+          "path": "src/main.js",
+          "marker": "initFreestyle(PROMPTS)",
+          "description": "The freestyle builder is part of the active page lifecycle."
+        },
+        {
+          "id": "entrypoint-initializes-custom-prompts",
+          "path": "src/main.js",
+          "marker": "initCustom(PROMPTS, modal)",
+          "description": "Custom prompt state is wired into the browser prototype."
+        }
       ]
     },
     {
@@ -61,6 +103,7 @@
       "description": "Documents portable provider roles and founder operating modes without making one AI vendor authoritative.",
       "status": "active",
       "evidencePaths": [
+        "README.md",
         "CLAUDE.md",
         "AGENTS.md",
         "docs/OPERATING_MODES.md",
@@ -68,6 +111,20 @@
       ],
       "requiredSignals": [
         "lint"
+      ],
+      "usageAssertions": [
+        {
+          "id": "readme-links-global-agent-contracts",
+          "path": "README.md",
+          "marker": "docs/OPERATING_MODES.md",
+          "description": "The repository entry documentation routes builders to the portable operating contracts."
+        },
+        {
+          "id": "readme-states-provider-portability",
+          "path": "README.md",
+          "marker": "Use them. Do not depend on them.",
+          "description": "The visible project directive explicitly rejects provider lock-in."
+        }
       ]
     },
     {
@@ -75,7 +132,8 @@
       "description": "Private access control, durable server-side prompt storage, and real model execution.",
       "status": "planned",
       "evidencePaths": [],
-      "requiredSignals": []
+      "requiredSignals": [],
+      "usageAssertions": []
     }
   ],
   "buildAssist": {
@@ -104,10 +162,13 @@
       "capabilities.claimedStatus",
       "capabilities.observedStatus",
       "capabilities.evidencePaths",
+      "capabilities.usageAssertionIds",
+      "capabilities.failedUsageAssertionIds",
       "capabilities.reason"
     ],
     "forbiddenData": [
       "private prompt contents not already versioned in the repository",
+      "usage assertion marker text in runner packets",
       "provider API keys",
       "founder account credentials",
       "customer or user data",
