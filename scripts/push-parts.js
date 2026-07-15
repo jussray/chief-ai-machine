@@ -36,29 +36,6 @@ function usageAndExit(message) {
   process.exit(1);
 }
 
-function isHighSurrogate(code) {
-  return code >= 0xd800 && code <= 0xdbff;
-}
-
-// JS strings index by UTF-16 code unit, not by character. A naive slice can
-// land inside a surrogate pair (most emoji are one) and silently corrupt it
-// into a replacement character on encode. Nudge each boundary forward past
-// a split pair so every chunk only ever contains whole characters.
-function computeBoundaries(str, parts) {
-  const total = str.length;
-  const rawSize = Math.ceil(total / parts);
-  const boundaries = [0];
-  for (let i = 1; i < parts; i++) {
-    let b = Math.min(i * rawSize, total);
-    if (b > 0 && b < total && isHighSurrogate(str.charCodeAt(b - 1))) {
-      b += 1;
-    }
-    boundaries.push(b);
-  }
-  boundaries.push(total);
-  return boundaries;
-}
-
 async function ghRequest(url, token, options = {}) {
   const res = await fetch(url, {
     ...options,
@@ -112,9 +89,6 @@ async function main() {
   if (!token) usageAndExit('missing token (set GITHUB_TOKEN or pass --token)');
   if (!args.owner) usageAndExit('missing --owner');
   if (!args.repo) usageAndExit('missing --repo');
-  if (!Number.isInteger(Number(args.parts)) || Number(args.parts) < 1) {
-    usageAndExit(`--parts must be a positive integer, got "${args.parts}"`);
-  }
 
   const fs = await import('node:fs');
   if (!fs.existsSync(args.file)) usageAndExit(`file not found: ${args.file}`);
@@ -122,18 +96,18 @@ async function main() {
   const content = fs.readFileSync(args.file, 'utf8');
   const total = content.length;
   const parts = Number(args.parts);
+  const chunkSize = Math.ceil(total / parts);
   const pad = Number(args.pad);
-  const boundaries = computeBoundaries(content, parts);
 
   console.log(`Source: ${args.file}  (${total.toLocaleString()} chars)`);
-  console.log(`Splitting into ${parts} parts of ~${Math.ceil(total / parts).toLocaleString()} chars each\n`);
+  console.log(`Splitting into ${parts} parts of ~${chunkSize.toLocaleString()} chars each\n`);
 
   for (let i = 0; i < parts; i++) {
-    const from = boundaries[i];
-    const to = boundaries[i + 1];
-    const chunk = content.slice(from, to);
+    const chunk = content.slice(i * chunkSize, (i + 1) * chunkSize);
     const partNo = String(i + 1).padStart(pad, '0');
     const path = `${args.prefix}${partNo}${args.ext}`;
+    const from = i * chunkSize;
+    const to = Math.min((i + 1) * chunkSize, total);
     const message = `feat: ${path} (chars ${from.toLocaleString()}–${to.toLocaleString()})`;
     await pushFile(args.owner, args.repo, args.branch, path, chunk, message, token);
     await new Promise((resolve) => setTimeout(resolve, 400));
