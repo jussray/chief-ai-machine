@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "chief-ai-machine",
+  "repository": {
+    "provider": "github",
+    "identifier": "jussray/chief-ai-machine",
+    "defaultBranch": "main"
+  },
+  "verification": {
+    "requiredSignals": [
+      {
+        "id": "typecheck",
+        "name": "Typecheck",
+        "required": true
+      },
+      {
+        "id": "lint",
+        "name": "Lint",
+        "required": true
+      },
+      {
+        "id": "unit-tests",
+        "name": "Unit Tests",
+        "required": true
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "prompt-library-prototype",
+      "description": "Serves the browser prompt library and benchmark data from versioned repository files.",
+      "status": "active",
+      "evidencePaths": [
+        "src/main.js",
+        "src/data/prompts.js",
+        "src/data/benchmarks.js",
+        "index.html"
+      ],
+      "requiredSignals": [
+        "typecheck",
+        "lint",
+        "unit-tests"
+      ]
+    },
+    {
+      "id": "prompt-builder-prototype",
+      "description": "Builds repository- and platform-specific prompts in the current client-side prototype.",
+      "status": "active",
+      "evidencePaths": [
+        "src/modules/builder.js",
+        "src/modules/freestyle.js",
+        "src/modules/custom.js"
+      ],
+      "requiredSignals": [
+        "typecheck",
+        "lint"
+      ]
+    },
+    {
+      "id": "provider-neutral-operating-contracts",
+      "description": "Documents portable provider roles and founder operating modes without making one AI vendor authoritative.",
+      "status": "active",
+      "evidencePaths": [
+        "CLAUDE.md",
+        "AGENTS.md",
+        "docs/OPERATING_MODES.md",
+        "docs/PLATFORM_ROUTING.md"
+      ],
+      "requiredSignals": [
+        "lint"
+      ]
+    },
+    {
+      "id": "private-server-prompt-operations",
+      "description": "Private access control, durable server-side prompt storage, and real model execution.",
+      "status": "planned",
+      "evidencePaths": [],
+      "requiredSignals": []
+    }
+  ],
+  "buildAssist": {
+    "enabled": true,
+    "preferredBuilder": "codex",
+    "riskLevel": "medium"
+  },
+  "privacy": {
+    "allowlistedPacketFields": [
+      "projectId",
+      "repository.provider",
+      "repository.identifier",
+      "commitSha",
+      "branch",
+      "manifestHash",
+      "generatedAt",
+      "runner.provider",
+      "runner.runId",
+      "runner.detailsUrl",
+      "checks.id",
+      "checks.name",
+      "checks.required",
+      "checks.status",
+      "checks.detailsUrl",
+      "capabilities.id",
+      "capabilities.claimedStatus",
+      "capabilities.observedStatus",
+      "capabilities.evidencePaths",
+      "capabilities.reason"
+    ],
+    "forbiddenData": [
+      "private prompt contents not already versioned in the repository",
+      "provider API keys",
+      "founder account credentials",
+      "customer or user data",
+      "raw model conversations",
+      "unredacted runner logs"
+    ]
+  }
+}
