@@ -4,6 +4,12 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -49,6 +55,7 @@ jobs:
         with:
           name: test-results
           path: test-results.json
+          if-no-files-found: ignore
 
   sonarqube:
     name: "SonarQube – Orchestrator Latency Safe"
@@ -62,7 +69,21 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Detect SonarQube configuration
+        id: sonar_config
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          if [[ -n "$SONAR_TOKEN" && -n "$SONAR_HOST_URL" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "SonarQube is not configured; skipping the optional vendor gate."
+          fi
       - name: SonarQube Scan
+        if: steps.sonar_config.outputs.configured == 'true'
         uses: SonarSource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
