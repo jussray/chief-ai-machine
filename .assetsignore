@@ -27,3 +27,4 @@ vitest.config.js
 LICENSE
 **/*.test.js
 coverage/
+scripts/
