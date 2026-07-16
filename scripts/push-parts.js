@@ -112,6 +112,9 @@ async function main() {
   if (!token) usageAndExit('missing token (set GITHUB_TOKEN or pass --token)');
   if (!args.owner) usageAndExit('missing --owner');
   if (!args.repo) usageAndExit('missing --repo');
+  if (!Number.isInteger(Number(args.parts)) || Number(args.parts) < 1) {
+    usageAndExit(`--parts must be a positive integer, got "${args.parts}"`);
+  }
 
   const fs = await import('node:fs');
   if (!fs.existsSync(args.file)) usageAndExit(`file not found: ${args.file}`);

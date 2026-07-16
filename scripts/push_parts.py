@@ -88,6 +88,8 @@ def main():
     token = os.environ.get("GITHUB_TOKEN") or args.token
     if not token:
         sys.exit("Missing token — set GITHUB_TOKEN or pass --token")
+    if args.parts < 1:
+        sys.exit(f"--parts must be a positive integer, got {args.parts}")
 
     src = Path(args.file)
     if not src.exists():
