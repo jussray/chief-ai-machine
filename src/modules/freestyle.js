@@ -25,6 +25,7 @@ export function initFreestyle(PROMPTS) {
     if (t.includes('ooda') || t.includes('lindy') || t.includes('strategy') || t.includes('roadmap')) return 'strategy';
     if (t.includes('red team') || t.includes('abuse') || t.includes('attack')) return 'redteam';
     if (t.includes('ad') || t.includes('campaign') || t.includes('growth')) return 'growth';
+    if (t.includes('persona') || t.includes('act as') || t.includes('talk like') || t.includes('voice of')) return 'persona';
     if (t.includes('audit') || t.includes('debug') || t.includes('fix') || t.includes('repo')) return 'coding';
     return 'research';
   }
