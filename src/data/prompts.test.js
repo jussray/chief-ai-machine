@@ -4,7 +4,7 @@ import { PROMPTS } from './prompts.js';
 const KNOWN_PLATFORMS = new Set(['chatgpt', 'claude', 'perplexity', 'figma', 'canva', 'shopify']);
 const KNOWN_REPOS = new Set(['bip', 'think-tank', 'jbh', 'l99']);
 const BUILDER_PACK_CATS = new Set([
-  'coding', 'research', 'redteam', 'system', 'shopify', 'shipping', 'strategy', 'growth',
+  'coding', 'research', 'redteam', 'system', 'shopify', 'shipping', 'strategy', 'growth', 'persona',
 ]);
 
 describe('PROMPTS data integrity', () => {
