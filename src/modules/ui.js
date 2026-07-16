@@ -24,7 +24,8 @@ export function initNav() {
 export function showToast(msg) {
   const t = document.getElementById('toast');
   if (!t) return;
-  t.innerHTML = msg; t.classList.add('show');
+  t.textContent = String(msg);
+  t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
