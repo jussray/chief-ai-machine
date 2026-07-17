@@ -87,6 +87,12 @@ Always re-check the repository before relying on this note. When this contract w
 
 Do not describe that state as a secure private production control room. A static demo may be deployed statically, but private prompts, authenticated state, and model execution require a reviewed backend boundary.
 
+## Figma build and implementation
+
+For every Figma, prompt-builder design, design-system, design-to-code, Code Connect, prototype, or visual QA task, also read `.agents/skills/figma-build-implement/SKILL.md` and `.figma/repository-profile.json`.
+
+Figma must distinguish current vanilla-SPA implementation from planned authenticated/private architecture. Use synthetic public-safe prompt examples. A prototype is not secure storage, model execution, multi-user isolation, billing, or production proof.
+
 ## Evidence Report
 
 For material changes, report:
