@@ -1,5 +1,10 @@
 # Global Agent Operating Contract
 
+## Required repository skill
+
+Read `.agents/skills/chief-ai-operator/SKILL.md` before nontrivial work. Use its 5W1H contract as active reasoning: establish who, what, where, when, why, and how; inspect missing answers; and ask only when an unknown materially changes the safe action or authority.
+
+
 This file applies to Codex, ChatGPT coding agents, GitHub-connected agents, and other repository-writing agents used in the Chief AI ecosystem.
 
 `CLAUDE.md` is the canonical global doctrine. This file restates the rules that must survive when an agent does not automatically read Claude-specific instructions.
