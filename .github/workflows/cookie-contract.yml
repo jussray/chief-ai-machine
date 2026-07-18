@@ -1,0 +1,25 @@
+name: Cookie Contract Mirror
+
+on:
+  pull_request:
+    paths:
+      - '.security/cookies.json'
+      - 'scripts/verify-cookie-contract.mjs'
+      - 'index.html'
+      - 'src/**'
+      - '.github/workflows/cookie-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cookie-contract:
+    name: Cookie contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/verify-cookie-contract.mjs
