@@ -14,6 +14,7 @@ requireValue(policy.platformManagedCookies?.length === 0, 'platform cookie count
 
 const excluded = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', 'docs', 'artifacts', '.agents', '.figma']);
 const extensions = new Set(['.html', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx']);
+const verifierPath = 'scripts/verify-cookie-contract.mjs';
 const patterns = [
   ['document.cookie', /\bdocument\.cookie\b/],
   ['Cookie Store API', /\bcookieStore\b/],
@@ -30,7 +31,7 @@ async function scan(directory = '') {
       await scan(relative);
       continue;
     }
-    if (!extensions.has(extname(entry.name))) continue;
+    if (relative === verifierPath || !extensions.has(extname(entry.name))) continue;
     const source = await readFile(new URL(relative, root), 'utf8');
     for (const [label, pattern] of patterns) {
       if (pattern.test(source)) errors.push(`${relative}: forbidden ${label}`);
