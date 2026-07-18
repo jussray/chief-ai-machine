@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "repository": "jussray/chief-ai-machine",
+  "defaultPolicy": "deny-undeclared",
+  "scanRoots": ["index.html", "src", "scripts"],
+  "allowedCookieWriters": [],
+  "cookies": [],
+  "nonCookieState": [
+    {
+      "name": "prototype-ui-state",
+      "mechanism": "in-memory or explicitly reviewed browser storage",
+      "purpose": "Preserve non-sensitive prototype preferences without pretending a secure private backend exists.",
+      "sensitive": false
+    }
+  ],
+  "externalCookieProviders": [],
+  "prohibited": [
+    "authentication or authorization cookies before a server identity boundary exists",
+    "model provider credentials or prompts in cookies",
+    "tracking or advertising cookies",
+    "labeling client-only state as secure multi-user state"
+  ]
+}
