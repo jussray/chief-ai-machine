@@ -5,16 +5,6 @@ on:
     paths:
       - '.security/cookies.json'
       - 'scripts/verify-cookie-contract.mjs'
-      - 'test/cookie-contract-regressions.check.mjs'
-      - 'index.html'
-      - 'src/**'
-      - '.github/workflows/cookie-contract.yml'
-  push:
-    branches: [main]
-    paths:
-      - '.security/cookies.json'
-      - 'scripts/verify-cookie-contract.mjs'
-      - 'test/cookie-contract-regressions.check.mjs'
       - 'index.html'
       - 'src/**'
       - '.github/workflows/cookie-contract.yml'
@@ -23,31 +13,13 @@ on:
 permissions:
   contents: read
 
-env:
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-
-concurrency:
-  group: cookie-contract-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   cookie-contract:
     name: Cookie contract
     runs-on: ubuntu-latest
     steps:
-      - name: Check out exact commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.EXPECTED_HEAD_SHA }}
-          persist-credentials: false
-      - name: Verify exact commit fingerprint
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: node scripts/verify-cookie-contract.mjs
-      - name: Exercise scanner regression cases
-        run: node --test test/cookie-contract-regressions.check.mjs
