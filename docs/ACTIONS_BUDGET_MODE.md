@@ -8,9 +8,9 @@ This private repository should preserve GitHub Actions checks without spending h
 - Local verification should run before spending a hosted runner.
 - Manual Actions runs are reserved for release candidates, exact-SHA proof, runner-health checks, or founder-requested verification.
 
-## Merge authority
+## Review evidence
 
-A passing manual workflow is evidence, not automatic approval. Founder review still decides whether a branch can merge.
+A passing manual workflow is evidence for review. Founder review records the final status for the exact branch and SHA.
 
 ## Runner-startup classification
 
