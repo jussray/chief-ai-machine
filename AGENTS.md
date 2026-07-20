@@ -40,6 +40,27 @@ Combined mode order:
 
 The first redteam attacks the premise. The second redteam attacks the selected implementation.
 
+## Codex provider baseline
+
+When a repo-running Codex agent needs model-provider configuration, keep it machine-local and use OpenAI/Codex as the default coding engine:
+
+```toml
+model = "gpt-5.3-codex"
+model_provider = "openai"
+model_reasoning_effort = "high"
+model_reasoning_summary = "auto"
+model_supports_reasoning_summaries = true
+model_auto_compact_token_limit = 900000
+```
+
+Store the API key outside the repository, for example in `~/.codex/.env`:
+
+```dotenv
+OPENAI_API_KEY=replace_with_local_secret
+```
+
+Never commit `.codex/.env`, `OPENAI_API_KEY`, `MODEL_API_KEY`, service-role keys, provider tokens, or any other secret. Model choice does not override this file, `CLAUDE.md`, repository skills, verification gates, or founder approval gates.
+
 ## Non-Negotiable Rules
 
 - Inspect before editing.
