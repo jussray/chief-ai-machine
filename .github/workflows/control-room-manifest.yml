@@ -1,0 +1,39 @@
+name: Control Room Manifest
+
+on:
+  pull_request:
+    paths:
+      - control-room.manifest.json
+      - .github/workflows/control-room-manifest.yml
+  push:
+    branches: [main]
+    paths:
+      - control-room.manifest.json
+      - .github/workflows/control-room-manifest.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifest contract
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const raw = fs.readFileSync('control-room.manifest.json', 'utf8');
+          const m = JSON.parse(raw);
+          const roles = new Set(['portfolio-control-plane','product-control-room','runtime-control-room','product-workbench','commerce-surface','demo-non-authoritative']);
+          const statuses = new Set(['planned','integrated','verified','released','blocked','at-risk','demo']);
+          const risks = new Set(['low','medium','high','critical']);
+          if (m.schemaVersion !== '1.0' || m.portfolioHub !== 'jussray/founder-control-room') throw new Error('invalid manifest identity');
+          if (!/^[^/]+\/[^/]+$/.test(m.repository) || !roles.has(m.role)) throw new Error('invalid repository or role');
+          if (m.controlRoom?.privateContentAllowed !== false) throw new Error('private content must be denied');
+          if (!statuses.has(m.evidence?.status) || !/^[a-f0-9]{40}$/.test(m.evidence?.commit ?? '')) throw new Error('invalid evidence');
+          if (!risks.has(m.risk?.level) || !Array.isArray(m.risk?.blockers) || !m.nextGate) throw new Error('invalid risk contract');
+          if (/(service[_-]?role[_-]?key|api[_-]?key|secret\s*[:=]|sk-[a-z0-9_-]{10,})/i.test(raw)) throw new Error('possible secret');
+          console.log(`validated ${m.repository}`);
+          NODE
