@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "repository": "jussray/chief-ai-machine",
+  "runtimeClass": "static_spa",
+  "firstPartyCookies": [],
+  "platformManagedCookies": [],
+  "browserStorage": [],
+  "forbidden": [
+    "authentication, authorization, role, billing, provider, model, or workspace state in a browser cookie",
+    "document.cookie, Cookie Store API, or custom Set-Cookie handling",
+    "analytics, advertising, fingerprinting, replay, or cross-site tracking cookies",
+    "proprietary prompts, credentials, model keys, or privileged provider responses in browser storage",
+    "claiming a private or multi-user session before a verified backend and isolation model exist"
+  ],
+  "notes": [
+    "The current repository is a vanilla HTML/CSS/JavaScript SPA, not a secure authenticated control plane.",
+    "A future backend must define identity, tenant isolation, revocation, CSRF, cache, and cookie ownership before adding a session.",
+    "UI preferences should remain client-only and non-sensitive."
+  ]
+}
