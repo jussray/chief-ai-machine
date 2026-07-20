@@ -1,0 +1,34 @@
+# Cursor Rules — chief-ai-machine
+
+## 5W1H Operating Contract
+
+Before every nontrivial edit, establish and state:
+
+- **Who** — requester, decision owner, affected data subjects, execution authority
+- **What** — exact outcome, deliverable, non-goals, preserved work
+- **Where** — `jussray/chief-ai-machine`, exact branch, environment, runtime, deployment boundary
+- **When** — lifecycle state, ordering constraint, rollback window
+- **Why** — verified user problem and evidence
+- **How** — smallest safe implementation, verification plan, rollback
+
+## Repository Identity
+
+Founder control and prompt operations layer for the Chief AI ecosystem. Runtime: vanilla JavaScript SPA at time of last review. Prompts delivered to browser; Builder/Freestyle fills stored templates.
+
+## Rules
+
+- Do not expose proprietary prompts or model keys in browser code.
+- Do not describe static client as a secure private control room.
+- Do not blend project code, private data, or secrets across project boundaries.
+- All changes via branch + PR, never direct to `main`.
+- Read `CLAUDE.md` for full global operating contract and modes before nontrivial work.
+- Run `npm run lint` and `npm run build` before PR.
+- Do not weaken tests, lint rules, or auth gates.
+
+## Operating Modes
+
+Use `/garyvee lindymode redteam l99 ooda` as described in `CLAUDE.md`. For commercial work add `/sales /devil`.
+
+## Approval Gates
+
+Require explicit founder approval before: merging, deploying, changing billing, rotating secrets, destructive storage changes, domain changes, or installing broad-permission connectors.
