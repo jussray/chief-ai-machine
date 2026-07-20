@@ -6,7 +6,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "verify:mcp": "node scripts/verify-mcp-config.mjs"
+    "verify:mcp": "node scripts/verify-mcp-config.mjs",
+    "verify:cookies": "node scripts/verify-cookie-contract.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
