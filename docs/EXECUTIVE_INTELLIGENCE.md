@@ -28,7 +28,8 @@ Verification
 Responsibilities remain separated:
 
 - **Founder Control Room** owns operational evidence, repository authority, release truth, execution scope, and rollback records.
-- **Specialist Chiefs** investigate their domains and expose assumptions, constraints, and disagreement.
+- **Specialist Chiefs** investigate their domains and expose assumptions, constraints, dependencies, risks, and disagreement.
+- **Executive Council** combines specialist reports without hiding dissent or crossing workspace boundaries.
 - **Chief AI** synthesizes, cross-examines, prioritizes, and prepares one founder-ready recommendation.
 - **Founder** owns vision, values, risk tolerance, and final authority.
 
@@ -61,7 +62,76 @@ NEXT GATE
 The one founder decision or proof step required next.
 ```
 
-The prototype domain contract lives in `src/domain/executive-brief.js`.
+The prototype Executive Brief contract lives in `src/domain/executive-brief.js`.
+
+## Specialist report contract
+
+A specialist report represents one domain chief's bounded conclusion about a proposed decision. The contract lives in `src/domain/specialist-report.js`.
+
+Each report includes:
+
+- workspace and project boundary;
+- specialist role and domain;
+- position: `support`, `conditional`, `oppose`, or `abstain`;
+- conclusion and recommendation;
+- classified reality with source references;
+- assumptions;
+- integer confidence from 0 to 100;
+- risks and dependencies;
+- lifecycle status: `draft`, `reviewed`, `approved`, or `superseded`;
+- source and timestamps.
+
+Accountability rules:
+
+1. A conditional position requires at least one explicit dependency.
+2. Reviewed or approved reports require verified reality.
+3. Confidence values must be real integers, not coerced strings, booleans, or null values.
+4. Verified claims without source references remain visible as warnings.
+5. High confidence paired with unknown or blocked reality remains visible as a warning.
+6. Reports remain scoped to one workspace and project.
+
+Recommended initial chiefs are Engineering, Product, Marketing, Finance, and Operations. The schema does not hardcode those names so the founder can add or replace domains without changing the portable contract.
+
+## Executive Council synthesis
+
+The deterministic council synthesizer lives in `src/domain/executive-council.js`.
+
+It accepts one valid report per domain and produces:
+
+- one Executive Brief;
+- participating report IDs and domains;
+- support, conditional, opposition, and abstention lists;
+- merged reality with specialist-report receipts;
+- preserved dissent;
+- role-attributed residual risks;
+- a transparent confidence calculation.
+
+The synthesizer refuses to:
+
+- count the same report twice;
+- count multiple reports as the single authority for one domain;
+- mix reports across workspaces or projects;
+- use superseded reports;
+- create a reviewed brief from draft reports;
+- create an approved brief from anything less than approved reports;
+- silently downgrade a mistyped council status;
+- create a valid reviewed or approved Executive Brief without verified reality.
+
+## Confidence policy
+
+Council confidence is intentionally conservative and inspectable.
+
+1. Start with the rounded average of specialist confidence.
+2. Never exceed the lowest participating specialist confidence.
+3. Cap confidence at 49 when no reality item is verified.
+4. Cap confidence at 69 when verified claims have no external source receipt.
+5. Cap confidence at 69 when any reality item is blocked.
+6. Cap confidence at 79 when any reality item is unknown.
+7. Cap confidence at 79 when any specialist is conditional.
+8. Cap confidence at 69 when any specialist abstains.
+9. Cap confidence at 59 when any specialist opposes.
+
+The synthesis returns the base confidence, weakest-specialist value, every applied cap, and final confidence. This avoids a polished average concealing one weak domain, missing evidence, or material disagreement.
 
 ## Accountability rules
 
@@ -79,17 +149,9 @@ The prototype domain contract lives in `src/domain/executive-brief.js`.
 
 Chief AI should coordinate specialists rather than impersonate them.
 
-A specialist report should include:
+Chief AI may challenge a specialist, request additional evidence, lower confidence, reject a malformed report, or convene an Executive Council synthesis before producing the final brief.
 
-- domain conclusion;
-- evidence and source references;
-- assumptions;
-- confidence;
-- risks;
-- dependencies;
-- dissent or unresolved questions.
-
-Chief AI may challenge a specialist, request additional evidence, lower confidence, or convene an executive-council comparison before producing the final brief.
+The current synthesizer is deterministic domain logic. It does not itself call models, run agents, debate autonomously, execute tools, or approve actions.
 
 ## Trust and learning
 
@@ -97,7 +159,8 @@ Chief AI should improve through organizational learning, not silent self-modific
 
 For each accepted decision, preserve:
 
-- the exact executive brief;
+- the exact specialist reports;
+- the exact council synthesis and Executive Brief;
 - evidence available at decision time;
 - alternatives considered;
 - founder approval or rejection;
@@ -109,24 +172,28 @@ This creates portable company judgment while keeping providers replaceable.
 
 ## Current implementation truth
 
-Implemented in this slice:
+Implemented now:
 
-- provider-neutral executive-brief schema;
+- provider-neutral Executive Brief schema;
 - classified reality items;
 - dissent records;
 - bounded confidence;
 - risks and next-gate fields;
-- validation and accountability warnings;
-- unit tests for the contract.
+- specialist report schema and lifecycle validation;
+- one-report-per-domain Executive Council synthesis;
+- workspace and project isolation checks;
+- duplicate and superseded-report rejection;
+- conservative, explainable confidence caps;
+- focused unit tests for the contracts.
 
 Not implemented by this slice:
 
 - specialist-agent runtime;
-- automatic executive-council debate;
+- automatic model-to-model debate;
 - Founder Control Room ingestion;
 - provider execution;
 - durable server persistence;
-- authentication or tenant isolation;
+- authentication or tenant isolation infrastructure;
 - UI rendering;
 - autonomous action;
 - deployment.
