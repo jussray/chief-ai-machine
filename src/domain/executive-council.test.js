@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { validateExecutiveBrief } from './executive-brief.js';
-import { synthesizeExecutiveCouncil } from './executive-council.js';
+import {
+  synthesizeExecutiveCouncil,
+  validateExecutiveCouncilSynthesis,
+} from './executive-council.js';
 import { createSpecialistReport } from './specialist-report.js';
 
 const NOW = new Date('2026-07-24T04:00:00.000Z');
@@ -28,7 +31,7 @@ function report(overrides = {}, offset = 0) {
 }
 
 describe('executive council synthesis', () => {
-  it('creates one executive brief while preserving evidence, dissent, and conservative confidence', () => {
+  it('creates one validated synthesis while preserving evidence contributors, dissent, and conservative confidence', () => {
     const engineering = report();
     const operations = report({
       id: 'report-operations',
@@ -60,6 +63,7 @@ describe('executive council synthesis', () => {
       status: 'reviewed',
     }, NOW);
 
+    expect(synthesis.id).toContain('merge-the-specialist-and-council-contracts');
     expect(synthesis.confidence).toMatchObject({
       base: 88,
       lowestSpecialist: 84,
@@ -67,11 +71,13 @@ describe('executive council synthesis', () => {
     });
     expect(synthesis.positions.conditional).toEqual(['Operations Chief']);
     expect(synthesis.brief.dissent).toHaveLength(1);
-    expect(synthesis.brief.reality[0].sourceRefs).toEqual(expect.arrayContaining([
-      'specialist-report:report-0',
-      'specialist-report:report-operations',
+    expect(synthesis.evidence[0].reportIds).toEqual(expect.arrayContaining([
+      'report-0',
+      'report-operations',
     ]));
+    expect(synthesis.brief.reality[0].sourceRefs).toEqual(['git-diff']);
     expect(validateExecutiveBrief(synthesis.brief)).toEqual({ valid: true, errors: [] });
+    expect(validateExecutiveCouncilSynthesis(synthesis)).toEqual({ valid: true, errors: [] });
   });
 
   it('rejects duplicate domains and duplicate report ids', () => {
@@ -150,6 +156,65 @@ describe('executive council synthesis', () => {
       reason: 'unreferenced-verified-reality',
       value: 69,
     });
+  });
+
+  it('fails closed instead of truncating evidence, sources, risks, or rationale', () => {
+    const evidenceA = Array.from({ length: 30 }, (_, index) => ({
+      state: 'verified',
+      statement: `Engineering evidence ${index}`,
+      sourceRefs: [`engineering-${index}`],
+    }));
+    const evidenceB = Array.from({ length: 30 }, (_, index) => ({
+      state: 'verified',
+      statement: `Operations evidence ${index}`,
+      sourceRefs: [`operations-${index}`],
+    }));
+
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Merge.',
+      reports: [
+        report({ reality: evidenceA }),
+        report({ id: 'operations', role: 'Operations Chief', domain: 'operations', reality: evidenceB }, 1),
+      ],
+      nextGate: 'Review.',
+    }, NOW)).toThrow('cannot synthesize more than 50 unique evidence items');
+
+    const sharedStatement = 'The same evidence has many external source receipts.';
+    const sourcesA = Array.from({ length: 20 }, (_, index) => `a-${index}`);
+    const sourcesB = Array.from({ length: 20 }, (_, index) => `b-${index}`);
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Merge.',
+      reports: [
+        report({ reality: [{ state: 'verified', statement: sharedStatement, sourceRefs: sourcesA }] }),
+        report({
+          id: 'operations',
+          role: 'Operations Chief',
+          domain: 'operations',
+          reality: [{ state: 'verified', statement: sharedStatement, sourceRefs: sourcesB }],
+        }, 1),
+      ],
+      nextGate: 'Review.',
+    }, NOW)).toThrow('evidence exceeds 20 source references');
+
+    const risksA = Array.from({ length: 16 }, (_, index) => `Engineering risk ${index}`);
+    const risksB = Array.from({ length: 16 }, (_, index) => `Operations risk ${index}`);
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Merge.',
+      reports: [
+        report({ risks: risksA }),
+        report({ id: 'operations', role: 'Operations Chief', domain: 'operations', risks: risksB }, 1),
+      ],
+      nextGate: 'Review.',
+    }, NOW)).toThrow('cannot preserve more than 30 unique risks');
+
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Merge.',
+      reports: [
+        report({ conclusion: 'A'.repeat(3000) }),
+        report({ id: 'operations', role: 'Operations Chief', domain: 'operations', conclusion: 'B'.repeat(3000) }, 1),
+      ],
+      nextGate: 'Review.',
+    }, NOW)).toThrow('rationale exceeds Executive Brief capacity');
   });
 
   it('rejects unsupported council status instead of silently downgrading it', () => {
