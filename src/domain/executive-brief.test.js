@@ -7,6 +7,13 @@ import {
 
 const NOW = new Date('2026-07-23T20:00:00.000Z');
 
+const BASE_INPUT = {
+  decision: 'Proceed.',
+  rationale: 'Evidence supports it.',
+  reality: [{ state: 'verified', statement: 'A test passed.' }],
+  nextGate: 'Founder review.',
+};
+
 describe('executive intelligence briefs', () => {
   it('creates a founder-ready brief with classified reality and dissent', () => {
     const brief = createExecutiveBrief({
@@ -50,11 +57,15 @@ describe('executive intelligence briefs', () => {
     expect(() => createExecutiveBrief({}, NOW)).toThrow('Executive brief decision is required');
 
     expect(() => createExecutiveBrief({
-      decision: 'Proceed.',
-      rationale: 'Evidence supports it.',
-      reality: [{ state: 'verified', statement: 'A test passed.' }],
+      ...BASE_INPUT,
       confidence: 101,
-      nextGate: 'Founder review.',
+    }, NOW)).toThrow('Executive brief confidence must be an integer from 0 to 100');
+  });
+
+  it.each(['91', '', null, true])('rejects coerced confidence value %j', (confidence) => {
+    expect(() => createExecutiveBrief({
+      ...BASE_INPUT,
+      confidence,
     }, NOW)).toThrow('Executive brief confidence must be an integer from 0 to 100');
   });
 
