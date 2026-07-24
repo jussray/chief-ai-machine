@@ -3,6 +3,7 @@
 import {
   createExecutiveBrief,
   EXECUTIVE_BRIEF_STATUSES,
+  REALITY_STATES,
   validateExecutiveBrief,
 } from './executive-brief.js';
 import { validateSpecialistReport } from './specialist-report.js';
@@ -11,40 +12,46 @@ export const EXECUTIVE_COUNCIL_SCHEMA_VERSION = 1;
 
 const POSITION_ORDER = Object.freeze(['support', 'conditional', 'oppose', 'abstain']);
 const BRIEF_STATUS_SET = new Set(EXECUTIVE_BRIEF_STATUSES);
+const REALITY_STATE_SET = new Set(REALITY_STATES);
 
 function cleanText(value, maxLength = 10000) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
-function uniqueStrings(values, maxItems = 50) {
-  return [...new Set(values.filter(Boolean))].slice(0, maxItems);
+function uniqueStrings(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
-function mergeReality(reports) {
+function synthesisId(now, decision = '') {
+  const seed = cleanText(decision, 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `council-${now.getTime()}-${seed || 'synthesis'}`;
+}
+
+function collectEvidence(reports) {
   const merged = new Map();
 
   reports.forEach((report) => {
     report.reality.forEach((item) => {
       const key = `${item.state}\u0000${item.statement.toLowerCase()}`;
-      const sourceRefs = uniqueStrings([
-        ...item.sourceRefs,
-        `specialist-report:${report.id}`,
-      ], 20);
+      const current = merged.get(key) || {
+        state: item.state,
+        statement: item.statement,
+        sourceRefs: [],
+        reportIds: [],
+      };
 
-      if (!merged.has(key)) {
-        merged.set(key, { ...item, sourceRefs });
-        return;
-      }
-
-      const current = merged.get(key);
       merged.set(key, {
         ...current,
-        sourceRefs: uniqueStrings([...current.sourceRefs, ...sourceRefs], 20),
+        sourceRefs: uniqueStrings([...current.sourceRefs, ...item.sourceRefs]),
+        reportIds: uniqueStrings([...current.reportIds, report.id]),
       });
     });
   });
 
-  return [...merged.values()].slice(0, 50);
+  return [...merged.values()];
 }
 
 function summarizePositions(reports) {
@@ -54,18 +61,17 @@ function summarizePositions(reports) {
   ]));
 }
 
-function calculateConfidence(reports, reality, positions) {
+function calculateConfidence(reports, evidence, positions) {
   const base = Math.round(reports.reduce((sum, report) => sum + report.confidence, 0) / reports.length);
   const lowestSpecialist = Math.min(...reports.map((report) => report.confidence));
   const caps = [{ reason: 'weakest-specialist', value: lowestSpecialist }];
 
-  if (!reality.some((item) => item.state === 'verified')) caps.push({ reason: 'no-verified-reality', value: 49 });
-  if (reality.some((item) => item.state === 'verified'
-    && !item.sourceRefs.some((sourceRef) => !sourceRef.startsWith('specialist-report:')))) {
+  if (!evidence.some((item) => item.state === 'verified')) caps.push({ reason: 'no-verified-reality', value: 49 });
+  if (evidence.some((item) => item.state === 'verified' && item.sourceRefs.length === 0)) {
     caps.push({ reason: 'unreferenced-verified-reality', value: 69 });
   }
-  if (reality.some((item) => item.state === 'blocked')) caps.push({ reason: 'blocked-reality', value: 69 });
-  if (reality.some((item) => item.state === 'unknown')) caps.push({ reason: 'unknown-reality', value: 79 });
+  if (evidence.some((item) => item.state === 'blocked')) caps.push({ reason: 'blocked-reality', value: 69 });
+  if (evidence.some((item) => item.state === 'unknown')) caps.push({ reason: 'unknown-reality', value: 79 });
   if (positions.conditional.length > 0) caps.push({ reason: 'conditional-position', value: 79 });
   if (positions.abstain.length > 0) caps.push({ reason: 'abstention', value: 69 });
   if (positions.oppose.length > 0) caps.push({ reason: 'opposition', value: 59 });
@@ -101,7 +107,67 @@ function buildDissent(reports) {
 }
 
 function buildRisks(reports) {
-  return uniqueStrings(reports.flatMap((report) => report.risks.map((risk) => `[${report.role}] ${risk}`)), 30);
+  return uniqueStrings(reports.flatMap((report) => report.risks.map((risk) => `[${report.role}] ${risk}`)));
+}
+
+export function validateExecutiveCouncilSynthesis(synthesis) {
+  const errors = [];
+
+  if (!synthesis || typeof synthesis !== 'object') {
+    return { valid: false, errors: ['Executive Council synthesis must be an object'] };
+  }
+
+  if (synthesis.schemaVersion !== EXECUTIVE_COUNCIL_SCHEMA_VERSION) errors.push('Unsupported schema version');
+  if (!cleanText(synthesis.id, 180)) errors.push('Missing id');
+  if (!cleanText(synthesis.workspaceId, 120)) errors.push('Missing workspace id');
+  if (!cleanText(synthesis.projectId, 120)) errors.push('Missing project id');
+  if (!cleanText(synthesis.createdAt, 40)) errors.push('Missing created timestamp');
+  if (!Array.isArray(synthesis.reportIds) || synthesis.reportIds.length === 0) {
+    errors.push('Report ids must be a non-empty array');
+  } else if (new Set(synthesis.reportIds).size !== synthesis.reportIds.length) {
+    errors.push('Report ids must be unique');
+  }
+  if (!Array.isArray(synthesis.domains) || synthesis.domains.length !== synthesis.reportIds?.length) {
+    errors.push('Domains must align with report ids');
+  }
+
+  POSITION_ORDER.forEach((position) => {
+    if (!Array.isArray(synthesis.positions?.[position])) errors.push(`Missing ${position} positions`);
+  });
+
+  if (!synthesis.confidence || typeof synthesis.confidence !== 'object') {
+    errors.push('Missing confidence calculation');
+  } else {
+    ['base', 'lowestSpecialist', 'final'].forEach((field) => {
+      const value = synthesis.confidence[field];
+      if (!Number.isInteger(value) || value < 0 || value > 100) errors.push(`Invalid confidence ${field}`);
+    });
+    if (!Array.isArray(synthesis.confidence.caps)) errors.push('Confidence caps must be an array');
+  }
+
+  if (!Array.isArray(synthesis.evidence) || synthesis.evidence.length === 0 || synthesis.evidence.length > 50) {
+    errors.push('Evidence must contain between 1 and 50 items');
+  } else {
+    synthesis.evidence.forEach((item, index) => {
+      if (!REALITY_STATE_SET.has(item?.state)) errors.push(`Evidence item ${index + 1} has an unsupported state`);
+      if (!cleanText(item?.statement, 2000)) errors.push(`Evidence item ${index + 1} is missing a statement`);
+      if (!Array.isArray(item?.sourceRefs) || item.sourceRefs.length > 20) {
+        errors.push(`Evidence item ${index + 1} sourceRefs must contain at most 20 items`);
+      }
+      if (!Array.isArray(item?.reportIds) || item.reportIds.length === 0) {
+        errors.push(`Evidence item ${index + 1} requires contributing report ids`);
+      } else if (item.reportIds.some((reportId) => !synthesis.reportIds?.includes(reportId))) {
+        errors.push(`Evidence item ${index + 1} references an unknown report id`);
+      }
+    });
+  }
+
+  const briefValidation = validateExecutiveBrief(synthesis.brief);
+  if (!briefValidation.valid) errors.push(...briefValidation.errors.map((error) => `Brief: ${error}`));
+  if (synthesis.brief?.workspaceId !== synthesis.workspaceId) errors.push('Brief workspace does not match synthesis');
+  if (synthesis.brief?.projectId !== synthesis.projectId) errors.push('Brief project does not match synthesis');
+
+  return { valid: errors.length === 0, errors };
 }
 
 export function synthesizeExecutiveCouncil(input, now = new Date()) {
@@ -158,34 +224,59 @@ export function synthesizeExecutiveCouncil(input, now = new Date()) {
     throw new Error('Approved council synthesis requires approved specialist reports');
   }
 
-  const reality = mergeReality(reports);
+  const evidence = collectEvidence(reports);
+  if (evidence.length > 50) {
+    throw new Error('Executive Council cannot synthesize more than 50 unique evidence items without an explicit summary');
+  }
+  if (evidence.some((item) => item.sourceRefs.length > 20)) {
+    throw new Error('Executive Council evidence exceeds 20 source references; summarize sources before synthesis');
+  }
+
   const positions = summarizePositions(reports);
-  const confidence = calculateConfidence(reports, reality, positions);
+  const confidence = calculateConfidence(reports, evidence, positions);
+  const rationale = buildRationale(reports, positions, input?.chiefRationale);
+  if (rationale.length > 5000) {
+    throw new Error('Executive Council rationale exceeds Executive Brief capacity; summarize specialist conclusions first');
+  }
+
+  const risks = buildRisks(reports);
+  if (risks.length > 30) {
+    throw new Error('Executive Council cannot preserve more than 30 unique risks; consolidate risks before synthesis');
+  }
+
+  const id = synthesisId(now, decision);
   const brief = createExecutiveBrief({
     workspaceId: workspaceIds[0],
     projectId: projectIds[0],
     decision,
-    reality,
-    rationale: buildRationale(reports, positions, input?.chiefRationale),
+    reality: evidence.map(({ state, statement, sourceRefs }) => ({ state, statement, sourceRefs })),
+    rationale,
     dissent: buildDissent(reports),
     confidence: confidence.final,
-    risks: buildRisks(reports),
+    risks,
     nextGate,
     status: requestedStatus,
-    source: `executive-council:${reports.map((report) => report.id).join(',')}`,
+    source: `executive-council:${id}`,
   }, now);
 
-  const validation = validateExecutiveBrief(brief);
-  if (!validation.valid) {
-    throw new Error(`Synthesized executive brief is invalid: ${validation.errors.join('; ')}`);
-  }
-
-  return {
+  const synthesis = {
     schemaVersion: EXECUTIVE_COUNCIL_SCHEMA_VERSION,
+    id,
+    workspaceId: workspaceIds[0],
+    projectId: projectIds[0],
     reportIds,
     domains: reports.map((report) => report.domain),
     positions,
     confidence,
+    evidence,
     brief,
+    createdAt: now.toISOString(),
   };
+
+  const validation = validateExecutiveCouncilSynthesis(synthesis);
+  if (!validation.valid) {
+    throw new Error(`Synthesized Executive Council record is invalid: ${validation.errors.join('; ')}`);
+  }
+
+  return synthesis;
 }
