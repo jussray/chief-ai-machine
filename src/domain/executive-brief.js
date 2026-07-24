@@ -61,13 +61,13 @@ export function createExecutiveBrief(input, now = new Date()) {
   const rationale = cleanText(input?.rationale, 5000);
   const nextGate = cleanText(input?.nextGate, 2000);
   const reality = cleanRealityItems(input?.reality);
-  const confidence = Number(input?.confidence);
+  const confidence = input?.confidence;
 
   if (!decision) throw new Error('Executive brief decision is required');
   if (!rationale) throw new Error('Executive brief rationale is required');
   if (!nextGate) throw new Error('Executive brief next gate is required');
   if (reality.length === 0) throw new Error('Executive brief reality evidence is required');
-  if (!Number.isInteger(confidence) || confidence < 0 || confidence > 100) {
+  if (typeof confidence !== 'number' || !Number.isInteger(confidence) || confidence < 0 || confidence > 100) {
     throw new Error('Executive brief confidence must be an integer from 0 to 100');
   }
 
@@ -106,7 +106,7 @@ export function validateExecutiveBrief(brief) {
   if (!cleanText(brief.rationale, 5000)) errors.push('Missing rationale');
   if (!cleanText(brief.nextGate, 2000)) errors.push('Missing next gate');
   if (!STATUS_SET.has(brief.status)) errors.push('Unsupported status');
-  if (!Number.isInteger(brief.confidence) || brief.confidence < 0 || brief.confidence > 100) {
+  if (typeof brief.confidence !== 'number' || !Number.isInteger(brief.confidence) || brief.confidence < 0 || brief.confidence > 100) {
     errors.push('Confidence must be an integer from 0 to 100');
   }
   if (!Array.isArray(brief.reality) || brief.reality.length === 0) {
