@@ -29,7 +29,7 @@ Every material decision must preserve human agency, dignity, privacy, comprehens
 
 ## /futureyou
 
-Ask: **How would Future You remember building this?**
+Ask: **How would it be remembered by building this?**
 
 Leave behind why the system exists, what problem it solves, assumptions, failure modes, proof, rollback, and the next gate. Future builders should inherit clarity, not archaeology.
 
