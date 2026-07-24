@@ -25,7 +25,7 @@ Chief AI solves the **portable intelligence problem** for founders running multi
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CHIEF AI  (this repo)                    │
-│  Executive Briefs · Company Brain · Builder · Benchmarks    │
+│ Executive Council · Briefs · Company Brain · Benchmarks     │
 │  Versioned portable export/import · Provider-agnostic        │
 └──────────────┬──────────────────────────┬───────────────────┘
                │ authorizes execution      │ optional integration
@@ -63,6 +63,8 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 
 | Module | What it does |
 |---|---|
+| **Specialist Report contract** | Domain conclusion, evidence, assumptions, position, confidence, risks, dependencies, and lifecycle |
+| **Executive Council synthesizer** | Produces one validated synthesis receipt and Executive Brief while preserving dissent, per-claim contributors, workspace boundaries, and conservative confidence caps |
 | **Executive Brief contract** | Provider-neutral decision, reality, dissent, confidence, risk, and next-gate schema with accountability checks |
 | **Company Brain** | Browser-local intelligence assets: prompts, workflows, decisions, playbooks, benchmarks, brand voice, research |
 | **Prompt Library** | Reusable starter systems across supported providers |
@@ -72,7 +74,7 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 | **Benchmarks** | Model-routing guidance by task type |
 | **Portable export/import** | Versioned company-brain snapshots with backward compatibility |
 
-> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent coordination, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent runtime, Founder Control Room ingestion, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ---
 
@@ -109,14 +111,21 @@ It defines:
 - Legacy prompt migration
 - Portable snapshot export and import
 
-The executive intelligence contract lives in:
+The executive intelligence contracts live in:
 
 ```
+src/domain/specialist-report.js
+src/domain/executive-council.js
 src/domain/executive-brief.js
 ```
 
-It defines:
-- Decision, reality, rationale, dissent, confidence, risk, and next-gate fields
+They define:
+- Specialist roles, domains, positions, conclusions, evidence, assumptions, confidence, risks, dependencies, and lifecycle states
+- One-report-per-domain council synthesis with duplicate, cross-workspace, and superseded-report rejection
+- Validated synthesis receipts with per-claim report contributors and external source references
+- Transparent confidence calculation with weakest-specialist and evidence/disagreement caps
+- Fail-closed capacity guards that prevent silent evidence, source, risk, dissent, or rationale truncation
+- Decision, reality, rationale, dissent, risk, and next-gate fields
 - Verified, inferred, unknown, and blocked reality classifications
 - Review and approval evidence requirements
 - Accountability warnings when confidence outruns evidence
@@ -129,7 +138,7 @@ It defines:
 |---|---|
 | [`docs/PRODUCT_DOCTRINE.md`](./docs/PRODUCT_DOCTRINE.md) | Category, customer problem, product promise, independence tests, MVP |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Portable intelligence domain, storage phases, provider execution, security boundaries |
-| [`docs/EXECUTIVE_INTELLIGENCE.md`](./docs/EXECUTIVE_INTELLIGENCE.md) | Chief AI executive coordinator boundary, required brief, accountability rules, and implementation truth |
+| [`docs/EXECUTIVE_INTELLIGENCE.md`](./docs/EXECUTIVE_INTELLIGENCE.md) | Specialist reports, Executive Council synthesis, confidence policy, Chief AI boundary, and implementation truth |
 | [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Validation milestones, commercial tests, metrics, stop conditions |
 | [`docs/OPERATING_MODES.md`](./docs/OPERATING_MODES.md) | `/garyvee`, `lindymode`, `redteam`, `l99`, `ooda` |
 | [`docs/PLATFORM_ROUTING.md`](./docs/PLATFORM_ROUTING.md) | Provider roles and cross-tool handoffs |
