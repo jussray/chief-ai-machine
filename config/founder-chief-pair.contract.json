@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "2026-07-24.1",
+  "pair": {
+    "controlRoom": "jussray/founder-control-room",
+    "chiefAI": "jussray/chief-ai-machine"
+  },
+  "roles": {
+    "controlRoom": ["memory", "governance", "evidence", "coordination"],
+    "chiefAI": ["reasoning", "synthesis", "recommendations", "executive judgment"]
+  },
+  "requiredExecutiveFields": [
+    "Goal",
+    "Known",
+    "Inferred",
+    "Unknown",
+    "Risk",
+    "Options",
+    "Recommendation",
+    "Confidence",
+    "Next gate",
+    "Required evidence"
+  ],
+  "requiredMarkers": [
+    "Founder Control Room and Chief AI paired evolution",
+    "pair drift",
+    "runtime behavior remains unverified"
+  ],
+  "driftPolicy": "A material change to either repository requires counterpart review. Unresolved mismatch is pair drift and blocks a complete-state claim.",
+  "runtimeTruthBoundary": "Passing this static contract proves repository policy alignment only. It does not prove deployed or runtime behavior."
+}
