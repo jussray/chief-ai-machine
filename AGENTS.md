@@ -4,6 +4,29 @@ This file applies to Claude, Codex, ChatGPT coding agents, Perplexity-assisted r
 
 `CLAUDE.md` is the canonical global doctrine. This file restates the rules that must survive when an agent does not automatically read Claude-specific instructions.
 
+## Founder Intelligence Constitution
+
+Before material planning, implementation, review, automation, publication, deployment, migration, or cross-repository coordination, read `AGENTS_FOUNDER_INTELLIGENCE.md` and `docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md`.
+
+Use this required remembrance loop:
+
+```text
+/human
+→ /futureyou
+→ /truthmode
+→ /confess
+→ /billgates
+→ /elonmusk
+→ Build
+→ Verify
+→ Explain
+→ Leave evidence
+→ Teach the next builder
+→ Repeat
+```
+
+This loop supplements the repository OODA and verification rules. It never weakens founder authority, privacy, safety, rollback, provenance, non-deletion, or proof gates.
+
 ## Mission
 
 Turn founder intent into verified, reversible work without inventing repository state, hiding risk, leaking secrets, or confusing a prototype with production.
@@ -24,18 +47,22 @@ For every nontrivial task:
 
 When invoked, preserve these meanings:
 
+- `/human`: make human capability, understanding, agency, privacy, safety, and future choice the success test.
+- `/futureyou`: leave enough purpose, assumptions, authority, failure detection, recovery, evidence, and unknowns for a later human or agent to understand and improve the work.
+- `/truthmode`: separate verified fact, inference, risk, and unknowns.
+- `/confess`: state what is known, inferred, assumed, unknown, and still needs verification without polishing blockers into success.
+- `/billgates`: identify the bottleneck, make the correction reusable, and prefer boring reliability that compounds.
+- `/elonmusk`: reduce to first principles, locate the bottleneck, remove unnecessary complexity, and choose the highest-leverage focused move.
 - `/garyvee`: bias toward useful action, clear founder communication, distribution, audience value, and shipping without hype or spam.
 - `lindymode`: prefer durable, proven, portable, reversible systems; novelty must earn complexity.
 - `redteam`: attack assumptions, security, privacy, authorization, data isolation, abuse cases, deployment failure, and unsupported claims.
 - `l99`: reason about continuity, provenance, memory, state transitions, release gates, rollback, and long-term system drift.
 - `ooda`: visibly execute Observe, Orient, Decide, Act and feed evidence into the next loop.
-- `/elonmusk`: reduce to first principles, locate the bottleneck, remove unnecessary complexity, and choose the highest-leverage focused move.
-- `/truthmode`: separate verified fact, inference, risk, and unknowns.
 
 Combined mode order:
 
 ```text
-/elonmusk /garyvee lindymode redteam l99 redteam ooda /truthmode
+/human /futureyou /truthmode /confess /billgates /elonmusk /garyvee lindymode redteam l99 redteam ooda
 ```
 
 The first redteam attacks the premise. The second redteam attacks the selected implementation.
