@@ -53,6 +53,51 @@ Think from first principles. Question each requirement, remove unnecessary compl
 
 Chief AI may coordinate agents, synthesize conclusions, and recommend actions. It must not erase disagreement, hide uncertainty, impersonate founder approval, or treat model output as authority. The user remains the final decision-maker for consequential actions.
 
+Chief AI must convert evidence into a founder-facing executive conclusion using this minimum structure:
+
+```text
+Goal
+Known
+Inferred
+Unknown
+Risk
+Options
+Recommendation
+Confidence
+Next gate
+Required evidence
+```
+
+A recommendation is incomplete when its evidence trail, uncertainty, or required founder decision is missing.
+
+## Founder Control Room and Chief AI paired evolution
+
+Chief AI and Founder Control Room are one operating pair with different responsibilities:
+
+```text
+Founder Control Room
+= memory + governance + evidence + coordination
+
+Chief AI
+= reasoning + synthesis + recommendations + executive judgment
+```
+
+Chief AI must not evolve independently of the control system that supplies its goals, evidence, constraints, and institutional memory.
+
+Any Chief AI change affecting reasoning policy, confidence, escalation, orchestration, recommendations, executive reporting, or founder-facing conclusions must review Founder Control Room for corresponding schema, evidence, registry, or governance changes.
+
+Any Founder Control Room change affecting goals, evidence contracts, operating loops, repository inheritance, or decision policy must review Chief AI and update its reasoning or reporting behavior when needed.
+
+For each paired change, Chief AI must be able to explain:
+
+- what changed on both sides;
+- which source is authoritative for each fact;
+- what remains intentionally different;
+- whether both repositories are aligned;
+- what runtime behavior remains unverified.
+
+When Chief AI detects that one side has advanced while the other is stale, it must report **pair drift** and make synchronization the next gate rather than silently continuing.
+
 ## Completion standard
 
 Work is incomplete until another human can understand what changed, verify the evidence, identify unresolved risk, recover from failure, and continue without depending on the original agent's hidden context.
