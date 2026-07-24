@@ -64,7 +64,7 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 | Module | What it does |
 |---|---|
 | **Specialist Report contract** | Domain conclusion, evidence, assumptions, position, confidence, risks, dependencies, and lifecycle |
-| **Executive Council synthesizer** | Produces one Executive Brief while preserving dissent, source receipts, workspace boundaries, and conservative confidence caps |
+| **Executive Council synthesizer** | Produces one validated synthesis receipt and Executive Brief while preserving dissent, per-claim contributors, workspace boundaries, and conservative confidence caps |
 | **Executive Brief contract** | Provider-neutral decision, reality, dissent, confidence, risk, and next-gate schema with accountability checks |
 | **Company Brain** | Browser-local intelligence assets: prompts, workflows, decisions, playbooks, benchmarks, brand voice, research |
 | **Prompt Library** | Reusable starter systems across supported providers |
@@ -122,7 +122,9 @@ src/domain/executive-brief.js
 They define:
 - Specialist roles, domains, positions, conclusions, evidence, assumptions, confidence, risks, dependencies, and lifecycle states
 - One-report-per-domain council synthesis with duplicate, cross-workspace, and superseded-report rejection
+- Validated synthesis receipts with per-claim report contributors and external source references
 - Transparent confidence calculation with weakest-specialist and evidence/disagreement caps
+- Fail-closed capacity guards that prevent silent evidence, source, risk, or rationale truncation
 - Decision, reality, rationale, dissent, risk, and next-gate fields
 - Verified, inferred, unknown, and blocked reality classifications
 - Review and approval evidence requirements
