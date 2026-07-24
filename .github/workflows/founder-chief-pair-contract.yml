@@ -25,8 +25,25 @@ jobs:
   verify-pair-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out Chief AI
+        uses: actions/checkout@v4
+        with:
+          path: chief-ai-machine
+
+      - name: Check out Founder Control Room
+        uses: actions/checkout@v4
+        with:
+          repository: jussray/founder-control-room
+          path: founder-control-room
+          persist-credentials: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm run verify:founder-chief-pair
+
+      - name: Verify local and cross-repository pair contract
+        working-directory: chief-ai-machine
+        env:
+          PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
+          PAIR_CROSS_REPO_REQUIRED: 'true'
+        run: npm run verify:founder-chief-pair
