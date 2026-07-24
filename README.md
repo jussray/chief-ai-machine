@@ -124,7 +124,7 @@ They define:
 - One-report-per-domain council synthesis with duplicate, cross-workspace, and superseded-report rejection
 - Validated synthesis receipts with per-claim report contributors and external source references
 - Transparent confidence calculation with weakest-specialist and evidence/disagreement caps
-- Fail-closed capacity guards that prevent silent evidence, source, risk, or rationale truncation
+- Fail-closed capacity guards that prevent silent evidence, source, risk, dissent, or rationale truncation
 - Decision, reality, rationale, dissent, risk, and next-gate fields
 - Verified, inferred, unknown, and blocked reality classifications
 - Review and approval evidence requirements
