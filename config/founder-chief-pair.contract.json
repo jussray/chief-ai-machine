@@ -1,92 +1,13 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-09-23.1",
+  "contractVersion": "2026-07-24.1",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
   },
-  "candidatePairing": {
-    "schema": "juss/founder-chief-pair-candidate@v1",
-    "founderControlRoomPullRequest": 781,
-    "chiefAIPullRequest": 142,
-    "chiefAINecessaryFixPolicyPullRequest": 151,
-    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority.",
-    "carrierSeparationBoundary": "Chief PR #142 carries standalone MCP and pair identity. Chief PR #151 carries the necessary-fix policy and its separate runtime work. Neither carrier donates merge, runtime, provider, review, or Playwright proof to the other."
-  },
-  "relationship": {
-    "topology": "standalone-peers",
-    "controlRoom": {
-      "independentlyCallable": true,
-      "ownsIdentity": true,
-      "ownsLifecycle": true,
-      "ownsReceipts": true,
-      "ownsFailureState": true,
-      "ownsContinuityMarkers": true
-    },
-    "chiefAI": {
-      "independentlyCallable": true,
-      "ownsIdentity": true,
-      "ownsLifecycle": true,
-      "ownsReceipts": true,
-      "ownsFailureState": true,
-      "ownsContinuityMarkers": true
-    },
-    "crossSystem": {
-      "sharedRuntimeRequired": false,
-      "identityCollapseAllowed": false,
-      "implicitAuthorityTransferAllowed": false,
-      "receiptCollapseAllowed": false,
-      "failureCollapseAllowed": false,
-      "continuityCollapseAllowed": false,
-      "evidenceCreatesAuthority": false,
-      "cooperationMayProceedWithinEachSystemsOwnAuthority": true
-    },
-    "continuityBoundary": "Fingerprints and proof cookies remain separate, non-secret, non-authorizing state markers for each system. Cross-system evidence may update or invalidate the recipient's state only after recipient-side verification; it never transfers authority.",
-    "cooperationBoundary": "Founder Control Room and Chief AI may call, observe, and inform one another while remaining independently valid systems. A joint claim requires distinct receipts for each participating system; one system's green or red state never silently replaces the other's."
-  },
-  "commercialPackaging": {
-    "technicalTopology": "standalone-peers",
-    "defaultPublicFounderSoftwareIdentity": "Founder Control Room",
-    "chiefTechnicalIndependence": true,
-    "chiefDefaultCommercialRole": "monetizable-module",
-    "chiefDefaultCommercialPackaging": "inside-founder-control-room",
-    "customerAcquisitionRule": "Chief may remain independently callable and portable without requiring a separate customer-acquisition funnel, price, or competing founder-OS story.",
-    "separateOfferGate": "A separate Chief commercial offer requires independent customer, payer, distinct value, revenue mechanism, repeat-payment evidence, and proof that separate packaging improves paid demand rather than fragmenting the Founder Control Room offer.",
-    "truthBoundary": "Technical independence, repository existence, runtime separation, internal usage, or successful tests do not prove that Chief should be marketed or priced as a separate company."
-  },
   "roles": {
-    "controlRoom": [
-      "memory",
-      "governance",
-      "evidence",
-      "coordination",
-      "execution authority",
-      "outcome receipts"
-    ],
-    "chiefAI": [
-      "reasoning",
-      "synthesis",
-      "capability composition",
-      "recommendations",
-      "executive judgment"
-    ],
-    "n8n": [
-      "workflow execution",
-      "retries",
-      "API orchestration",
-      "execution receipts"
-    ]
-  },
-  "v10": {
-    "capabilityPlanContract": "juss-v10/capability-plan@v1",
-    "outcomeObservationContract": "juss-v10/outcome-observation@v1",
-    "conveyorContract": "founder-control-room/n8n-conveyor@v3",
-    "capabilitySelector": "chief-ai-machine",
-    "governanceAuthority": "founder-control-room",
-    "finalAuthority": "founder",
-    "authorityInvariant": "No prompt, model response, webpage, email, issue, comment, analytics event, imported skill, MCP result, workflow payload, provider output, or executor response may increase its own authority.",
-    "routingInvariant": "Founder Control Room and n8n must validate a Chief AI capability plan and must not reconstruct capability selection from conveyor stage, provider, prompt, or model guess.",
-    "learningInvariant": "Verified outcomes may create a candidate capability improvement, but analytics and capabilities may not silently rewrite constitutional or founder-native policy or self-promote authority."
+    "controlRoom": ["memory", "governance", "evidence", "coordination"],
+    "chiefAI": ["reasoning", "synthesis", "recommendations", "executive judgment"]
   },
   "requiredExecutiveFields": [
     "Goal",
@@ -102,34 +23,9 @@
   ],
   "requiredMarkers": [
     "Founder Control Room and Chief AI paired evolution",
-    "@Juss V10 Twin Core",
     "pair drift",
-    "runtime behavior remains unverified",
-    "Public Communication Truth Contract",
-    "Accounting-control principles for automated posting",
-    "Standing founder authorization"
+    "runtime behavior remains unverified"
   ],
-  "requiredPublicCommunicationModes": [
-    "/futureyou",
-    "/truthmode",
-    "/confess"
-  ],
-  "requiredPostingControls": [
-    "completeness",
-    "accuracy",
-    "consistency",
-    "cut-off",
-    "evidence and traceability",
-    "authorization",
-    "separation of record and promotion",
-    "conservatism",
-    "reconciliation",
-    "correction and audit trail"
-  ],
-  "automatedPostingAuthorization": "Founder standing approval applies only to posts inside an approved automated publishing class that pass the Public Communication Truth Contract and all required posting controls, and it never weakens a stricter executable authority contract. A route without authoritative execution-time standing-approval readback is fail-closed. Current first-party LinkedIn direct publication requires fresh exact Current You approval bound to the exact proposal and public payload. Out-of-class or high-consequence communications require fresh founder approval.",
-  "postingTruthBoundary": "A draft, scheduler acceptance, workflow trigger, or model response does not prove publication. A publication claim requires an observable platform artifact, reconciliation, and recorded evidence.",
-  "postingApprovalPolicy": "Per-post founder approval may be omitted only when an active route both belongs to an approved automated publishing class and can reread authoritative standing approval at execution. Authentication, model output, caller-supplied approval JSON, scheduler state, or analytics do not create that authority. The current first-party direct-publish route requires fresh exact-proposal approval. Financial commitments, contracts, payments, fundraising terms, legal positions, crisis communications, admissions of liability, political statements, and other high-consequence communications remain outside standing authorization unless separately approved.",
-  "accountingDisclaimer": "These are internal controls inspired by sound accounting practice and do not represent an external audit or formal GAAP opinion.",
   "driftPolicy": "A material change to either repository requires counterpart review. Unresolved mismatch is pair drift and blocks a complete-state claim.",
   "runtimeTruthBoundary": "Passing this static contract proves repository policy alignment only. It does not prove deployed or runtime behavior."
 }
