@@ -1,0 +1,32 @@
+name: Founder Control Room / Chief AI Pair Contract
+
+on:
+  pull_request:
+    paths:
+      - 'config/founder-chief-pair.contract.json'
+      - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
+      - 'scripts/verify-founder-chief-pair.mjs'
+      - 'package.json'
+      - '.github/workflows/founder-chief-pair-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'config/founder-chief-pair.contract.json'
+      - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
+      - 'scripts/verify-founder-chief-pair.mjs'
+      - 'package.json'
+      - '.github/workflows/founder-chief-pair-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pair-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run verify:founder-chief-pair
