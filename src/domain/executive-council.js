@@ -142,7 +142,16 @@ export function validateExecutiveCouncilSynthesis(synthesis) {
       const value = synthesis.confidence[field];
       if (!Number.isInteger(value) || value < 0 || value > 100) errors.push(`Invalid confidence ${field}`);
     });
-    if (!Array.isArray(synthesis.confidence.caps)) errors.push('Confidence caps must be an array');
+    if (!Array.isArray(synthesis.confidence.caps)) {
+      errors.push('Confidence caps must be an array');
+    } else {
+      synthesis.confidence.caps.forEach((cap, index) => {
+        if (!cleanText(cap?.reason, 120)) errors.push(`Confidence cap ${index + 1} is missing a reason`);
+        if (!Number.isInteger(cap?.value) || cap.value < 0 || cap.value > 100) {
+          errors.push(`Confidence cap ${index + 1} has an invalid value`);
+        }
+      });
+    }
   }
 
   if (!Array.isArray(synthesis.evidence) || synthesis.evidence.length === 0 || synthesis.evidence.length > 50) {
@@ -243,6 +252,14 @@ export function synthesizeExecutiveCouncil(input, now = new Date()) {
   if (risks.length > 30) {
     throw new Error('Executive Council cannot preserve more than 30 unique risks; consolidate risks before synthesis');
   }
+  if (risks.some((risk) => risk.length > 2000)) {
+    throw new Error('Executive Council attributed risk exceeds Executive Brief capacity; summarize the risk first');
+  }
+
+  const dissent = buildDissent(reports);
+  if (dissent.some((item) => item.position.length > 1000 || item.reason.length > 2000)) {
+    throw new Error('Executive Council dissent exceeds Executive Brief capacity; summarize the dissenting report first');
+  }
 
   const id = synthesisId(now, decision);
   const brief = createExecutiveBrief({
@@ -251,7 +268,7 @@ export function synthesizeExecutiveCouncil(input, now = new Date()) {
     decision,
     reality: evidence.map(({ state, statement, sourceRefs }) => ({ state, statement, sourceRefs })),
     rationale,
-    dissent: buildDissent(reports),
+    dissent,
     confidence: confidence.final,
     risks,
     nextGate,
