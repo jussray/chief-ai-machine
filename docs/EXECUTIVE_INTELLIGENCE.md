@@ -118,7 +118,7 @@ The synthesizer refuses to:
 - create an approved brief from anything less than approved reports;
 - silently downgrade a mistyped council status;
 - create a valid reviewed or approved Executive Brief without verified reality;
-- silently truncate evidence, source references, risks, or specialist conclusions.
+- silently truncate evidence, source references, risks, dissent, or specialist conclusions.
 
 ## Capacity and loss prevention
 
@@ -127,6 +127,8 @@ The Executive Brief contract is intentionally bounded. The council must fail clo
 - More than 50 unique evidence items requires an explicit evidence summary before synthesis.
 - More than 20 external source references for one merged claim requires source consolidation before synthesis.
 - More than 30 unique council risks requires risk consolidation before synthesis.
+- A role-attributed risk beyond the Executive Brief field capacity requires a bounded risk summary.
+- A dissenting position or reason beyond the Executive Brief field capacity requires a bounded dissent summary.
 - A rationale longer than the Executive Brief capacity requires specialist conclusions to be summarized before synthesis.
 
 The synthesis receipt keeps per-claim contributing report IDs outside the Executive Brief's source-reference list, so external evidence references remain intact and specialist provenance remains recoverable.
@@ -199,7 +201,7 @@ Implemented now:
 - workspace and project isolation checks;
 - duplicate and superseded-report rejection;
 - conservative, explainable confidence caps;
-- fail-closed evidence, source, risk, and rationale capacity guards;
+- fail-closed evidence, source, risk, dissent, and rationale capacity guards;
 - focused unit tests for the contracts.
 
 Not implemented by this slice:
