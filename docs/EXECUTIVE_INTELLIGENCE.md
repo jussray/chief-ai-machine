@@ -98,13 +98,15 @@ The deterministic council synthesizer lives in `src/domain/executive-council.js`
 
 It accepts one valid report per domain and produces:
 
+- one validated Executive Council synthesis receipt;
 - one Executive Brief;
 - participating report IDs and domains;
 - support, conditional, opposition, and abstention lists;
-- merged reality with specialist-report receipts;
+- merged evidence with per-claim contributing report IDs and external source references;
 - preserved dissent;
 - role-attributed residual risks;
-- a transparent confidence calculation.
+- a transparent confidence calculation;
+- workspace, project, synthesis ID, and creation timestamp.
 
 The synthesizer refuses to:
 
@@ -115,7 +117,19 @@ The synthesizer refuses to:
 - create a reviewed brief from draft reports;
 - create an approved brief from anything less than approved reports;
 - silently downgrade a mistyped council status;
-- create a valid reviewed or approved Executive Brief without verified reality.
+- create a valid reviewed or approved Executive Brief without verified reality;
+- silently truncate evidence, source references, risks, or specialist conclusions.
+
+## Capacity and loss prevention
+
+The Executive Brief contract is intentionally bounded. The council must fail closed rather than discard material information to fit those bounds.
+
+- More than 50 unique evidence items requires an explicit evidence summary before synthesis.
+- More than 20 external source references for one merged claim requires source consolidation before synthesis.
+- More than 30 unique council risks requires risk consolidation before synthesis.
+- A rationale longer than the Executive Brief capacity requires specialist conclusions to be summarized before synthesis.
+
+The synthesis receipt keeps per-claim contributing report IDs outside the Executive Brief's source-reference list, so external evidence references remain intact and specialist provenance remains recoverable.
 
 ## Confidence policy
 
@@ -149,7 +163,7 @@ The synthesis returns the base confidence, weakest-specialist value, every appli
 
 Chief AI should coordinate specialists rather than impersonate them.
 
-Chief AI may challenge a specialist, request additional evidence, lower confidence, reject a malformed report, or convene an Executive Council synthesis before producing the final brief.
+Chief AI may challenge a specialist, request additional evidence, lower confidence, reject a malformed report, require a bounded summary, or convene an Executive Council synthesis before producing the final brief.
 
 The current synthesizer is deterministic domain logic. It does not itself call models, run agents, debate autonomously, execute tools, or approve actions.
 
@@ -160,7 +174,7 @@ Chief AI should improve through organizational learning, not silent self-modific
 For each accepted decision, preserve:
 
 - the exact specialist reports;
-- the exact council synthesis and Executive Brief;
+- the exact validated council synthesis and Executive Brief;
 - evidence available at decision time;
 - alternatives considered;
 - founder approval or rejection;
@@ -181,9 +195,11 @@ Implemented now:
 - risks and next-gate fields;
 - specialist report schema and lifecycle validation;
 - one-report-per-domain Executive Council synthesis;
+- validated synthesis receipts with per-claim report contributors;
 - workspace and project isolation checks;
 - duplicate and superseded-report rejection;
 - conservative, explainable confidence caps;
+- fail-closed evidence, source, risk, and rationale capacity guards;
 - focused unit tests for the contracts.
 
 Not implemented by this slice:
