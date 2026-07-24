@@ -25,7 +25,7 @@ Chief AI solves the **portable intelligence problem** for founders running multi
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CHIEF AI  (this repo)                    │
-│  Company Brain · Prompt Library · Builder · Benchmarks      │
+│  Executive Briefs · Company Brain · Builder · Benchmarks    │
 │  Versioned portable export/import · Provider-agnostic        │
 └──────────────┬──────────────────────────┬───────────────────┘
                │ authorizes execution      │ optional integration
@@ -63,6 +63,7 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 
 | Module | What it does |
 |---|---|
+| **Executive Brief contract** | Provider-neutral decision, reality, dissent, confidence, risk, and next-gate schema with accountability checks |
 | **Company Brain** | Browser-local intelligence assets: prompts, workflows, decisions, playbooks, benchmarks, brand voice, research |
 | **Prompt Library** | Reusable starter systems across supported providers |
 | **Builder** | Structured prompt composition with validation |
@@ -71,7 +72,7 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 | **Benchmarks** | Model-routing guidance by task type |
 | **Portable export/import** | Versioned company-brain snapshots with backward compatibility |
 
-> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, and provider execution are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent coordination, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ---
 
@@ -93,7 +94,7 @@ python3 -m http.server 8080
 
 ---
 
-## Domain contract
+## Domain contracts
 
 The portable intelligence contract lives in:
 
@@ -108,6 +109,18 @@ It defines:
 - Legacy prompt migration
 - Portable snapshot export and import
 
+The executive intelligence contract lives in:
+
+```
+src/domain/executive-brief.js
+```
+
+It defines:
+- Decision, reality, rationale, dissent, confidence, risk, and next-gate fields
+- Verified, inferred, unknown, and blocked reality classifications
+- Review and approval evidence requirements
+- Accountability warnings when confidence outruns evidence
+
 ---
 
 ## Docs
@@ -116,6 +129,7 @@ It defines:
 |---|---|
 | [`docs/PRODUCT_DOCTRINE.md`](./docs/PRODUCT_DOCTRINE.md) | Category, customer problem, product promise, independence tests, MVP |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Portable intelligence domain, storage phases, provider execution, security boundaries |
+| [`docs/EXECUTIVE_INTELLIGENCE.md`](./docs/EXECUTIVE_INTELLIGENCE.md) | Chief AI executive coordinator boundary, required brief, accountability rules, and implementation truth |
 | [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Validation milestones, commercial tests, metrics, stop conditions |
 | [`docs/OPERATING_MODES.md`](./docs/OPERATING_MODES.md) | `/garyvee`, `lindymode`, `redteam`, `l99`, `ooda` |
 | [`docs/PLATFORM_ROUTING.md`](./docs/PLATFORM_ROUTING.md) | Provider roles and cross-tool handoffs |
