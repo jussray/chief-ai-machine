@@ -158,7 +158,7 @@ describe('executive council synthesis', () => {
     });
   });
 
-  it('fails closed instead of truncating evidence, sources, risks, or rationale', () => {
+  it('fails closed instead of truncating evidence, sources, risks, rationale, or dissent', () => {
     const evidenceA = Array.from({ length: 30 }, (_, index) => ({
       state: 'verified',
       statement: `Engineering evidence ${index}`,
@@ -215,6 +215,21 @@ describe('executive council synthesis', () => {
       ],
       nextGate: 'Review.',
     }, NOW)).toThrow('rationale exceeds Executive Brief capacity');
+
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Merge.',
+      reports: [report({
+        position: 'oppose',
+        recommendation: 'R'.repeat(1200),
+      })],
+      nextGate: 'Review.',
+    }, NOW)).toThrow('dissent exceeds Executive Brief capacity');
+
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Merge.',
+      reports: [report({ risks: ['X'.repeat(2000)] })],
+      nextGate: 'Review.',
+    }, NOW)).toThrow('attributed risk exceeds Executive Brief capacity');
   });
 
   it('rejects unsupported council status instead of silently downgrading it', () => {
