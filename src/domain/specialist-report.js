@@ -180,7 +180,7 @@ export function assessSpecialistReport(report) {
   const unresolvedItems = report.reality.filter((item) => item.state === 'unknown' || item.state === 'blocked');
 
   if (verifiedItems.length === 0) warnings.push('No specialist reality item is verified');
-  if (verifiedItems.some((item) => item.sourceRefs.length === 0 && (item.receiptIds?.length || 0) === 0)) {
+  if (verifiedItems.some((item) => item.sourceRefs.length === 0)) {
     warnings.push('One or more verified specialist reality items have no source reference');
   }
   if (report.risks.length === 0) warnings.push('No specialist risk is recorded');
