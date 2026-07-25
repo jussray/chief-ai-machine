@@ -25,7 +25,7 @@ Chief AI solves the **portable intelligence problem** for founders running multi
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CHIEF AI  (this repo)                    │
-│ Executive Council · Briefs · Company Brain · Benchmarks     │
+│ Control Room Evidence · Council · Briefs · Company Brain    │
 │  Versioned portable export/import · Provider-agnostic        │
 └──────────────┬──────────────────────────┬───────────────────┘
                │ authorizes execution      │ optional integration
@@ -63,8 +63,9 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 
 | Module | What it does |
 |---|---|
-| **Specialist Report contract** | Domain conclusion, evidence, assumptions, position, confidence, risks, dependencies, and lifecycle |
-| **Executive Council synthesizer** | Produces one validated synthesis receipt and Executive Brief while preserving dissent, per-claim contributors, workspace boundaries, and conservative confidence caps |
+| **Founder Control Room evidence contract** | Accepts evidence-only, data-only receipts with revocation lifecycle, workspace isolation, bounded provenance, and no action authority |
+| **Specialist Report contract** | Domain conclusion, evidence, assumptions, position, confidence, risks, dependencies, receipt provenance, and lifecycle |
+| **Executive Council synthesizer** | Produces one validated synthesis receipt and Executive Brief while preserving dissent, report and Control Room contributors, workspace boundaries, and conservative confidence caps |
 | **Executive Brief contract** | Provider-neutral decision, reality, dissent, confidence, risk, and next-gate schema with accountability checks |
 | **Company Brain** | Browser-local intelligence assets: prompts, workflows, decisions, playbooks, benchmarks, brand voice, research |
 | **Prompt Library** | Reusable starter systems across supported providers |
@@ -74,7 +75,7 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 | **Benchmarks** | Model-routing guidance by task type |
 | **Portable export/import** | Versioned company-brain snapshots with backward compatibility |
 
-> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent runtime, Founder Control Room ingestion, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent runtime, authenticated Founder Control Room transport and signature verification, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ---
 
@@ -114,17 +115,21 @@ It defines:
 The executive intelligence contracts live in:
 
 ```
+src/domain/control-room-evidence.js
 src/domain/specialist-report.js
 src/domain/executive-council.js
 src/domain/executive-brief.js
 ```
 
 They define:
+- Evidence-only Founder Control Room receipts with `data-only` handling and every action permission fixed to false
+- Active, superseded, and revoked receipt lifecycle with verified, unknown, and blocked evidence states
+- Workspace/project isolation, source receipts, bounded ingestion, and fail-closed capacity checks
 - Specialist roles, domains, positions, conclusions, evidence, assumptions, confidence, risks, dependencies, and lifecycle states
 - One-report-per-domain council synthesis with duplicate, cross-workspace, and superseded-report rejection
-- Validated synthesis receipts with per-claim report contributors and external source references
+- Validated synthesis receipts with per-claim specialist and Control Room contributors; receipt IDs remain provenance pointers, not proof by themselves
 - Transparent confidence calculation with weakest-specialist and evidence/disagreement caps
-- Fail-closed capacity guards that prevent silent evidence, source, risk, dissent, or rationale truncation
+- Fail-closed capacity guards that prevent silent evidence, source, receipt, risk, dissent, or rationale truncation
 - Decision, reality, rationale, dissent, risk, and next-gate fields
 - Verified, inferred, unknown, and blocked reality classifications
 - Review and approval evidence requirements
@@ -137,8 +142,8 @@ They define:
 | Document | Contents |
 |---|---|
 | [`docs/PRODUCT_DOCTRINE.md`](./docs/PRODUCT_DOCTRINE.md) | Category, customer problem, product promise, independence tests, MVP |
-| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Portable intelligence domain, storage phases, provider execution, security boundaries |
-| [`docs/EXECUTIVE_INTELLIGENCE.md`](./docs/EXECUTIVE_INTELLIGENCE.md) | Specialist reports, Executive Council synthesis, confidence policy, Chief AI boundary, and implementation truth |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Portable intelligence domain, storage phases, provider execution, Control Room evidence boundary, security boundaries |
+| [`docs/EXECUTIVE_INTELLIGENCE.md`](./docs/EXECUTIVE_INTELLIGENCE.md) | Control Room receipts, specialist reports, Executive Council synthesis, confidence policy, Chief AI boundary, and implementation truth |
 | [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Validation milestones, commercial tests, metrics, stop conditions |
 | [`docs/OPERATING_MODES.md`](./docs/OPERATING_MODES.md) | `/garyvee`, `lindymode`, `redteam`, `l99`, `ooda` |
 | [`docs/PLATFORM_ROUTING.md`](./docs/PLATFORM_ROUTING.md) | Provider roles and cross-tool handoffs |
@@ -153,7 +158,7 @@ They define:
 
 The current browser-local prototype is suitable for **controlled personal use only**.
 
-Production security requires: private workspace authorization · encrypted persistence · tenant-isolation tests · export and deletion lifecycle · recovery drills · bounded logging · server-side provider secrets · explicit human approval before irreversible action.
+Production security requires: private workspace authorization · encrypted persistence · tenant-isolation tests · authenticated and signed integration transport · export and deletion lifecycle · recovery drills · bounded logging · server-side provider secrets · explicit human approval before irreversible action.
 
 ---
 
