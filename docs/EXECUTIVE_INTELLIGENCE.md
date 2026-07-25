@@ -88,8 +88,10 @@ Rules:
 5. Only active receipts may be ingested. Superseded and revoked receipts remain inspectable but cannot influence a new synthesis.
 6. Duplicate receipts and mixed workspace or project data are rejected.
 7. Receipt IDs must exactly match the claims they support; extra provenance cannot be invented later.
-8. Evidence, source references, and receipt contributors fail closed at contract capacity instead of being silently truncated.
-9. Schema validation does not authenticate a network sender or verify a cryptographic signature. Authenticated transport and signature verification remain separate production requirements.
+8. Duplicate source record revisions are rejected, and one active receipt cannot coexist with another active receipt that claims to supersede it.
+9. Receipt IDs are provenance pointers, not proof by themselves; verified claims still require external source references.
+10. Evidence, source references, and receipt contributors fail closed at contract capacity instead of being silently truncated.
+11. Schema validation does not authenticate a network sender or verify a cryptographic signature. Authenticated transport and signature verification remain separate production requirements.
 
 The ingestion may create a specialist report while preserving per-claim Control Room receipt IDs. This is a reasoning handoff only. It does not call tools or authorize execution.
 
@@ -144,7 +146,7 @@ Accountability rules:
 1. A conditional position requires at least one explicit dependency.
 2. Reviewed or approved reports require verified reality.
 3. Confidence values must be real integers, not coerced strings, booleans, or null values.
-4. Verified claims without a source reference or evidence receipt remain visible as warnings.
+4. Verified claims without a source reference remain visible as warnings; receipt IDs do not replace proof.
 5. High confidence paired with unknown or blocked reality remains visible as a warning.
 6. Reports remain scoped to one workspace and project.
 7. Receipt provenance is optional for schema-one reports created before the Control Room contract; new reports preserve it when present.
@@ -202,7 +204,7 @@ Council confidence is intentionally conservative and inspectable.
 1. Start with the rounded average of specialist confidence.
 2. Never exceed the lowest participating specialist confidence.
 3. Cap confidence at 49 when no reality item is verified.
-4. Cap confidence at 69 when verified claims have neither an external source reference nor an evidence receipt.
+4. Cap confidence at 69 when verified claims have no external source reference. A receipt ID alone cannot remove this cap.
 5. Cap confidence at 69 when any reality item is blocked.
 6. Cap confidence at 79 when any reality item is unknown.
 7. Cap confidence at 79 when any specialist is conditional.
@@ -215,7 +217,7 @@ The synthesis returns the base confidence, weakest-specialist value, every appli
 
 1. Facts, inferences, unknowns, and blockers must remain visibly distinct.
 2. Reviewed or approved briefs require at least one verified reality item.
-3. Verified claims should include source references or traceable evidence receipts.
+3. Verified claims require source references. Evidence receipts preserve provenance but do not replace proof.
 4. High confidence must not hide unknown or blocked evidence.
 5. Dissent must be preserved rather than silently averaged away.
 6. Residual risk and rollback implications must remain visible.
@@ -262,6 +264,7 @@ Implemented now:
 - active, superseded, and revoked receipt lifecycle;
 - data-only handling with every action permission fixed to false;
 - source, receipt, workspace, and project provenance validation;
+- duplicate source-revision and active-supersession collision rejection;
 - Control Room ingestion-to-specialist-report handoff;
 - schema-one backward compatibility for reports and council records without receipt fields;
 - specialist report schema and lifecycle validation;
