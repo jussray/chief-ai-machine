@@ -259,6 +259,34 @@ describe('Founder Control Room evidence ingestion', () => {
     );
   });
 
+  it('rejects malformed imported source references before confidence calculation', () => {
+    const malformed = JSON.parse(JSON.stringify(createSpecialistReport({
+      id: 'malformed-source-report',
+      workspaceId: 'juss',
+      projectId: 'chief-ai-machine',
+      role: 'Finance Chief',
+      domain: 'finance',
+      position: 'support',
+      conclusion: 'The claim appears referenced.',
+      recommendation: 'Proceed.',
+      reality: [{ state: 'verified', statement: 'A malformed source claim.', sourceRefs: ['valid-source'] }],
+      confidence: 95,
+      risks: ['The imported source may be malformed.'],
+      status: 'reviewed',
+    }, NOW)));
+    malformed.reality[0].sourceRefs = [123];
+
+    expect(validateSpecialistReport(malformed).errors).toContain(
+      'Reality item 1 has an invalid source reference',
+    );
+    expect(() => synthesizeExecutiveCouncil({
+      decision: 'Evaluate malformed evidence.',
+      reports: [malformed],
+      nextGate: 'Reject malformed evidence.',
+      status: 'reviewed',
+    }, NOW)).toThrow('Reality item 1 has an invalid source reference');
+  });
+
   it('preserves schema-one reports and council records that predate receipt provenance', () => {
     const legacyReport = createSpecialistReport({
       id: 'legacy-report',
