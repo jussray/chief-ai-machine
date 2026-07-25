@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-07-24.2",
+  "contractVersion": "2026-07-24.3",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
@@ -25,15 +25,31 @@
     "Founder Control Room and Chief AI paired evolution",
     "pair drift",
     "runtime behavior remains unverified",
-    "Public Communication Truth Contract"
+    "Public Communication Truth Contract",
+    "Accounting-control principles for automated posting",
+    "Standing founder authorization"
   ],
   "requiredPublicCommunicationModes": [
     "/futureyou",
     "/truthmode",
     "/confess"
   ],
-  "postingTruthBoundary": "A draft, scheduler acceptance, workflow trigger, or model response does not prove publication. A publication claim requires an observable platform artifact and recorded evidence.",
-  "postingApprovalPolicy": "Material external communication requires a reviewable draft and founder approval unless the founder has explicitly authorized that class of automated publication.",
+  "requiredPostingControls": [
+    "completeness",
+    "accuracy",
+    "consistency",
+    "cut-off",
+    "evidence and traceability",
+    "authorization",
+    "separation of record and promotion",
+    "conservatism",
+    "reconciliation",
+    "correction and audit trail"
+  ],
+  "automatedPostingAuthorization": "Founder standing approval applies only to posts inside an approved automated publishing class that pass the Public Communication Truth Contract and all required posting controls. Out-of-class or high-consequence communications require fresh founder approval.",
+  "postingTruthBoundary": "A draft, scheduler acceptance, workflow trigger, or model response does not prove publication. A publication claim requires an observable platform artifact, reconciliation, and recorded evidence.",
+  "postingApprovalPolicy": "Per-post founder approval is not required for compliant posts inside the approved automated publishing class. Financial commitments, contracts, payments, fundraising terms, legal positions, crisis communications, admissions of liability, political statements, and other high-consequence communications remain outside standing authorization unless separately approved.",
+  "accountingDisclaimer": "These are internal controls inspired by sound accounting practice and do not represent an external audit or formal GAAP opinion.",
   "driftPolicy": "A material change to either repository requires counterpart review. Unresolved mismatch is pair drift and blocks a complete-state claim.",
   "runtimeTruthBoundary": "Passing this static contract proves repository policy alignment only. It does not prove deployed or runtime behavior."
 }
