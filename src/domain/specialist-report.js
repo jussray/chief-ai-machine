@@ -31,6 +31,20 @@ function cleanStringList(values, maxItems = 30, maxLength = 2000) {
   return [...new Set(values.map((value) => cleanText(value, maxLength)).filter(Boolean))].slice(0, maxItems);
 }
 
+function cleanReceiptIds(values) {
+  if (values === undefined || values === null) return [];
+  if (!Array.isArray(values)) throw new Error('Specialist reality receiptIds must be an array');
+  const cleaned = values.map((value) => {
+    if (typeof value !== 'string') throw new Error('Specialist reality receipt id must be a string');
+    const receiptId = value.trim();
+    if (receiptId.length > 180) throw new Error('Specialist reality receipt id exceeds 180 characters');
+    return receiptId;
+  }).filter(Boolean);
+  const unique = [...new Set(cleaned)];
+  if (unique.length > 20) throw new Error('Specialist reality receiptIds exceed 20 unique items');
+  return unique;
+}
+
 function cleanRealityItems(items) {
   if (!Array.isArray(items)) return [];
 
@@ -38,6 +52,7 @@ function cleanRealityItems(items) {
     state: REALITY_STATE_SET.has(item?.state) ? item.state : 'unknown',
     statement: cleanText(item?.statement, 2000),
     sourceRefs: cleanStringList(item?.sourceRefs, 20, 500),
+    receiptIds: cleanReceiptIds(item?.receiptIds),
   })).filter((item) => item.statement).slice(0, 50);
 }
 
@@ -123,7 +138,20 @@ export function validateSpecialistReport(report) {
     report.reality.forEach((item, index) => {
       if (!REALITY_STATE_SET.has(item?.state)) errors.push(`Reality item ${index + 1} has an unsupported state`);
       if (!cleanText(item?.statement, 2000)) errors.push(`Reality item ${index + 1} is missing a statement`);
-      if (!Array.isArray(item?.sourceRefs)) errors.push(`Reality item ${index + 1} sourceRefs must be an array`);
+      if (!Array.isArray(item?.sourceRefs) || item.sourceRefs.length > 20) {
+        errors.push(`Reality item ${index + 1} sourceRefs must contain at most 20 items`);
+      }
+      const receiptIds = item?.receiptIds ?? [];
+      if (!Array.isArray(receiptIds) || receiptIds.length > 20) {
+        errors.push(`Reality item ${index + 1} receiptIds must contain at most 20 items`);
+      } else {
+        if (new Set(receiptIds).size !== receiptIds.length) {
+          errors.push(`Reality item ${index + 1} receiptIds must be unique`);
+        }
+        if (receiptIds.some((receiptId) => !cleanText(receiptId, 180) || receiptId.length > 180)) {
+          errors.push(`Reality item ${index + 1} has an invalid receipt id`);
+        }
+      }
     });
   }
   if (!Array.isArray(report.assumptions)) errors.push('Assumptions must be an array');
@@ -152,7 +180,7 @@ export function assessSpecialistReport(report) {
   const unresolvedItems = report.reality.filter((item) => item.state === 'unknown' || item.state === 'blocked');
 
   if (verifiedItems.length === 0) warnings.push('No specialist reality item is verified');
-  if (verifiedItems.some((item) => item.sourceRefs.length === 0)) {
+  if (verifiedItems.some((item) => item.sourceRefs.length === 0 && (item.receiptIds?.length || 0) === 0)) {
     warnings.push('One or more verified specialist reality items have no source reference');
   }
   if (report.risks.length === 0) warnings.push('No specialist risk is recorded');
