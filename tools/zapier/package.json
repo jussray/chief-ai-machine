@@ -1,0 +1,25 @@
+{
+  "name": "@jussray/chief-ai-zapier-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/index.ts",
+    "login": "zapier-sdk login",
+    "connections": "zapier-sdk list-connections --owner me --json",
+    "apps": "zapier-sdk list-apps --json"
+  },
+  "dependencies": {
+    "@zapier/zapier-sdk": "0.89.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.5.4",
+    "@zapier/zapier-sdk-cli": "0.67.2",
+    "tsx": "4.19.0",
+    "typescript": "5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
