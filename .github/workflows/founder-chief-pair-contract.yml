@@ -25,6 +25,7 @@ jobs:
   verify-pair-contract:
     runs-on: ubuntu-latest
     steps:
+      # Controlled PR probe refreshed after accounting-control enforcement.
       - name: Check out Chief AI
         uses: actions/checkout@v4
         with:
