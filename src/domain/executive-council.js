@@ -69,9 +69,7 @@ function calculateConfidence(reports, evidence, positions) {
   const caps = [{ reason: 'weakest-specialist', value: lowestSpecialist }];
 
   if (!evidence.some((item) => item.state === 'verified')) caps.push({ reason: 'no-verified-reality', value: 49 });
-  if (evidence.some((item) => item.state === 'verified'
-    && item.sourceRefs.length === 0
-    && item.receiptIds.length === 0)) {
+  if (evidence.some((item) => item.state === 'verified' && item.sourceRefs.length === 0)) {
     caps.push({ reason: 'unreferenced-verified-reality', value: 69 });
   }
   if (evidence.some((item) => item.state === 'blocked')) caps.push({ reason: 'blocked-reality', value: 69 });
@@ -137,9 +135,13 @@ export function validateExecutiveCouncilSynthesis(synthesis) {
   const synthesisReceiptIds = synthesis.receiptIds ?? [];
   if (synthesis.receiptIds !== undefined && !Array.isArray(synthesis.receiptIds)) {
     errors.push('Receipt ids must be an array');
-  } else if (Array.isArray(synthesisReceiptIds)
-    && new Set(synthesisReceiptIds).size !== synthesisReceiptIds.length) {
-    errors.push('Receipt ids must be unique');
+  } else if (Array.isArray(synthesisReceiptIds)) {
+    if (new Set(synthesisReceiptIds).size !== synthesisReceiptIds.length) {
+      errors.push('Receipt ids must be unique');
+    }
+    if (synthesisReceiptIds.some((receiptId) => !cleanText(receiptId, 180) || receiptId.length > 180)) {
+      errors.push('Receipt ids contain an invalid item');
+    }
   }
 
   POSITION_ORDER.forEach((position) => {
@@ -177,9 +179,16 @@ export function validateExecutiveCouncilSynthesis(synthesis) {
       const receiptIds = item?.receiptIds ?? [];
       if (item?.receiptIds !== undefined && (!Array.isArray(receiptIds) || receiptIds.length > 20)) {
         errors.push(`Evidence item ${index + 1} receiptIds must contain at most 20 items`);
-      } else if (Array.isArray(receiptIds)
-        && receiptIds.some((receiptId) => !synthesisReceiptIds.includes(receiptId))) {
-        errors.push(`Evidence item ${index + 1} references an unknown receipt id`);
+      } else if (Array.isArray(receiptIds)) {
+        if (new Set(receiptIds).size !== receiptIds.length) {
+          errors.push(`Evidence item ${index + 1} receiptIds must be unique`);
+        }
+        if (receiptIds.some((receiptId) => !cleanText(receiptId, 180) || receiptId.length > 180)) {
+          errors.push(`Evidence item ${index + 1} has an invalid receipt id`);
+        }
+        if (receiptIds.some((receiptId) => !synthesisReceiptIds.includes(receiptId))) {
+          errors.push(`Evidence item ${index + 1} references an unknown receipt id`);
+        }
       }
       if (!Array.isArray(item?.reportIds) || item.reportIds.length === 0) {
         errors.push(`Evidence item ${index + 1} requires contributing report ids`);
