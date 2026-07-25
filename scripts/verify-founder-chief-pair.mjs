@@ -38,7 +38,7 @@ requireValue(contract.roles?.chiefAI?.join('|') === 'reasoning|synthesis|recomme
 requireValue(contract.driftPolicy?.includes('pair drift'), 'pair drift policy is required');
 requireValue(contract.runtimeTruthBoundary?.includes('does not prove deployed or runtime behavior'), 'runtime truth boundary is required');
 requireValue(contract.postingTruthBoundary?.includes('observable platform artifact'), 'posting truth boundary is required');
-requireValue(contract.postingApprovalPolicy?.includes('explicitly authorized'), 'posting approval policy is required');
+requireValue(contract.postingApprovalPolicy?.includes('unless separately approved'), 'posting approval policy is required');
 
 for (const mode of ['/futureyou', '/truthmode', '/confess']) {
   requireValue(contract.requiredPublicCommunicationModes?.includes(mode), `pair contract missing public communication mode ${mode}`);
