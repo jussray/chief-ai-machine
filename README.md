@@ -127,7 +127,7 @@ They define:
 - Workspace/project isolation, source receipts, bounded ingestion, and fail-closed capacity checks
 - Specialist roles, domains, positions, conclusions, evidence, assumptions, confidence, risks, dependencies, and lifecycle states
 - One-report-per-domain council synthesis with duplicate, cross-workspace, and superseded-report rejection
-- Validated synthesis receipts with per-claim specialist and Control Room contributors
+- Validated synthesis receipts with per-claim specialist and Control Room contributors; receipt IDs remain provenance pointers, not proof by themselves
 - Transparent confidence calculation with weakest-specialist and evidence/disagreement caps
 - Fail-closed capacity guards that prevent silent evidence, source, receipt, risk, dissent, or rationale truncation
 - Decision, reality, rationale, dissent, risk, and next-gate fields
