@@ -175,6 +175,15 @@ export function validateExecutiveCouncilSynthesis(synthesis) {
       if (!cleanText(item?.statement, 2000)) errors.push(`Evidence item ${index + 1} is missing a statement`);
       if (!Array.isArray(item?.sourceRefs) || item.sourceRefs.length > 20) {
         errors.push(`Evidence item ${index + 1} sourceRefs must contain at most 20 items`);
+      } else {
+        if (new Set(item.sourceRefs).size !== item.sourceRefs.length) {
+          errors.push(`Evidence item ${index + 1} sourceRefs must be unique`);
+        }
+        if (item.sourceRefs.some((sourceRef) => typeof sourceRef !== 'string'
+          || !sourceRef.trim()
+          || sourceRef.trim().length > 500)) {
+          errors.push(`Evidence item ${index + 1} has an invalid source reference`);
+        }
       }
       const receiptIds = item?.receiptIds ?? [];
       if (item?.receiptIds !== undefined && (!Array.isArray(receiptIds) || receiptIds.length > 20)) {
