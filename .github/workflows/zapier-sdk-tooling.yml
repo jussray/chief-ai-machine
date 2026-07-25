@@ -1,0 +1,30 @@
+name: Zapier SDK tooling
+
+on:
+  pull_request:
+    paths:
+      - "tools/zapier/**"
+      - ".github/workflows/zapier-sdk-tooling.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install isolated tooling dependencies
+        run: npm install --prefix tools/zapier --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck Zapier SDK bootstrap
+        run: npm --prefix tools/zapier run typecheck
