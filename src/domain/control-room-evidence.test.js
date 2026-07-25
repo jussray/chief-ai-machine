@@ -188,6 +188,77 @@ describe('Founder Control Room evidence ingestion', () => {
     expect(validateExecutiveCouncilSynthesis(synthesis)).toEqual({ valid: true, errors: [] });
   });
 
+  it('does not let invented receipt ids substitute for source evidence', () => {
+    const report = createSpecialistReport({
+      id: 'forged-provenance-report',
+      workspaceId: 'juss',
+      projectId: 'chief-ai-machine',
+      role: 'Product Chief',
+      domain: 'product',
+      position: 'support',
+      conclusion: 'The claim is presented as verified.',
+      recommendation: 'Proceed.',
+      reality: [{
+        state: 'verified',
+        statement: 'A claim with no external source.',
+        sourceRefs: [],
+        receiptIds: ['invented-receipt'],
+      }],
+      confidence: 95,
+      risks: ['The receipt id may be invented.'],
+      status: 'reviewed',
+    }, NOW);
+    const synthesis = synthesizeExecutiveCouncil({
+      decision: 'Evaluate the claim.',
+      reports: [report],
+      nextGate: 'Retrieve the real source.',
+      status: 'reviewed',
+    }, NOW);
+
+    expect(synthesis.confidence.final).toBe(69);
+    expect(synthesis.confidence.caps).toContainEqual({
+      reason: 'unreferenced-verified-reality',
+      value: 69,
+    });
+  });
+
+  it('rejects duplicate source revisions and active supersession collisions', () => {
+    expect(() => createControlRoomEvidenceIngestion({
+      receipts: [
+        receipt({ id: 'source-a' }, 17),
+        receipt({ id: 'source-b' }, 17),
+      ],
+    }, NOW)).toThrow('cannot count the same source record revision more than once');
+
+    expect(() => createControlRoomEvidenceIngestion({
+      receipts: [
+        receipt({ id: 'old-receipt', sourceRecordId: 'old-record' }, 18),
+        receipt({
+          id: 'new-receipt',
+          sourceRecordId: 'new-record',
+          supersedesReceiptId: 'old-receipt',
+        }, 19),
+      ],
+    }, NOW)).toThrow('cannot include an active receipt and another active receipt that supersedes it');
+  });
+
+  it('rejects imported ingestion that exceeds receipt capacity or drops verified source proof', () => {
+    const ingestion = createControlRoomEvidenceIngestion({ receipts: [receipt({}, 20)] }, NOW);
+    const tooMany = {
+      ...ingestion,
+      receiptIds: Array.from({ length: 201 }, (_, index) => `receipt-${index}`),
+    };
+    expect(validateControlRoomEvidenceIngestion(tooMany).errors).toContain(
+      'Receipt ids must contain between 1 and 200 items',
+    );
+
+    const unreferenced = JSON.parse(JSON.stringify(ingestion));
+    unreferenced.evidence[0].sourceRefs = [];
+    expect(validateControlRoomEvidenceIngestion(unreferenced).errors).toContain(
+      'Evidence item 1 verified evidence requires a source reference',
+    );
+  });
+
   it('preserves schema-one reports and council records that predate receipt provenance', () => {
     const legacyReport = createSpecialistReport({
       id: 'legacy-report',
