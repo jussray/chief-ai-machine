@@ -59,8 +59,8 @@ describe('Founder Control Room evidence ingestion', () => {
       sourceRefs: Array.from({ length: 21 }, (_, index) => `source-${index}`),
     }, 5)).toThrow('Control Room source references exceeds 20 unique items');
 
-    const forged = receipt({}, 6);
-    forged.authority = { ...forged.authority, permitsRoot: true };
+    const forged = JSON.parse(JSON.stringify(receipt({}, 6)));
+    forged.authority.permitsRoot = true;
     expect(validateControlRoomEvidenceReceipt(forged)).toEqual({
       valid: false,
       errors: ['Receipt authority must remain evidence-only'],
