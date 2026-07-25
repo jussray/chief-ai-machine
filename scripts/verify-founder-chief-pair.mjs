@@ -4,9 +4,10 @@ import { resolve } from 'node:path';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-const [contractText, constitution, pkgText] = await Promise.all([
+const [contractText, constitution, communication, pkgText] = await Promise.all([
   read('config/founder-chief-pair.contract.json'),
   read('docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'),
+  read('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md'),
   read('package.json'),
 ]);
 
@@ -36,6 +37,36 @@ requireValue(contract.roles?.controlRoom?.join('|') === 'memory|governance|evide
 requireValue(contract.roles?.chiefAI?.join('|') === 'reasoning|synthesis|recommendations|executive judgment', 'Chief AI role contract drifted');
 requireValue(contract.driftPolicy?.includes('pair drift'), 'pair drift policy is required');
 requireValue(contract.runtimeTruthBoundary?.includes('does not prove deployed or runtime behavior'), 'runtime truth boundary is required');
+requireValue(contract.postingTruthBoundary?.includes('observable platform artifact'), 'posting truth boundary is required');
+requireValue(contract.postingApprovalPolicy?.includes('explicitly authorized'), 'posting approval policy is required');
+
+for (const mode of ['/futureyou', '/truthmode', '/confess']) {
+  requireValue(contract.requiredPublicCommunicationModes?.includes(mode), `pair contract missing public communication mode ${mode}`);
+  requireValue(communication.includes(mode), `public communication contract missing mode ${mode}`);
+}
+
+for (const control of [
+  'Completeness',
+  'Accuracy',
+  'Consistency',
+  'Cut-off',
+  'Evidence and traceability',
+  'Authorization',
+  'Separation of record and promotion',
+  'Conservatism',
+  'Reconciliation',
+  'Correction and audit trail',
+]) {
+  requireValue(communication.includes(control), `public communication contract missing accounting control ${control}`);
+}
+
+for (const marker of [
+  'standing authorization',
+  'observable platform artifact',
+  'Fresh approval is still required',
+]) {
+  requireValue(communication.includes(marker), `public communication contract missing ${JSON.stringify(marker)}`);
+}
 
 for (const marker of [
   'Founder Control Room and Chief AI paired evolution',
@@ -80,6 +111,7 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
+console.log('Public communication accounting controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
