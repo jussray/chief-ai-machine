@@ -40,12 +40,14 @@ function collectEvidence(reports) {
         state: item.state,
         statement: item.statement,
         sourceRefs: [],
+        receiptIds: [],
         reportIds: [],
       };
 
       merged.set(key, {
         ...current,
         sourceRefs: uniqueStrings([...current.sourceRefs, ...item.sourceRefs]),
+        receiptIds: uniqueStrings([...current.receiptIds, ...(item.receiptIds || [])]),
         reportIds: uniqueStrings([...current.reportIds, report.id]),
       });
     });
@@ -67,7 +69,9 @@ function calculateConfidence(reports, evidence, positions) {
   const caps = [{ reason: 'weakest-specialist', value: lowestSpecialist }];
 
   if (!evidence.some((item) => item.state === 'verified')) caps.push({ reason: 'no-verified-reality', value: 49 });
-  if (evidence.some((item) => item.state === 'verified' && item.sourceRefs.length === 0)) {
+  if (evidence.some((item) => item.state === 'verified'
+    && item.sourceRefs.length === 0
+    && item.receiptIds.length === 0)) {
     caps.push({ reason: 'unreferenced-verified-reality', value: 69 });
   }
   if (evidence.some((item) => item.state === 'blocked')) caps.push({ reason: 'blocked-reality', value: 69 });
@@ -130,6 +134,13 @@ export function validateExecutiveCouncilSynthesis(synthesis) {
   if (!Array.isArray(synthesis.domains) || synthesis.domains.length !== synthesis.reportIds?.length) {
     errors.push('Domains must align with report ids');
   }
+  const synthesisReceiptIds = synthesis.receiptIds ?? [];
+  if (synthesis.receiptIds !== undefined && !Array.isArray(synthesis.receiptIds)) {
+    errors.push('Receipt ids must be an array');
+  } else if (Array.isArray(synthesisReceiptIds)
+    && new Set(synthesisReceiptIds).size !== synthesisReceiptIds.length) {
+    errors.push('Receipt ids must be unique');
+  }
 
   POSITION_ORDER.forEach((position) => {
     if (!Array.isArray(synthesis.positions?.[position])) errors.push(`Missing ${position} positions`);
@@ -163,12 +174,30 @@ export function validateExecutiveCouncilSynthesis(synthesis) {
       if (!Array.isArray(item?.sourceRefs) || item.sourceRefs.length > 20) {
         errors.push(`Evidence item ${index + 1} sourceRefs must contain at most 20 items`);
       }
+      const receiptIds = item?.receiptIds ?? [];
+      if (item?.receiptIds !== undefined && (!Array.isArray(receiptIds) || receiptIds.length > 20)) {
+        errors.push(`Evidence item ${index + 1} receiptIds must contain at most 20 items`);
+      } else if (Array.isArray(receiptIds)
+        && receiptIds.some((receiptId) => !synthesisReceiptIds.includes(receiptId))) {
+        errors.push(`Evidence item ${index + 1} references an unknown receipt id`);
+      }
       if (!Array.isArray(item?.reportIds) || item.reportIds.length === 0) {
         errors.push(`Evidence item ${index + 1} requires contributing report ids`);
       } else if (item.reportIds.some((reportId) => !synthesis.reportIds?.includes(reportId))) {
         errors.push(`Evidence item ${index + 1} references an unknown report id`);
       }
     });
+  }
+
+  if (Array.isArray(synthesis.evidence)) {
+    const evidenceReceiptIds = uniqueStrings(synthesis.evidence.flatMap((item) => item?.receiptIds || []));
+    if (evidenceReceiptIds.length > 0 && synthesis.receiptIds === undefined) {
+      errors.push('Receipt ids are required when evidence references Control Room receipts');
+    } else if (Array.isArray(synthesisReceiptIds)
+      && (evidenceReceiptIds.length !== synthesisReceiptIds.length
+        || evidenceReceiptIds.some((receiptId) => !synthesisReceiptIds.includes(receiptId)))) {
+      errors.push('Receipt ids must exactly match evidence contributors');
+    }
   }
 
   const briefValidation = validateExecutiveBrief(synthesis.brief);
@@ -240,6 +269,9 @@ export function synthesizeExecutiveCouncil(input, now = new Date()) {
   if (evidence.some((item) => item.sourceRefs.length > 20)) {
     throw new Error('Executive Council evidence exceeds 20 source references; summarize sources before synthesis');
   }
+  if (evidence.some((item) => item.receiptIds.length > 20)) {
+    throw new Error('Executive Council evidence exceeds 20 Control Room receipts; summarize receipts before synthesis');
+  }
 
   const positions = summarizePositions(reports);
   const confidence = calculateConfidence(reports, evidence, positions);
@@ -262,6 +294,7 @@ export function synthesizeExecutiveCouncil(input, now = new Date()) {
   }
 
   const id = synthesisId(now, decision);
+  const receiptIds = uniqueStrings(evidence.flatMap((item) => item.receiptIds));
   const brief = createExecutiveBrief({
     workspaceId: workspaceIds[0],
     projectId: projectIds[0],
@@ -282,6 +315,7 @@ export function synthesizeExecutiveCouncil(input, now = new Date()) {
     workspaceId: workspaceIds[0],
     projectId: projectIds[0],
     reportIds,
+    receiptIds,
     domains: reports.map((report) => report.domain),
     positions,
     confidence,
