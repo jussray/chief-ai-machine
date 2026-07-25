@@ -283,6 +283,14 @@ export function createControlRoomEvidenceIngestion(input, now = new Date()) {
     throw new Error('Control Room ingestion cannot count the same receipt more than once');
   }
 
+  const sourceRecordKeys = receipts.map((receipt) => `${receipt.sourceRecordId}\u0000${receipt.sourceRevision}`);
+  if (new Set(sourceRecordKeys).size !== sourceRecordKeys.length) {
+    throw new Error('Control Room ingestion cannot count the same source record revision more than once');
+  }
+  if (receipts.some((receipt) => receipt.supersedesReceiptId && receiptIds.includes(receipt.supersedesReceiptId))) {
+    throw new Error('Control Room ingestion cannot include an active receipt and another active receipt that supersedes it');
+  }
+
   const workspaceIds = [...new Set(receipts.map((receipt) => receipt.workspaceId))];
   const projectIds = [...new Set(receipts.map((receipt) => receipt.projectId))];
   if (workspaceIds.length !== 1 || projectIds.length !== 1) {
@@ -341,8 +349,8 @@ export function validateControlRoomEvidenceIngestion(ingestion) {
   if (!cleanIsoTimestamp(ingestion.createdAt)) errors.push('Invalid created timestamp');
   if (!authorityIsEvidenceOnly(ingestion.authority)) errors.push('Ingestion authority must remain evidence-only');
 
-  if (!Array.isArray(ingestion.receiptIds) || ingestion.receiptIds.length === 0) {
-    errors.push('Receipt ids must be a non-empty array');
+  if (!Array.isArray(ingestion.receiptIds) || ingestion.receiptIds.length === 0 || ingestion.receiptIds.length > 200) {
+    errors.push('Receipt ids must contain between 1 and 200 items');
   } else {
     if (new Set(ingestion.receiptIds).size !== ingestion.receiptIds.length) {
       errors.push('Receipt ids must be unique');
@@ -367,6 +375,9 @@ export function validateControlRoomEvidenceIngestion(ingestion) {
         if (item.sourceRefs.some((sourceRef) => !isBoundedText(sourceRef, 500))) {
           errors.push(`Evidence item ${index + 1} has an invalid source reference`);
         }
+        if (item.state === 'verified' && item.sourceRefs.length === 0) {
+          errors.push(`Evidence item ${index + 1} verified evidence requires a source reference`);
+        }
       }
       if (!Array.isArray(item?.receiptIds) || item.receiptIds.length === 0 || item.receiptIds.length > 20) {
         errors.push(`Evidence item ${index + 1} receiptIds must contain between 1 and 20 items`);
@@ -384,6 +395,8 @@ export function validateControlRoomEvidenceIngestion(ingestion) {
       if (!Array.isArray(item?.kinds) || item.kinds.length === 0
         || item.kinds.some((kind) => !EVIDENCE_KIND_SET.has(kind))) {
         errors.push(`Evidence item ${index + 1} has invalid evidence kinds`);
+      } else if (new Set(item.kinds).size !== item.kinds.length) {
+        errors.push(`Evidence item ${index + 1} evidence kinds must be unique`);
       }
       const observedFrom = cleanIsoTimestamp(item?.observedFrom);
       const observedTo = cleanIsoTimestamp(item?.observedTo);
