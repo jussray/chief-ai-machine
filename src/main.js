@@ -8,6 +8,7 @@ import { initFreestyle } from './modules/freestyle.js';
 import { initCustom } from './modules/custom.js';
 import { initModal } from './modules/modal.js';
 import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
+import { initFriendMode } from './modules/friend-mode.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
 function readArray(key) {
@@ -21,6 +22,7 @@ function readArray(key) {
 
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
+  initFriendMode();
   initNav();
   const modal = initModal(PROMPTS);
   initLibrary(PROMPTS, modal);
