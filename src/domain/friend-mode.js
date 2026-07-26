@@ -99,7 +99,7 @@ export function resolveFriendInput(rawText, energy = 'medium') {
 
   const { scores, matched } = scoreDomains(text, safeEnergy);
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const [dominantDomain, topScore] = ranked[0];
+  const [dominantDomain] = ranked[0];
   const competingDomains = ranked
     .slice(1)
     .filter(([, score]) => score > 10)
