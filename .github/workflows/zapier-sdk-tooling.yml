@@ -23,8 +23,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Materialize verified canonical lockfile
+        run: node tools/zapier/scripts/sync-lockfile.mjs
+
       - name: Install isolated tooling dependencies
-        run: npm install --prefix tools/zapier --ignore-scripts --no-audit --no-fund
+        run: npm ci --prefix tools/zapier --ignore-scripts --no-audit --no-fund
 
       - name: Typecheck Zapier SDK bootstrap
         run: npm --prefix tools/zapier run typecheck
