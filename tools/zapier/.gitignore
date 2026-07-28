@@ -1,0 +1,4 @@
+# Local Zapier SDK credentials
+.env
+.env.*
+!.env.example
