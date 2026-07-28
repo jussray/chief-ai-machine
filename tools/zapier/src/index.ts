@@ -33,12 +33,7 @@ const { data: profile } = await zapier.getProfile();
 console.log(
   JSON.stringify(
     {
-      authenticated: true,
-      profile: {
-        id: profile.id,
-        name: profile.full_name,
-        email: profile.email,
-      },
+      authenticated: Boolean(profile.id),
     },
     null,
     2,
