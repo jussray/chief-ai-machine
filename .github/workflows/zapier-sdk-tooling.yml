@@ -10,27 +10,18 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: zapier-sdk-tooling-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
 
       - name: Materialize verified canonical lockfile
         run: node tools/zapier/scripts/sync-lockfile.mjs
