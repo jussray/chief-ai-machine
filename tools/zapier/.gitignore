@@ -1,0 +1,7 @@
+# Local Zapier SDK credentials
+.env
+.env.*
+!.env.example
+
+# Materialized from the immutable Founder Control Room lock authority.
+package-lock.json
