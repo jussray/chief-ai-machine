@@ -145,7 +145,7 @@ Do not perform these actions without explicit founder approval for that exact ac
 - billing, pricing, subscriptions, or paid service changes;
 - domain, DNS, Worker name, app identifier, signing, or production environment changes;
 - installation of broad-permission apps or connectors;
-- external communication sent in the founder’s name;
+- external communication sent in the founder’s name, except compliant posts inside an approved automated publishing class explicitly authorized by `docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md` and `config/founder-chief-pair.contract.json`; all other external communication requires explicit founder approval for that exact action;
 - publishing proprietary prompt content into a public browser bundle;
 - deletion of Ray/Juss material.
 
