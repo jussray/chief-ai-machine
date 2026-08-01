@@ -22,7 +22,11 @@ Before any direct publish, scheduling action, send, announcement, promotion, pit
 3. Require every posting control: completeness, accuracy, consistency, cut-off, evidence and traceability, authorization, separation of record and promotion, conservatism, reconciliation, and correction/audit trail.
 4. Treat standing founder authorization as limited to a compliant approved automated publishing class. Do not infer approval for high-consequence or out-of-class communications.
 5. Hold when a material claim lacks proof, a control fails, required authorization or review is missing, or private, sensitive, or security-relevant information could be exposed.
-6. A draft, scheduler acceptance, API/Zapier response, workflow trigger, or model response is not publication. Report `PUBLISHING STATUS: HELD` until a live platform artifact, URL, message ID, or equivalent receipt is captured and reconciled.
+6. A draft, scheduler acceptance, API/Zapier response, workflow trigger, or model response is not publication. Use `PUBLISHING STATUS: HELD` only when dispatch was prevented.
+
+Use an indeterminate post-dispatch status when a provider may have accepted the request but artifact capture or reconciliation times out: `PUBLISHING STATUS: DISPATCHED_UNRECONCILED`. Stop automatic retries until the live result is resolved; do not label an uncertain external side effect `HELD`.
+
+Use `PUBLISHING STATUS: PUBLISHED_RECONCILED` only after the live platform artifact, URL, message ID, or equivalent receipt is captured and reconciled. If the provider definitively rejected the request before dispatch, report `PUBLISHING STATUS: FAILED_BEFORE_DISPATCH`.
 
 Write a founder hook, concrete change, why it matters, traction signal, governance advantage, clickable proof, and one action. Preserve candid voice. Prefer numbers, nouns, and links over hype.
 
