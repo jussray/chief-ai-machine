@@ -39,7 +39,14 @@ export default [
     },
   },
   {
-    files: ['scripts/**/*.js'],
+    files: [
+      'scripts/**/*.js',
+      'scripts/**/*.mjs',
+      'scripts/**/*.cjs',
+      'tools/**/scripts/**/*.js',
+      'tools/**/scripts/**/*.mjs',
+      'tools/**/scripts/**/*.cjs',
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -48,6 +55,7 @@ export default [
         process: 'readonly',
         fetch: 'readonly',
         Buffer: 'readonly',
+        URL: 'readonly',
         setTimeout: 'readonly',
       },
     },
