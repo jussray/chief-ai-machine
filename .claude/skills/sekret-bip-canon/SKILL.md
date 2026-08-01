@@ -7,6 +7,8 @@ description: Preserve Se’kret Bip’s canonical character names, compatibility
 
 Treat `$ARGUMENTS` as the requested Se’kret Bip decision or implementation. Read [references/canon.md](references/canon.md) before changing names, visuals, copy, routing, or audience behavior.
 
+Before any repository mutation, use `/repo-truth` to verify the authoritative repository is exactly `jussray/Sekret-Bip`. If it is not, stop mutation and return a provenance report identifying the current repository, its relationship to the authoritative source, and the next safe gate.
+
 1. Inspect the repository and existing assets before proposing replacements.
 2. Normalize legacy identifiers at user/AI boundaries while retaining compatibility only where required by existing storage, database, or routes.
 3. Keep polished product finish and dreamy protective secret-world identity together.
