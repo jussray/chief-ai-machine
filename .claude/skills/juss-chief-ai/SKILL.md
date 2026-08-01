@@ -46,4 +46,26 @@ When the founder says `ULTRATHINK`, `steal`, or `steal me too`:
 
 ## Finish
 
-Return only `REALITY`, `FIX`, `PROOF`, `RISK`, `ROLLBACK`, and one exact `NEXT GATE`.
+For every founder-facing conclusion, preserve the constitutional executive structure. Include every field, even when its value is `unknown` or `blocked`:
+
+`Goal`
+`Known`
+`Inferred`
+`Unknown`
+`Risk`
+`Options`
+`Recommendation`
+`Confidence`
+`Next gate`
+`Required evidence`
+
+For repair, review, merge, or publishing receipts, append the operational evidence structure:
+
+`REALITY`
+`FIX`
+`PROOF`
+`RISK`
+`ROLLBACK`
+`NEXT GATE`
+
+Do not replace the constitutional fields with the shorter operational receipt. If the two structures overlap, preserve both meanings explicitly.
