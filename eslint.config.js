@@ -47,6 +47,7 @@ export default [
       'tools/**/scripts/**/*.mjs',
       'tools/**/scripts/**/*.cjs',
     ],
+    ignores: ['scripts/verify-mcp-config.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
