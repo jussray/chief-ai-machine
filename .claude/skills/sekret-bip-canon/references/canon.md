@@ -3,7 +3,8 @@
 ## Names and compatibility
 
 - Canonical names are **Suhana** and **Sy**.
-- `raylene` and `rylane` may remain only as compatibility identifiers in existing database, storage, or route boundaries.
+- `raylene` maps one-to-one to **Suhana**; `rylane` maps one-to-one to **Sy**.
+- Those legacy identifiers may remain only as compatibility identifiers in existing database, storage, analytics, fixture, or route boundaries until a dedicated migration and compatibility plan is approved.
 - User-facing and AI-facing output must normalize legacy identifiers to Suhana and Sy.
 
 ## Character composition
