@@ -22,4 +22,4 @@ State the authoritative repo, target branch, current goal, suspected failure are
 
 Treat `ULTRATHINK/steal` as deeper reasoning, not a larger patch. Extract causal mechanisms and synthesize an original solution. Do not copy protected expression, branding, private material, secrets, or incompatible code. Score candidates by founder value, durability, reversibility, authority, evidence, rollback, and compounding value.
 
-Do not merge unless requested and all required checks plus real-path evidence are green. Return `REALITY`, `FIX`, `PROOF`, `RISK`, `ROLLBACK`, and one `NEXT GATE`.
+Do not merge unless requested and all required checks plus real-path evidence are green, except when `/review-verify-merge` verifies a checked-in repository policy that explicitly permits a classified infrastructure-outage exception with sufficient alternative evidence and no protection bypass. Return `REALITY`, `FIX`, `PROOF`, `RISK`, `ROLLBACK`, and one `NEXT GATE`.
