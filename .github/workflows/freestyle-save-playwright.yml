@@ -7,7 +7,7 @@ on:
     paths:
       - "src/modules/freestyle.js"
       - "src/domain/evidence-first-prompt.js"
-      - "e2e/freestyle-save.spec.js"
+      - "e2e/freestyle-save.pw.mjs"
       - ".github/workflows/freestyle-save-playwright.yml"
   workflow_dispatch:
 
@@ -70,7 +70,7 @@ jobs:
       - name: Run rendered Freestyle save proof
         env:
           PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:4173
-        run: npx playwright test e2e/freestyle-save.spec.js --reporter=line
+        run: npx playwright test e2e/freestyle-save.pw.mjs --reporter=line
 
       - name: Stop static server
         if: always()
