@@ -1,3 +1,4 @@
+import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 
 export function initFreestyle(PROMPTS) {
@@ -30,6 +31,10 @@ export function initFreestyle(PROMPTS) {
     return 'research';
   }
 
+  function renderCurrent() {
+    return renderPromptVariant(currentResult, currentPlatform);
+  }
+
   function generate() {
     const ask = askEl?.value?.trim(); if (!ask) return;
     const platforms = getChecked();
@@ -48,17 +53,17 @@ export function initFreestyle(PROMPTS) {
       const btn = document.createElement('button');
       btn.className = 'ptab' + (i === 0 ? ' active' : '');
       btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
-      btn.addEventListener('click', () => { fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentPlatform = p; fsBody.textContent = base.versions[p] || ''; });
+      btn.addEventListener('click', () => { fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentPlatform = p; fsBody.textContent = renderCurrent(); });
       fsTabs.appendChild(btn);
     });
-    fsBody.textContent = base.versions[currentPlatform] || '';
+    fsBody.textContent = renderCurrent();
     placeholder.style.display = 'none'; preview.classList.add('on');
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
   askEl?.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate(); });
   document.getElementById('fsClear')?.addEventListener('click', () => { if (askEl) askEl.value = ''; preview.classList.remove('on'); placeholder.style.display = ''; });
-  document.getElementById('fsCopy')?.addEventListener('click', () => { if (currentResult && currentPlatform) { copyText(currentResult.versions[currentPlatform]); showToast('Copied!'); } });
+  document.getElementById('fsCopy')?.addEventListener('click', () => { if (currentResult && currentPlatform) { copyText(renderCurrent()); showToast('Copied!'); } });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
