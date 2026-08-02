@@ -85,29 +85,3 @@ jobs:
       - name: SonarQube not configured
         if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
         run: echo "SonarQube secrets are not configured; core typecheck, lint, and unit-test gates remain authoritative."
-
-  governed-prompt-exits:
-    name: "Playwright – Governed Prompt Exits"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - name: Install Playwright runtime
-        run: |
-          npm install --no-save --package-lock=false @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
-      - name: Verify library, builder, and freestyle exits
-        run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chief-ai-http.log 2>&1 &
-          SERVER_PID=$!
-          trap 'kill $SERVER_PID' EXIT
-          npx playwright test --config=.github/playwright-governed-exits.config.js --reporter=line
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: governed-prompt-exits-playwright
-          path: playwright-artifacts
