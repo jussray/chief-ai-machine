@@ -33,7 +33,7 @@ describe('library-wide evidence-first prompt floor', () => {
     let checked = 0;
 
     for (const prompt of PROMPTS) {
-      for (const [platform, value] of Object.entries(prompt.versions || {})) {
+      for (const platform of Object.keys(prompt.versions || {})) {
         const rendered = renderPromptVariant(prompt, platform);
         const normalized = rendered.toLowerCase();
 
