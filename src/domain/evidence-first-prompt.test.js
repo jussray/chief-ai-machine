@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROMPTS } from '../data/prompts.js';
+import { initBuilder } from '../modules/builder.js';
+import { initFreestyle } from '../modules/freestyle.js';
+import { initModal } from '../modules/modal.js';
 import {
   EVIDENCE_FIRST_FLOOR,
   applyEvidenceFirstContract,
@@ -22,10 +24,10 @@ const REQUIRED_TERMS = [
   'playwright',
 ];
 
-const PROMPT_EXIT_MODULES = [
-  '../modules/modal.js',
-  '../modules/builder.js',
-  '../modules/freestyle.js',
+const PROMPT_EXIT_INITIALIZERS = [
+  ['Library modal', initModal],
+  ['Builder', initBuilder],
+  ['Freestyle', initFreestyle],
 ];
 
 describe('library-wide evidence-first prompt floor', () => {
@@ -99,13 +101,13 @@ describe('library-wide evidence-first prompt floor', () => {
   });
 
   it('routes every reusable prompt exit through the governed renderer', () => {
-    const combined = PROMPT_EXIT_MODULES
-      .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
+    const combined = PROMPT_EXIT_INITIALIZERS
+      .map(([, initializer]) => initializer.toString())
       .join('\n');
 
-    for (const path of PROMPT_EXIT_MODULES) {
-      const source = readFileSync(new URL(path, import.meta.url), 'utf8');
-      expect(source, `${path} imports or calls the governed renderer`).toContain('renderPromptVariant');
+    for (const [name, initializer] of PROMPT_EXIT_INITIALIZERS) {
+      expect(initializer.toString(), `${name} calls the governed renderer`)
+        .toContain('renderPromptVariant');
     }
 
     for (const legacyBypass of [
