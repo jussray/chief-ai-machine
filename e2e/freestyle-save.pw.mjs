@@ -1,47 +1,99 @@
-/* global process, localStorage */
+/* global localStorage, navigator */
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://127.0.0.1:4173';
-const REQUIRED_MARKERS = [
-  'authoritative repository',
-  'VERIFIED',
-  'INFERRED',
-  'UNKNOWN',
-  'BLOCKED',
-];
+const ORIGIN = 'http://127.0.0.1:4173';
+const FLOOR = 'EVIDENCE-FIRST FLOOR:';
 
-test('Freestyle saves evidence-first versions for every selected provider', async ({ page }) => {
-  await page.goto(BASE_URL);
+function floorCount(text) {
+  return (String(text).match(/EVIDENCE-FIRST FLOOR:/g) || []).length;
+}
 
-  await page.locator('[data-page="freestyle"]').first().click();
-  await expect(page.locator('#page-freestyle')).toHaveClass(/\bon\b/);
+async function openPage(page, name) {
+  await page.locator(`[data-page="${name}"]:visible`).first().click();
+  await expect(page.locator(`#page-${name}`)).toHaveClass(/\bon\b/);
+}
+
+async function assertModalProvider(page, providerLabel) {
+  await page.locator('#mTabs .ptab', { hasText: providerLabel }).click();
+  const visibleText = await page.locator('#mBody').innerText();
+
+  expect(visibleText.length).toBeGreaterThan(100);
+  expect(floorCount(visibleText), `${providerLabel} must contain exactly one evidence floor`).toBe(1);
+  expect(visibleText).toContain(FLOOR);
+
+  await page.locator('#mCopy').click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe(visibleText);
+
+  return visibleText;
+}
+
+async function reopenLatestDraft(page) {
+  await openPage(page, 'custom');
+  const drafts = page.locator('#customList .citem');
+  await expect(drafts).toHaveCount(1);
+  await drafts.last().click();
+  await expect(page.locator('#modalWrap')).toHaveClass(/\bopen\b/);
+}
+
+test.beforeEach(async ({ context, page }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: ORIGIN });
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.removeItem('chief-custom');
+    localStorage.removeItem('chief-stars');
+  });
+  await page.reload();
+});
+
+test('Freestyle save, reopen, provider switch, copy, and reload remain governed', async ({ page }, testInfo) => {
+  await openPage(page, 'freestyle');
 
   await page.locator('#fsAsk').fill(
-    'Audit the repository, separate evidence from inference, and recommend the smallest reversible fix.',
+    'Red team this product launch and attack the hidden assumptions before I invest more.',
   );
   await page.locator('#fsGenerate').click();
   await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
-  await expect(page.locator('#fsBody')).not.toBeEmpty();
+  await expect(page.locator('#fsTabs .ptab')).toHaveCount(2);
 
   await page.locator('#fsSave').click();
+  await expect(page.locator('#navCustom')).toHaveText('1');
 
-  const saved = await page.evaluate(() => {
+  const savedImmediately = await page.evaluate(() => {
     const drafts = JSON.parse(localStorage.getItem('chief-custom') || '[]');
     return drafts.at(-1) || null;
   });
-
-  expect(saved).not.toBeNull();
-  expect(Object.keys(saved.versions)).toEqual(
+  expect(savedImmediately).not.toBeNull();
+  expect(Object.keys(savedImmediately.versions)).toEqual(
     expect.arrayContaining(['chatgpt', 'claude', 'perplexity']),
   );
-
-  for (const [platform, text] of Object.entries(saved.versions)) {
-    expect(typeof text, `${platform} saved version must be text`).toBe('string');
-    const normalized = text.toLocaleLowerCase();
-    for (const marker of REQUIRED_MARKERS) {
-      expect(normalized, `${platform} saved version must contain ${marker}`).toContain(
-        marker.toLocaleLowerCase(),
-      );
-    }
+  for (const text of Object.values(savedImmediately.versions)) {
+    expect(floorCount(text)).toBe(1);
   }
+
+  await reopenLatestDraft(page);
+  const chatgptText = await assertModalProvider(page, 'Chatgpt');
+  const claudeText = await assertModalProvider(page, 'Claude');
+  expect(chatgptText).not.toBe('');
+  expect(claudeText).not.toBe('');
+
+  await page.screenshot({
+    path: testInfo.outputPath(`${testInfo.project.name}-saved-draft.png`),
+    fullPage: true,
+  });
+
+  await page.locator('#mClose').click();
+  await expect(page.locator('#modalWrap')).not.toHaveClass(/\bopen\b/);
+
+  await page.reload();
+  await reopenLatestDraft(page);
+  const persistedPerplexity = await assertModalProvider(page, 'Perplexity');
+  expect(floorCount(persistedPerplexity)).toBe(1);
+
+  const savedAfterReload = await page.evaluate(() => {
+    const drafts = JSON.parse(localStorage.getItem('chief-custom') || '[]');
+    return drafts.at(-1) || null;
+  });
+  expect(savedAfterReload).toEqual(savedImmediately);
 });
