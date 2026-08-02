@@ -77,4 +77,51 @@ describe('PROMPTS data integrity', () => {
       expect(count, `Builder pack "${cat}" has at least one prompt`).toBeGreaterThan(0);
     }
   });
+
+  it('keeps Repo Audit First evidence-first across every platform', () => {
+    const prompt = PROMPTS.find((candidate) => candidate.title === 'Repo Audit First');
+    if (!prompt) throw new Error('Repo Audit First prompt is missing');
+
+    const variants = {
+      chatgpt: prompt.versions.chatgpt,
+      claude: prompt.versions.claude,
+      perplexity: prompt.versions.perplexity,
+    };
+    const requiredTerms = [
+      'authoritative repository',
+      'target branch or pr',
+      'exact head',
+      'evidence hierarchy',
+      'verified',
+      'inferred',
+      'unknown',
+      'blocked',
+      'stop condition',
+      'rollback',
+      'playwright',
+    ];
+
+    for (const [platform, value] of Object.entries(variants)) {
+      if (typeof value !== 'string') throw new Error(`Repo Audit First is missing ${platform}`);
+      const body = value.toLowerCase();
+      for (const requirement of requiredTerms) {
+        expect(body, `${platform} requires "${requirement}"`).toContain(requirement);
+      }
+      expect(body, `${platform} exhausts repository evidence before questions`)
+        .toContain('exhaust available repository evidence before asking questions');
+    }
+
+    const combined = [prompt.notes, ...Object.values(variants)].join('\n').toLowerCase();
+    for (const legacy of [
+      'typescript-only auditor',
+      'manually pasted evidence',
+      'senior typescript engineer',
+      'paste your file tree + recent logs',
+      'no edits until i confirm your read is correct',
+      'ask a targeted question instead of guessing',
+    ]) {
+      expect(combined, `Repo Audit First rejects legacy phrasing "${legacy}"`).not.toContain(legacy);
+    }
+  });
+
 });
