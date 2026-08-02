@@ -9,6 +9,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -85,3 +88,224 @@ jobs:
       - name: SonarQube not configured
         if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
         run: echo "SonarQube secrets are not configured; core typecheck, lint, and unit-test gates remain authoritative."
+
+  apply-repo-audit-contract:
+    name: "Apply Repo Audit Contract"
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'fix/repo-audit-evidence-contract' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      BASE_SHA: 4b1719b52f543db31fadac0fdcbb4d826928eed9
+    steps:
+      - name: Check out focused branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/repo-audit-evidence-contract
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Apply focused two-file patch and remove temporary workflows
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          prompts_path = Path('src/data/prompts.js')
+          prompts = prompts_path.read_text()
+          start_marker = '  {\n    id: 1,'
+          end_marker = '  {\n    id: 2,'
+          start = prompts.index(start_marker)
+          end = prompts.index(end_marker, start)
+
+          new_object = r'''  {
+    id: 1,
+    emoji: "🔍",
+    title: "Repo Audit First",
+    sub: "Read state before touching anything",
+    cat: "coding",
+    platforms: ["chatgpt","claude","perplexity"],
+    repos: ["bip","think-tank","jbh","l99"],
+    notes: "Use at the start of every coding session. Inspect the authoritative repository, target branch or PR, exact head, diffs, checks, logs, and runtime evidence before asking questions. Requires classified findings, rollback, a stop condition, and Playwright for rendered UI behavior.",
+    versions: {
+      chatgpt: "You are a senior software engineer auditing my repository before any edits.\n\nProject:\n- Authoritative repository: [OWNER/REPO]\n- Target branch or PR: [BRANCH_OR_PR]\n- Exact head: [COMMIT_SHA]\n- Stack: [STACK]\n- Founder goal: [GOAL]\n- Suspected area: [AREA_OR_UNKNOWN]\n\nEVIDENCE HIERARCHY:\n1. Authoritative repository, target branch or PR, and exact head\n2. Current diff and recent commits\n3. CI checks, test results, and deployment logs\n4. Runtime behavior and Playwright evidence for UI or rendered flows\n5. Pasted summaries only when stronger evidence is unavailable\n\nGUARDRAILS:\n- Audit first; do not edit, merge, deploy, delete, or rewrite\n- Exhaust available repository evidence before asking questions\n- Prefer minimal, reversible changes and preserve unrelated behavior\n- Never hide failing signals or expose secrets\n- Label every material conclusion VERIFIED, INFERRED, UNKNOWN, or BLOCKED\n- If UI or rendered behavior is involved, require Playwright evidence\n- State rollback and a stop condition before recommending implementation\n\nOUTPUT:\nREALITY: repository, branch or PR, exact head, and VERIFIED state\nFINDINGS: ranked causes with classification and evidence\nSAFE TO CHANGE / DO NOT TOUCH\nRED TEAM: how the leading diagnosis could be wrong\nNEXT FIX: exactly one minimal reversible action\nPROOF REQUIRED: cheapest valid verification sequence\nROLLBACK: safe reversal\nSTOP CONDITION: evidence that permits implementation\nOPEN GATE: one genuinely BLOCKED item only",
+      claude: "<role>\nSenior software engineer auditing an authoritative repository before any edits.\n</role>\n\n<context>\nAuthoritative repository: [OWNER/REPO]\nTarget branch or PR: [BRANCH_OR_PR]\nExact head: [COMMIT_SHA]\nStack: [STACK]\nFounder goal: [GOAL]\nSuspected area: [AREA_OR_UNKNOWN]\n</context>\n\n<evidence_hierarchy>\nEvidence hierarchy:\n1. Authoritative repository, target branch or PR, and exact head\n2. Current diff and recent commits\n3. CI checks, tests, and deployment logs\n4. Runtime behavior and Playwright evidence for UI or rendered flows\n5. Pasted summaries only when stronger evidence is unavailable\n</evidence_hierarchy>\n\n<rules>\n- Audit only. Do not edit, merge, deploy, delete, or rewrite.\n- Exhaust available repository evidence before asking questions.\n- Classify every material conclusion VERIFIED, INFERRED, UNKNOWN, or BLOCKED.\n- Prefer one minimal reversible fix and preserve unrelated work.\n- Never suppress failing signals or expose secrets.\n- Require Playwright when UI or rendered behavior is involved.\n- Include rollback and a stop condition before implementation.\n</rules>\n\n<output_format>\nREALITY | FINDINGS | SAFE TO CHANGE | DO NOT TOUCH | RED TEAM | NEXT FIX | PROOF REQUIRED | ROLLBACK | STOP CONDITION | OPEN GATE\n</output_format>",
+      perplexity: "Audit this repository before suggesting any changes.\n\nAuthoritative repository: [OWNER/REPO]\nTarget branch or PR: [BRANCH_OR_PR]\nExact head: [COMMIT_SHA]\nStack: [STACK]\nFounder goal: [GOAL]\n\nEVIDENCE HIERARCHY:\n1. Authoritative repository, target branch or PR, and exact head\n2. Current diff and recent commits\n3. CI checks, tests, and deployment logs\n4. Runtime behavior and Playwright evidence for UI or rendered flows\n5. Pasted summaries only when stronger evidence is unavailable\n\nRules:\n- Exhaust available repository evidence before asking questions\n- Do not edit, merge, deploy, delete, or broadly rewrite\n- Label every material conclusion VERIFIED, INFERRED, UNKNOWN, or BLOCKED\n- Preserve working unrelated behavior\n- Require Playwright for UI or rendered paths\n- Recommend exactly one minimal reversible next action\n- Include rollback and a stop condition before implementation\n\nReturn:\nREALITY | FINDINGS | SAFE TO CHANGE / DO NOT TOUCH | RED TEAM | NEXT FIX | PROOF REQUIRED | ROLLBACK | STOP CONDITION | OPEN GATE"
+    }
+  },
+'''
+
+          prompts_path.write_text(prompts[:start] + new_object + prompts[end:])
+
+          test_path = Path('src/data/prompts.test.js')
+          tests = test_path.read_text()
+          test_name = 'keeps Repo Audit First evidence-first across every platform'
+          if test_name in tests:
+              raise SystemExit('Focused regression test already exists; refusing duplicate insertion')
+
+          test_insert = r'''
+
+  it('keeps Repo Audit First evidence-first across every platform', () => {
+    const prompt = PROMPTS.find((candidate) => candidate.title === 'Repo Audit First');
+    if (!prompt) throw new Error('Repo Audit First prompt is missing');
+
+    const variants = {
+      chatgpt: prompt.versions.chatgpt,
+      claude: prompt.versions.claude,
+      perplexity: prompt.versions.perplexity,
+    };
+    const requiredTerms = [
+      'authoritative repository',
+      'target branch or pr',
+      'exact head',
+      'evidence hierarchy',
+      'verified',
+      'inferred',
+      'unknown',
+      'blocked',
+      'stop condition',
+      'rollback',
+      'playwright',
+    ];
+
+    for (const [platform, value] of Object.entries(variants)) {
+      if (typeof value !== 'string') throw new Error(`Repo Audit First is missing ${platform}`);
+      const body = value.toLowerCase();
+      for (const requirement of requiredTerms) {
+        expect(body, `${platform} requires "${requirement}"`).toContain(requirement);
+      }
+      expect(body, `${platform} exhausts repository evidence before questions`)
+        .toContain('exhaust available repository evidence before asking questions');
+    }
+
+    const combined = [prompt.notes, ...Object.values(variants)].join('\n').toLowerCase();
+    for (const legacy of [
+      'typescript-only auditor',
+      'manually pasted evidence',
+      'senior typescript engineer',
+      'paste your file tree + recent logs',
+      'no edits until i confirm your read is correct',
+      'ask a targeted question instead of guessing',
+    ]) {
+      expect(combined, `Repo Audit First rejects legacy phrasing "${legacy}"`).not.toContain(legacy);
+    }
+  });
+'''
+
+          close = tests.rfind('\n});')
+          if close == -1:
+              raise SystemExit('Could not locate PROMPTS describe closing brace')
+          test_path.write_text(tests[:close] + test_insert + tests[close:])
+
+          Path('.github/workflows/repo-audit-contract-patch.yml').unlink(missing_ok=True)
+          PY
+          git checkout "$BASE_SHA" -- .github/workflows/quality-gate.yml
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Focused prompt-data test
+        run: npx vitest run src/data/prompts.test.js
+
+      - name: Full Vitest suite
+        run: npm test
+
+      - name: Inspect final cumulative diff
+        shell: bash
+        run: |
+          git diff --check "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" | sort)
+          printf 'Final changed files:\n%s\n' "${changed[*]}"
+          expected=(src/data/prompts.js src/data/prompts.test.js)
+          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
+            echo "Unexpected final diff scope" >&2
+            git diff --name-status "$BASE_SHA"
+            exit 1
+          fi
+          git diff --stat "$BASE_SHA"
+
+      - name: Install Chromium for browser proof
+        run: |
+          npm install --no-save --package-lock=false @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Playwright rendered library proof
+        shell: bash
+        run: |
+          mkdir -p .tmp-playwright playwright-artifacts
+          cat > .tmp-playwright/repo-audit.spec.js <<'EOF'
+          import { test, expect } from '@playwright/test';
+
+          test('renders and copies every evidence-first Repo Audit First variant', async ({ page, context }) => {
+            await context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+              origin: 'http://127.0.0.1:4173',
+            });
+            await page.goto('http://127.0.0.1:4173');
+            await page.locator('#search').fill('Repo Audit First');
+
+            const card = page.locator('.pcard').filter({ hasText: 'Repo Audit First' });
+            await expect(card).toHaveCount(1);
+            await expect(card).toContainText('authoritative repository');
+            await card.getByRole('button', { name: /Open/ }).click();
+
+            await expect(page.locator('#mTitle')).toContainText('Repo Audit First');
+            await expect(page.locator('#mNoteText')).toContainText('Playwright');
+
+            for (const platform of ['Chatgpt', 'Claude', 'Perplexity']) {
+              await page.getByRole('button', { name: platform, exact: true }).click();
+              const body = page.locator('#mBody');
+              await expect(body).toContainText('Authoritative repository');
+              await expect(body).toContainText('VERIFIED');
+              await expect(body).toContainText('INFERRED');
+              await expect(body).toContainText('UNKNOWN');
+              await expect(body).toContainText('BLOCKED');
+              await expect(body).toContainText(/stop condition/i);
+              await expect(body).toContainText(/rollback/i);
+              await expect(body).toContainText('Playwright');
+
+              await page.locator('#mCopy').click();
+              await expect(page.locator('#toast')).toContainText('Copied!');
+              const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+              expect(clipboard).toContain('Authoritative repository');
+              expect(clipboard).toContain('Playwright');
+            }
+
+            await page.screenshot({
+              path: 'playwright-artifacts/repo-audit-first.png',
+              fullPage: true,
+            });
+          });
+          EOF
+
+          python3 -m http.server 4173 > /tmp/chief-ai-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; rm -rf .tmp-playwright' EXIT
+          npx playwright test .tmp-playwright/repo-audit.spec.js --reporter=line --workers=1
+
+      - name: Upload Playwright proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-audit-first-playwright-proof
+          path: playwright-artifacts
+          if-no-files-found: warn
+
+      - name: Commit verified focused patch
+        shell: bash
+        run: |
+          rm -rf .tmp-playwright playwright-artifacts
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix: harden Repo Audit First evidence contract"
+          git push origin HEAD:fix/repo-audit-evidence-contract
