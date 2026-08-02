@@ -70,7 +70,7 @@ jobs:
       - name: Run rendered Freestyle save proof
         env:
           PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:4173
-        run: npx playwright test e2e/freestyle-save.spec.js --project=chromium --reporter=line
+        run: npx playwright test e2e/freestyle-save.spec.js --reporter=line
 
       - name: Stop static server
         if: always()
