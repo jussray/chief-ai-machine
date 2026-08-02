@@ -1,6 +1,22 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 
+export function normalizePromptVersionsForSave(prompt) {
+  const platforms = [
+    ...new Set([
+      ...(prompt?.platforms || []),
+      ...Object.keys(prompt?.versions || {}),
+    ]),
+  ];
+
+  return Object.fromEntries(
+    platforms.map((platform) => [
+      platform,
+      renderPromptVariant(prompt, platform),
+    ]),
+  );
+}
+
 export function initFreestyle(PROMPTS) {
   const askEl = document.getElementById('fsAsk');
   const placeholder = document.getElementById('fsPlaceholder');
@@ -33,15 +49,6 @@ export function initFreestyle(PROMPTS) {
 
   function renderCurrent() {
     return renderPromptVariant(currentResult, currentPlatform);
-  }
-
-  function normalizedVersions(prompt) {
-    return Object.fromEntries(
-      (prompt?.platforms || []).map((platform) => [
-        platform,
-        renderPromptVariant(prompt, platform),
-      ]),
-    );
   }
 
   function generate() {
@@ -79,7 +86,7 @@ export function initFreestyle(PROMPTS) {
     custom.push({
       ...currentResult,
       id: 'fs-' + Date.now(),
-      versions: normalizedVersions(currentResult),
+      versions: normalizePromptVersionsForSave(currentResult),
     });
     localStorage.setItem('chief-custom', JSON.stringify(custom));
     showToast('Saved to My Prompts!');
