@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "src/modules/freestyle.js"
+      - "src/modules/custom.js"
       - "src/domain/evidence-first-prompt.js"
       - "e2e/freestyle-save.pw.mjs"
       - "e2e/playwright.freestyle.config.mjs"
@@ -27,7 +28,7 @@ jobs:
   verify:
     name: Verify Freestyle saved drafts in Chromium
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - name: Check out exact requested head
         uses: actions/checkout@v4
@@ -69,9 +70,20 @@ jobs:
           exit 1
 
       - name: Run rendered Freestyle save proof
-        run: npx playwright test --config=e2e/playwright.freestyle.config.mjs --reporter=line
+        run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
 
       - name: Stop static server
         if: always()
         shell: bash
         run: test ! -f /tmp/chief-ai-server.pid || kill "$(cat /tmp/chief-ai-server.pid)" || true
+
+      - name: Retain Playwright report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freestyle-save-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            playwright-report/freestyle-save
+            test-results/freestyle-save
+          if-no-files-found: error
+          retention-days: 14
