@@ -1,3 +1,4 @@
+import { applyEvidenceFirstContract } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 
 export function initFreestyle(PROMPTS) {
@@ -18,6 +19,19 @@ export function initFreestyle(PROMPTS) {
     return [...document.querySelectorAll('#page-freestyle .pcheck input:checked')].map(el => el.value);
   }
 
+  function promptText(prompt, platform) {
+    return applyEvidenceFirstContract(prompt?.versions?.[platform]);
+  }
+
+  function normalizedVersions(prompt) {
+    return Object.fromEntries(
+      Object.entries(prompt?.versions || {}).map(([platform, text]) => [
+        platform,
+        applyEvidenceFirstContract(text),
+      ]),
+    );
+  }
+
   function inferCat(text) {
     const t = text.toLowerCase();
     if (t.includes('shopify') || t.includes('store') || t.includes('jbh')) return 'shopify';
@@ -31,38 +45,68 @@ export function initFreestyle(PROMPTS) {
   }
 
   function generate() {
-    const ask = askEl?.value?.trim(); if (!ask) return;
+    const ask = askEl?.value?.trim();
+    if (!ask) return;
+
     const platforms = getChecked();
     const cat = inferCat(ask);
     const matches = PROMPTS.filter(p => p.cat === cat && p.platforms?.some(pl => platforms.includes(pl)));
     const base = matches[0] || PROMPTS.find(p => p.platforms?.some(pl => platforms.includes(pl))) || PROMPTS[0];
     const avail = (base.platforms || []).filter(pl => platforms.includes(pl));
-    if (!avail.length) { showToast('No match for selected platforms.'); return; }
-    currentResult = base; currentPlatform = avail[0];
+    if (!avail.length) {
+      showToast('No match for selected platforms.');
+      return;
+    }
+
+    currentResult = base;
+    currentPlatform = avail[0];
     fsEmoji.textContent = base.emoji || '💬';
     fsTitle.textContent = base.title;
     fsSub.textContent = base.sub || '';
     fsBadges.innerHTML = `<span class="badge cat">${base.cat}</span>` + avail.map(p => `<span class="badge">${p}</span>`).join('');
     fsTabs.innerHTML = '';
+
     avail.forEach((p, i) => {
       const btn = document.createElement('button');
       btn.className = 'ptab' + (i === 0 ? ' active' : '');
       btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
-      btn.addEventListener('click', () => { fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentPlatform = p; fsBody.textContent = base.versions[p] || ''; });
+      btn.addEventListener('click', () => {
+        fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPlatform = p;
+        fsBody.textContent = promptText(base, p);
+      });
       fsTabs.appendChild(btn);
     });
-    fsBody.textContent = base.versions[currentPlatform] || '';
-    placeholder.style.display = 'none'; preview.classList.add('on');
+
+    fsBody.textContent = promptText(base, currentPlatform);
+    placeholder.style.display = 'none';
+    preview.classList.add('on');
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
-  askEl?.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate(); });
-  document.getElementById('fsClear')?.addEventListener('click', () => { if (askEl) askEl.value = ''; preview.classList.remove('on'); placeholder.style.display = ''; });
-  document.getElementById('fsCopy')?.addEventListener('click', () => { if (currentResult && currentPlatform) { copyText(currentResult.versions[currentPlatform]); showToast('Copied!'); } });
+  askEl?.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
+  });
+  document.getElementById('fsClear')?.addEventListener('click', () => {
+    if (askEl) askEl.value = '';
+    preview.classList.remove('on');
+    placeholder.style.display = '';
+  });
+  document.getElementById('fsCopy')?.addEventListener('click', () => {
+    if (currentResult && currentPlatform) {
+      copyText(promptText(currentResult, currentPlatform));
+      showToast('Copied!');
+    }
+  });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({ ...currentResult, id: 'fs-' + Date.now() });
+    custom.push({
+      ...currentResult,
+      id: 'fs-' + Date.now(),
+      versions: normalizedVersions(currentResult),
+    });
     localStorage.setItem('chief-custom', JSON.stringify(custom));
     showToast('Saved to My Prompts!');
   });
