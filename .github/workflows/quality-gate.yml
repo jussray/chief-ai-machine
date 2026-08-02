@@ -115,7 +115,7 @@ jobs:
       - name: Preserve browser proof and apply focused patch
         run: |
           mkdir -p .tmp-playwright
-          cp .github/scripts/repo-audit-contract.playwright.js .tmp-playwright/repo-audit-contract.spec.js
+          cp .github/scripts/repo-audit-contract.playwright.js .tmp-playwright/repo-audit-contract.playwright.js
           python3 .github/scripts/apply-repo-audit-contract.py
 
       - name: Remove temporary infrastructure from final tree
@@ -158,6 +158,7 @@ jobs:
       - name: Playwright rendered library proof
         run: |
           mkdir -p playwright-artifacts
+          cp .tmp-playwright/repo-audit-contract.playwright.js .tmp-playwright/repo-audit-contract.spec.js
           python3 -m http.server 4173 > /tmp/chief-ai-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
