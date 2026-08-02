@@ -105,7 +105,7 @@ jobs:
           python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chief-ai-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
-          npx playwright test .github/scripts/governed-prompt-exits.spec.js --browser=chromium --reporter=line
+          npx playwright test --config=.github/playwright-governed-exits.config.js --reporter=line
       - uses: actions/upload-artifact@v4
         if: always()
         with:
