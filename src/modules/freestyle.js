@@ -91,7 +91,7 @@ export function initFreestyle(PROMPTS) {
       versions: normalizePromptVersionsForSave(currentResult),
     });
     localStorage.setItem('chief-custom', JSON.stringify(custom));
-    window.dispatchEvent(new Event(CUSTOM_PROMPTS_UPDATED_EVENT));
+    window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
     showToast('Saved to My Prompts!');
   });
   document.getElementById('fsRegenerate')?.addEventListener('click', generate);
