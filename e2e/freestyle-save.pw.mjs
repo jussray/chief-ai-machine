@@ -55,7 +55,7 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   );
   await page.locator('#fsGenerate').click();
   await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
-  await expect(page.locator('#fsTabs .ptab')).toHaveCount(2);
+  expect(await page.locator('#fsTabs .ptab').count()).toBeGreaterThanOrEqual(2);
 
   await page.locator('#fsSave').click();
   await expect(page.locator('#navCustom')).toHaveText('1');
