@@ -1,6 +1,24 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 
+export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
+
+export function normalizePromptVersionsForSave(prompt) {
+  const platforms = [
+    ...new Set([
+      ...(prompt?.platforms || []),
+      ...Object.keys(prompt?.versions || {}),
+    ]),
+  ];
+
+  return Object.fromEntries(
+    platforms.map((platform) => [
+      platform,
+      renderPromptVariant(prompt, platform),
+    ]),
+  );
+}
+
 export function initFreestyle(PROMPTS) {
   const askEl = document.getElementById('fsAsk');
   const placeholder = document.getElementById('fsPlaceholder');
@@ -67,8 +85,13 @@ export function initFreestyle(PROMPTS) {
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({ ...currentResult, id: 'fs-' + Date.now() });
+    custom.push({
+      ...currentResult,
+      id: 'fs-' + Date.now(),
+      versions: normalizePromptVersionsForSave(currentResult),
+    });
     localStorage.setItem('chief-custom', JSON.stringify(custom));
+    window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
     showToast('Saved to My Prompts!');
   });
   document.getElementById('fsRegenerate')?.addEventListener('click', generate);
