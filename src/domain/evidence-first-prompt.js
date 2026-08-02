@@ -7,6 +7,8 @@ const REQUIRED_EVIDENCE_MARKERS = [
   'inferred',
   'unknown',
   'blocked',
+  'exhaust available',
+  'minimal reversible',
   'stop condition',
   'rollback',
   'playwright',
