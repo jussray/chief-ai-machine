@@ -9,7 +9,7 @@ describe('Freestyle saved prompt boundary', () => {
         claude: 'Review the supplied repository change.',
       },
     };
-    const original = structuredClone(prompt);
+    const original = JSON.parse(JSON.stringify(prompt));
 
     const saved = normalizePromptVersionsForSave(prompt);
 
