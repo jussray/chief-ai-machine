@@ -5,10 +5,13 @@ test('renders and copies every evidence-first Repo Audit First variant', async (
     origin: 'http://127.0.0.1:4173',
   });
   await page.goto('http://127.0.0.1:4173');
+  await page.locator('.sidebar [data-page="library"]').click();
+  await expect(page.locator('#page-library')).toHaveClass(/on/);
   await page.locator('#search').fill('Repo Audit First');
 
   const card = page.locator('.pcard').filter({ hasText: 'Repo Audit First' });
   await expect(card).toHaveCount(1);
+  await expect(card).toBeVisible();
   await expect(card).toContainText('authoritative repository');
   await card.locator('.mini-btn').click();
 
