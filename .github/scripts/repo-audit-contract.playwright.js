@@ -10,7 +10,7 @@ test('renders and copies every evidence-first Repo Audit First variant', async (
   const card = page.locator('.pcard').filter({ hasText: 'Repo Audit First' });
   await expect(card).toHaveCount(1);
   await expect(card).toContainText('authoritative repository');
-  await card.getByRole('button', { name: /Open/ }).click();
+  await card.locator('.mini-btn').click();
 
   await expect(page.locator('#mTitle')).toContainText('Repo Audit First');
   await expect(page.locator('#mNoteText')).toContainText('Playwright');
