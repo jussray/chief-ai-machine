@@ -35,6 +35,15 @@ export function initFreestyle(PROMPTS) {
     return renderPromptVariant(currentResult, currentPlatform);
   }
 
+  function normalizedVersions(prompt) {
+    return Object.fromEntries(
+      (prompt?.platforms || []).map((platform) => [
+        platform,
+        renderPromptVariant(prompt, platform),
+      ]),
+    );
+  }
+
   function generate() {
     const ask = askEl?.value?.trim(); if (!ask) return;
     const platforms = getChecked();
@@ -67,7 +76,11 @@ export function initFreestyle(PROMPTS) {
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({ ...currentResult, id: 'fs-' + Date.now() });
+    custom.push({
+      ...currentResult,
+      id: 'fs-' + Date.now(),
+      versions: normalizedVersions(currentResult),
+    });
     localStorage.setItem('chief-custom', JSON.stringify(custom));
     showToast('Saved to My Prompts!');
   });
