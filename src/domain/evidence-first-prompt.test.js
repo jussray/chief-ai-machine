@@ -18,7 +18,6 @@ const REQUIRED_TERMS = [
   'stop condition',
   'rollback',
   'playwright',
-  'exhaust available evidence before asking questions',
 ];
 
 describe('library-wide evidence-first prompt floor', () => {
@@ -34,6 +33,8 @@ describe('library-wide evidence-first prompt floor', () => {
         for (const term of REQUIRED_TERMS) {
           expect(normalized, `${prompt.title} / ${platform} requires "${term}"`).toContain(term);
         }
+        expect(normalized, `${prompt.title} / ${platform} exhausts evidence before questions`)
+          .toMatch(/exhaust available (repository )?evidence before asking questions/);
         checked += 1;
       }
     }
