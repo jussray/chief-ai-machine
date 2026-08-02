@@ -4,6 +4,7 @@ import {
   EVIDENCE_FIRST_FLOOR,
   applyEvidenceFirstContract,
   hasEvidenceFirstContract,
+  renderPromptVariant,
 } from './evidence-first-prompt.js';
 
 const REQUIRED_TERMS = [
@@ -25,8 +26,8 @@ describe('library-wide evidence-first prompt floor', () => {
     let checked = 0;
 
     for (const prompt of PROMPTS) {
-      for (const [platform, value] of Object.entries(prompt.versions || {})) {
-        const rendered = applyEvidenceFirstContract(value);
+      for (const platform of Object.keys(prompt.versions || {})) {
+        const rendered = renderPromptVariant(prompt, platform);
         const normalized = rendered.toLowerCase();
 
         expect(rendered, `${prompt.title} / ${platform} renders a prompt`).not.toBe('');
@@ -53,6 +54,34 @@ describe('library-wide evidence-first prompt floor', () => {
     }
   });
 
+  it('replaces typed placeholders before applying the shared floor', () => {
+    const prompt = {
+      versions: {
+        chatgpt: 'Repository [REPO]\nOwner repository [OWNER/REPO]\nTask [TASK]\nConstraints [CONSTRAINTS]',
+      },
+    };
+    const rendered = renderPromptVariant(prompt, 'chatgpt', {
+      REPO: 'jussray/chief-ai-machine',
+      'OWNER/REPO': 'jussray/chief-ai-machine',
+      TASK: 'govern every prompt exit',
+      CONSTRAINTS: 'preserve specialized instructions',
+    });
+
+    expect(rendered).toContain('Repository jussray/chief-ai-machine');
+    expect(rendered).toContain('Owner repository jussray/chief-ai-machine');
+    expect(rendered).toContain('Task govern every prompt exit');
+    expect(rendered).toContain('Constraints preserve specialized instructions');
+    expect(rendered.match(/EVIDENCE-FIRST FLOOR:/g)).toHaveLength(1);
+  });
+
+  it('falls back to the first available platform without bypassing governance', () => {
+    const prompt = { versions: { claude: 'Review the supplied change.' } };
+    const rendered = renderPromptVariant(prompt, 'chatgpt');
+
+    expect(rendered).toContain('Review the supplied change.');
+    expect(rendered).toContain('EVIDENCE-FIRST FLOOR:');
+  });
+
   it('protects custom and future prompt families without mutating their source', () => {
     const original = 'Draft a launch announcement from the supplied facts.';
     const rendered = applyEvidenceFirstContract(original);
@@ -65,5 +94,6 @@ describe('library-wide evidence-first prompt floor', () => {
   it('returns an empty string for missing prompt content', () => {
     expect(applyEvidenceFirstContract()).toBe('');
     expect(applyEvidenceFirstContract('   ')).toBe('');
+    expect(renderPromptVariant()).toBe('');
   });
 });
