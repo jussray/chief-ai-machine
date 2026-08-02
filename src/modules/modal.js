@@ -1,3 +1,4 @@
+import { applyEvidenceFirstContract } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 
 export function initModal() {
@@ -17,6 +18,10 @@ export function initModal() {
   let currentTab = null;
   let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
 
+  function promptText(prompt, platform) {
+    return applyEvidenceFirstContract(prompt?.versions?.[platform]);
+  }
+
   function open(prompt) {
     currentPrompt = prompt;
     mTitle.textContent = (prompt.emoji || '') + '  ' + prompt.title;
@@ -31,12 +36,12 @@ export function initModal() {
       btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
       btn.addEventListener('click', () => {
         mTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active'); currentTab = p; mBody.textContent = prompt.versions[p];
+        btn.classList.add('active'); currentTab = p; mBody.textContent = promptText(prompt, p);
       });
       mTabs.appendChild(btn);
     });
     currentTab = platforms[0];
-    mBody.textContent = prompt.versions[currentTab] || '';
+    mBody.textContent = promptText(prompt, currentTab);
     mStar.textContent = stars.includes(prompt.id) ? '★' : '☆';
     mStar.classList.toggle('on', stars.includes(prompt.id));
     wrap.classList.add('open');
@@ -58,7 +63,7 @@ export function initModal() {
   });
 
   mCopy?.addEventListener('click', () => {
-    if (currentPrompt && currentTab) { copyText(currentPrompt.versions[currentTab]); showToast('Copied!'); }
+    if (currentPrompt && currentTab) { copyText(promptText(currentPrompt, currentTab)); showToast('Copied!'); }
   });
 
   mClose?.addEventListener('click', close);
