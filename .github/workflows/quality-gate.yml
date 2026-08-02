@@ -16,8 +16,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
-  group: quality-gate-${{ github.ref }}
-  cancel-in-progress: true
+  group: repo-audit-contract-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   typecheck:
