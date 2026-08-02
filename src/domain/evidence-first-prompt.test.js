@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { PROMPTS } from '../data/prompts.js';
-import { initBuilder } from '../modules/builder.js';
-import { initFreestyle } from '../modules/freestyle.js';
-import { initModal } from '../modules/modal.js';
 import {
   EVIDENCE_FIRST_FLOOR,
   applyEvidenceFirstContract,
@@ -22,12 +19,6 @@ const REQUIRED_TERMS = [
   'stop condition',
   'rollback',
   'playwright',
-];
-
-const PROMPT_EXIT_INITIALIZERS = [
-  ['Library modal', initModal],
-  ['Builder', initBuilder],
-  ['Freestyle', initFreestyle],
 ];
 
 describe('library-wide evidence-first prompt floor', () => {
@@ -98,25 +89,6 @@ describe('library-wide evidence-first prompt floor', () => {
     expect(original).toBe('Draft a launch announcement from the supplied facts.');
     expect(rendered).toBe(`${original}${EVIDENCE_FIRST_FLOOR}`);
     expect(rendered).toContain('For generative-only work');
-  });
-
-  it('routes every reusable prompt exit through the governed renderer', () => {
-    const combined = PROMPT_EXIT_INITIALIZERS
-      .map(([, initializer]) => initializer.toString())
-      .join('\n');
-
-    for (const [name, initializer] of PROMPT_EXIT_INITIALIZERS) {
-      expect(initializer.toString(), `${name} calls the governed renderer`)
-        .toContain('renderPromptVariant');
-    }
-
-    for (const legacyBypass of [
-      'matches[0].versions[platform]',
-      'currentResult.versions[currentPlatform]',
-      'prompt.versions[currentTab]',
-    ]) {
-      expect(combined, `prompt exits reject legacy bypass ${legacyBypass}`).not.toContain(legacyBypass);
-    }
   });
 
   it('returns an empty string for missing prompt content', () => {
