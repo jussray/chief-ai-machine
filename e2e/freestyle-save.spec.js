@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://127.0.0.1:4173';
 const REQUIRED_MARKERS = [
   'authoritative repository',
   'VERIFIED',
@@ -9,7 +10,7 @@ const REQUIRED_MARKERS = [
 ];
 
 test('Freestyle saves evidence-first versions for every selected provider', async ({ page }) => {
-  await page.goto('/');
+  await page.goto(BASE_URL);
 
   await page.locator('[data-page="freestyle"]').first().click();
   await expect(page.locator('#page-freestyle')).toHaveClass(/\bon\b/);
