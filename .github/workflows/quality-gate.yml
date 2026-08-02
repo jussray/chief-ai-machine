@@ -115,14 +115,14 @@ jobs:
       - name: Preserve browser proof and apply focused patch
         run: |
           mkdir -p .tmp-playwright
-          cp .github/scripts/repo-audit-contract.spec.js .tmp-playwright/repo-audit-contract.spec.js
+          cp .github/scripts/repo-audit-contract.playwright.js .tmp-playwright/repo-audit-contract.spec.js
           python3 .github/scripts/apply-repo-audit-contract.py
 
       - name: Remove temporary infrastructure from final tree
         run: |
           rm -f .github/workflows/repo-audit-contract-patch.yml
           rm -f .github/scripts/apply-repo-audit-contract.py
-          rm -f .github/scripts/repo-audit-contract.spec.js
+          rm -f .github/scripts/repo-audit-contract.playwright.js
           git checkout "$BASE_SHA" -- .github/workflows/quality-gate.yml
 
       - name: Typecheck
