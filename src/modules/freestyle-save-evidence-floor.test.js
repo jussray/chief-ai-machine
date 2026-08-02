@@ -1,14 +1,35 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-
-const source = readFileSync(new URL('./freestyle.js', import.meta.url), 'utf8');
+import { normalizePromptVersionsForSave } from './freestyle.js';
 
 describe('Freestyle saved prompt boundary', () => {
-  it('stores normalized provider variants instead of raw prompt versions', () => {
-    expect(source).toContain("import { renderPromptVariant } from '../domain/evidence-first-prompt.js';");
-    expect(source).toContain('function normalizedVersions(prompt)');
-    expect(source).toContain('renderPromptVariant(prompt, platform)');
-    expect(source).toContain('versions: normalizedVersions(currentResult)');
-    expect(source).not.toMatch(/custom\.push\(\{\s*\.\.\.currentResult,\s*id:\s*'fs-'/s);
+  it('stores governed provider variants without mutating the source prompt', () => {
+    const prompt = {
+      platforms: ['chatgpt', 'claude'],
+      versions: {
+        claude: 'Review the supplied repository change.',
+      },
+    };
+    const original = structuredClone(prompt);
+
+    const saved = normalizePromptVersionsForSave(prompt);
+
+    expect(Object.keys(saved)).toEqual(['chatgpt', 'claude']);
+    expect(saved.chatgpt).toContain('Review the supplied repository change.');
+    expect(saved.chatgpt).toContain('EVIDENCE-FIRST FLOOR:');
+    expect(saved.claude).toContain('EVIDENCE-FIRST FLOOR:');
+    expect(saved.claude.match(/EVIDENCE-FIRST FLOOR:/g)).toHaveLength(1);
+    expect(prompt).toEqual(original);
+  });
+
+  it('preserves version keys even when legacy prompt metadata omits platforms', () => {
+    const saved = normalizePromptVersionsForSave({
+      versions: {
+        perplexity: 'Verify this claim against the supplied evidence.',
+      },
+    });
+
+    expect(Object.keys(saved)).toEqual(['perplexity']);
+    expect(saved.perplexity).toContain('Verify this claim against the supplied evidence.');
+    expect(saved.perplexity).toContain('EVIDENCE-FIRST FLOOR:');
   });
 });
