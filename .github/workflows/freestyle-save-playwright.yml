@@ -5,11 +5,15 @@ on:
     branches:
       - main
     paths:
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
       - "src/modules/freestyle.js"
       - "src/modules/custom.js"
       - "src/domain/evidence-first-prompt.js"
       - "e2e/freestyle-save.pw.mjs"
       - "e2e/playwright.freestyle.config.mjs"
+      - ".github/workflows/control-room-contracts.yml"
       - ".github/workflows/freestyle-save-playwright.yml"
   workflow_dispatch:
 
