@@ -72,7 +72,7 @@ The founder authorizes automated publication only when the post and its workflow
 - **Authorization:** the post belongs to an approved automated publishing class and does not exceed that class's audience, channel, topic, frequency, or risk boundary.
 - **Separation of record and promotion:** promotional language may summarize verified records but may not alter, replace, or overstate them.
 - **Conservatism:** when evidence is incomplete or ambiguous, use the less expansive claim or hold the post.
-- **Reconciliation:** after publishing, compare the intended post, platform artifact, publication time, links, and status; record mismatches.
+- **Reconciliation:** after publishing, compare the intended post, observable platform artifact, publication time, links, and status; record mismatches.
 - **Correction and audit trail:** preserve what was published, why, by which workflow, under which authorization, and how any error was corrected.
 
 This is an internal control framework inspired by sound accounting practice. It is not a representation that a post, workflow, or repository has received an external audit or formal GAAP opinion.
@@ -90,7 +90,7 @@ This standing authorization removes the need for per-post founder approval for c
 - crisis communications, admissions of liability, political statements, or other high-consequence communications not explicitly approved as a separate class;
 - bypassing a hold condition because a scheduler or model is technically able to publish.
 
-Any post outside these boundaries requires fresh founder approval.
+Fresh approval is still required for any post outside these boundaries.
 
 ## Posting requirements
 
@@ -103,7 +103,7 @@ Every material post must have:
 - no invented metrics, testimonials, partnerships, users, revenue, deployment, or approval;
 - no implication of founder approval when only an agent drafted the content;
 - a reviewable draft or an approved automated publishing class;
-- a captured URL, platform artifact, message ID, or equivalent evidence after publication;
+- a captured URL, observable platform artifact, message ID, or equivalent evidence after publication;
 - a correction path when the post becomes inaccurate.
 
 ## Status language
