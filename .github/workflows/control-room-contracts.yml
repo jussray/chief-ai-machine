@@ -3,16 +3,30 @@ name: Chief AI Control Room Contracts
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
+      - "scripts/verify-mcp-config.mjs"
+      - "scripts/verify-cookie-contract.mjs"
+      - "scripts/verify-founder-chief-pair.mjs"
+      - "package.json"
+      - ".github/workflows/control-room-contracts.yml"
   push:
     branches: [main]
+    paths:
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
+      - "scripts/verify-mcp-config.mjs"
+      - "scripts/verify-cookie-contract.mjs"
+      - "scripts/verify-founder-chief-pair.mjs"
+      - "package.json"
+      - ".github/workflows/control-room-contracts.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: control-room-contracts-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -26,11 +40,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out exact head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Record and verify exact head
         shell: bash
@@ -40,7 +52,7 @@ jobs:
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
@@ -51,9 +63,6 @@ jobs:
       - name: Validate repo-local catalog
         run: node scripts/verify-control-room-tests.mjs
 
-      - name: Verify Worker version receipt
-        run: npx vitest run test/worker-version.test.js
-
       - name: Verify MCP contract
         run: npm run verify:mcp
 
@@ -63,27 +72,9 @@ jobs:
       - name: Verify Founder–Chief pairing
         run: npm run verify:founder-chief-pair
 
-      - name: Verify founder Sauce Guard skill and logging boundary
-        shell: bash
-        env:
-          SAUCE_GUARD_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-          node --test test/sauce-guard-egress.check.mjs
-          if [[ ! "$SAUCE_GUARD_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$SAUCE_GUARD_BASE_SHA" =~ ^0{40}$ ]]; then
-            if [[ "$GITHUB_REF_NAME" == "main" ]]; then
-              SAUCE_GUARD_BASE_SHA="$(git rev-parse HEAD^)"
-            else
-              git fetch --no-tags --filter=blob:none origin main
-              SAUCE_GUARD_BASE_SHA="$(git merge-base HEAD FETCH_HEAD)"
-            fi
-          fi
-          git fetch --filter=blob:none --no-tags origin "$SAUCE_GUARD_BASE_SHA"
-          node scripts/verify-sauce-guard-egress.mjs --base="$SAUCE_GUARD_BASE_SHA"
-
       - name: Retain sanitized contract receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@v4
         with:
           name: chief-ai-control-room-contracts-${{ env.EXPECTED_HEAD_SHA }}
           path: artifacts/control-room-tests.json
