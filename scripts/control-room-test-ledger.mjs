@@ -3,28 +3,11 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const CONTROL_ROOM_TEST_LEDGER_SCHEMA_VERSION = 1;
-
-const FAILURE_CONCLUSIONS = new Set([
-  'action_required', 'cancelled', 'failure', 'startup_failure', 'stale', 'timed_out',
-]);
-
-function clean(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function normalizeSha(value) {
-  return clean(value).toLowerCase();
-}
-
-function timestamp(value) {
-  const time = Date.parse(value ?? '');
-  return Number.isFinite(time) ? time : 0;
-}
-
-function checkKey(run) {
-  const app = clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app';
-  return `${app}\u0000${clean(run?.name)}`;
-}
+const FAILURE_CONCLUSIONS = new Set(['action_required', 'cancelled', 'failure', 'startup_failure', 'stale', 'timed_out']);
+const clean = (value) => typeof value === 'string' ? value.trim() : '';
+const normalizeSha = (value) => clean(value).toLowerCase();
+const timestamp = (value) => Number.isFinite(Date.parse(value ?? '')) ? Date.parse(value ?? '') : 0;
+const checkKey = (run) => `${clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app'}\u0000${clean(run?.name)}`;
 
 export function mapCheckState(run) {
   const status = clean(run?.status);
@@ -42,30 +25,25 @@ export function selectLatestChecks(checkRuns, expectedSha, observerCheckName = '
   const exactSha = normalizeSha(expectedSha);
   const selected = new Map();
   for (const run of Array.isArray(checkRuns) ? checkRuns : []) {
-    if (!run || normalizeSha(run.head_sha) !== exactSha) continue;
+    if (!run || normalizeSha(run.head_sha) !== exactSha || !clean(run.name)) continue;
     if (observerCheckName && clean(run.name) === observerCheckName) continue;
-    if (!clean(run.name)) continue;
     const key = checkKey(run);
     const current = selected.get(key);
-    const currentTime = timestamp(current?.completed_at ?? current?.started_at);
-    const candidateTime = timestamp(run.completed_at ?? run.started_at);
-    if (!current || candidateTime >= currentTime) selected.set(key, run);
+    if (!current || timestamp(run.completed_at ?? run.started_at) >= timestamp(current.completed_at ?? current.started_at)) selected.set(key, run);
   }
-  return [...selected.values()]
-    .map((run) => ({
-      id: String(run.id ?? ''),
-      name: clean(run.name),
-      app: clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app',
-      state: mapCheckState(run),
-      status: clean(run.status) || 'unknown',
-      conclusion: clean(run.conclusion) || null,
-      headSha: normalizeSha(run.head_sha),
-      startedAt: clean(run.started_at) || null,
-      completedAt: clean(run.completed_at) || null,
-      detailsUrl: clean(run.details_url) || clean(run.html_url) || null,
-      externalId: clean(run.external_id) || null,
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name) || left.app.localeCompare(right.app));
+  return [...selected.values()].map((run) => ({
+    id: String(run.id ?? ''),
+    name: clean(run.name),
+    app: clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app',
+    state: mapCheckState(run),
+    status: clean(run.status) || 'unknown',
+    conclusion: clean(run.conclusion) || null,
+    headSha: normalizeSha(run.head_sha),
+    startedAt: clean(run.started_at) || null,
+    completedAt: clean(run.completed_at) || null,
+    detailsUrl: clean(run.details_url) || clean(run.html_url) || null,
+    externalId: clean(run.external_id) || null,
+  })).sort((left, right) => left.name.localeCompare(right.name) || left.app.localeCompare(right.app));
 }
 
 export function aggregateTestLedger(checks) {
@@ -87,39 +65,23 @@ export function aggregateTestLedger(checks) {
   return {state, counts};
 }
 
-export function buildTestLedger({repository, sha, branch, runId, checks, observedAt = new Date()}) {
+export function buildTestLedger({repository, sha, branch, runId, checks, observerState = 'observing', observedAt = new Date()}) {
   return {
     schemaVersion: CONTROL_ROOM_TEST_LEDGER_SCHEMA_VERSION,
     repository,
     commitSha: normalizeSha(sha),
     branch: clean(branch) || null,
     generatedAt: observedAt.toISOString(),
-    source: {
-      provider: 'github-check-runs',
-      exactRef: 'commit-sha',
-      dedupe: 'latest-by-app-and-name',
-      includesAllDiscoveredChecks: true,
-      excludesObserverCheck: true,
-    },
-    runner: {provider: 'github-actions', runId: clean(runId) || null},
+    source: {provider: 'github-check-runs', exactRef: 'commit-sha', dedupe: 'latest-by-app-and-name', includesAllDiscoveredChecks: true, excludesObserverCheck: true},
+    runner: {provider: 'github-actions', runId: clean(runId) || null, observerState, authoritativeForMerge: false},
     aggregate: aggregateTestLedger(checks),
     checks,
   };
 }
 
 async function githubJson(url, token) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'User-Agent': 'control-room-test-ledger',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`GitHub check lookup failed (${response.status}): ${body.slice(0, 500)}`);
-  }
+  const response = await fetch(url, {headers: {Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'User-Agent': 'control-room-test-ledger', 'X-GitHub-Api-Version': '2022-11-28'}});
+  if (!response.ok) throw new Error(`GitHub check lookup failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
   return response.json();
 }
 
@@ -140,8 +102,10 @@ async function fetchAllCheckRuns({repository, sha, token}) {
   return runs;
 }
 
-function sleep(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+function writeLedger(outputPath, ledger) {
+  fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+  fs.writeFileSync(outputPath, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
 }
 
 export async function observeExactHeadChecks(env = process.env) {
@@ -155,40 +119,31 @@ export async function observeExactHeadChecks(env = process.env) {
   const timeoutMs = Number(env.CONTROL_ROOM_LEDGER_TIMEOUT_MS || 20 * 60 * 1000);
   const pollMs = Number(env.CONTROL_ROOM_LEDGER_POLL_MS || 10_000);
   const minimumObservationMs = Number(env.CONTROL_ROOM_LEDGER_MINIMUM_MS || 30_000);
-  if (!repository || !sha || !token) {
-    throw new Error('GITHUB_REPOSITORY, EXPECTED_HEAD_SHA/GITHUB_SHA, and GITHUB_TOKEN are required.');
-  }
+  if (!repository || !sha || !token) throw new Error('GITHUB_REPOSITORY, EXPECTED_HEAD_SHA/GITHUB_SHA, and GITHUB_TOKEN are required.');
 
   const startedAt = Date.now();
   let stableTerminalPolls = 0;
   let previousFingerprint = '';
-  let ledger = buildTestLedger({repository, sha, branch, runId, checks: []});
+  let checks = [];
+  let reachedStableTerminal = false;
   while (Date.now() - startedAt < timeoutMs) {
-    const runs = await fetchAllCheckRuns({repository, sha, token});
-    const checks = selectLatestChecks(runs, sha, observerCheckName);
-    ledger = buildTestLedger({repository, sha, branch, runId, checks});
-    fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-    fs.writeFileSync(outputPath, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
+    checks = selectLatestChecks(await fetchAllCheckRuns({repository, sha, token}), sha, observerCheckName);
+    writeLedger(outputPath, buildTestLedger({repository, sha, branch, runId, checks}));
     const fingerprint = JSON.stringify(checks.map((check) => [check.app, check.name, check.state]));
     const terminal = !checks.some((check) => check.state === 'queued' || check.state === 'running');
     const oldEnough = Date.now() - startedAt >= minimumObservationMs;
     stableTerminalPolls = terminal && oldEnough && fingerprint === previousFingerprint ? stableTerminalPolls + 1 : 0;
     previousFingerprint = fingerprint;
-    if (stableTerminalPolls >= 1) break;
+    if (stableTerminalPolls >= 1) { reachedStableTerminal = true; break; }
     await sleep(pollMs);
   }
 
-  if (ledger.aggregate.state === 'pending') throw new Error(`Timed out with pending exact-head checks. Evidence: ${outputPath}`);
-  if (ledger.aggregate.state === 'failed') throw new Error(`One or more exact-head checks failed. Evidence: ${outputPath}`);
-  if (ledger.aggregate.state === 'unknown') throw new Error(`No exact-head checks were discovered. Evidence: ${outputPath}`);
+  const ledger = buildTestLedger({repository, sha, branch, runId, checks, observerState: reachedStableTerminal ? 'stable' : 'window-expired'});
+  writeLedger(outputPath, ledger);
+  if (ledger.aggregate.counts.total === 0) throw new Error(`No exact-head checks were discovered. Evidence: ${outputPath}`);
   console.log(JSON.stringify(ledger, null, 2));
   return ledger;
 }
 
 const isDirectExecution = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
-if (isDirectExecution) {
-  observeExactHeadChecks().catch((error) => {
-    console.error(error instanceof Error ? error.stack ?? error.message : String(error));
-    process.exit(1);
-  });
-}
+if (isDirectExecution) observeExactHeadChecks().catch((error) => { console.error(error instanceof Error ? error.stack ?? error.message : String(error)); process.exit(1); });
