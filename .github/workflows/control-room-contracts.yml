@@ -1,0 +1,82 @@
+name: Chief AI Control Room Contracts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
+      - "scripts/verify-mcp-config.mjs"
+      - "scripts/verify-cookie-contract.mjs"
+      - "scripts/verify-founder-chief-pair.mjs"
+      - "package.json"
+      - ".github/workflows/control-room-contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
+      - "scripts/verify-mcp-config.mjs"
+      - "scripts/verify-cookie-contract.mjs"
+      - "scripts/verify-founder-chief-pair.mjs"
+      - "package.json"
+      - ".github/workflows/control-room-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CONTROL_ROOM_TEST_REPORT_PATH: artifacts/control-room-tests.json
+
+jobs:
+  verify:
+    name: Verify Chief AI control room contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate repo-local catalog
+        run: node scripts/verify-control-room-tests.mjs
+
+      - name: Verify MCP contract
+        run: npm run verify:mcp
+
+      - name: Verify cookie contract
+        run: npm run verify:cookies
+
+      - name: Verify Founder–Chief pairing
+        run: npm run verify:founder-chief-pair
+
+      - name: Retain sanitized contract receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chief-ai-control-room-contracts-${{ env.EXPECTED_HEAD_SHA }}
+          path: artifacts/control-room-tests.json
+          if-no-files-found: error
+          retention-days: 14
