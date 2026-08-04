@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "repository": "jussray/chief-ai-machine",
+  "controlRoom": {
+    "scope": "repository-local",
+    "portfolioHub": "jussray/founder-control-room",
+    "authority": "read-only-test-evidence"
+  },
+  "source": {
+    "provider": "github-check-runs",
+    "exactRef": "commit-sha",
+    "includeAllDiscoveredChecks": true,
+    "dedupe": "latest-by-app-and-name",
+    "excludeObserverCheck": true
+  },
+  "workflow": ".github/workflows/control-room-test-ledger.yml",
+  "artifact": {
+    "namePattern": "control-room-test-ledger-{sha}",
+    "reportPath": "artifacts/control-room-test-ledger.json",
+    "retentionDays": 14
+  },
+  "policy": {
+    "failed": "block",
+    "pending": "block",
+    "unknown": "block",
+    "skippedOrNeutral": "warning",
+    "requiredCheckAuthority": "repository-native-ruleset",
+    "productionMutation": false,
+    "secretMaterialAllowed": false,
+    "promptContentAllowed": false
+  }
+}
