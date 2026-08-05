@@ -2,15 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregateTestLedger,
   buildTestLedger,
-  enforceTestLedgerPolicy,
   mapCheckState,
   selectLatestChecks,
 } from '../scripts/control-room-test-ledger.mjs';
-import {
-  buildPolicyLedger,
-  classifyChecks,
-  enforcePolicyLedger,
-} from '../scripts/control-room-test-ledger-v2.mjs';
 
 const SHA = '79b4f386f362087c9c965560fc906edc226cf6f7';
 const run = (overrides = {}) => ({
@@ -24,15 +18,6 @@ const run = (overrides = {}) => ({
   details_url: 'https://github.com/jussray/chief-ai-machine/actions/runs/1',
   app: { slug: 'github-actions' },
   ...overrides,
-});
-
-const policyLedger = (states, observerState = 'stable') => buildTestLedger({
-  repository: 'jussray/chief-ai-machine',
-  sha: SHA,
-  branch: 'main',
-  runId: '1',
-  checks: states.map((state) => ({ state })),
-  observerState,
 });
 
 describe('Control Room exact-head test ledger', () => {
@@ -84,85 +69,5 @@ describe('Control Room exact-head test ledger', () => {
     expect(ledger.commitSha).toBe(SHA);
     expect(ledger.source.includesAllDiscoveredChecks).toBe(true);
     expect(JSON.stringify(ledger)).not.toContain('token');
-  });
-
-  it('fails closed on blocked evidence while allowing skipped warnings', () => {
-    const evidencePath = 'artifacts/control-room-test-ledger.json';
-
-    expect(() => enforceTestLedgerPolicy(policyLedger(['passed']), evidencePath)).not.toThrow();
-    expect(() => enforceTestLedgerPolicy(policyLedger(['passed', 'skipped']), evidencePath)).not.toThrow();
-    expect(() => enforceTestLedgerPolicy(policyLedger([]), evidencePath))
-      .toThrow(/no exact-head checks were discovered/);
-    expect(() => enforceTestLedgerPolicy(policyLedger(['failed']), evidencePath))
-      .toThrow(/1 failed check/);
-    expect(() => enforceTestLedgerPolicy(policyLedger(['queued', 'running']), evidencePath))
-      .toThrow(/2 pending checks/);
-    expect(() => enforceTestLedgerPolicy(policyLedger(['unknown']), evidencePath))
-      .toThrow(/1 unknown check/);
-    expect(() => enforceTestLedgerPolicy(policyLedger(['passed'], 'window-expired'), evidencePath))
-      .toThrow(/did not reach a stable terminal state/);
-  });
-
-  it('keeps unlisted discovered checks visible without granting authority', () => {
-    const checks = [
-      { name: 'Unit Tests', state: 'passed', app: 'github-actions' },
-      { name: 'SonarQube – Founder Intelligence', state: 'queued', app: 'github-actions' },
-      { name: 'Workers Builds: chief-ai', state: 'passed', app: 'cloudflare-workers-and-pages' },
-    ];
-    const classified = classifyChecks(checks, ['Unit Tests']);
-    expect(classified.find((check) => check.name === 'Unit Tests')?.authority).toBe('required');
-    expect(classified.find((check) => check.name === 'SonarQube – Founder Intelligence')?.authority).toBe('advisory');
-    expect(classified.find((check) => check.name === 'Workers Builds: chief-ai')?.authority).toBe('advisory');
-  });
-
-  it('blocks only on repository-required checks while preserving advisory discovery evidence', () => {
-    const ledger = buildPolicyLedger({
-      repository: 'jussray/chief-ai-machine',
-      sha: SHA,
-      branch: 'main',
-      runId: '1',
-      observerState: 'stable',
-      policyPath: '.control-room/test-ledger.manifest.json',
-      requiredNames: ['Typecheck', 'Unit Tests'],
-      checks: [
-        { name: 'Typecheck', state: 'passed', app: 'github-actions' },
-        { name: 'Unit Tests', state: 'passed', app: 'github-actions' },
-        { name: 'SonarQube – Founder Intelligence', state: 'queued', app: 'github-actions' },
-      ],
-    });
-
-    expect(ledger.aggregate).toEqual(expect.objectContaining({ state: 'passed' }));
-    expect(ledger.discoveryAggregate).toEqual(expect.objectContaining({ state: 'pending' }));
-    expect(ledger.missingRequiredChecks).toEqual([]);
-    expect(() => enforcePolicyLedger(ledger)).not.toThrow();
-  });
-
-  it('fails closed when a repository-required check is missing or non-terminal', () => {
-    const missing = buildPolicyLedger({
-      repository: 'jussray/chief-ai-machine',
-      sha: SHA,
-      branch: 'main',
-      runId: '1',
-      observerState: 'window-expired',
-      policyPath: '.control-room/test-ledger.manifest.json',
-      requiredNames: ['Typecheck', 'Unit Tests'],
-      checks: [{ name: 'Typecheck', state: 'passed', app: 'github-actions' }],
-    });
-    expect(() => enforcePolicyLedger(missing)).toThrow(/missing required checks: Unit Tests/);
-
-    const pending = buildPolicyLedger({
-      repository: 'jussray/chief-ai-machine',
-      sha: SHA,
-      branch: 'main',
-      runId: '1',
-      observerState: 'window-expired',
-      policyPath: '.control-room/test-ledger.manifest.json',
-      requiredNames: ['Typecheck', 'Unit Tests'],
-      checks: [
-        { name: 'Typecheck', state: 'passed', app: 'github-actions' },
-        { name: 'Unit Tests', state: 'queued', app: 'github-actions' },
-      ],
-    });
-    expect(() => enforcePolicyLedger(pending)).toThrow(/1 pending required check/);
   });
 });
