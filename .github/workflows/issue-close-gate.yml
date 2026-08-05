@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Enforce founder-approved closure evidence
-        uses: jussray/founder-control-room/.github/actions/issue-close-gate@bb63c84c7f57b695bc74d45ae17da75c9a914839
+        uses: jussray/founder-control-room/.github/actions/issue-close-gate@cda5e4f26adf86b8e83052c4eabd1649e375cdf9
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.issue.number }}
