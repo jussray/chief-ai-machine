@@ -1,9 +1,27 @@
 {
-  "mcpServers": {
-    "cloudflare": { "url": "https://mcp.cloudflare.com/mcp" },
-    "cloudflare-docs": { "url": "https://docs.mcp.cloudflare.com/mcp" },
-    "cloudflare-bindings": { "url": "https://bindings.mcp.cloudflare.com/mcp" },
-    "cloudflare-builds": { "url": "https://builds.mcp.cloudflare.com/mcp" },
-    "cloudflare-observability": { "url": "https://observability.mcp.cloudflare.com/mcp" }
+  "servers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "X-MCP-Toolsets": "repos,issues,pull_requests,actions,code_security,secret_protection",
+        "X-MCP-Lockdown": "true"
+      }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.78",
+        "--isolated",
+        "--browser",
+        "chromium"
+      ]
+    }
   }
 }

@@ -4,35 +4,113 @@
   "portfolioHub": "jussray/founder-control-room",
   "role": "product-workbench",
   "authority": {
-    "sourceOfTruth": "Repository main, Prompt OS data, Builder tests, and repository-level verification evidence",
+    "sourceOfTruth": "Current main, Quality Gate, reusable prompt contracts, and exact-head Chromium persistence proof",
     "portfolioMode": "sanitized-read-only-observer",
     "productionMutation": "separate-founder-gate"
   },
   "controlRoom": {
-    "localSurface": false,
+    "localSurface": true,
     "surfaces": [
-      "GLOBAL_AI.md",
-      "AGENTS.md",
-      ".github/workflows"
+      "control-room.manifest.json",
+      ".control-room/repository.manifest.json",
+      ".github/workflows/quality-gate.yml",
+      ".github/workflows/freestyle-save-playwright.yml",
+      ".github/workflows/control-room-contracts.yml"
     ],
     "privateContentAllowed": false
   },
+  "tests": {
+    "authority": "repo-native",
+    "aggregation": "sanitized-check-summary-to-founder-control-room",
+    "rawLogsAllowed": false,
+    "catalog": [
+      {
+        "id": "typecheck",
+        "name": "Chief AI TypeScript",
+        "kind": "typecheck",
+        "command": "npm run typecheck",
+        "required": true,
+        "status": "active",
+        "evidencePaths": ["package.json", ".github/workflows/quality-gate.yml"]
+      },
+      {
+        "id": "lint",
+        "name": "Chief AI lint",
+        "kind": "lint",
+        "command": "npm run lint",
+        "required": true,
+        "status": "active",
+        "evidencePaths": ["package.json", ".github/workflows/quality-gate.yml"]
+      },
+      {
+        "id": "unit-tests",
+        "name": "Chief AI unit tests",
+        "kind": "unit",
+        "command": "npm test",
+        "required": true,
+        "status": "active",
+        "evidencePaths": ["package.json", ".github/workflows/quality-gate.yml"]
+      },
+      {
+        "id": "mcp-contract",
+        "name": "Chief AI MCP contract",
+        "kind": "contract",
+        "command": "npm run verify:mcp",
+        "required": true,
+        "status": "active",
+        "evidencePaths": ["package.json", "scripts/verify-mcp-config.mjs", ".github/workflows/control-room-contracts.yml"]
+      },
+      {
+        "id": "cookie-contract",
+        "name": "Chief AI cookie contract",
+        "kind": "security",
+        "command": "npm run verify:cookies",
+        "required": true,
+        "status": "active",
+        "evidencePaths": ["package.json", "scripts/verify-cookie-contract.mjs", ".github/workflows/control-room-contracts.yml"]
+      },
+      {
+        "id": "founder-chief-pair",
+        "name": "Founder–Chief pairing contract",
+        "kind": "contract",
+        "command": "npm run verify:founder-chief-pair",
+        "required": true,
+        "status": "active",
+        "evidencePaths": ["package.json", "scripts/verify-founder-chief-pair.mjs", ".github/workflows/control-room-contracts.yml"]
+      },
+      {
+        "id": "freestyle-save-playwright",
+        "name": "Freestyle save and persistence Chromium proof",
+        "kind": "e2e",
+        "command": "npx playwright test --config=e2e/playwright.freestyle.config.mjs",
+        "required": true,
+        "status": "active",
+        "evidencePaths": [
+          "e2e/freestyle-save.pw.mjs",
+          "e2e/playwright.freestyle.config.mjs",
+          ".github/workflows/freestyle-save-playwright.yml"
+        ]
+      }
+    ]
+  },
   "evidence": {
-    "status": "blocked",
-    "commit": "d8c6b163001e95b80640f870aa9fb590e3c96b40",
-    "observedAt": "2026-07-12",
+    "status": "verified",
+    "commit": "303954c3c8b7ca737f3409af6e4d88927d8492d4",
+    "observedAt": "2026-08-04",
     "proofRefs": [
-      "GLOBAL_AI.md",
-      ".github/workflows"
+      ".github/workflows/quality-gate.yml",
+      ".github/workflows/freestyle-save-playwright.yml",
+      "e2e/freestyle-save.pw.mjs",
+      "package.json"
     ]
   },
   "risk": {
     "level": "medium",
     "blockers": [
-      "Guardrail PR #3 remains blocked by the broader SonarQube quality gate",
-      "Cloudflare deployment remains a separate unverified decision",
-      "Prompt quality, duplication, routing, and public-data minimization audits remain open"
+      "Cloudflare production deployment remains a separate provider gate",
+      "A catalog entry is not a pass until its exact-head provider signal succeeds",
+      "Prompt inputs, saved drafts, and copied output must never enter portfolio packets"
     ]
   },
-  "nextGate": "Resolve the repository quality gate, merge verified guardrails, then perform a separate production deployment proof."
+  "nextGate": "Verify the new contract-only lane, preserve existing Quality Gate and Chromium authority, then publish sanitized check summaries through the canonical manifest."
 }

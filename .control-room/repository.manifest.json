@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "chief-ai-machine",
+  "repository": {
+    "provider": "github",
+    "identifier": "jussray/chief-ai-machine",
+    "defaultBranch": "main"
+  },
+  "verification": {
+    "requiredSignals": [
+      {"id": "typecheck", "name": "Typecheck", "required": true},
+      {"id": "lint", "name": "Lint", "required": true},
+      {"id": "unit-tests", "name": "Unit Tests", "required": true},
+      {"id": "control-room-contracts", "name": "Verify Chief AI control room contracts", "required": true},
+      {"id": "freestyle-save-playwright", "name": "Verify Freestyle saved drafts in Chromium", "required": true}
+    ],
+    "testCatalog": [
+      {"id": "typecheck", "name": "Chief AI TypeScript", "kind": "typecheck", "signalId": "typecheck", "required": true, "command": "npm run typecheck", "workflow": ".github/workflows/quality-gate.yml"},
+      {"id": "lint", "name": "Chief AI lint", "kind": "lint", "signalId": "lint", "required": true, "command": "npm run lint", "workflow": ".github/workflows/quality-gate.yml"},
+      {"id": "unit-tests", "name": "Chief AI unit tests", "kind": "unit", "signalId": "unit-tests", "required": true, "command": "npm test", "workflow": ".github/workflows/quality-gate.yml", "artifactPaths": ["test-results.json"]},
+      {"id": "mcp-contract", "name": "Chief AI MCP contract", "kind": "contract", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:mcp", "workflow": ".github/workflows/control-room-contracts.yml"},
+      {"id": "cookie-contract", "name": "Chief AI cookie contract", "kind": "security", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:cookies", "workflow": ".github/workflows/control-room-contracts.yml"},
+      {"id": "founder-chief-pair", "name": "Founder–Chief pairing contract", "kind": "contract", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:founder-chief-pair", "workflow": ".github/workflows/control-room-contracts.yml"},
+      {"id": "freestyle-save-playwright", "name": "Freestyle save and persistence Chromium proof", "kind": "e2e", "signalId": "freestyle-save-playwright", "required": true, "command": "npx playwright test --config=e2e/playwright.freestyle.config.mjs", "workflow": ".github/workflows/freestyle-save-playwright.yml", "artifactPaths": ["playwright-report/freestyle-save", "test-results/freestyle-save"]}
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "governed-prompt-rendering",
+      "description": "Routes reusable prompt output through the evidence-first renderer and verifies provider variants through unit and rendered-browser proof.",
+      "status": "active",
+      "evidencePaths": [
+        "src/domain/evidence-first-prompt.js",
+        "src/domain/evidence-first-prompt.test.js",
+        "src/modules/freestyle.js",
+        "src/modules/freestyle.test.js",
+        "e2e/freestyle-save.pw.mjs",
+        ".github/workflows/freestyle-save-playwright.yml"
+      ],
+      "requiredSignals": ["unit-tests", "freestyle-save-playwright"],
+      "usageAssertions": [
+        {"id": "freestyle-uses-shared-renderer", "path": "src/modules/freestyle.js", "marker": "renderPromptVariant", "description": "Saved Freestyle variants use the shared governed renderer."},
+        {"id": "browser-proof-exercises-persistence", "path": "e2e/freestyle-save.pw.mjs", "marker": "savedAfterReload", "description": "Chromium proof verifies saved prompt persistence after reload."}
+      ]
+    },
+    {
+      "id": "repo-local-chief-ai-test-control-room",
+      "description": "Catalogs all current Chief AI tests locally and exports only sanitized provider-check summaries to Founder Control Room.",
+      "status": "active",
+      "evidencePaths": [
+        "control-room.manifest.json",
+        ".control-room/repository.manifest.json",
+        "scripts/verify-control-room-tests.mjs",
+        ".github/workflows/control-room-contracts.yml",
+        ".github/workflows/quality-gate.yml",
+        ".github/workflows/freestyle-save-playwright.yml"
+      ],
+      "requiredSignals": ["typecheck", "lint", "unit-tests", "control-room-contracts", "freestyle-save-playwright"],
+      "usageAssertions": [
+        {"id": "local-control-room-denies-private-content", "path": "control-room.manifest.json", "marker": "\"privateContentAllowed\": false", "description": "The local control room denies prompt and user content in portfolio evidence."},
+        {"id": "contract-workflow-runs-founder-pair", "path": ".github/workflows/control-room-contracts.yml", "marker": "npm run verify:founder-chief-pair", "description": "The unobserved Founder–Chief contract is now a named exact-head signal."}
+      ]
+    }
+  ],
+  "buildAssist": {"enabled": true, "preferredBuilder": "codex", "riskLevel": "medium"},
+  "privacy": {
+    "allowlistedPacketFields": [
+      "projectId", "repository.provider", "repository.identifier", "commitSha", "branch", "manifestHash", "generatedAt",
+      "runner.provider", "runner.runId", "runner.detailsUrl", "checks.id", "checks.name", "checks.required", "checks.status",
+      "checks.detailsUrl", "capabilities.id", "capabilities.claimedStatus", "capabilities.observedStatus", "capabilities.evidencePaths",
+      "capabilities.usageAssertionIds", "capabilities.failedUsageAssertionIds", "capabilities.reason"
+    ],
+    "forbiddenData": [
+      "raw prompts", "saved prompt drafts", "clipboard contents", "provider responses", "user identities", "API keys or secrets",
+      "raw logs containing private content", "usage assertion marker text in runner packets"
+    ]
+  }
+}
