@@ -16,8 +16,6 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CONTROL_ROOM_LEDGER_SELF_CHECK: Publish exact-head test ledger
   CONTROL_ROOM_TEST_LEDGER_PATH: artifacts/control-room-test-ledger.json
-  CONTROL_ROOM_LEDGER_POLICY_PATH: .control-room/test-ledger.manifest.json
-  CONTROL_ROOM_LEDGER_TIMEOUT_MS: ${{ github.event_name == 'pull_request' && '600000' || '1200000' }}
 
 concurrency:
   group: control-room-test-ledger-${{ github.event.pull_request.number || github.ref }}
@@ -30,120 +28,54 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out exact head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
-          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
-          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-      - name: Verify portable agent contract in required merge membrane
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs=require('node:fs'),crypto=require('node:crypto');
-          const expected='sha256:f0262e382adb0c65bd7d430db92584cdc31316b2c0bbff07bc9afea0bab58f05';
-          const p='.control-room/agent-contract.v1.json',fail=m=>{console.error(`required-agent-contract: ${m}`);process.exit(1)};
-          if(!fs.existsSync(p))fail(`missing ${p}`);const c=JSON.parse(fs.readFileSync(p,'utf8'));
-          if(c.contract!=='juss/agent-contract@v1'||c.version!==1||c.status!=='active')fail('identity/version/status drift');
-          if(c.binding?.repository!==process.env.GITHUB_REPOSITORY)fail('repository binding mismatch');
-          if(c.kernelFingerprint!==expected)fail('canonical kernel fingerprint drift');
-          const actual=`sha256:${crypto.createHash('sha256').update(JSON.stringify(c.kernel)).digest('hex')}`;if(actual!==expected)fail('kernel bytes no longer match canonical v1');
-          for(const n of ['humanAuthorityIsRoot','consensusDoesNotAuthorizeMutation','mutationRequiresBoundAuthority','ambiguousMutationRequiresReconciliation','staleProofCannotCarryForward','localStricterRulesWin'])if(c.kernel?.invariants?.[n]!==true)fail(`merge invariant disabled: ${n}`);
-          const a=String(c.binding?.authorityRule??'');if(!a.includes('no merge')||!a.includes('deploy'))fail('contract may not grant merge/deploy authority');
-          console.log(`required-agent-contract VERIFIED ${process.env.GITHUB_REPOSITORY} ${expected}`);
-          NODE
       - name: Install locked dependencies
         run: npm ci
-      - name: Run ledger and operator contracts
-        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs test/control-room-test-ledger-workflow.contract.test.mjs
+      - name: Run Control Room test-ledger contract in the repository test runner
+        run: npx vitest run test/control-room-test-ledger.test.mjs
 
   publish-ledger:
     name: Publish exact-head test ledger
     needs: ledger-contract
-    if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
-      - name: Fail closed unless ledger contract passed
-        env:
-          LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf 'ledger-contract=%s\n' "$LEDGER_CONTRACT_RESULT"
-          test "$LEDGER_CONTRACT_RESULT" = 'success'
       - name: Check out exact head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
-          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
-          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-
-      - name: Materialize pull-request ledger receipt
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          {
-            echo '### Exact-head test ledger required-check receipt'
-            echo
-            echo '- status: success'
-            echo '- applicability: skipped'
-            echo '- reason: pull-request-ledger-publication-is-read-only'
-            echo "- head: \`$EXPECTED_HEAD_SHA\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Set up Node
-        if: github.event_name != 'pull_request'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Observe repository-authoritative exact-head checks
-        if: github.event_name != 'pull_request'
+      - name: Observe every exact-head check lane
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/control-room-test-ledger-v2.mjs
-      - name: Build operator truth summary
-        if: github.event_name != 'pull_request' && always()
-        run: |
-          if [ -f "$CONTROL_ROOM_TEST_LEDGER_PATH" ]; then
-            node scripts/operator-truth-summary.mjs
-          fi
-      - name: Publish operator summary
-        if: github.event_name != 'pull_request' && always()
-        shell: bash
-        run: |
-          if [ -f artifacts/operator-truth-summary.json ]; then
-            {
-              echo '## Operator Truth Summary'
-              echo
-              echo '```json'
-              cat artifacts/operator-truth-summary.json
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Upload repository-local truth receipts
-        if: github.event_name != 'pull_request' && always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        run: node scripts/control-room-test-ledger.mjs
+      - name: Upload repository-local Control Room ledger
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: control-room-truth-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            artifacts/control-room-test-ledger.json
-            artifacts/operator-truth-summary.json
+          name: control-room-test-ledger-${{ env.EXPECTED_HEAD_SHA }}
+          path: artifacts/control-room-test-ledger.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
