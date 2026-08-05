@@ -14,6 +14,6 @@ Unresolved risks: none
 Founder approval: @jussray
 ```
 
-For code or documentation scope, `Exact head` must be the current default-branch head. An old ancestor, unmerged branch commit, fabricated SHA, abbreviation, branch name, PR number, or `not_applicable` fails. A later evidence-shaped comment from another author does not replace fresh founder evidence, and a stale workflow rerun does not mutate a newer close cycle.
+For code or documentation scope, `Exact head` must equal the default-branch SHA captured by the `issues.closed` event. That SHA remains valid if the default branch advances while the workflow is queued. An unrelated, unmerged, rewritten, fabricated, abbreviated, branch-name, PR-number, or `not_applicable` value fails. A later evidence-shaped comment from another author does not replace fresh founder evidence, and a stale workflow rerun does not mutate a newer close cycle.
 
-The gate reopens the issue when evidence is absent, stale, edited after closure, malformed, not founder-authored, or still reports unresolved risk. A passing gate posts one idempotent receipt with the evidence comment ID, timestamps, and SHA-256 witness without copying raw evidence. Prompt creation, provider output, automation, publishing, or verbal approval do not automatically authorize closure.
+The gate reopens the issue when evidence is absent, stale, edited after closure, malformed, not founder-authored, or still reports unresolved risk. A passing gate posts one idempotent receipt with the close-event repository head, evidence comment ID, timestamps, and SHA-256 witness without copying raw evidence. Prompt creation, provider output, automation, publishing, or verbal approval do not automatically authorize closure.
