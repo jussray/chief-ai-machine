@@ -1,0 +1,25 @@
+name: Issue Close Gate
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-close-gate-${{ github.repository }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  enforce:
+    if: ${{ github.event.issue.pull_request == null }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce founder-approved closure evidence
+        uses: jussray/founder-control-room/.github/actions/issue-close-gate@95d104d99fc8f8a5b8bbc196624fd31e3281b877
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          founder-login: jussray
