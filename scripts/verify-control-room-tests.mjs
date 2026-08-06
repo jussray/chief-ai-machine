@@ -18,6 +18,7 @@ const REQUIRED_CANONICAL_LEDGER_SIGNALS = [
   'test-ledger-contract',
   'test-ledger-publish',
 ];
+const SECRET_VALUE_PATTERN = /(?:api[_-]?key|secret|token)\s*[:=]\s*["']?[a-z0-9_./+=-]{8,}|sk-[a-z0-9_-]{10,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i;
 
 async function exists(file) {
   try { await access(file); return true; } catch { return false; }
@@ -148,7 +149,7 @@ for (const capability of Array.isArray(canonical.capabilities) ? canonical.capab
   }
 }
 
-if (/(api[_-]?key|secret\s*[:=]|token\s*[:=]|sk-[a-z0-9_-]{10,})/i.test(`${raw}\n${canonicalRaw}`)) {
+if (SECRET_VALUE_PATTERN.test(`${raw}\n${canonicalRaw}`)) {
   errors.push('Control Room manifests appear to contain secret material');
 }
 
