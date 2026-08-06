@@ -113,6 +113,33 @@ export function buildTestLedger({
   };
 }
 
+export function enforceTestLedgerPolicy(
+  ledger,
+  outputPath = 'artifacts/control-room-test-ledger.json',
+) {
+  const counts = ledger?.aggregate?.counts || {};
+  const blockers = [];
+  const total = Number(counts.total || 0);
+  const failed = Number(counts.failed || 0);
+  const pending = Number(counts.queued || 0) + Number(counts.running || 0);
+  const unknown = Number(counts.unknown || 0);
+
+  if (total === 0) blockers.push('no exact-head checks were discovered');
+  if (ledger?.runner?.observerState !== 'stable') {
+    blockers.push(`observer did not reach a stable terminal state (${ledger?.runner?.observerState || 'unknown'})`);
+  }
+  if (failed > 0) blockers.push(`${failed} failed check${failed === 1 ? '' : 's'}`);
+  if (pending > 0) blockers.push(`${pending} pending check${pending === 1 ? '' : 's'}`);
+  if (unknown > 0) blockers.push(`${unknown} unknown check${unknown === 1 ? '' : 's'}`);
+
+  if (blockers.length > 0) {
+    throw new Error(
+      `Control Room test-ledger policy blocked: ${blockers.join('; ')}. Evidence: ${outputPath}`,
+    );
+  }
+  return ledger;
+}
+
 async function githubJson(url, token) {
   const response = await fetch(url, {
     headers: {
@@ -212,11 +239,8 @@ export async function observeExactHeadChecks(env = process.env) {
     observerState: reachedStableTerminal ? 'stable' : 'window-expired',
   });
   writeLedger(outputPath, ledger);
-  if (ledger.aggregate.counts.total === 0) {
-    throw new Error(`No exact-head checks were discovered. Evidence: ${outputPath}`);
-  }
   console.log(JSON.stringify(ledger, null, 2));
-  return ledger;
+  return enforceTestLedgerPolicy(ledger, outputPath);
 }
 
 const isDirectExecution = process.argv[1]
