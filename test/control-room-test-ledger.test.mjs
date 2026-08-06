@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregateTestLedger,
   buildTestLedger,
+  enforceTestLedgerPolicy,
   mapCheckState,
   selectLatestChecks,
 } from '../scripts/control-room-test-ledger.mjs';
@@ -18,6 +19,15 @@ const run = (overrides = {}) => ({
   details_url: 'https://github.com/jussray/chief-ai-machine/actions/runs/1',
   app: { slug: 'github-actions' },
   ...overrides,
+});
+
+const policyLedger = (states, observerState = 'stable') => buildTestLedger({
+  repository: 'jussray/chief-ai-machine',
+  sha: SHA,
+  branch: 'main',
+  runId: '1',
+  checks: states.map((state) => ({ state })),
+  observerState,
 });
 
 describe('Control Room exact-head test ledger', () => {
@@ -69,5 +79,22 @@ describe('Control Room exact-head test ledger', () => {
     expect(ledger.commitSha).toBe(SHA);
     expect(ledger.source.includesAllDiscoveredChecks).toBe(true);
     expect(JSON.stringify(ledger)).not.toContain('token');
+  });
+
+  it('fails closed on blocked evidence while allowing skipped warnings', () => {
+    const evidencePath = 'artifacts/control-room-test-ledger.json';
+
+    expect(() => enforceTestLedgerPolicy(policyLedger(['passed']), evidencePath)).not.toThrow();
+    expect(() => enforceTestLedgerPolicy(policyLedger(['passed', 'skipped']), evidencePath)).not.toThrow();
+    expect(() => enforceTestLedgerPolicy(policyLedger([]), evidencePath))
+      .toThrow(/no exact-head checks were discovered/);
+    expect(() => enforceTestLedgerPolicy(policyLedger(['failed']), evidencePath))
+      .toThrow(/1 failed check/);
+    expect(() => enforceTestLedgerPolicy(policyLedger(['queued', 'running']), evidencePath))
+      .toThrow(/2 pending checks/);
+    expect(() => enforceTestLedgerPolicy(policyLedger(['unknown']), evidencePath))
+      .toThrow(/1 unknown check/);
+    expect(() => enforceTestLedgerPolicy(policyLedger(['passed'], 'window-expired'), evidencePath))
+      .toThrow(/did not reach a stable terminal state/);
   });
 });
