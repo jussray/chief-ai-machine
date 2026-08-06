@@ -4,7 +4,7 @@
   "portfolioHub": "jussray/founder-control-room",
   "role": "product-workbench",
   "authority": {
-    "sourceOfTruth": "Current main, Quality Gate, reusable prompt contracts, and exact-head Chromium persistence proof",
+    "sourceOfTruth": "Current main, exact-head Quality Gate, repository contracts, exact-head test ledger, and Chromium persistence proof",
     "portfolioMode": "sanitized-read-only-observer",
     "productionMutation": "separate-founder-gate"
   },
@@ -13,9 +13,11 @@
     "surfaces": [
       "control-room.manifest.json",
       ".control-room/repository.manifest.json",
+      ".control-room/test-ledger.manifest.json",
       ".github/workflows/quality-gate.yml",
       ".github/workflows/freestyle-save-playwright.yml",
-      ".github/workflows/control-room-contracts.yml"
+      ".github/workflows/control-room-contracts.yml",
+      ".github/workflows/control-room-test-ledger.yml"
     ],
     "privateContentAllowed": false
   },
@@ -79,6 +81,33 @@
         "evidencePaths": ["package.json", "scripts/verify-founder-chief-pair.mjs", ".github/workflows/control-room-contracts.yml"]
       },
       {
+        "id": "control-room-test-ledger-contract",
+        "name": "Control Room test-ledger policy contract",
+        "kind": "contract",
+        "command": "npx vitest run test/control-room-test-ledger.test.mjs",
+        "required": true,
+        "status": "active",
+        "evidencePaths": [
+          ".control-room/test-ledger.manifest.json",
+          "scripts/control-room-test-ledger.mjs",
+          "test/control-room-test-ledger.test.mjs",
+          ".github/workflows/control-room-test-ledger.yml"
+        ]
+      },
+      {
+        "id": "control-room-test-ledger-publish",
+        "name": "Control Room exact-head ledger observer",
+        "kind": "contract",
+        "command": "node scripts/control-room-test-ledger.mjs",
+        "required": true,
+        "status": "active",
+        "evidencePaths": [
+          ".control-room/test-ledger.manifest.json",
+          "scripts/control-room-test-ledger.mjs",
+          ".github/workflows/control-room-test-ledger.yml"
+        ]
+      },
+      {
         "id": "freestyle-save-playwright",
         "name": "Freestyle save and persistence Chromium proof",
         "kind": "e2e",
@@ -99,6 +128,11 @@
     "observedAt": "2026-08-04",
     "proofRefs": [
       ".github/workflows/quality-gate.yml",
+      ".github/workflows/control-room-contracts.yml",
+      ".github/workflows/control-room-test-ledger.yml",
+      ".control-room/test-ledger.manifest.json",
+      "scripts/control-room-test-ledger.mjs",
+      "test/control-room-test-ledger.test.mjs",
       ".github/workflows/freestyle-save-playwright.yml",
       "e2e/freestyle-save.pw.mjs",
       "package.json"
@@ -112,5 +146,5 @@
       "Prompt inputs, saved drafts, and copied output must never enter portfolio packets"
     ]
   },
-  "nextGate": "Verify the new contract-only lane, preserve existing Quality Gate and Chromium authority, then publish sanitized check summaries through the canonical manifest."
+  "nextGate": "Keep the local and canonical Control Room catalogs in parity and require exact-head provider signals before any portfolio claim."
 }
