@@ -9,6 +9,7 @@
 **/.git
 CLAUDE.md
 AGENTS.md
+AGENTS_FOUNDER_INTELLIGENCE.md
 README.md
 docs/
 global/
@@ -28,3 +29,14 @@ LICENSE
 **/*.test.js
 coverage/
 scripts/
+e2e/
+tools/
+config/
+.control-room/
+.claude/
+.cursor/
+.vscode/
+.security/
+.gitignore
+.mcp.json
+.mcp.example.json
