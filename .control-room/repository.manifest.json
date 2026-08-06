@@ -37,7 +37,7 @@
         "src/domain/evidence-first-prompt.js",
         "src/domain/evidence-first-prompt.test.js",
         "src/modules/freestyle.js",
-        "src/modules/freestyle.test.js",
+        "src/modules/freestyle-save-evidence-floor.test.js",
         "e2e/freestyle-save.pw.mjs",
         ".github/workflows/freestyle-save-playwright.yml"
       ],
