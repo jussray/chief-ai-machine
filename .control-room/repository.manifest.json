@@ -12,6 +12,8 @@
       {"id": "lint", "name": "Lint", "required": true},
       {"id": "unit-tests", "name": "Unit Tests", "required": true},
       {"id": "control-room-contracts", "name": "Verify Chief AI control room contracts", "required": true},
+      {"id": "test-ledger-contract", "name": "Verify test-ledger contract", "required": true},
+      {"id": "test-ledger-publish", "name": "Publish exact-head test ledger", "required": true},
       {"id": "freestyle-save-playwright", "name": "Verify Freestyle saved drafts in Chromium", "required": true}
     ],
     "testCatalog": [
@@ -21,6 +23,8 @@
       {"id": "mcp-contract", "name": "Chief AI MCP contract", "kind": "contract", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:mcp", "workflow": ".github/workflows/control-room-contracts.yml"},
       {"id": "cookie-contract", "name": "Chief AI cookie contract", "kind": "security", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:cookies", "workflow": ".github/workflows/control-room-contracts.yml"},
       {"id": "founder-chief-pair", "name": "Founder–Chief pairing contract", "kind": "contract", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:founder-chief-pair", "workflow": ".github/workflows/control-room-contracts.yml"},
+      {"id": "control-room-test-ledger-contract", "name": "Control Room test-ledger policy contract", "kind": "contract", "signalId": "test-ledger-contract", "required": true, "command": "npx vitest run test/control-room-test-ledger.test.mjs", "workflow": ".github/workflows/control-room-test-ledger.yml"},
+      {"id": "control-room-test-ledger-publish", "name": "Control Room exact-head ledger observer", "kind": "contract", "signalId": "test-ledger-publish", "required": true, "command": "node scripts/control-room-test-ledger.mjs", "workflow": ".github/workflows/control-room-test-ledger.yml", "artifactPaths": ["artifacts/control-room-test-ledger.json"]},
       {"id": "freestyle-save-playwright", "name": "Freestyle save and persistence Chromium proof", "kind": "e2e", "signalId": "freestyle-save-playwright", "required": true, "command": "npx playwright test --config=e2e/playwright.freestyle.config.mjs", "workflow": ".github/workflows/freestyle-save-playwright.yml", "artifactPaths": ["playwright-report/freestyle-save", "test-results/freestyle-save"]}
     ]
   },
@@ -33,7 +37,7 @@
         "src/domain/evidence-first-prompt.js",
         "src/domain/evidence-first-prompt.test.js",
         "src/modules/freestyle.js",
-        "src/modules/freestyle.test.js",
+        "src/modules/freestyle-save-evidence-floor.test.js",
         "e2e/freestyle-save.pw.mjs",
         ".github/workflows/freestyle-save-playwright.yml"
       ],
@@ -45,20 +49,26 @@
     },
     {
       "id": "repo-local-chief-ai-test-control-room",
-      "description": "Catalogs all current Chief AI tests locally and exports only sanitized provider-check summaries to Founder Control Room.",
+      "description": "Catalogs all current Chief AI tests locally and exports only sanitized exact-head provider-check summaries to Founder Control Room.",
       "status": "active",
       "evidencePaths": [
         "control-room.manifest.json",
         ".control-room/repository.manifest.json",
+        ".control-room/test-ledger.manifest.json",
         "scripts/verify-control-room-tests.mjs",
+        "scripts/control-room-test-ledger.mjs",
+        "test/control-room-test-ledger.test.mjs",
         ".github/workflows/control-room-contracts.yml",
+        ".github/workflows/control-room-test-ledger.yml",
         ".github/workflows/quality-gate.yml",
         ".github/workflows/freestyle-save-playwright.yml"
       ],
-      "requiredSignals": ["typecheck", "lint", "unit-tests", "control-room-contracts", "freestyle-save-playwright"],
+      "requiredSignals": ["typecheck", "lint", "unit-tests", "control-room-contracts", "test-ledger-contract", "test-ledger-publish", "freestyle-save-playwright"],
       "usageAssertions": [
         {"id": "local-control-room-denies-private-content", "path": "control-room.manifest.json", "marker": "\"privateContentAllowed\": false", "description": "The local control room denies prompt and user content in portfolio evidence."},
-        {"id": "contract-workflow-runs-founder-pair", "path": ".github/workflows/control-room-contracts.yml", "marker": "npm run verify:founder-chief-pair", "description": "The unobserved Founder–Chief contract is now a named exact-head signal."}
+        {"id": "contract-workflow-runs-founder-pair", "path": ".github/workflows/control-room-contracts.yml", "marker": "npm run verify:founder-chief-pair", "description": "The Founder–Chief contract is a named exact-head signal."},
+        {"id": "ledger-policy-fails-closed", "path": "scripts/control-room-test-ledger.mjs", "marker": "enforceTestLedgerPolicy", "description": "Failed, pending, unknown, unstable, or absent evidence blocks the ledger lane."},
+        {"id": "ledger-workflow-retains-sanitized-artifact", "path": ".github/workflows/control-room-test-ledger.yml", "marker": "artifacts/control-room-test-ledger.json", "description": "The ledger workflow retains the sanitized exact-head evidence artifact."}
       ]
     }
   ],
