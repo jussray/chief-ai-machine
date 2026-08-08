@@ -1,0 +1,69 @@
+{
+  "version": "10",
+  "name": "Chief AI Firewall v10",
+  "repository": "jussray/chief-ai-machine",
+  "activationStage": "policy-ci-only",
+  "cloudflare": {
+    "primaryHosts": ["chief-ai-machine-public-surface"],
+    "activeWorker": "none-proven",
+    "retiredWorkersNoNewAuthority": [],
+    "managedWaf": {
+      "enabled": true,
+      "mode": "prevention-ready",
+      "ruleFamilies": ["OWASP Core Rules", "Cloudflare Managed Rules", "Known bad bots"]
+    },
+    "apiShield": {
+      "schemaValidation": "log-then-block",
+      "jwtValidation": "required-on-private-api",
+      "sessionIdentifier": "Authorization"
+    },
+    "authenticatedOriginPulls": "required-before-direct-origin-exposure"
+  },
+  "controls": {
+    "rateLimiting": {
+      "enabled": true,
+      "strategy": "per-ip-plus-session-key",
+      "routes": [
+        { "match": "/api/*", "limit": 60, "periodSeconds": 10, "action": "challenge-then-block" },
+        { "match": "/prompt-os/*", "limit": 40, "periodSeconds": 60, "action": "challenge-then-block" },
+        { "match": "/public/*", "limit": 240, "periodSeconds": 60, "action": "log" }
+      ]
+    },
+    "botDefense": {
+      "enabled": true,
+      "mode": "challenge_unknown_automation",
+      "allowVerifiedGoodBots": true,
+      "preserveHumanSignupAndLogin": true
+    },
+    "auth": {
+      "failClosed": true,
+      "privateRoutesRequireServerVerifiedSession": true,
+      "serverOnlySecrets": ["GITHUB_TOKEN", "HUBSPOT_PRIVATE_APP_TOKEN", "CLOUDFLARE_API_TOKEN"],
+      "forbiddenClientSecrets": true
+    },
+    "headers": {
+      "csp": true,
+      "hsts": true,
+      "xFrameOptions": "DENY",
+      "referrerPolicy": "strict-origin-when-cross-origin",
+      "controlRoomCache": "no-store"
+    },
+    "integrations": {
+      "githubWritesRequireExactHead": true,
+      "hubspotWritesRequireExplicitApproval": true,
+      "automationPublishAllowed": false,
+      "draftOnlyByDefault": true
+    },
+    "observability": {
+      "securityEventsRequiredBeforeBlockMode": true,
+      "logBlockedReason": true,
+      "noSilentNulls": true
+    },
+    "productDesign": {
+      "blockedStateMustBeHumanReadable": true,
+      "doNotUseCAPTCHAOnFirstPassWhenChallengeWorks": true,
+      "legitimateUsersGetRecoveryPath": true,
+      "noMisleadingConnectedOrProtectedClaims": true
+    }
+  }
+}

@@ -1,0 +1,28 @@
+name: Firewall v10
+
+on:
+  pull_request:
+    paths:
+      - security/firewall-v10.policy.json
+      - scripts/verify-firewall-v10.mjs
+      - .github/workflows/firewall-v10.yml
+  push:
+    branches:
+      - main
+    paths:
+      - security/firewall-v10.policy.json
+      - scripts/verify-firewall-v10.mjs
+      - .github/workflows/firewall-v10.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-firewall-v10:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify policy-as-code
+        run: node scripts/verify-firewall-v10.mjs
