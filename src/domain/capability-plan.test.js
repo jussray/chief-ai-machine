@@ -3,6 +3,7 @@ import {
   CAPABILITY_PLAN_CONTRACT,
   capabilityPlanHash,
   createCapabilityPlan,
+  sha256Hex,
   validateCapabilityPlan,
 } from './capability-plan.js';
 
@@ -37,6 +38,10 @@ function basePlan(overrides = {}) {
 }
 
 describe('V10 capability plans', () => {
+  it('matches the standard SHA-256 test vector without Node-only crypto', () => {
+    expect(sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  });
+
   it('creates a deterministic Chief-AI-owned plan with provenance, strategy, and measurement', () => {
     const plan = basePlan();
 
