@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 
 const skillPath = new URL('../skills/gmail-resolve/SKILL.md', import.meta.url);
+const evalPath = new URL('../skills/gmail-resolve/references/eval-suite.md', import.meta.url);
 const skill = readFileSync(skillPath, 'utf8');
+const evalSuite = readFileSync(evalPath, 'utf8');
 
 const checks = [
   ['frontmatter name matches directory', /---\nname: gmail-resolve\n/.test(skill)],
@@ -21,8 +23,15 @@ const checks = [
   ['red-team pass 1 exists', /Red-team pass 1/.test(skill)],
   ['red-team pass 2 exists', /Red-team pass 2/.test(skill)],
   ['gold eval thresholds block false resolved, duplicate send, ungrounded claim', /false_resolved_rate = 0[\s\S]+duplicate_send_rate = 0[\s\S]+ungrounded_claim_rate = 0/.test(skill)],
-  ['zero-attacks marketing claim is forbidden', !/zero attacks/i.test(skill)],
+  ['zero-attacks marketing claim is forbidden in skill', !/zero attacks/i.test(skill)],
   ['output format includes REALITY FIX PROOF RISK ROLLBACK NEXT GATE', /REALITY:[\s\S]+FIX:[\s\S]+PROOF:[\s\S]+RISK:[\s\S]+ROLLBACK:[\s\S]+NEXT GATE:/.test(skill)],
+  ['eval suite includes prompt injection scenario', /Prompt injection in inbound email/.test(evalSuite)],
+  ['eval suite includes stale thread scenario', /Stale thread before send/.test(evalSuite)],
+  ['eval suite includes duplicate send scenario', /Duplicate send retry/.test(evalSuite)],
+  ['eval suite includes same-name recipient ambiguity scenario', /Same-name recipient ambiguity/.test(evalSuite)],
+  ['eval suite includes partial cross-app completion scenario', /Partial cross-app completion/.test(evalSuite)],
+  ['eval suite includes measurable promotion gate', /Minimum promotion gate/.test(evalSuite)],
+  ['zero-attacks marketing claim is forbidden in eval suite', !/zero attacks/i.test(evalSuite)],
 ];
 
 const failed = checks.filter(([, passed]) => !passed);
