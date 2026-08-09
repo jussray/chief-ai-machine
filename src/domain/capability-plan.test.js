@@ -10,6 +10,7 @@ import {
 const SHA = 'a'.repeat(40);
 const HASH = 'b'.repeat(64);
 const REGISTRY_HASH = 'e'.repeat(64);
+const CONFORMANCE_HASH = '7a2f344b9086b8a5a86ece6f027ad727bd76c2ac8a1e0efe2fb41133727c153d';
 
 function basePlan(overrides = {}) {
   return createCapabilityPlan({
@@ -40,6 +41,31 @@ function basePlan(overrides = {}) {
 describe('V10 capability plans', () => {
   it('matches the standard SHA-256 test vector without Node-only crypto', () => {
     expect(sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  });
+
+  it('matches the cross-runtime V10 capability-plan conformance hash', () => {
+    const fixture = createCapabilityPlan({
+      goal: 'Conformance fixture.',
+      projectSlug: 'founder-control-room',
+      expectedHeadSha: 'a'.repeat(40),
+      registryHash: 'b'.repeat(64),
+      requestedAuthority: 'draft',
+      strategicLenses: ['futureyou', 'truthmode'],
+      routingReason: 'Verify cross-runtime capability-plan hashing.',
+      capabilities: [{
+        id: 'goalfix',
+        version: '1.0.0',
+        origin: 'founder-native',
+        owner: 'juss',
+        sourceHash: 'c'.repeat(64),
+        authorityCeiling: 'privileged',
+      }],
+      proofRequirements: ['exact-head evidence'],
+      outcomeSignals: ['verification-pass'],
+      rollback: 'Discard fixture.',
+    });
+
+    expect(fixture.planHash).toBe(CONFORMANCE_HASH);
   });
 
   it('creates a deterministic Chief-AI-owned plan with provenance, strategy, and measurement', () => {
