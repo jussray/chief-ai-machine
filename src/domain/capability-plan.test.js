@@ -8,13 +8,17 @@ import {
 
 const SHA = 'a'.repeat(40);
 const HASH = 'b'.repeat(64);
+const REGISTRY_HASH = 'e'.repeat(64);
 
 function basePlan(overrides = {}) {
   return createCapabilityPlan({
     goal: 'Route one verified V10 capability slice.',
     projectSlug: 'founder-control-room',
     expectedHeadSha: SHA,
+    registryHash: REGISTRY_HASH,
     requestedAuthority: 'draft',
+    strategicLenses: ['me', 'futureyou', 'billgates', 'elonmusk', 'truthmode'],
+    routingReason: 'Use the smallest evidence-bound capability set that advances the founder goal.',
     capabilities: [
       {
         id: 'goalfix',
@@ -26,25 +30,29 @@ function basePlan(overrides = {}) {
       },
     ],
     proofRequirements: ['focused tests', 'exact-head evidence'],
-    rollback: 'Discard the plan; no execution authority is transferred.',
+    outcomeSignals: ['verification-pass', 'founder-override-rate'],
+    rollback: 'Revert the focused branch; no execution authority is transferred by the plan.',
     ...overrides,
   });
 }
 
 describe('V10 capability plans', () => {
-  it('creates a deterministic Chief-AI-owned plan with provenance', () => {
+  it('creates a deterministic Chief-AI-owned plan with provenance, strategy, and measurement', () => {
     const plan = basePlan();
 
     expect(plan.contract).toBe(CAPABILITY_PLAN_CONTRACT);
     expect(plan.selectedBy).toBe('chief-ai-machine');
+    expect(plan.registryHash).toBe(REGISTRY_HASH);
+    expect(plan.strategicLenses).toContain('futureyou');
+    expect(plan.outcomeSignals).toContain('verification-pass');
     expect(plan.planHash).toMatch(/^[0-9a-f]{64}$/);
     expect(capabilityPlanHash(plan)).toBe(plan.planHash);
     expect(validateCapabilityPlan(plan)).toEqual({ valid: true, errors: [] });
   });
 
-  it('changes the plan hash when the selected capability changes', () => {
+  it('changes the plan hash when capability, registry, or outcome contract changes', () => {
     const first = basePlan();
-    const second = basePlan({
+    const capabilityChanged = basePlan({
       capabilities: [
         {
           id: 'repo-truth',
@@ -56,8 +64,12 @@ describe('V10 capability plans', () => {
         },
       ],
     });
+    const registryChanged = basePlan({ registryHash: 'd'.repeat(64) });
+    const outcomeChanged = basePlan({ outcomeSignals: ['different-success-signal'] });
 
-    expect(second.planHash).not.toBe(first.planHash);
+    expect(capabilityChanged.planHash).not.toBe(first.planHash);
+    expect(registryChanged.planHash).not.toBe(first.planHash);
+    expect(outcomeChanged.planHash).not.toBe(first.planHash);
   });
 
   it('rejects non-owned selection and content-hash tampering', () => {
@@ -83,5 +95,13 @@ describe('V10 capability plans', () => {
         },
       ],
     })).toThrow('authority exceeds its community origin ceiling');
+  });
+
+  it('requires a registry hash, routing reason, strategic lenses, proof, and outcome signals', () => {
+    expect(() => basePlan({ registryHash: '' })).toThrow('registryHash must be sha256');
+    expect(() => basePlan({ routingReason: '' })).toThrow('routing reason is required');
+    expect(() => basePlan({ strategicLenses: [] })).toThrow('strategic lenses are required');
+    expect(() => basePlan({ proofRequirements: [] })).toThrow('proof requirements are required');
+    expect(() => basePlan({ outcomeSignals: [] })).toThrow('outcome signals are required');
   });
 });
