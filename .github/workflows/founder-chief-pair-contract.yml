@@ -6,7 +6,9 @@ on:
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
-      - 'package.json'
+      - '.claude/skills/juss-chief-ai/SKILL.md'
+      - 'src/domain/capability-plan.js'
+      - 'src/domain/capability-outcome.js'
       - '.github/workflows/founder-chief-pair-contract.yml'
   push:
     branches: [main]
@@ -14,27 +16,34 @@ on:
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
-      - 'package.json'
+      - '.claude/skills/juss-chief-ai/SKILL.md'
+      - 'src/domain/capability-plan.js'
+      - 'src/domain/capability-outcome.js'
       - '.github/workflows/founder-chief-pair-contract.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  PAIR_REF: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+
 jobs:
   verify-pair-contract:
     runs-on: ubuntu-latest
     steps:
-      # Controlled PR probe v2 after accounting-control enforcement.
-      - name: Check out Chief AI
+      - name: Check out exact Chief AI source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           path: chief-ai-machine
+          persist-credentials: false
 
-      - name: Check out Founder Control Room
+      - name: Check out paired Founder Control Room ref
         uses: actions/checkout@v4
         with:
           repository: jussray/founder-control-room
+          ref: ${{ env.PAIR_REF }}
           path: founder-control-room
           persist-credentials: false
 
@@ -47,4 +56,4 @@ jobs:
         env:
           PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
           PAIR_CROSS_REPO_REQUIRED: 'true'
-        run: npm run verify:founder-chief-pair
+        run: node scripts/verify-founder-chief-pair.mjs
