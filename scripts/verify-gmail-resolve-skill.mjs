@@ -2,8 +2,10 @@ import { readFileSync } from 'node:fs';
 
 const skillPath = new URL('../skills/gmail-resolve/SKILL.md', import.meta.url);
 const evalPath = new URL('../skills/gmail-resolve/references/eval-suite.md', import.meta.url);
+const fixturesPath = new URL('../skills/gmail-resolve/evals/scenarios.json', import.meta.url);
 const skill = readFileSync(skillPath, 'utf8');
 const evalSuite = readFileSync(evalPath, 'utf8');
+const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
 
 function hasAffirmativeZeroAttacksClaim(text) {
   return text
@@ -12,9 +14,13 @@ function hasAffirmativeZeroAttacksClaim(text) {
       && !/(?:do not|don't|never|must not|forbid(?:den)?|avoid)\b[^.\n]{0,80}\bzero attacks\b/i.test(line));
 }
 
+const fixtureIds = Array.isArray(fixtures.scenarios)
+  ? fixtures.scenarios.map((scenario) => scenario.id)
+  : [];
+
 const checks = [
   ['frontmatter name matches directory', /---\nname: gmail-resolve\n/.test(skill)],
-  ['metadata version is quoted and nested', /metadata:\n(?: {2}.*\n)* {2}version: "0\.1\.0"/.test(skill)],
+  ['metadata version is quoted and nested', /metadata:\n(?: {2}.*\n)* {2}version: "0\.2\.0"/.test(skill)],
   ['description defines outcome-resolution trigger', /email outcome|verified resolution loop|authority gates/.test(skill)],
   ['state machine includes WAITING before RESOLVED', /WAITING \| RESOLVED/.test(skill)],
   ['state machine includes BLOCKED and ROLLBACK', /BLOCKED \| ROLLBACK/.test(skill)],
@@ -38,7 +44,12 @@ const checks = [
   ['eval suite includes same-name recipient ambiguity scenario', /Same-name recipient ambiguity/.test(evalSuite)],
   ['eval suite includes partial cross-app completion scenario', /Partial cross-app completion/.test(evalSuite)],
   ['eval suite includes measurable promotion gate', /Minimum promotion gate/.test(evalSuite)],
+  ['eval suite documents executable contract scorecard', /Executable contract evals[\s\S]+gmail-resolve-eval-scorecard\.json/.test(evalSuite)],
   ['affirmative zero-attacks marketing claim is forbidden in eval suite', !hasAffirmativeZeroAttacksClaim(evalSuite)],
+  ['eval fixtures are contract-scoped', fixtures.scope === 'contract'],
+  ['eval fixtures target v0.2.0', fixtures.skillVersion === '0.2.0'],
+  ['eval fixtures cover 12 scenarios', fixtureIds.length === 12],
+  ['eval fixture ids are unique', new Set(fixtureIds).size === fixtureIds.length],
 ];
 
 const failed = checks.filter(([, passed]) => !passed);
