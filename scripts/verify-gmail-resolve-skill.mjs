@@ -7,7 +7,7 @@ const evalSuite = readFileSync(evalPath, 'utf8');
 
 const checks = [
   ['frontmatter name matches directory', /---\nname: gmail-resolve\n/.test(skill)],
-  ['metadata version is quoted and nested', /metadata:\n(?:  .*\n)*  version: "0\.1\.0"/.test(skill)],
+  ['metadata version is quoted and nested', /metadata:\n(?: {2}.*\n)* {2}version: "0\.1\.0"/.test(skill)],
   ['description defines outcome-resolution trigger', /email outcome|verified resolution loop|authority gates/.test(skill)],
   ['state machine includes WAITING before RESOLVED', /WAITING \| RESOLVED/.test(skill)],
   ['state machine includes BLOCKED and ROLLBACK', /BLOCKED \| ROLLBACK/.test(skill)],
