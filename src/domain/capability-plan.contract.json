@@ -1,0 +1,7 @@
+{
+  "contract": "juss-v10/capability-plan@v1",
+  "selector": "chief-ai-machine",
+  "governanceAuthority": "founder-control-room",
+  "executionRuntime": "n8n",
+  "truthBoundary": "This file names the shared contract only. It does not prove a plan was created, governed, executed, or successful."
+}
