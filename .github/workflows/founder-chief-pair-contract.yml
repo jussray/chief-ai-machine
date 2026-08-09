@@ -7,6 +7,8 @@ on:
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
       - '.claude/skills/juss-chief-ai/SKILL.md'
+      - 'src/domain/capability-plan.js'
+      - 'src/domain/capability-outcome.js'
       - '.github/workflows/founder-chief-pair-contract.yml'
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
       - '.claude/skills/juss-chief-ai/SKILL.md'
+      - 'src/domain/capability-plan.js'
+      - 'src/domain/capability-outcome.js'
       - '.github/workflows/founder-chief-pair-contract.yml'
   workflow_dispatch:
 
