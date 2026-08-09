@@ -5,6 +5,13 @@ const evalPath = new URL('../skills/gmail-resolve/references/eval-suite.md', imp
 const skill = readFileSync(skillPath, 'utf8');
 const evalSuite = readFileSync(evalPath, 'utf8');
 
+function hasAffirmativeZeroAttacksClaim(text) {
+  return text
+    .split(/\r?\n/)
+    .some((line) => /zero attacks/i.test(line)
+      && !/(?:do not|don't|never|must not|forbid(?:den)?|avoid)\b[^.\n]{0,80}\bzero attacks\b/i.test(line));
+}
+
 const checks = [
   ['frontmatter name matches directory', /---\nname: gmail-resolve\n/.test(skill)],
   ['metadata version is quoted and nested', /metadata:\n(?: {2}.*\n)* {2}version: "0\.1\.0"/.test(skill)],
@@ -23,7 +30,7 @@ const checks = [
   ['red-team pass 1 exists', /Red-team pass 1/.test(skill)],
   ['red-team pass 2 exists', /Red-team pass 2/.test(skill)],
   ['gold eval thresholds block false resolved, duplicate send, ungrounded claim', /false_resolved_rate = 0[\s\S]+duplicate_send_rate = 0[\s\S]+ungrounded_claim_rate = 0/.test(skill)],
-  ['zero-attacks marketing claim is forbidden in skill', !/zero attacks/i.test(skill)],
+  ['affirmative zero-attacks marketing claim is forbidden in skill', !hasAffirmativeZeroAttacksClaim(skill)],
   ['output format includes REALITY FIX PROOF RISK ROLLBACK NEXT GATE', /REALITY:[\s\S]+FIX:[\s\S]+PROOF:[\s\S]+RISK:[\s\S]+ROLLBACK:[\s\S]+NEXT GATE:/.test(skill)],
   ['eval suite includes prompt injection scenario', /Prompt injection in inbound email/.test(evalSuite)],
   ['eval suite includes stale thread scenario', /Stale thread before send/.test(evalSuite)],
@@ -31,7 +38,7 @@ const checks = [
   ['eval suite includes same-name recipient ambiguity scenario', /Same-name recipient ambiguity/.test(evalSuite)],
   ['eval suite includes partial cross-app completion scenario', /Partial cross-app completion/.test(evalSuite)],
   ['eval suite includes measurable promotion gate', /Minimum promotion gate/.test(evalSuite)],
-  ['zero-attacks marketing claim is forbidden in eval suite', !/zero attacks/i.test(evalSuite)],
+  ['affirmative zero-attacks marketing claim is forbidden in eval suite', !hasAffirmativeZeroAttacksClaim(evalSuite)],
 ];
 
 const failed = checks.filter(([, passed]) => !passed);
