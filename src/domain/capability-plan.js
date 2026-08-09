@@ -76,7 +76,10 @@ function capabilityPlanSeed(plan) {
     plan.goal,
     plan.projectSlug,
     plan.expectedHeadSha,
+    plan.registryHash,
     plan.requestedAuthority,
+    plan.strategicLenses,
+    plan.routingReason,
     plan.capabilities.map((capability) => [
       capability.id,
       capability.version,
@@ -86,6 +89,7 @@ function capabilityPlanSeed(plan) {
       capability.authorityCeiling,
     ]),
     plan.proofRequirements,
+    plan.outcomeSignals,
     plan.rollback,
   ]);
 }
@@ -103,14 +107,24 @@ export function validateCapabilityPlan(plan) {
   if (!cleanText(plan.goal)) errors.push('Capability plan goal is required');
   if (!cleanText(plan.projectSlug, 160)) errors.push('Capability plan projectSlug is required');
   if (!FULL_SHA.test(cleanText(plan.expectedHeadSha, 40))) errors.push('Capability plan expectedHeadSha must be a full Git SHA');
+  if (!HASH.test(cleanText(plan.registryHash, 64))) errors.push('Capability plan registryHash must be sha256');
   if (!AUTHORITY_SET.has(plan.requestedAuthority)) errors.push('Unsupported requested authority');
+  if (!cleanText(plan.routingReason, 2000)) errors.push('Capability plan routing reason is required');
   if (!cleanText(plan.rollback, 2000)) errors.push('Capability plan rollback is required');
+  if (!Array.isArray(plan.strategicLenses) || plan.strategicLenses.length === 0) {
+    errors.push('Capability plan strategic lenses are required');
+  }
   if (!Array.isArray(plan.proofRequirements) || plan.proofRequirements.length === 0) {
     errors.push('Capability plan proof requirements are required');
+  }
+  if (!Array.isArray(plan.outcomeSignals) || plan.outcomeSignals.length === 0) {
+    errors.push('Capability plan outcome signals are required');
   }
 
   if (!Array.isArray(plan.capabilities) || plan.capabilities.length === 0) {
     errors.push('Capability plan requires at least one capability');
+  } else if (plan.capabilities.length > 30) {
+    errors.push('Capability plan exceeds the capability limit');
   } else {
     const ids = new Set();
     for (const capability of plan.capabilities) {
@@ -155,9 +169,13 @@ export function createCapabilityPlan(input) {
     goal: cleanText(input?.goal),
     projectSlug: cleanText(input?.projectSlug, 160),
     expectedHeadSha: cleanText(input?.expectedHeadSha, 40).toLowerCase(),
+    registryHash: cleanText(input?.registryHash, 64).toLowerCase(),
     requestedAuthority: AUTHORITY_SET.has(input?.requestedAuthority) ? input.requestedAuthority : 'reason',
+    strategicLenses: cleanStringList(input?.strategicLenses, 20, 120),
+    routingReason: cleanText(input?.routingReason, 2000),
     capabilities: normalizedCapabilities(input?.capabilities),
     proofRequirements: cleanStringList(input?.proofRequirements, 30, 500),
+    outcomeSignals: cleanStringList(input?.outcomeSignals, 30, 500),
     rollback: cleanText(input?.rollback, 2000),
   };
 
