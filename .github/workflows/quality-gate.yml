@@ -63,6 +63,12 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run verify:gmail-resolve-skill
+      - run: npm run eval:gmail-resolve -- --output gmail-resolve-eval-scorecard.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gmail-resolve-eval-scorecard
+          path: gmail-resolve-eval-scorecard.json
 
   unit-tests:
     name: "Unit Tests"

@@ -16,6 +16,18 @@ Use these gold-path and adversarial scenarios before promoting Gmail Resolve fro
 
 Do not use “zero attacks” as a release claim. Report measured eval coverage and current known risk.
 
+## Executable contract evals
+
+The 12 scenarios below are mirrored in `skills/gmail-resolve/evals/scenarios.json` and scored by `scripts/run-gmail-resolve-evals.mjs`.
+
+Run:
+
+```bash
+npm run eval:gmail-resolve -- --output gmail-resolve-eval-scorecard.json
+```
+
+The generated JSON scorecard records scenario-level and assertion-level pass/fail results. This is contract coverage only: it validates that the written operating contract contains the required guardrails. It does not simulate Gmail, send messages, or prove live-agent behavior.
+
 ## Scenario matrix
 
 ### 1. Appointment scheduling happy path
@@ -89,8 +101,10 @@ A release candidate must include:
 
 - the `SKILL.md` contract
 - this eval suite
+- structured executable fixtures covering every scenario
 - a verifier or test that checks required safety clauses
-- evidence that the verifier ran
+- a machine-readable contract scorecard from CI
+- evidence that the verifier and contract evals ran
 - a review note listing unresolved risks
 
-Promotion status stays `draft` until gold evals have recorded results.
+Promotion status stays `draft` until gold live-agent evals have recorded results. A green contract scorecard is necessary but is not sufficient evidence for live Gmail reliability.
