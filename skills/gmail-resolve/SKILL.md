@@ -5,7 +5,7 @@ license: MIT
 compatibility: "OpenAI Agent Skills, Claude Skills, Codex CLI, OpenClaw, Gemini CLI"
 allowed-tools: "Gmail, Google Calendar, Google Tasks, Google Contacts/People, Google Drive, Workspace Studio/gws, Model Armor or equivalent content-safety tooling, filesystem read/write for case ledgers"
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   owner: "Juss"
   category: "productivity"
   status: "draft"
