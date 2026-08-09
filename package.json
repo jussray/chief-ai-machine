@@ -9,7 +9,8 @@
     "verify:mcp": "node scripts/verify-mcp-config.mjs",
     "verify:cookies": "node scripts/verify-cookie-contract.mjs",
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs",
-    "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs"
+    "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
+    "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
