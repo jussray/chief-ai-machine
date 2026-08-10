@@ -1,4 +1,4 @@
-/* global Request */
+/* global Request, URL */
 
 import { readFileSync } from 'node:fs';
 
