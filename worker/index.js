@@ -1,5 +1,12 @@
+import { BUILD_RELEASE_SHA } from './release-sha.js';
+
 function getReleaseSha(env) {
-  const candidates = [env?.RELEASE_SHA, env?.GITHUB_SHA, env?.WORKERS_CI_COMMIT_SHA];
+  const candidates = [
+    env?.RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.WORKERS_CI_COMMIT_SHA,
+    BUILD_RELEASE_SHA,
+  ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
 }
