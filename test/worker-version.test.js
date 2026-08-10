@@ -1,3 +1,5 @@
+/* global Request */
+
 import { describe, expect, it } from 'vitest';
 
 import worker from '../worker/index.js';
