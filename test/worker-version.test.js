@@ -10,12 +10,24 @@ const wranglerConfig = readFileSync(
   new URL('../wrangler.jsonc', import.meta.url),
   'utf8',
 );
+const releaseBakeScript = readFileSync(
+  new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
+  'utf8',
+);
 
 describe('Chief AI Worker version receipt', () => {
   it('routes /version through the Worker before asset fallback', () => {
     expect(wranglerConfig).toMatch(
       /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*\]/,
     );
+  });
+
+  it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
+    expect(wranglerConfig).toMatch(
+      /"build":\s*\{\s*"command":\s*"node scripts\/bake-worker-release-sha\.mjs"/,
+    );
+    expect(releaseBakeScript).toContain('WORKERS_CI_COMMIT_SHA');
+    expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
   it('returns the explicit release SHA without touching assets', async () => {
