@@ -11,6 +11,8 @@ on:
       - "scripts/verify-cookie-contract.mjs"
       - "scripts/verify-founder-chief-pair.mjs"
       - "package.json"
+      - "worker/**"
+      - "test/worker-version.test.js"
       - ".github/workflows/control-room-contracts.yml"
   push:
     branches: [main]
@@ -22,6 +24,8 @@ on:
       - "scripts/verify-cookie-contract.mjs"
       - "scripts/verify-founder-chief-pair.mjs"
       - "package.json"
+      - "worker/**"
+      - "test/worker-version.test.js"
       - ".github/workflows/control-room-contracts.yml"
   workflow_dispatch:
 
@@ -62,6 +66,9 @@ jobs:
 
       - name: Validate repo-local catalog
         run: node scripts/verify-control-room-tests.mjs
+
+      - name: Verify Worker version receipt
+        run: npx vitest run test/worker-version.test.js
 
       - name: Verify MCP contract
         run: npm run verify:mcp
