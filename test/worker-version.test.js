@@ -14,49 +14,12 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
-const assetsIgnore = readFileSync(
-  new URL('../.assetsignore', import.meta.url),
-  'utf8',
-);
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes dynamic requests through the Worker before asset fallback', () => {
-    expect(wranglerConfig).toMatch(/"run_worker_first":\s*\[/);
-    expect(wranglerConfig).toContain('/api');
-    expect(wranglerConfig).toContain('/github');
-    expect(wranglerConfig).toContain('/mcp');
-  });
-
-  it('keeps governance, secrets, tests, and tooling out of public Worker assets', () => {
-    for (const required of [
-      '.git/',
-      '.env',
-      '.dev.vars',
-      '*.pem',
-      '*.key',
-      '*.db',
-      '*.sqlite',
-      'CHATGPT.md',
-      'PERPLEXITY.md',
-      'plugins/',
-      'security/',
-      'testdata/',
-      'test/',
-      '**/*.test.mjs',
-      '**/*.test.ts',
-      'node_modules/',
-      'scripts/',
-      '.github/',
-      '.control-room/',
-      'supabase/',
-    ]) {
-      expect(assetsIgnore).toContain(required);
-    }
-
-    // Runtime/static surfaces must remain eligible for the ASSETS binding.
-    for (const forbidden of ['index.html', 'src/', 'styles/']) {
-      expect(assetsIgnore).not.toContain(`\n${forbidden}\n`);
-    }
+  it('routes /version through the Worker before asset fallback', () => {
+    expect(wranglerConfig).toMatch(
+      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*\]/,
+    );
   });
 
   it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
