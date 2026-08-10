@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import worker from '../worker/http-worker.js';
+import worker from '../worker/index.js';
 
 const wranglerConfig = readFileSync(
   new URL('../wrangler.jsonc', import.meta.url),
@@ -16,29 +16,25 @@ const releaseBakeScript = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes runtime endpoints through the Worker before asset fallback', () => {
+  it('routes /version through the Worker before asset fallback', () => {
     expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api"\s*,\s*"\/api\/\*"\s*,\s*"\/github"\s*,\s*"\/github\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
+      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*\]/,
     );
   });
 
-  it('bakes the Workers Builds commit SHA and branch before Wrangler bundles the Worker', () => {
+  it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
     expect(wranglerConfig).toMatch(
       /"build":\s*\{\s*"command":\s*"node scripts\/bake-worker-release-sha\.mjs"/,
     );
     expect(releaseBakeScript).toContain('WORKERS_CI_COMMIT_SHA');
-    expect(releaseBakeScript).toContain('WORKERS_CI_BRANCH');
-    expect(releaseBakeScript).toContain('BUILD_RELEASE_SHA');
-    expect(releaseBakeScript).toContain('BUILD_RELEASE_BRANCH');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
-  it('returns explicit release SHA and branch without touching assets', async () => {
+  it('returns the explicit release SHA without touching assets', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
         RELEASE_SHA: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
-        FEDERATED_RELAY_BRANCH: 'feat/federated-relay-v3-1-20260913',
         ASSETS: {
           fetch: () => {
             throw new Error('version route should not fall through to assets');
@@ -52,11 +48,10 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
-      branch: 'feat/federated-relay-v3-1-20260913',
     });
   });
 
-  it('reports unknown instead of fabricating release identity', async () => {
+  it('reports unknown instead of fabricating a release SHA', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
@@ -71,28 +66,6 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: 'unknown',
-      branch: 'unknown',
-    });
-  });
-
-  it('routes GitHub App status through the Worker without touching assets', async () => {
-    const response = await worker.fetch(
-      new Request('https://chief-ai.example/github/status'),
-      {
-        ASSETS: {
-          fetch: () => {
-            throw new Error('GitHub routes should not fall through to assets');
-          },
-        },
-      },
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      ok: true,
-      configured: false,
-      authority: 'read-only',
-      webhookPath: '/github/webhook',
     });
   });
 });

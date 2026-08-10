@@ -1,3 +1,16 @@
+import { BUILD_RELEASE_SHA } from './release-sha.js';
+
+function getReleaseSha(env) {
+  const candidates = [
+    env?.RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.WORKERS_CI_COMMIT_SHA,
+    BUILD_RELEASE_SHA,
+  ];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
+}
+
 // Chief AI Worker entry point.
 //
 // Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
@@ -9,6 +22,13 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === '/version') {
+      return Response.json(
+        { ok: true, sha: getReleaseSha(env) },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
 
     if (url.pathname.startsWith('/api/')) {
       return new Response('Not implemented', { status: 501 });
