@@ -3,6 +3,21 @@ import { showToast, copyText } from './ui.js';
 
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 
+const GOALFIX_FREESTYLE_ROUTES = [
+  {
+    id: 'goalfix-v1-friend-mode',
+    pattern: /\b(friend mode|tell tales|raw rant|rant|tiny move)\b/i,
+  },
+  {
+    id: 'goalfix-v1-creative-director',
+    pattern: /\b(image edit|edit this image|photo edit|background replacement|studio-quality|cinematic|infographic|thumbnail)\b/i,
+  },
+  {
+    id: 'goalfix-v1-verified-loop',
+    pattern: /(?:^|\s)\/goalfix\b|\bgoalfix\b|\bfinish line\b|\bbottleneck\b/i,
+  },
+];
+
 export function normalizePromptVersionsForSave(prompt) {
   const platforms = [
     ...new Set([
@@ -17,6 +32,34 @@ export function normalizePromptVersionsForSave(prompt) {
       renderPromptVariant(prompt, platform),
     ]),
   );
+}
+
+function inferCat(text) {
+  const t = text.toLowerCase();
+  if (t.includes('shopify') || t.includes('store') || t.includes('jbh')) return 'shopify';
+  if (t.includes('launch') || t.includes('ship') || t.includes('release')) return 'shipping';
+  if (t.includes('ooda') || t.includes('lindy') || t.includes('strategy') || t.includes('roadmap')) return 'strategy';
+  if (t.includes('red team') || t.includes('abuse') || t.includes('attack')) return 'redteam';
+  if (t.includes('ad') || t.includes('campaign') || t.includes('growth')) return 'growth';
+  if (t.includes('persona') || t.includes('act as') || t.includes('talk like') || t.includes('voice of')) return 'persona';
+  if (t.includes('audit') || t.includes('debug') || t.includes('fix') || t.includes('repo')) return 'coding';
+  return 'research';
+}
+
+export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
+  const text = String(rawText || '');
+  const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
+
+  for (const route of GOALFIX_FREESTYLE_ROUTES) {
+    if (!route.pattern.test(text)) continue;
+    const prompt = PROMPTS.find(item => item.id === route.id);
+    if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
+  }
+
+  const cat = inferCat(text);
+  return PROMPTS.find(prompt => (
+    prompt.cat === cat && prompt.platforms?.some(platform => selectedPlatforms.includes(platform))
+  )) || PROMPTS.find(prompt => prompt.platforms?.some(platform => selectedPlatforms.includes(platform))) || PROMPTS[0];
 }
 
 export function initFreestyle(PROMPTS) {
@@ -37,18 +80,6 @@ export function initFreestyle(PROMPTS) {
     return [...document.querySelectorAll('#page-freestyle .pcheck input:checked')].map(el => el.value);
   }
 
-  function inferCat(text) {
-    const t = text.toLowerCase();
-    if (t.includes('shopify') || t.includes('store') || t.includes('jbh')) return 'shopify';
-    if (t.includes('launch') || t.includes('ship') || t.includes('release')) return 'shipping';
-    if (t.includes('ooda') || t.includes('lindy') || t.includes('strategy') || t.includes('roadmap')) return 'strategy';
-    if (t.includes('red team') || t.includes('abuse') || t.includes('attack')) return 'redteam';
-    if (t.includes('ad') || t.includes('campaign') || t.includes('growth')) return 'growth';
-    if (t.includes('persona') || t.includes('act as') || t.includes('talk like') || t.includes('voice of')) return 'persona';
-    if (t.includes('audit') || t.includes('debug') || t.includes('fix') || t.includes('repo')) return 'coding';
-    return 'research';
-  }
-
   function renderCurrent() {
     return renderPromptVariant(currentResult, currentPlatform);
   }
@@ -56,9 +87,7 @@ export function initFreestyle(PROMPTS) {
   function generate() {
     const ask = askEl?.value?.trim(); if (!ask) return;
     const platforms = getChecked();
-    const cat = inferCat(ask);
-    const matches = PROMPTS.filter(p => p.cat === cat && p.platforms?.some(pl => platforms.includes(pl)));
-    const base = matches[0] || PROMPTS.find(p => p.platforms?.some(pl => platforms.includes(pl))) || PROMPTS[0];
+    const base = selectFreestylePrompt(PROMPTS, ask, platforms);
     const avail = (base.platforms || []).filter(pl => platforms.includes(pl));
     if (!avail.length) { showToast('No match for selected platforms.'); return; }
     currentResult = base; currentPlatform = avail[0];

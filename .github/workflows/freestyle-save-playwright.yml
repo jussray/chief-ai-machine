@@ -8,10 +8,13 @@ on:
       - "control-room.manifest.json"
       - ".control-room/repository.manifest.json"
       - "scripts/verify-control-room-tests.mjs"
+      - "src/main.js"
+      - "src/data/goalfix-v1.js"
       - "src/modules/freestyle.js"
       - "src/modules/custom.js"
       - "src/domain/evidence-first-prompt.js"
       - "e2e/freestyle-save.pw.mjs"
+      - "e2e/goalfix-v1.pw.mjs"
       - "e2e/playwright.freestyle.config.mjs"
       - ".github/workflows/control-room-contracts.yml"
       - ".github/workflows/freestyle-save-playwright.yml"
@@ -73,7 +76,7 @@ jobs:
           cat /tmp/chief-ai-server.log
           exit 1
 
-      - name: Run rendered Freestyle save proof
+      - name: Run rendered Freestyle and Goalfix v1 proof
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
 
       - name: Stop static server
