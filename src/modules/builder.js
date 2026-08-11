@@ -2,6 +2,25 @@ import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 
 const PROMPT_PACK_PREFIX = 'prompt:';
+const GOALFIX_BUILDER_OPTIONS = [
+  ['goalfix-v1-verified-loop', 'Goalfix v1'],
+  ['goalfix-v1-friend-mode', 'Friend Mode v1'],
+  ['goalfix-v1-creative-director', 'Creative Director v1'],
+];
+
+function installGoalfixBuilderOptions(select) {
+  if (!select || select.querySelector('optgroup[data-goalfix-v1]')) return;
+  const group = document.createElement('optgroup');
+  group.label = 'Goalfix v1';
+  group.dataset.goalfixV1 = 'true';
+  for (const [id, label] of GOALFIX_BUILDER_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = `${PROMPT_PACK_PREFIX}${id}`;
+    option.textContent = label;
+    group.appendChild(option);
+  }
+  select.appendChild(group);
+}
 
 export function selectBuilderPrompt(PROMPTS, pack, platform) {
   const promptId = String(pack || '').startsWith(PROMPT_PACK_PREFIX)
@@ -20,6 +39,8 @@ export function initBuilder(PROMPTS) {
   const taskEl = document.getElementById('bTask');
   const constraintsEl = document.getElementById('bConstraints');
   const out = document.getElementById('builderOut');
+
+  installGoalfixBuilderOptions(packEl);
 
   function build() {
     const pack = packEl?.value || 'coding';
