@@ -1,5 +1,6 @@
 // Copyright © 2026 Juss Ray. All rights reserved. Proprietary and confidential.
 import { PROMPTS } from './data/prompts.js';
+import { GOALFIX_V1_PROMPTS } from './data/goalfix-v1.js';
 import { BENCHMARKS } from './data/benchmarks.js';
 import { initThemeToggle, showToast, initNav } from './modules/ui.js';
 import { initLibrary } from './modules/library.js';
@@ -10,6 +11,8 @@ import { initModal } from './modules/modal.js';
 import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
+
+const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
 function readArray(key) {
   try {
@@ -24,11 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
   initFriendMode();
   initNav();
-  const modal = initModal(PROMPTS);
-  initLibrary(PROMPTS, modal);
-  initBuilder(PROMPTS);
-  initFreestyle(PROMPTS);
-  initCustom(PROMPTS, modal);
+  const modal = initModal(PUBLIC_PROMPTS);
+  initLibrary(PUBLIC_PROMPTS, modal);
+  initBuilder(PUBLIC_PROMPTS);
+  initFreestyle(PUBLIC_PROMPTS);
+  initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
 
   const tbody = document.getElementById('benchBody');
