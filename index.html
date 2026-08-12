@@ -33,8 +33,9 @@
   </header>
 
   <aside class="sidebar">
-    <div class="side-label">Company intelligence</div>
-    <button class="nav-item active" data-page="brain">🧠 Company Brain <span class="n-count" id="brainCount">0</span></button>
+    <div class="side-label">Chief workspace</div>
+    <button class="nav-item active" data-page="goals">🎯 Founder Goals <span class="n-count" id="goalCount">0</span></button>
+    <button class="nav-item" data-page="brain">🧠 Company Brain <span class="n-count" id="brainCount">0</span></button>
     <button class="nav-item" data-page="library">📚 Prompt Library <span class="n-count" id="navCount">0</span></button>
     <button class="nav-item" data-page="builder">🛠 Builder</button>
     <button class="nav-item" data-page="freestyle">🎲 Freestyle</button>
@@ -46,11 +47,12 @@
     <button class="nav-item" id="importBtn">⬆️ Import company brain</button>
     <input type="file" id="importFile" accept="application/json" hidden>
     <button class="nav-item" id="resetBtn">🗑 Reset local state</button>
-    <div class="side-foot">Chief AI © Jussray.<br>Founder intelligence stays portable. Providers are replaceable.</div>
+    <div class="side-foot">Chief AI © Jussray.<br>Start with the founder outcome. Providers are replaceable.</div>
   </aside>
 
   <nav class="mobile-nav" id="mobileNav">
-    <button class="nav-item active" data-page="brain">🧠</button>
+    <button class="nav-item active" data-page="goals">🎯</button>
+    <button class="nav-item" data-page="brain">🧠</button>
     <button class="nav-item" data-page="library">📚</button>
     <button class="nav-item" data-page="builder">🛠</button>
     <button class="nav-item" data-page="freestyle">🎲</button>
@@ -60,8 +62,44 @@
   </nav>
 
   <main class="main">
-    <!-- COMPANY BRAIN -->
-    <section class="page on" id="page-brain">
+    <section class="page on" id="page-goals">
+      <div class="page-head">
+        <div class="crumb">chief-ai <span>/</span> <b>founder-goals</b></div>
+        <h2>What are we trying to accomplish?</h2>
+        <p>Define the outcome first. Chief AI turns it into a bounded plan with evidence, capabilities, proof, rollback, and one next gate before execution.</p>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="n" id="goalReadiness">0/0 ready</div><div class="l">Goals with complete gates</div></div>
+        <div class="stat"><div class="n">Evidence</div><div class="l">Reality before action</div></div>
+        <div class="stat"><div class="n">Authority</div><div class="l">Bound every capability</div></div>
+        <div class="stat"><div class="n">Proof</div><div class="l">Done means verified</div></div>
+      </div>
+      <div class="split">
+        <div class="panel goal-command">
+          <div class="panel-title"><span class="dot"></span>Founder intent</div>
+          <form id="goalForm">
+            <div class="field"><label>Goal</label><textarea name="goal" placeholder="Ship the smallest verified fix that gets signup through onboarding" required></textarea></div>
+            <div class="field"><label>Project</label><input name="project" placeholder="Sekret-Bip, Founder Control Room, Chief AI…" required></div>
+            <div class="field"><label>Priority</label><select name="priority"><option value="now">Now</option><option value="next">Next</option><option value="later">Later</option></select></div>
+            <div class="field"><label>Definition of done</label><textarea name="definitionOfDone" placeholder="What observable outcome proves this goal is complete?" required></textarea></div>
+            <div class="field"><label>Evidence already known</label><textarea name="evidence" placeholder="One item per line: failing test, runtime log, customer signal, exact SHA…"></textarea></div>
+            <div class="field"><label>Constraints</label><textarea name="constraints" placeholder="One per line: minimal edits, budget, privacy, no production change before proof…"></textarea></div>
+            <div class="field"><label>Strategic lenses</label><input name="strategicLenses" value="ooda, redteam, lindymode, l99" placeholder="ooda, redteam, lindymode, l99"></div>
+            <div class="field"><label>Capabilities</label><textarea name="capabilities" placeholder="goalfix-v1&#10;repo-audit-first&#10;product-design&#10;deep-research"></textarea></div>
+            <div class="field"><label>Proof requirements</label><textarea name="proofRequirements" placeholder="focused tests green&#10;Playwright real path green&#10;production receipt matches expected head" required></textarea></div>
+            <div class="field"><label>Rollback</label><textarea name="rollback" placeholder="How do we reverse this safely?" required></textarea></div>
+            <div class="field"><label>Next gate</label><input name="nextGate" placeholder="One exact founder decision or action" required></div>
+            <button class="mini-btn solid" type="submit">Create bounded Chief plan</button>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><span class="dot"></span>Active founder goals</div>
+          <div class="clist" id="goalList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-brain">
       <div class="page-head">
         <div class="crumb">chief-ai <span>/</span> <b>company-brain</b></div>
         <h2>Turn founder judgment into portable company intelligence.</h2>
@@ -97,179 +135,21 @@
       </div>
     </section>
 
-    <!-- LIBRARY -->
-    <section class="page" id="page-library">
-      <div class="page-head">
-        <div class="crumb">chief-ai <span>/</span> <b>library</b></div>
-        <h2>Reusable prompt systems across projects and providers.</h2>
-        <p>Starter operating assets across ChatGPT, Claude, Perplexity, Figma, Canva, and Shopify. Search, filter, star, copy, then promote useful work into the Company Brain.</p>
-      </div>
-      <div class="repo-bar">
-        <span class="repo-bar-label">Starter project filters</span>
-        <button class="repo-btn" data-repo="bip">🧠 Bip</button>
-        <button class="repo-btn" data-repo="think-tank">🔬 Think Tank</button>
-        <button class="repo-btn" data-repo="jbh">🏪 JBH</button>
-        <button class="repo-btn" data-repo="l99">🅱️ L99</button>
-        <button class="repo-clear" id="repoClear" hidden>Clear ✕</button>
-      </div>
-      <div class="stat-row">
-        <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Prompts</div></div>
-        <div class="stat"><div class="n" id="statStar">0</div><div class="l">Starred</div></div>
-        <div class="stat"><div class="n" id="statCustom">0</div><div class="l">Drafts</div></div>
-        <div class="stat"><div class="n" id="statPlatforms">0</div><div class="l">Platforms</div></div>
-      </div>
-      <div class="chips" id="chips"></div>
-      <div class="grid" id="grid"></div>
-    </section>
+    <section class="page" id="page-library"><div class="page-head"><div class="crumb">chief-ai <span>/</span> <b>library</b></div><h2>Reusable prompt systems across projects and providers.</h2><p>Starter operating assets across ChatGPT, Claude, Perplexity, Figma, Canva, and Shopify. Search, filter, star, copy, then promote useful work into the Company Brain.</p></div><div class="repo-bar"><span class="repo-bar-label">Starter project filters</span><button class="repo-btn" data-repo="bip">🧠 Bip</button><button class="repo-btn" data-repo="think-tank">🔬 Think Tank</button><button class="repo-btn" data-repo="jbh">🏪 JBH</button><button class="repo-btn" data-repo="l99">🅱️ L99</button><button class="repo-clear" id="repoClear" hidden>Clear ✕</button></div><div class="stat-row"><div class="stat"><div class="n" id="statTotal">0</div><div class="l">Prompts</div></div><div class="stat"><div class="n" id="statStar">0</div><div class="l">Starred</div></div><div class="stat"><div class="n" id="statCustom">0</div><div class="l">Drafts</div></div><div class="stat"><div class="n" id="statPlatforms">0</div><div class="l">Platforms</div></div></div><div class="chips" id="chips"></div><div class="grid" id="grid"></div></section>
 
-    <!-- BUILDER -->
-    <section class="page" id="page-builder">
-      <div class="page-head">
-        <div class="crumb">chief-ai <span>/</span> <b>builder</b></div>
-        <h2>Prompt Builder</h2>
-        <p>Compose a provider-ready session prompt from a reusable operating pack.</p>
-      </div>
-      <div class="split">
-        <div class="panel">
-          <div class="panel-title"><span class="dot"></span>Inputs</div>
-          <div class="field"><label>Pack</label><select id="bPack"><option value="coding">Coding</option><option value="research">Research</option><option value="redteam">Redteam</option><option value="system">System</option><option value="shopify">Shopify</option><option value="shipping">Shipping</option><option value="strategy">Strategy</option><option value="growth">Growth</option><option value="persona">Persona</option></select></div>
-          <div class="field"><label>Platform</label><select id="bPlatform"><option value="chatgpt">ChatGPT</option><option value="claude">Claude</option><option value="perplexity">Perplexity</option><option value="figma">Figma</option><option value="canva">Canva</option><option value="shopify">Shopify</option></select></div>
-          <div class="field"><label>Project</label><input id="bRepo" value="New product"></div>
-          <div class="field"><label>Task</label><textarea id="bTask">Map the current evidence, identify the highest-risk assumption, and propose the smallest reversible next action.</textarea></div>
-          <div class="field"><label>Constraints</label><textarea id="bConstraints">Use supplied evidence, separate facts from inference, preserve privacy, and do not fabricate certainty.</textarea></div>
-          <div class="field"><label>Output format</label><select id="bFormat"><option>Diagnosis + patch + risks</option><option>Phased plan</option><option>Bullet analysis</option><option>Code diff</option><option>OODA loop</option><option>7-day action plan</option></select></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="mini-btn solid" id="copyBuilder">Copy prompt</button>
-            <button class="mini-btn" id="saveBuilder">Save to Prompt Drafts</button>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-title"><span class="dot"></span>Output</div>
-          <div class="output" id="builderOut"></div>
-        </div>
-      </div>
-    </section>
+    <section class="page" id="page-builder"><div class="page-head"><div class="crumb">chief-ai <span>/</span> <b>builder</b></div><h2>Prompt Builder</h2><p>Compose a provider-ready session prompt from a reusable operating pack.</p></div><div class="split"><div class="panel"><div class="panel-title"><span class="dot"></span>Inputs</div><div class="field"><label>Pack</label><select id="bPack"><option value="coding">Coding</option><option value="research">Research</option><option value="redteam">Redteam</option><option value="system">System</option><option value="shopify">Shopify</option><option value="shipping">Shipping</option><option value="strategy">Strategy</option><option value="growth">Growth</option><option value="persona">Persona</option></select></div><div class="field"><label>Platform</label><select id="bPlatform"><option value="chatgpt">ChatGPT</option><option value="claude">Claude</option><option value="perplexity">Perplexity</option><option value="figma">Figma</option><option value="canva">Canva</option><option value="shopify">Shopify</option></select></div><div class="field"><label>Project</label><input id="bRepo" value="New product"></div><div class="field"><label>Task</label><textarea id="bTask">Map the current evidence, identify the highest-risk assumption, and propose the smallest reversible next action.</textarea></div><div class="field"><label>Constraints</label><textarea id="bConstraints">Use supplied evidence, separate facts from inference, preserve privacy, and do not fabricate certainty.</textarea></div><div class="field"><label>Output format</label><select id="bFormat"><option>Diagnosis + patch + risks</option><option>Phased plan</option><option>Bullet analysis</option><option>Code diff</option><option>OODA loop</option><option>7-day action plan</option></select></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="mini-btn solid" id="copyBuilder">Copy prompt</button><button class="mini-btn" id="saveBuilder">Save to Prompt Drafts</button></div></div><div class="panel"><div class="panel-title"><span class="dot"></span>Output</div><div class="output" id="builderOut"></div></div></div></section>
 
-    <!-- FREESTYLE -->
-    <section class="page" id="page-freestyle">
-      <div class="page-head">
-        <div class="crumb">chief-ai <span>/</span> <b>freestyle</b></div>
-        <h2>Freestyle</h2>
-        <p>Describe the business outcome. Generate a structured starting point for each provider.</p>
-      </div>
-      <div class="split">
-        <div class="panel">
-          <div class="panel-title"><span class="dot"></span>What do you need?</div>
-          <div class="field"><textarea id="fsAsk" placeholder="e.g. Compare three launch paths, expose hidden assumptions, and recommend the smallest reversible test" style="min-height:150px"></textarea></div>
-          <div class="field">
-            <label>Platforms</label>
-            <div class="platform-check">
-              <label class="pcheck"><input type="checkbox" value="chatgpt" checked>ChatGPT</label>
-              <label class="pcheck"><input type="checkbox" value="claude" checked>Claude</label>
-              <label class="pcheck"><input type="checkbox" value="perplexity" checked>Perplexity</label>
-              <label class="pcheck"><input type="checkbox" value="figma">Figma</label>
-              <label class="pcheck"><input type="checkbox" value="canva">Canva</label>
-              <label class="pcheck"><input type="checkbox" value="shopify">Shopify</label>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="mini-btn solid" id="fsGenerate">✨ Generate</button>
-            <button class="mini-btn" id="fsClear">Clear</button>
-          </div>
-          <div class="hint">⌘ / Ctrl + Enter to generate.</div>
-        </div>
-        <div class="panel">
-          <div class="panel-title"><span class="dot"></span>Result</div>
-          <div class="fs-placeholder" id="fsPlaceholder">Describe what you need and hit Generate.</div>
-          <div class="fs-preview" id="fsPreview">
-            <div class="fs-head">
-              <div id="fsEmoji" style="font-size:19px;line-height:1.3"></div>
-              <div style="min-width:0"><h3 id="fsTitle"></h3><div class="sub" id="fsSub"></div></div>
-            </div>
-            <div class="badges" id="fsBadges"></div>
-            <div class="ptabs" id="fsTabs" style="padding:0"></div>
-            <div class="fs-body" id="fsBody"></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="mini-btn solid" id="fsSave">Save to Prompt Drafts</button>
-              <button class="mini-btn" id="fsCopy">Copy this version</button>
-              <button class="mini-btn push" id="fsRegenerate">Regenerate</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <section class="page" id="page-freestyle"><div class="page-head"><div class="crumb">chief-ai <span>/</span> <b>freestyle</b></div><h2>Freestyle</h2><p>Describe the business outcome. Generate a structured starting point for each provider.</p></div><div class="split"><div class="panel"><div class="panel-title"><span class="dot"></span>What do you need?</div><div class="field"><textarea id="fsAsk" placeholder="e.g. Compare three launch paths, expose hidden assumptions, and recommend the smallest reversible test" style="min-height:150px"></textarea></div><div class="field"><label>Platforms</label><div class="platform-check"><label class="pcheck"><input type="checkbox" value="chatgpt" checked>ChatGPT</label><label class="pcheck"><input type="checkbox" value="claude" checked>Claude</label><label class="pcheck"><input type="checkbox" value="perplexity" checked>Perplexity</label><label class="pcheck"><input type="checkbox" value="figma">Figma</label><label class="pcheck"><input type="checkbox" value="canva">Canva</label><label class="pcheck"><input type="checkbox" value="shopify">Shopify</label></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="mini-btn solid" id="fsGenerate">✨ Generate</button><button class="mini-btn" id="fsClear">Clear</button></div><div class="hint">⌘ / Ctrl + Enter to generate.</div></div><div class="panel"><div class="panel-title"><span class="dot"></span>Result</div><div class="fs-placeholder" id="fsPlaceholder">Describe what you need and hit Generate.</div><div class="fs-preview" id="fsPreview"><div class="fs-head"><div id="fsEmoji" style="font-size:19px;line-height:1.3"></div><div style="min-width:0"><h3 id="fsTitle"></h3><div class="sub" id="fsSub"></div></div></div><div class="badges" id="fsBadges"></div><div class="ptabs" id="fsTabs" style="padding:0"></div><div class="fs-body" id="fsBody"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="mini-btn solid" id="fsSave">Save to Prompt Drafts</button><button class="mini-btn" id="fsCopy">Copy this version</button><button class="mini-btn push" id="fsRegenerate">Regenerate</button></div></div></div></div></section>
 
-    <!-- CUSTOM -->
-    <section class="page" id="page-custom">
-      <div class="page-head">
-        <div class="crumb">chief-ai <span>/</span> <b>prompt-drafts</b></div>
-        <h2>Prompt Drafts</h2>
-        <p>Working prompts remain drafts until evidence or an outcome justifies promoting them into the Company Brain.</p>
-      </div>
-      <div class="split">
-        <div class="panel">
-          <div class="panel-title"><span class="dot"></span>New draft</div>
-          <div class="field"><label>Title</label><input id="cTitle" placeholder="Supplier evidence audit"></div>
-          <div class="field"><label>Subtitle</label><input id="cSub" placeholder="What this prompt is for"></div>
-          <div class="field"><label>Category</label><select id="cCat"><option>coding</option><option>research</option><option>redteam</option><option>system</option><option>shopify</option><option>shipping</option><option>strategy</option><option>growth</option><option>persona</option></select></div>
-          <div class="field"><label>Platforms (comma-separated)</label><input id="cPlatforms" placeholder="chatgpt, claude, perplexity"></div>
-          <div class="field"><label>Prompt body</label><textarea id="cBody" placeholder="Paste your prompt here" style="min-height:140px"></textarea></div>
-          <button class="mini-btn solid" id="saveCustom">Save draft</button>
-        </div>
-        <div class="panel">
-          <div class="panel-title"><span class="dot"></span>Saved drafts</div>
-          <div class="clist" id="customList"></div>
-        </div>
-      </div>
-    </section>
+    <section class="page" id="page-custom"><div class="page-head"><div class="crumb">chief-ai <span>/</span> <b>prompt-drafts</b></div><h2>Prompt Drafts</h2><p>Working prompts remain drafts until evidence or an outcome justifies promoting them into the Company Brain.</p></div><div class="split"><div class="panel"><div class="panel-title"><span class="dot"></span>New draft</div><div class="field"><label>Title</label><input id="cTitle" placeholder="Supplier evidence audit"></div><div class="field"><label>Subtitle</label><input id="cSub" placeholder="What this prompt is for"></div><div class="field"><label>Category</label><select id="cCat"><option>coding</option><option>research</option><option>redteam</option><option>system</option><option>shopify</option><option>shipping</option><option>strategy</option><option>growth</option><option>persona</option></select></div><div class="field"><label>Platforms (comma-separated)</label><input id="cPlatforms" placeholder="chatgpt, claude, perplexity"></div><div class="field"><label>Prompt body</label><textarea id="cBody" placeholder="Paste your prompt here" style="min-height:140px"></textarea></div><button class="mini-btn solid" id="saveCustom">Save draft</button></div><div class="panel"><div class="panel-title"><span class="dot"></span>Saved drafts</div><div class="clist" id="customList"></div></div></div></section>
 
-    <!-- ANATOMY -->
-    <section class="page" id="page-anatomy">
-      <div class="page-head">
-        <div class="crumb">chief-ai <span>/</span> <b>anatomy</b></div>
-        <h2>System Prompt Anatomy</h2>
-        <p>The seven-layer structure behind reusable prompt systems. Order matters.</p>
-      </div>
-      <div class="anatomy">
-        <div class="layer"><div class="left">Role</div><div class="right">Set the exact identity of the agent. Example: founder-grade market research analyst, or senior TypeScript repo mechanic.</div></div>
-        <div class="layer"><div class="left">Objective</div><div class="right">One clear mission. Do not combine research, planning, implementation, and review in a single vague ask.</div></div>
-        <div class="layer"><div class="left">Context</div><div class="right">Feed product, stage, audience, stack, evidence, and constraints so the model reasons from reality instead of defaults.</div></div>
-        <div class="layer"><div class="left">Constraints</div><div class="right">Forbid guessing, fabricated sources, placeholder fixes, broad rewrites, leakage, or deletion of working functionality.</div></div>
-        <div class="layer"><div class="left">Instructions</div><div class="right">Make steps ordered: assess, rank, act, validate, record the outcome.</div></div>
-        <div class="layer"><div class="left">Output format</div><div class="right">Specify the exact usable artifact: diagnosis, checklist, patch, decision receipt, risks, or action plan.</div></div>
-        <div class="layer"><div class="left">Evidence</div><div class="right">Attach the data, sources, logs, screenshots, schema, or code that should anchor the answer.</div></div>
-      </div>
-    </section>
+    <section class="page" id="page-anatomy"><div class="page-head"><div class="crumb">chief-ai <span>/</span> <b>anatomy</b></div><h2>System Prompt Anatomy</h2><p>The seven layers behind reusable prompt systems.</p></div><div class="anatomy"><div class="layer"><div class="left">Role</div><div class="right">Set the exact identity of the agent.</div></div><div class="layer"><div class="left">Objective</div><div class="right">One clear mission.</div></div><div class="layer"><div class="left">Context</div><div class="right">Feed product, repo, stage, audience, stack, and constraints.</div></div><div class="layer"><div class="left">Constraints</div><div class="right">Forbid guessing, fabricated sources, placeholder fixes, or deletion of working functionality.</div></div><div class="layer"><div class="left">Instructions</div><div class="right">Make steps ordered: assess, rank, patch, validate.</div></div><div class="layer"><div class="left">Output format</div><div class="right">Specify the exact shape you want back.</div></div><div class="layer"><div class="left">Evidence</div><div class="right">Logs, URLs, data, screenshots, schema, or code anchor the answer.</div></div></div></section>
 
-    <!-- BENCHMARKS -->
-    <section class="page" id="page-bench">
-      <div class="page-head">
-        <div class="crumb">chief-ai <span>/</span> <b>benchmarks</b></div>
-        <h2>Model Routing</h2>
-        <p>Choose providers by job, then preserve the useful result as company-owned intelligence.</p>
-      </div>
-      <div class="tbl-wrap"><table><thead><tr><th>Task</th><th>ChatGPT</th><th>Claude</th><th>Perplexity</th><th>Best fit</th></tr></thead><tbody id="benchBody"></tbody></table></div>
-    </section>
+    <section class="page" id="page-bench"><div class="page-head"><div class="crumb">chief-ai <span>/</span> <b>benchmarks</b></div><h2>Model Routing</h2><p>Which model to reach for, by job.</p></div><div class="tbl-wrap"><table><thead><tr><th>Task</th><th>ChatGPT</th><th>Claude</th><th>Perplexity</th><th>Best fit</th></tr></thead><tbody id="benchBody"></tbody></table></div></section>
   </main>
 </div>
 
-<!-- MODAL -->
-<div class="modal-wrap" id="modalWrap" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-head">
-      <div style="flex:1;min-width:0"><h3 id="mTitle"></h3><div class="sub" id="mSub"></div></div>
-      <button class="star-btn" id="mStar" title="Star">☆</button>
-      <button class="icon-btn" id="mClose" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-note" id="mNote" hidden><b>When to use</b><span id="mNoteText"></span></div>
-    <div class="ptabs" id="mTabs"></div>
-    <div class="modal-body"><pre id="mBody"></pre></div>
-    <div class="modal-foot">
-      <button class="mini-btn solid" id="mCopy">Copy this version</button>
-      <button class="mini-btn push" id="mClose2">Close</button>
-    </div>
-  </div>
-</div>
+<div class="modal-wrap" id="modalWrap" role="dialog" aria-modal="true"><div class="modal"><div class="modal-head"><div style="flex:1;min-width:0"><h3 id="mTitle"></h3><div class="sub" id="mSub"></div></div><button class="star-btn" id="mStar" title="Star">☆</button><button class="icon-btn" id="mClose" aria-label="Close">✕</button></div><div class="modal-note" id="mNote" hidden><b>When to use</b><span id="mNoteText"></span></div><div class="ptabs" id="mTabs"></div><div class="modal-body"><pre id="mBody"></pre></div><div class="modal-foot"><button class="mini-btn solid" id="mCopy">Copy this version</button><button class="mini-btn" id="mPromote">Promote to Company Brain</button><button class="mini-btn push" id="mClose2">Close</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script type="module" src="./src/main.js"></script>
 </body>
