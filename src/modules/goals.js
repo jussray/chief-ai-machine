@@ -20,30 +20,65 @@ function splitLines(value) {
   return String(value || '').split(/\n|,/).map((item) => item.trim()).filter(Boolean);
 }
 
+function makeTextElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  element.textContent = text;
+  return element;
+}
+
 export function initGoals() {
   const form = document.getElementById('goalForm');
   const list = document.getElementById('goalList');
   const count = document.getElementById('goalCount');
   const readiness = document.getElementById('goalReadiness');
-  if (!form || !list) return;
+  if (!form || !list || !count || !readiness) return;
 
   function render() {
     const goals = readGoals();
-    count.textContent = goals.length;
+    count.textContent = String(goals.length);
     const ready = goals.filter((goal) => validateGoalPlan(goal).valid).length;
     readiness.textContent = goals.length ? `${ready}/${goals.length} ready` : '0/0 ready';
-    list.innerHTML = goals.length ? '' : '<div class="empty">No founder goals yet. Define the outcome first.</div>';
+    list.replaceChildren();
+
+    if (!goals.length) {
+      list.appendChild(makeTextElement('div', 'empty', 'No founder goals yet. Define the outcome first.'));
+      return;
+    }
 
     goals.forEach((goal, index) => {
       const summary = summarizeGoalPlan(goal);
       const item = document.createElement('article');
       item.className = 'citem goal-item';
-      item.innerHTML = `
-        <div class="row"><strong>${goal.goal}</strong><span class="badge push">${summary.status}</span></div>
-        <div class="sub">${goal.project} · ${goal.priority}</div>
-        <div class="goal-meta"><span>${summary.capabilityCount} capabilities</span><span>${summary.proofCount} proof gates</span></div>
-        <div class="goal-gate"><b>Next gate</b>${goal.nextGate || 'Not defined'}</div>
-        <div class="row"><button class="mini-btn" data-goal-open="${index}">Use in Builder</button><button class="mini-btn push" data-goal-delete="${index}">Remove</button></div>`;
+
+      const headingRow = document.createElement('div');
+      headingRow.className = 'row';
+      headingRow.appendChild(makeTextElement('strong', '', goal.goal));
+      headingRow.appendChild(makeTextElement('span', 'badge push', summary.status));
+
+      const sub = makeTextElement('div', 'sub', `${goal.project} · ${goal.priority}`);
+
+      const meta = document.createElement('div');
+      meta.className = 'goal-meta';
+      meta.appendChild(makeTextElement('span', '', `${summary.capabilityCount} capabilities`));
+      meta.appendChild(makeTextElement('span', '', `${summary.proofCount} proof gates`));
+
+      const gate = document.createElement('div');
+      gate.className = 'goal-gate';
+      gate.appendChild(makeTextElement('b', '', 'Next gate'));
+      gate.appendChild(document.createTextNode(goal.nextGate || 'Not defined'));
+
+      const actions = document.createElement('div');
+      actions.className = 'row';
+      const openButton = makeTextElement('button', 'mini-btn', 'Use in Builder');
+      openButton.type = 'button';
+      openButton.dataset.goalOpen = String(index);
+      const deleteButton = makeTextElement('button', 'mini-btn push', 'Remove');
+      deleteButton.type = 'button';
+      deleteButton.dataset.goalDelete = String(index);
+      actions.append(openButton, deleteButton);
+
+      item.append(headingRow, sub, meta, gate, actions);
       list.appendChild(item);
     });
 
@@ -59,6 +94,7 @@ export function initGoals() {
     list.querySelectorAll('[data-goal-open]').forEach((button) => {
       button.addEventListener('click', () => {
         const goal = readGoals()[Number(button.dataset.goalOpen)];
+        if (!goal) return;
         document.querySelector('[data-page="builder"]')?.click();
         const repo = document.getElementById('bRepo');
         const task = document.getElementById('bTask');
