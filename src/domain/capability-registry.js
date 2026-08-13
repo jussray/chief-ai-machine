@@ -8,11 +8,9 @@ import {
   validateCapabilityPlan,
 } from './capability-plan.js';
 import { validateGoalPlan } from './goal-plan.js';
-import { strategicLensPolicies } from './strategic-lens.js';
 
 export const CAPABILITY_REGISTRY_CONTRACT = 'juss-v10/capability-registry@v1';
 export const EXECUTION_HANDOFF_CONTRACT = 'juss-v10/execution-handoff@v1';
-export const CONTINUITY_COOKIE_CONTRACT = 'juss-v10/continuity-cookie@v1';
 
 const ORIGIN_SET = new Set(CAPABILITY_ORIGINS);
 const AUTHORITY_SET = new Set(CAPABILITY_AUTHORITY_LEVELS);
@@ -145,12 +143,12 @@ export function resolveCapabilities(snapshot, requestedIds) {
   return requested.map((id) => registry.get(id));
 }
 
-export function createGoalCapabilityPlan(input) {
-  const goalPlan = input?.goalPlan;
-  const registrySnapshot = input?.registrySnapshot;
-  const expectedHeadSha = input?.expectedHeadSha;
-  const requestedAuthority = input?.requestedAuthority || 'reason';
-
+export function createGoalCapabilityPlan({
+  goalPlan,
+  registrySnapshot,
+  expectedHeadSha,
+  requestedAuthority = 'reason',
+} = {}) {
   const goalValidation = validateGoalPlan(goalPlan);
   if (!goalValidation.valid) throw new Error(`Founder goal is not ready: ${goalValidation.errors.join('; ')}`);
 
@@ -173,49 +171,6 @@ export function createGoalCapabilityPlan(input) {
   });
 }
 
-function continuitySeed(capabilityPlan) {
-  return JSON.stringify([
-    EXECUTION_HANDOFF_CONTRACT,
-    capabilityPlan.planHash,
-    capabilityPlan.expectedHeadSha,
-    capabilityPlan.registryHash,
-    capabilityPlan.capabilities.map((capability) => capability.id),
-    capabilityPlan.proofRequirements,
-    capabilityPlan.outcomeSignals,
-    capabilityPlan.rollback,
-  ]);
-}
-
-export function executionContinuityFingerprint(capabilityPlan) {
-  const validation = validateCapabilityPlan(capabilityPlan);
-  if (!validation.valid) throw new Error(`Capability plan is invalid: ${validation.errors.join('; ')}`);
-  return sha256Hex(continuitySeed(capabilityPlan));
-}
-
-export function executionSlotKey(capabilityPlan) {
-  const validation = validateCapabilityPlan(capabilityPlan);
-  if (!validation.valid) throw new Error(`Capability plan is invalid: ${validation.errors.join('; ')}`);
-  return sha256Hex(JSON.stringify([
-    'chief-execution-slot@v1',
-    capabilityPlan.projectSlug,
-    capabilityPlan.expectedHeadSha,
-  ]));
-}
-
-function createContinuityCookie(capabilityPlan) {
-  const fingerprint = executionContinuityFingerprint(capabilityPlan);
-  return Object.freeze({
-    contract: CONTINUITY_COOKIE_CONTRACT,
-    value: `chief-continuity-v1.${fingerprint}`,
-    fingerprint,
-    browserCookie: false,
-    actionAuthority: false,
-    boundedToExactHead: capabilityPlan.expectedHeadSha,
-    invalidatesOnPlanChange: true,
-    invalidatesOnHeadChange: true,
-  });
-}
-
 export function createExecutionHandoffReceipt(capabilityPlan) {
   const validation = validateCapabilityPlan(capabilityPlan);
   if (!validation.valid) throw new Error(`Capability plan is invalid: ${validation.errors.join('; ')}`);
@@ -231,15 +186,9 @@ export function createExecutionHandoffReceipt(capabilityPlan) {
     expectedHeadSha: capabilityPlan.expectedHeadSha,
     registryHash: capabilityPlan.registryHash,
     requestedAuthority: capabilityPlan.requestedAuthority,
-    capabilityIds: Object.freeze(capabilityPlan.capabilities.map((capability) => capability.id)),
-    strategicLenses: strategicLensPolicies(capabilityPlan.strategicLenses),
-    strategicLensesMayAuthorizeExecution: false,
-    proofRequirements: Object.freeze([...capabilityPlan.proofRequirements]),
-    outcomeSignals: Object.freeze([...capabilityPlan.outcomeSignals]),
+    capabilityIds: capabilityPlan.capabilities.map((capability) => capability.id),
+    proofRequirements: [...capabilityPlan.proofRequirements],
     rollback: capabilityPlan.rollback,
     capabilityPlanHash: capabilityPlan.planHash,
-    continuityFingerprint: executionContinuityFingerprint(capabilityPlan),
-    continuityCookie: createContinuityCookie(capabilityPlan),
-    executionSlotKey: executionSlotKey(capabilityPlan),
   });
 }
