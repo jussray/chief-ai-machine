@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 
 const skillPath = new URL('../.agents/skills/goalfix/SKILL.md', import.meta.url);
+const founderPath = new URL('../AGENTS_FOUNDER_INTELLIGENCE.md', import.meta.url);
 const skill = readFileSync(skillPath, 'utf8');
+const founder = readFileSync(founderPath, 'utf8');
 
 const checks = [
   ['frontmatter name matches directory', /---\nname: goalfix\n/.test(skill)],
@@ -25,7 +27,16 @@ const checks = [
   ['production proof chain is explicit', /SOURCE → BUILD → DEPLOY → LIVE IDENTITY → HEALTH → REAL PATH → OUTCOME/.test(skill)],
   ['confess section preserves material uncertainty', /tests not executed[\s\S]+browser proof unavailable[\s\S]+provider state inaccessible/.test(skill)],
   ['final report contract is complete', /REALITY:[\s\S]+FIX:[\s\S]+PROOF:[\s\S]+RISK:[\s\S]+ROLLBACK:[\s\S]+NEXT GATE:/.test(skill)],
+  ['founder entrypoint declares portable command surface', founder.includes('Portable Juss OS command surface:')],
+  ['portable goalfix routes to repo-scoped skill', founder.includes('`/goalfix` routes to the repo-scoped `.agents/skills/goalfix/SKILL.md` contract')],
+  ['portable modes cannot expand execution authority', founder.includes('never expand execution authority')],
+  ['visualize remains non-authorizing', founder.includes('does not authorize browser, design, deployment, publishing, or production changes by itself')],
+  ['repository proof and approval gates remain authoritative', founder.includes('exact-head checks, Playwright requirements, Founder Control Room release truth, and explicit founder gates remain authoritative')],
 ];
+
+for (const command of ['/goalfix', '/ultrathink', '/truthmode', '/confess', '/redteam', '/lindymode', '/ooda', '/visualize']) {
+  checks.push([`portable command is present: ${command}`, founder.includes(command)]);
+}
 
 const failed = checks.filter(([, passed]) => !passed);
 

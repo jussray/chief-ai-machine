@@ -19,4 +19,21 @@ Required loop:
 → Repeat
 ```
 
-This entrypoint supplements repository-local agent instructions and never weakens privacy, safety, approval, rollback, evidence, or non-deletion rules.
+Portable Juss OS command surface:
+
+```text
+/goalfix
+/ultrathink
+/truthmode
+/confess
+/redteam
+/lindymode
+/ooda
+/visualize
+```
+
+These are reasoning, planning, and routing modes only. They never expand execution authority or weaken repository-local proof gates. In this repository, `/goalfix` routes to the repo-scoped `.agents/skills/goalfix/SKILL.md` contract rather than redefining it. `/visualize` may make structure, flow, evidence, or trade-offs easier to inspect, but it does not authorize browser, design, deployment, publishing, or production changes by itself.
+
+The portable surface never authorizes merge, deploy, production rollback, migration, destructive writes, credential changes, billing or pricing changes, publication, external communication, or exposure of proprietary/private prompt content. `AGENTS.md`, `CLAUDE.md`, repository skills, exact-head checks, Playwright requirements, Founder Control Room release truth, and explicit founder gates remain authoritative and may be stricter.
+
+This entrypoint supplements repository-local agent instructions and never weakens privacy, safety, approval, rollback, evidence, provenance, or non-deletion rules.
