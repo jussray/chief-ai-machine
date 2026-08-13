@@ -11,6 +11,11 @@ on:
       - "e2e/proofmode-mcp.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Cloudflare Worker base URL to verify"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -22,7 +27,7 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  PROOFMODE_BASE_URL: https://feature-proofmode-plugin-mvp-chief-ai.mcgill-raylene.workers.dev
+  MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
 
 jobs:
   verify:
@@ -41,6 +46,21 @@ jobs:
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Resolve Cloudflare preview alias
+        shell: bash
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ -n "$MANUAL_BASE_URL" ]; then
+            base_url="$MANUAL_BASE_URL"
+          else
+            branch="$PR_HEAD_REF"
+            test -n "$branch"
+            alias="${branch//\//-}"
+            base_url="https://${alias}-chief-ai.mcgill-raylene.workers.dev"
+          fi
+          printf 'PROOFMODE_BASE_URL=%s\n' "$base_url" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -72,13 +92,34 @@ jobs:
       - name: Run live ProofMode MCP Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
-        run: npx playwright test e2e/proofmode-mcp.pw.mjs --reporter=html
+        shell: bash
+        run: |
+          cat > playwright.proofmode-mcp.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './e2e',
+            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            fullyParallel: false,
+            retries: 0,
+            workers: 1,
+            outputDir: './test-results/proofmode-mcp',
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: './playwright-report/proofmode-mcp', open: 'never' }],
+            ],
+            use: { trace: 'retain-on-failure' },
+          });
+          EOF
+          npx playwright test --config=playwright.proofmode-mcp.config.mjs
 
       - name: Retain Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: proofmode-mcp-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: playwright-report
+          path: |
+            playwright-report/proofmode-mcp
+            test-results/proofmode-mcp
           if-no-files-found: error
           retention-days: 14
