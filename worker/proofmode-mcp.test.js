@@ -54,6 +54,7 @@ describe('ProofMode MCP transport', () => {
       owner: 'acme',
       repo: 'app',
       repositoryUrl: 'https://github.com/acme/app',
+      defaultBranch: 'main',
       ref: 'main',
       headSha: '0123456789abcdef0123456789abcdef01234567',
       readme: '# App',
@@ -64,9 +65,10 @@ describe('ProofMode MCP transport', () => {
     };
 
     const deps = {
-      loadPublicRepositoryEvidence: async ({ owner, repo }) => {
+      loadPublicRepositoryEvidence: async ({ owner, repo, ref }) => {
         expect(owner).toBe('acme');
         expect(repo).toBe('app');
+        expect(ref).toBeUndefined();
         return evidence;
       },
       classifyRepositoryEvidence: (input) => ({
