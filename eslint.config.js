@@ -32,6 +32,7 @@ export default [
     files: [
       'scripts/**/*.js', 'scripts/**/*.mjs', 'scripts/**/*.cjs',
       'tools/**/scripts/**/*.js', 'tools/**/scripts/**/*.mjs', 'tools/**/scripts/**/*.cjs',
+      'e2e/proofmode-mcp.pw.mjs',
     ],
     ignores: ['scripts/verify-mcp-config.mjs'],
     languageOptions: {
@@ -39,16 +40,6 @@ export default [
       sourceType: 'module',
       globals: {
         console: 'readonly', process: 'readonly', fetch: 'readonly', Buffer: 'readonly', URL: 'readonly', setTimeout: 'readonly',
-      },
-    },
-  },
-  {
-    files: ['e2e/**/*.mjs'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      globals: {
-        process: 'readonly',
       },
     },
   },
