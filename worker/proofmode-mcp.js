@@ -1,35 +1,20 @@
 import { classifyRepositoryEvidence } from '../plugins/proofmode/src/audit.js';
 import { loadPublicRepositoryEvidence } from '../plugins/proofmode/src/github.js';
-import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
-export const PROOFMODE_SERVER_INFO = Object.freeze({ name: 'proofmode', title: 'ProofMode', version: '0.1.0' });
-export const PROOFMODE_INSTRUCTIONS =
-  'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
-const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 
-export const PROOFMODE_TOOL = {
+const TOOL = {
   name: 'audit_repository',
   title: 'Audit repository evidence',
   description:
-    'Read public GitHub repository evidence and classify what is claimed, implemented, tested, deployed, and independently verified. Emits a juss-proof/v1 receipt and remains read-only.',
+    'Read public GitHub repository evidence and classify what is claimed, implemented, tested, deployed, and independently verified. Read-only.',
   inputSchema: {
     type: 'object',
     properties: {
       owner: { type: 'string', minLength: 1, description: 'GitHub repository owner.' },
       repo: { type: 'string', minLength: 1, description: 'GitHub repository name.' },
       ref: { type: 'string', minLength: 1, description: 'Optional branch, tag, or commit SHA.' },
-      acknowledges: {
-        type: 'array',
-        maxItems: 50,
-        uniqueItems: true,
-        description: 'Optional upstream juss-proof/v1 receipt IDs this audit explicitly acknowledges.',
-        items: {
-          type: 'string',
-          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
-        },
-      },
     },
     required: ['owner', 'repo'],
     additionalProperties: false,
@@ -74,38 +59,23 @@ function validateProtocolHeader(request) {
   return !version || SUPPORTED_PROTOCOLS.has(version);
 }
 
-function toolResult(report, proofReceipt) {
-  const structuredContent = { ...report, proofReceipt };
+function toolResult(report) {
   return {
-    content: [{ type: 'text', text: JSON.stringify(structuredContent, null, 2) }],
-    structuredContent,
+    content: [{ type: 'text', text: JSON.stringify(report, null, 2) }],
+    structuredContent: report,
     isError: false,
   };
 }
 
 function toolError(error) {
   const message = error instanceof Error ? error.message : 'ProofMode audit failed.';
-  const errorCode = typeof error?.code === 'string' && error.code
-    ? error.code
-    : 'audit_failed';
   return {
     content: [{ type: 'text', text: message }],
-    structuredContent: { errorCode, message },
     isError: true,
   };
 }
 
-function resolveContext(envOrDeps, maybeDeps) {
-  const looksLikeDeps =
-    envOrDeps
-    && typeof envOrDeps.loadPublicRepositoryEvidence === 'function'
-    && typeof envOrDeps.classifyRepositoryEvidence === 'function';
-
-  if (looksLikeDeps) return { env: {}, deps: envOrDeps };
-  return { env: envOrDeps || {}, deps: maybeDeps || DEFAULT_DEPS };
-}
-
-async function dispatch(message, deps, env) {
+async function dispatch(message, deps) {
   const { id, method, params } = message;
 
   if (method === 'initialize') {
@@ -114,19 +84,20 @@ async function dispatch(message, deps, env) {
     return jsonRpc(id, {
       protocolVersion: negotiated,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: PROOFMODE_SERVER_INFO,
-      instructions: PROOFMODE_INSTRUCTIONS,
+      serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
+      instructions:
+        'ProofMode is read-only. It audits public GitHub repository evidence and never promotes repository evidence into live runtime verification.',
     });
   }
 
   if (method === 'ping') return jsonRpc(id, {});
 
   if (method === 'tools/list') {
-    return jsonRpc(id, { tools: [PROOFMODE_TOOL] });
+    return jsonRpc(id, { tools: [TOOL] });
   }
 
   if (method === 'tools/call') {
-    if (params?.name !== PROOFMODE_TOOL.name) {
+    if (params?.name !== TOOL.name) {
       return jsonRpcError(id, -32602, `Unknown tool: ${params?.name || 'missing'}`);
     }
 
@@ -134,22 +105,14 @@ async function dispatch(message, deps, env) {
     if (typeof args.owner !== 'string' || !args.owner.trim() || typeof args.repo !== 'string' || !args.repo.trim()) {
       return jsonRpcError(id, -32602, 'audit_repository requires non-empty owner and repo strings.');
     }
-    if (args.acknowledges !== undefined && !Array.isArray(args.acknowledges)) {
-      return jsonRpcError(id, -32602, 'audit_repository acknowledges must be an array of receipt IDs.');
-    }
 
     try {
       const evidence = await deps.loadPublicRepositoryEvidence({
         owner: args.owner.trim(),
         repo: args.repo.trim(),
         ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
-        token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
-          ? env.PROOFMODE_GITHUB_TOKEN
-          : undefined,
       });
-      const report = deps.classifyRepositoryEvidence(evidence);
-      const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
-      return jsonRpc(id, toolResult(report, proofReceipt));
+      return jsonRpc(id, toolResult(deps.classifyRepositoryEvidence(evidence)));
     } catch (error) {
       return jsonRpc(id, toolError(error));
     }
@@ -158,9 +121,10 @@ async function dispatch(message, deps, env) {
   return jsonRpcError(id, -32601, `Method not found: ${method || 'missing'}`);
 }
 
-export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
-  const { env, deps } = resolveContext(envOrDeps, maybeDeps);
-
+export async function handleProofModeMcp(
+  request,
+  deps = { loadPublicRepositoryEvidence, classifyRepositoryEvidence },
+) {
   if (!validateOrigin(request)) {
     return jsonResponse(jsonRpcError(null, -32000, 'Origin not allowed.'), 403);
   }
@@ -195,27 +159,5 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return new Response(null, { status: 202 });
   }
 
-  return jsonResponse(await dispatch(message, deps, env));
-}
-
-// Discovery card for /.well-known/mcp/server-card.json (draft MCP server-card
-// shape). Built from the same constants the live server answers with, so the
-// card cannot advertise a tool or version the endpoint does not serve.
-export function buildProofModeServerCard(origin) {
-  return {
-    serverInfo: PROOFMODE_SERVER_INFO,
-    description: PROOFMODE_INSTRUCTIONS,
-    protocolVersion: PROTOCOL_VERSION,
-    transport: { type: 'streamable-http', url: `${origin}/mcp` },
-    authentication: { required: false },
-    capabilities: { tools: { listChanged: false } },
-    tools: [
-      {
-        name: PROOFMODE_TOOL.name,
-        title: PROOFMODE_TOOL.title,
-        description: PROOFMODE_TOOL.description,
-        inputSchema: PROOFMODE_TOOL.inputSchema,
-      },
-    ],
-  };
+  return jsonResponse(await dispatch(message, deps));
 }
