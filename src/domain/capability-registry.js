@@ -143,12 +143,12 @@ export function resolveCapabilities(snapshot, requestedIds) {
   return requested.map((id) => registry.get(id));
 }
 
-export function createGoalCapabilityPlan({
-  goalPlan,
-  registrySnapshot,
-  expectedHeadSha,
-  requestedAuthority = 'reason',
-} = {}) {
+export function createGoalCapabilityPlan(input) {
+  const goalPlan = input?.goalPlan;
+  const registrySnapshot = input?.registrySnapshot;
+  const expectedHeadSha = input?.expectedHeadSha;
+  const requestedAuthority = input?.requestedAuthority || 'reason';
+
   const goalValidation = validateGoalPlan(goalPlan);
   if (!goalValidation.valid) throw new Error(`Founder goal is not ready: ${goalValidation.errors.join('; ')}`);
 
