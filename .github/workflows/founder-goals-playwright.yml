@@ -1,0 +1,92 @@
+name: Founder Goals Playwright
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - "styles/goals.css"
+      - "src/main.js"
+      - "src/domain/goal-plan.js"
+      - "src/domain/goal-plan.test.js"
+      - "src/modules/goals.js"
+      - "e2e/founder-goals.pw.mjs"
+      - "e2e/playwright.founder-goals.config.mjs"
+      - ".github/workflows/founder-goals-playwright.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: founder-goals-playwright-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  verify:
+    name: Verify Founder Goals desktop and mobile flow
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    steps:
+      - name: Check out exact requested head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static application server
+        shell: bash
+        run: |
+          python3 -m http.server 4173 > /tmp/chief-ai-goals-server.log 2>&1 &
+          echo $! > /tmp/chief-ai-goals-server.pid
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/chief-ai-goals-server.log
+          exit 1
+
+      - name: Run rendered Founder Goals proof
+        run: npx playwright test --config=e2e/playwright.founder-goals.config.mjs
+
+      - name: Stop static server
+        if: always()
+        shell: bash
+        run: test ! -f /tmp/chief-ai-goals-server.pid || kill "$(cat /tmp/chief-ai-goals-server.pid)" || true
+
+      - name: Retain desktop and mobile browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: founder-goals-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            playwright-report/founder-goals
+            test-results/founder-goals
+          if-no-files-found: error
+          retention-days: 14
