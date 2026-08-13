@@ -1,0 +1,3 @@
+Disposable ruleset enforcement probe.
+Base main SHA: 8c476dff9db24068fb9076db09f9d92f68dc1abb
+Do not merge. This file exists only to prove required-check enforcement.
