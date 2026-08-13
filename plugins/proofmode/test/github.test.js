@@ -8,10 +8,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function jsonResponse(body, status = 200) {
+function jsonResponse(body, status = 200, headers = {}) {
+  const normalizedHeaders = Object.fromEntries(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), String(value)]),
+  );
   return {
     status,
     ok: status >= 200 && status < 300,
+    headers: {
+      get(name) {
+        return normalizedHeaders[String(name).toLowerCase()] || null;
+      },
+    },
     async json() {
       return body;
     },
@@ -85,4 +93,38 @@ test('keeps unauthenticated public-repository support when no server token is co
 
   const evidence = await loadPublicRepositoryEvidence({ owner: 'acme', repo: 'app', ref: 'main' });
   expect(evidence.repositoryUrl).toBe('https://github.com/acme/app');
+});
+
+test('reports an invalid server credential separately from rate limiting', async () => {
+  globalThis.fetch = vi.fn(async () => jsonResponse({}, 401));
+
+  await expect(loadPublicRepositoryEvidence({
+    owner: 'acme',
+    repo: 'app',
+    token: 'bad-token',
+  })).rejects.toMatchObject({ code: 'source_auth_failed' });
+});
+
+test('reports a permission refusal when GitHub returns 403 without rate-limit evidence', async () => {
+  globalThis.fetch = vi.fn(async () => jsonResponse({}, 403, {
+    'x-ratelimit-remaining': '42',
+  }));
+
+  await expect(loadPublicRepositoryEvidence({
+    owner: 'acme',
+    repo: 'app',
+    token: 'server-token',
+  })).rejects.toMatchObject({ code: 'source_forbidden' });
+});
+
+test('reports provider rate limiting only when GitHub supplies rate-limit evidence', async () => {
+  globalThis.fetch = vi.fn(async () => jsonResponse({}, 403, {
+    'x-ratelimit-remaining': '0',
+  }));
+
+  await expect(loadPublicRepositoryEvidence({
+    owner: 'acme',
+    repo: 'app',
+    token: 'server-token',
+  })).rejects.toMatchObject({ code: 'source_rate_limited' });
 });
