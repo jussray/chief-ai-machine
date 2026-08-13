@@ -9,10 +9,13 @@ afterEach(() => {
 });
 
 function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), {
+  return {
     status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+    ok: status >= 200 && status < 300,
+    async json() {
+      return body;
+    },
+  };
 }
 
 test('uses only the server-provided token to authenticate GitHub evidence requests', async () => {
@@ -33,7 +36,7 @@ test('uses only the server-provided token to authenticate GitHub evidence reques
       return jsonResponse({ tree: [{ type: 'blob', path: 'README.md' }], truncated: false });
     }
     if (String(url).includes('/readme?')) {
-      return jsonResponse({ content: btoa('# App'), encoding: 'base64' });
+      return jsonResponse({ content: 'IyBBcHA=', encoding: 'base64' });
     }
     if (String(url).includes('/actions/runs?')) {
       return jsonResponse({ workflow_runs: [] });
