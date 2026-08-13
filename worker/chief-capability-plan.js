@@ -1,7 +1,9 @@
 import {
   createExecutionHandoffReceipt,
-  createGoalCapabilityPlan,
+  resolveCapabilities,
 } from '../src/domain/capability-registry.js';
+import { createCapabilityPlan } from '../src/domain/capability-plan.js';
+import { validateGoalPlan } from '../src/domain/goal-plan.js';
 
 const ROUTE = '/api/chief/capability-plan';
 
@@ -32,6 +34,36 @@ function errorResponse(code, message, status = 400) {
   }, status);
 }
 
+function createSubmittedRegistryProposal(input) {
+  const goalPlan = input.goalPlan;
+  const registrySnapshot = input.registrySnapshot;
+  const goalValidation = validateGoalPlan(goalPlan);
+  if (!goalValidation.valid) {
+    throw new Error(`Founder goal is not ready: ${goalValidation.errors.join('; ')}`);
+  }
+
+  const capabilities = resolveCapabilities(registrySnapshot, goalPlan.capabilities);
+  const routingReason = [
+    `Founder goal composed against submitted registry snapshot ${registrySnapshot.registryId}@${registrySnapshot.version}.`,
+    'Founder Control Room trust resolution is still required.',
+    `Next gate: ${goalPlan.nextGate}`,
+  ].join(' ');
+
+  return createCapabilityPlan({
+    goal: goalPlan.goal,
+    projectSlug: goalPlan.project,
+    expectedHeadSha: input.expectedHeadSha,
+    registryHash: registrySnapshot.registryHash,
+    requestedAuthority: input.requestedAuthority || 'reason',
+    strategicLenses: goalPlan.strategicLenses,
+    routingReason,
+    capabilities,
+    proofRequirements: goalPlan.proofRequirements,
+    outcomeSignals: [goalPlan.definitionOfDone],
+    rollback: goalPlan.rollback,
+  });
+}
+
 export async function handleChiefCapabilityPlan(request) {
   const url = new URL(request.url);
   if (url.pathname !== ROUTE) {
@@ -58,12 +90,7 @@ export async function handleChiefCapabilityPlan(request) {
   }
 
   try {
-    const capabilityPlan = createGoalCapabilityPlan({
-      goalPlan: input.goalPlan,
-      registrySnapshot: input.registrySnapshot,
-      expectedHeadSha: input.expectedHeadSha,
-      requestedAuthority: input.requestedAuthority || 'reason',
-    });
+    const capabilityPlan = createSubmittedRegistryProposal(input);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
 
     return json({
