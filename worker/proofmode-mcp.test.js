@@ -73,7 +73,13 @@ describe('ProofMode MCP transport', () => {
       },
       classifyRepositoryEvidence: (input) => ({
         repository: `${input.owner}/${input.repo}`,
+        repositoryUrl: input.repositoryUrl,
+        ref: input.ref,
+        headSha: input.headSha,
         readiness: 'repository_supported_runtime_unverified',
+        layers: [],
+        nextChecks: [],
+        limitations: [],
       }),
     };
 
