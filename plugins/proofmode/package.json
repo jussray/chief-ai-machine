@@ -1,0 +1,20 @@
+{
+  "name": "proofmode-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only evidence analysis for software repository claims, implementation, tests, deployment evidence, and runtime verification gaps.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check src/github.js && node --check src/audit.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "zod": "^3.25.76"
+  }
+}
