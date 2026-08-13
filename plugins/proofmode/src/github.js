@@ -12,13 +12,20 @@ function encode(value) {
   return encodeURIComponent(value);
 }
 
-async function githubJson(path) {
+function githubHeaders(token) {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "proofmode-plugin/0.1.0",
+  };
+  const normalizedToken = typeof token === "string" ? token.trim() : "";
+  if (normalizedToken) headers.Authorization = `Bearer ${normalizedToken}`;
+  return headers;
+}
+
+async function githubJson(path, token) {
   const response = await fetch(`${API}${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "proofmode-plugin/0.1.0",
-    },
+    headers: githubHeaders(token),
   });
   if (response.status === 404) throw new ProofModeGitHubError("repository_unavailable", "Repository or ref was not found or is not publicly readable. ProofMode v0.1 does not access private repositories.");
   if (response.status === 403 || response.status === 429) throw new ProofModeGitHubError("source_rate_limited", "GitHub temporarily refused the public evidence request. Try again later.");
@@ -26,8 +33,8 @@ async function githubJson(path) {
   return response.json();
 }
 
-async function optionalGitHubJson(path, fallback) {
-  try { return await githubJson(path); } catch (error) {
+async function optionalGitHubJson(path, fallback, token) {
+  try { return await githubJson(path, token); } catch (error) {
     if (error instanceof ProofModeGitHubError) return fallback;
     throw error;
   }
@@ -42,24 +49,24 @@ function decodeReadme(payload) {
   } catch { return ""; }
 }
 
-export async function loadPublicRepositoryEvidence({ owner, repo, ref }) {
+export async function loadPublicRepositoryEvidence({ owner, repo, ref, token }) {
   const repoPath = `/repos/${encode(owner)}/${encode(repo)}`;
-  const metadata = await githubJson(repoPath);
+  const metadata = await githubJson(repoPath, token);
   const resolvedRef = ref?.trim() || metadata.default_branch;
-  const commit = await githubJson(`${repoPath}/commits/${encode(resolvedRef)}`);
+  const commit = await githubJson(`${repoPath}/commits/${encode(resolvedRef)}`, token);
   const headSha = commit.sha;
   const treeSha = commit.commit?.tree?.sha;
   if (!treeSha) throw new ProofModeGitHubError("source_error", "GitHub did not return a tree for the requested ref.");
 
   const [tree, readme, workflowRuns, deployments] = await Promise.all([
-    githubJson(`${repoPath}/git/trees/${encode(treeSha)}?recursive=1`),
-    optionalGitHubJson(`${repoPath}/readme?ref=${encode(resolvedRef)}`, null),
-    optionalGitHubJson(`${repoPath}/actions/runs?head_sha=${encode(headSha)}&per_page=20`, { workflow_runs: [] }),
-    optionalGitHubJson(`${repoPath}/deployments?sha=${encode(headSha)}&per_page=10`, []),
+    githubJson(`${repoPath}/git/trees/${encode(treeSha)}?recursive=1`, token),
+    optionalGitHubJson(`${repoPath}/readme?ref=${encode(resolvedRef)}`, null, token),
+    optionalGitHubJson(`${repoPath}/actions/runs?head_sha=${encode(headSha)}&per_page=20`, { workflow_runs: [] }, token),
+    optionalGitHubJson(`${repoPath}/deployments?sha=${encode(headSha)}&per_page=10`, [], token),
   ]);
 
   const deploymentEvidence = await Promise.all(deployments.slice(0, 5).map(async (deployment) => {
-    const statuses = await optionalGitHubJson(`${repoPath}/deployments/${deployment.id}/statuses?per_page=1`, []);
+    const statuses = await optionalGitHubJson(`${repoPath}/deployments/${deployment.id}/statuses?per_page=1`, [], token);
     return { environment: deployment.environment || "unspecified", latestState: statuses[0]?.state || "unknown" };
   }));
 
