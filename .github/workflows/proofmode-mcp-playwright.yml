@@ -1,0 +1,84 @@
+name: ProofMode MCP Playwright
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "worker/proofmode-mcp.js"
+      - "worker/index.js"
+      - "wrangler.jsonc"
+      - "e2e/proofmode-mcp.pw.mjs"
+      - ".github/workflows/proofmode-mcp-playwright.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofmode-mcp-playwright-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PROOFMODE_BASE_URL: https://feature-proofmode-plugin-mvp-chief-ai.mcgill-raylene.workers.dev
+
+jobs:
+  verify:
+    name: Verify live ProofMode MCP with Playwright
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact requested head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Wait for exact-head Cloudflare preview
+        shell: bash
+        run: |
+          for attempt in {1..45}; do
+            body="$(curl --fail --silent "$PROOFMODE_BASE_URL/version" || true)"
+            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
+              printf 'Cloudflare preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+              exit 0
+            fi
+            sleep 2
+          done
+          printf 'Preview never served expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          curl --silent --show-error "$PROOFMODE_BASE_URL/version" || true
+          exit 1
+
+      - name: Run live ProofMode MCP Playwright proof
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: npx playwright test e2e/proofmode-mcp.pw.mjs --reporter=html
+
+      - name: Retain Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofmode-mcp-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: playwright-report
+          if-no-files-found: error
+          retention-days: 14
