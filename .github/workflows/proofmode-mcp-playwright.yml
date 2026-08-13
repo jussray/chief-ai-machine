@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 concurrency:
   group: proofmode-mcp-playwright-${{ github.event.pull_request.number || github.ref }}
@@ -47,26 +48,58 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
-      - name: Resolve Cloudflare preview alias
-        shell: bash
-        env:
-          PR_HEAD_REF: ${{ github.head_ref }}
-        run: |
-          if [ -n "$MANUAL_BASE_URL" ]; then
-            base_url="$MANUAL_BASE_URL"
-          else
-            branch="$PR_HEAD_REF"
-            test -n "$branch"
-            alias="${branch//\//-}"
-            base_url="https://${alias}-chief-ai.mcgill-raylene.workers.dev"
-          fi
-          printf 'PROOFMODE_BASE_URL=%s\n' "$base_url" >> "$GITHUB_ENV"
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
+
+      - name: Resolve exact Cloudflare commit preview
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ -n "$MANUAL_BASE_URL" ]; then
+            printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
+          for attempt in {1..45}; do
+            checks="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$api" || true)"
+
+            preview="$(printf '%s' "$checks" | node -e '
+              let input = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { input += chunk; });
+              process.stdin.on("end", () => {
+                if (!input) return;
+                const data = JSON.parse(input);
+                const run = data.check_runs?.find((item) =>
+                  item.name === "Workers Builds: chief-ai"
+                  && item.status === "completed"
+                  && item.conclusion === "success"
+                );
+                const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
+                if (match) process.stdout.write(match[1]);
+              });
+            ')"
+
+            if [ -n "$preview" ]; then
+              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
+              printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          exit 1
 
       - name: Install locked application dependencies
         run: npm ci
@@ -74,18 +107,18 @@ jobs:
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Wait for exact-head Cloudflare preview
+      - name: Verify immutable preview serves exact head
         shell: bash
         run: |
-          for attempt in {1..45}; do
+          for attempt in {1..10}; do
             body="$(curl --fail --silent "$PROOFMODE_BASE_URL/version" || true)"
             if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
-              printf 'Cloudflare preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+              printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
             sleep 2
           done
-          printf 'Preview never served expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
           curl --silent --show-error "$PROOFMODE_BASE_URL/version" || true
           exit 1
 
