@@ -1,5 +1,4 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { test, expect } from "vitest";
 import { classifyRepositoryEvidence } from "../src/audit.js";
 
 function fixture(overrides = {}) {
@@ -37,58 +36,32 @@ test("does not promote repository or deployment evidence into runtime verificati
   const report = classifyRepositoryEvidence(fixture());
   const verified = report.layers.find((item) => item.layer === "verified");
   const deployed = report.layers.find((item) => item.layer === "deployed");
-
-  assert.equal(deployed.state, "partial");
-  assert.equal(verified.state, "not_proven");
-  assert.match(verified.summary, /did not observe the deployed runtime/i);
+  expect(deployed.state).toBe("partial");
+  expect(verified.state).toBe("not_proven");
+  expect(verified.summary).toMatch(/did not observe the deployed runtime/i);
 });
 
 test("supports tested only when test assets and exact-head workflow evidence are paired", () => {
   const report = classifyRepositoryEvidence(fixture());
   const tested = report.layers.find((item) => item.layer === "tested");
-  assert.equal(tested.state, "supported");
+  expect(tested.state).toBe("supported");
 });
 
 test("downgrades testing when exact-head workflow success is absent", () => {
-  const report = classifyRepositoryEvidence(
-    fixture({
-      workflows: [
-        {
-          name: "CI tests",
-          conclusion: "failure",
-          url: "https://github.com/acme/app/actions/runs/2",
-        },
-      ],
-    })
-  );
+  const report = classifyRepositoryEvidence(fixture({ workflows: [{ name: "CI tests", conclusion: "failure", url: "https://github.com/acme/app/actions/runs/2" }] }));
   const tested = report.layers.find((item) => item.layer === "tested");
-  assert.equal(tested.state, "partial");
+  expect(tested.state).toBe("partial");
 });
 
 test("distinguishes a documented claim from proof of the claim", () => {
   const report = classifyRepositoryEvidence(fixture());
-  const claimed = report.layers.find((item) => item.layer === "claimed");
-  const verified = report.layers.find((item) => item.layer === "verified");
-  assert.equal(claimed.state, "supported");
-  assert.equal(verified.state, "not_proven");
+  expect(report.layers.find((item) => item.layer === "claimed").state).toBe("supported");
+  expect(report.layers.find((item) => item.layer === "verified").state).toBe("not_proven");
 });
 
 test("reports incomplete evidence for a thin repository", () => {
-  const report = classifyRepositoryEvidence(
-    fixture({
-      readme: "# Empty\n",
-      paths: ["README.md"],
-      workflows: [],
-      deployments: [],
-    })
-  );
-  assert.equal(report.readiness, "evidence_incomplete");
-  assert.equal(
-    report.layers.find((item) => item.layer === "implemented").state,
-    "not_proven"
-  );
-  assert.equal(
-    report.layers.find((item) => item.layer === "tested").state,
-    "not_proven"
-  );
+  const report = classifyRepositoryEvidence(fixture({ readme: "# Empty\n", paths: ["README.md"], workflows: [], deployments: [] }));
+  expect(report.readiness).toBe("evidence_incomplete");
+  expect(report.layers.find((item) => item.layer === "implemented").state).toBe("not_proven");
+  expect(report.layers.find((item) => item.layer === "tested").state).toBe("not_proven");
 });
