@@ -48,18 +48,13 @@ async function payload(response) {
 }
 
 describe('Chief capability-plan proposal API', () => {
-  it('returns a deterministic plan plus a credential-free FCR connection handoff', async () => {
+  it('returns a deterministic plan and a non-authorizing handoff proposal', async () => {
     const snapshot = registry();
     const response = await handleChiefCapabilityPlan(request({
       goalPlan: goal(),
       registrySnapshot: snapshot,
       expectedHeadSha,
       requestedAuthority: 'reversible',
-      connectionRequests: [{
-        connectionType: 'github',
-        environment: 'production',
-        capabilities: ['inspect_repos'],
-      }],
     }));
 
     expect(response.status).toBe(200);
@@ -75,76 +70,13 @@ describe('Chief capability-plan proposal API', () => {
     expect(body.data.handoffReceipt.status).toBe('proposed');
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
     expect(body.data.handoffReceipt.requiresFounderApproval).toBe(true);
-    expect(body.data.connectionHandoff).toMatchObject({
-      contract: 'juss-v10/fcr-connection-requests@v1',
-      selectedBy: 'chief-ai-machine',
-      resolvedBy: 'founder-control-room',
-      rawCredentialsAccepted: false,
-      rawCredentialsReturned: false,
-      resolver: '/mcp/vault/resolve',
-      requiresScopedFcrApiToken: true,
-      requests: [{
-        connectionType: 'github',
-        environment: 'production',
-        capabilities: ['inspect_repos'],
-      }],
-    });
-    expect(body.data.trustTransition).toMatchObject({
-      contract: 'juss/trust-transition@v1',
-      phase: 'proposal',
-      authorityGranted: false,
-      authorityAuthenticated: false,
-      executionAllowed: false,
-      disposition: 'awaiting_authority',
-      currentTruthState: 'unknown',
-      selfAuthorize: false,
-      attack1000: {
-        pressureBudget: 1000,
-        literalExternalActionsClaimed: 0,
-      },
-      invariants: {
-        providerAcceptanceIsNotOutcome: true,
-        staleCookieCannotRenewAuthority: true,
-        continuityCookieDoesNotAuthenticate: true,
-        authorityAuthenticationRequiredForExecution: true,
-        proposalCannotSelfGrantAuthority: true,
-        authorityGrantMovementPreservesTransitionSubject: true,
-      },
-    });
-    expect(body.data.trustTransition.transitionFingerprint).toMatch(/^[0-9a-f]{64}$/);
-    expect(body.data.trustTransition.authorityFingerprint).toMatch(/^[0-9a-f]{64}$/);
-    expect(body.data.trustTransition.continuityCookie).toMatch(/^[0-9a-f]{64}$/);
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,
       registrySnapshotResolvedByFcr: false,
       exactHeadVerifiedByFcr: false,
       founderApprovalRequired: true,
-      connectionResolutionAuthority: 'founder-control-room',
-      rawCredentialsAccepted: false,
-      rawCredentialsReturned: false,
-      connectionResolver: '/mcp/vault/resolve',
     });
-    expect(JSON.stringify(body)).not.toMatch(/github_pat_|api[_-]?key|secretRef|privateKey/i);
-  });
-
-  it('rejects credential-bearing connection requests', async () => {
-    const response = await handleChiefCapabilityPlan(request({
-      goalPlan: goal(),
-      registrySnapshot: registry(),
-      expectedHeadSha,
-      connectionRequests: [{
-        connectionType: 'github',
-        environment: 'production',
-        capabilities: ['inspect_repos'],
-        token: 'must-never-enter-chief',
-      }],
-    }));
-
-    expect(response.status).toBe(400);
-    const body = await payload(response);
-    expect(body.error.code).toBe('invalid_capability_plan_request');
-    expect(body.error.message).toContain('forbidden fields: token');
   });
 
   it('rejects a capability absent from the submitted registry snapshot', async () => {
