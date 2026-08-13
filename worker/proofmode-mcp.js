@@ -70,8 +70,12 @@ function toolResult(report) {
 
 function toolError(error) {
   const message = error instanceof Error ? error.message : 'ProofMode audit failed.';
+  const errorCode = typeof error?.code === 'string' && error.code
+    ? error.code
+    : 'audit_failed';
   return {
     content: [{ type: 'text', text: message }],
+    structuredContent: { errorCode, message },
     isError: true,
   };
 }
