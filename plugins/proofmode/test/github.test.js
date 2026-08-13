@@ -128,3 +128,31 @@ test('reports provider rate limiting only when GitHub supplies rate-limit eviden
     token: 'server-token',
   })).rejects.toMatchObject({ code: 'source_rate_limited' });
 });
+
+test.each([
+  ['private', { private: true, visibility: 'private' }],
+  ['internal', { private: false, visibility: 'internal' }],
+])('rejects %s repositories before collecting follow-up evidence', async (_kind, metadata) => {
+  const requests = [];
+  globalThis.fetch = vi.fn(async (url, options = {}) => {
+    requests.push({ url: String(url), headers: options.headers || {} });
+    if (String(url).endsWith('/repos/acme/hidden-app')) {
+      return jsonResponse({
+        html_url: 'https://github.com/acme/hidden-app',
+        default_branch: 'main',
+        ...metadata,
+      });
+    }
+    throw new Error(`unexpected follow-up evidence request: ${url}`);
+  });
+
+  await expect(loadPublicRepositoryEvidence({
+    owner: 'acme',
+    repo: 'hidden-app',
+    token: 'server-token',
+  })).rejects.toMatchObject({ code: 'repository_unavailable' });
+
+  expect(requests).toHaveLength(1);
+  expect(requests[0].url).toBe('https://api.github.com/repos/acme/hidden-app');
+  expect(requests[0].headers.Authorization).toBe('Bearer server-token');
+});
