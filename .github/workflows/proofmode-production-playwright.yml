@@ -1,0 +1,177 @@
+name: ProofMode Production Playwright
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/proofmode-production-playwright.yml"
+      - "e2e/proofmode-mcp.pw.mjs"
+      - "worker/proofmode-mcp.js"
+      - "worker/index.js"
+      - "wrangler.jsonc"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: proofmode-production-playwright-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+
+jobs:
+  verify:
+    name: Verify production ProofMode MCP with Playwright
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact workflow source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Resolve expected production head
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            expected="$PR_BASE_SHA"
+          else
+            expected="$GITHUB_SHA"
+          fi
+          test -n "$expected"
+          printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
+          printf 'Expected production head: %s\n' "$expected"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Wait for exact-head Cloudflare production build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in {1..90}; do
+            checks="$(curl --fail --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
+
+            state="$(printf '%s' "$checks" | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                try {
+                  const data = JSON.parse(raw);
+                  const runs = (data.check_runs || []).filter((run) => run.name === "Workers Builds: chief-ai");
+                  if (runs.some((run) => run.status === "completed" && run.conclusion === "success")) {
+                    console.log("success");
+                    return;
+                  }
+                  if (runs.some((run) => run.status === "completed" && run.conclusion && run.conclusion !== "success")) {
+                    console.log("failure");
+                    return;
+                  }
+                  console.log("pending");
+                } catch {
+                  console.log("pending");
+                }
+              });
+            ')"
+
+            if [ "$state" = "success" ]; then
+              printf 'Cloudflare production build is green for %s\n' "$EXPECTED_HEAD_SHA"
+              break
+            fi
+            if [ "$state" = "failure" ]; then
+              printf 'Cloudflare production build failed for %s\n' "$EXPECTED_HEAD_SHA" >&2
+              exit 1
+            fi
+            if [ "$attempt" -eq 90 ]; then
+              printf 'Cloudflare production build did not complete for %s\n' "$EXPECTED_HEAD_SHA" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Wait for production runtime to serve exact head
+        shell: bash
+        run: |
+          for attempt in {1..90}; do
+            body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
+            actual="$(printf '%s' "$body" | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                try {
+                  console.log(JSON.parse(raw).sha || "");
+                } catch {
+                  console.log("");
+                }
+              });
+            ')"
+            if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
+              printf 'Production runtime is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+              exit 0
+            fi
+            if [ "$attempt" -eq 90 ]; then
+              printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Run production ProofMode MCP Playwright proof
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        shell: bash
+        run: |
+          cat > playwright.proofmode-production.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './e2e',
+            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            fullyParallel: false,
+            retries: 0,
+            workers: 1,
+            outputDir: './test-results/proofmode-production',
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: './playwright-report/proofmode-production', open: 'never' }],
+            ],
+            use: { trace: 'retain-on-failure' },
+          });
+          EOF
+          npx playwright test --config=playwright.proofmode-production.config.mjs
+
+      - name: Retain production Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            playwright-report/proofmode-production
+            test-results/proofmode-production
+          if-no-files-found: error
+          retention-days: 14
