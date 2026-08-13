@@ -62,6 +62,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run lint
+      - run: npm run verify:mcp
       - run: npm run verify:gmail-resolve-skill
       - run: npm run verify:goalfix-skill
       - run: npm run eval:gmail-resolve -- --output gmail-resolve-eval-scorecard.json
