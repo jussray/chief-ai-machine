@@ -39,7 +39,11 @@ function isRateLimited(response) {
 }
 
 function rejectNonPublicRepository(metadata) {
-  if (metadata?.private === false && metadata?.visibility === "public") return;
+  const visibility = metadata?.visibility;
+  const privateFlag = metadata?.private;
+  const explicitlyNonPublic = privateFlag === true
+    || (typeof visibility === "string" && visibility !== "public");
+  if (!explicitlyNonPublic) return;
   throw new ProofModeGitHubError(
     "repository_unavailable",
     "Repository or ref was not found or is not publicly readable. ProofMode v0.1 does not access private repositories.",
