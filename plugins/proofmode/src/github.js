@@ -38,6 +38,14 @@ function isRateLimited(response) {
     || Boolean(responseHeader(response, "retry-after"));
 }
 
+function rejectNonPublicRepository(metadata) {
+  if (metadata?.private === false && metadata?.visibility === "public") return;
+  throw new ProofModeGitHubError(
+    "repository_unavailable",
+    "Repository or ref was not found or is not publicly readable. ProofMode v0.1 does not access private repositories.",
+  );
+}
+
 async function githubJson(path, token) {
   const response = await fetch(`${API}${path}`, {
     headers: githubHeaders(token),
@@ -73,6 +81,8 @@ function decodeReadme(payload) {
 export async function loadPublicRepositoryEvidence({ owner, repo, ref, token }) {
   const repoPath = `/repos/${encode(owner)}/${encode(repo)}`;
   const metadata = await githubJson(repoPath, token);
+  rejectNonPublicRepository(metadata);
+
   const resolvedRef = ref?.trim() || metadata.default_branch;
   const commit = await githubJson(`${repoPath}/commits/${encode(resolvedRef)}`, token);
   const headSha = commit.sha;
