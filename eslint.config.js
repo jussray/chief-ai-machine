@@ -32,7 +32,7 @@ export default [
     files: [
       'scripts/**/*.js', 'scripts/**/*.mjs', 'scripts/**/*.cjs',
       'tools/**/scripts/**/*.js', 'tools/**/scripts/**/*.mjs', 'tools/**/scripts/**/*.cjs',
-      'e2e/proofmode-mcp.pw.mjs',
+      'e2e/**/*.pw.mjs',
     ],
     ignores: ['scripts/verify-mcp-config.mjs'],
     languageOptions: {
