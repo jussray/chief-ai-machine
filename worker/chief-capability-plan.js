@@ -2,12 +2,8 @@ import {
   createExecutionHandoffReceipt,
   resolveCapabilities,
 } from '../src/domain/capability-registry.js';
-import { createCapabilityPlan, sha256Hex } from '../src/domain/capability-plan.js';
-import { createConnectionHandoff } from '../src/domain/connection-requests.js';
+import { createCapabilityPlan } from '../src/domain/capability-plan.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
-import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
-import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
-import { evaluateTrustTransition } from '../src/domain/trust-transition-v1.js';
 
 const ROUTE = '/api/chief/capability-plan';
 
@@ -38,7 +34,7 @@ function errorResponse(code, message, status = 400) {
   }, status);
 }
 
-function createSubmittedRegistryProposal(input, outcomeFeedback) {
+function createSubmittedRegistryProposal(input) {
   const goalPlan = input.goalPlan;
   const registrySnapshot = input.registrySnapshot;
   const goalValidation = validateGoalPlan(goalPlan);
@@ -47,12 +43,8 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
   }
 
   const capabilities = resolveCapabilities(registrySnapshot, goalPlan.capabilities);
-  const feedbackReason = outcomeFeedback.observed
-    ? `Submitted prior outcome recommends ${outcomeFeedback.recommendation}; next-plan authority is ${outcomeFeedback.effectiveAuthority}. Source trust remains ${outcomeFeedback.sourceTrust}.`
-    : 'No prior outcome observation was supplied; existing proposal authority rules apply.';
   const routingReason = [
     `Founder goal composed against submitted registry snapshot ${registrySnapshot.registryId}@${registrySnapshot.version}.`,
-    feedbackReason,
     'Founder Control Room trust resolution is still required.',
     `Next gate: ${goalPlan.nextGate}`,
   ].join(' ');
@@ -62,7 +54,7 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
     projectSlug: goalPlan.project,
     expectedHeadSha: input.expectedHeadSha,
     registryHash: registrySnapshot.registryHash,
-    requestedAuthority: outcomeFeedback.effectiveAuthority,
+    requestedAuthority: input.requestedAuthority || 'reason',
     strategicLenses: goalPlan.strategicLenses,
     routingReason,
     capabilities,
@@ -70,56 +62,6 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
     outcomeSignals: [goalPlan.definitionOfDone],
     rollback: goalPlan.rollback,
   });
-}
-
-function createTrustTransitionProposal(capabilityPlan, goalPlan) {
-  const trustTransition = evaluateTrustTransition({
-    intent: {
-      goal: goalPlan.goal,
-    },
-    proposedAction: {
-      action: 'execute_capability_plan',
-      target: capabilityPlan.planHash,
-      parametersHash: capabilityPlan.planHash,
-      idempotencyKey: `chief-capability-plan:${capabilityPlan.planHash}`,
-    },
-    consequence: 'consequential',
-    authority: {
-      granted: false,
-      authenticated: false,
-      grantId: '',
-      action: 'execute_capability_plan',
-      target: capabilityPlan.planHash,
-      scope: ['execute-approved-capability-plan'],
-      reusable: false,
-    },
-    recovery: {
-      mode: 'correction',
-      checkpoint: goalPlan.rollback,
-      acknowledged: true,
-    },
-    runtimeFingerprint: sha256Hex(capabilityPlan.expectedHeadSha),
-  });
-
-  if (!trustTransition.valid || trustTransition.disposition !== 'awaiting_authority' || trustTransition.executionAllowed) {
-    throw new Error('Trust transition proposal failed closed before Founder Control Room authority review.');
-  }
-
-  return {
-    contract: trustTransition.contract,
-    phase: 'proposal',
-    transitionFingerprint: trustTransition.transitionFingerprint,
-    authorityFingerprint: trustTransition.authorityFingerprint,
-    continuityCookie: trustTransition.continuityCookie,
-    authorityGranted: trustTransition.authorityGranted,
-    authorityAuthenticated: trustTransition.authorityAuthenticated,
-    executionAllowed: trustTransition.executionAllowed,
-    disposition: trustTransition.disposition,
-    currentTruthState: trustTransition.currentTruthState,
-    selfAuthorize: trustTransition.selfAuthorize,
-    attack1000: trustTransition.attack1000,
-    invariants: trustTransition.invariants,
-  };
 }
 
 export async function handleChiefCapabilityPlan(request) {
@@ -148,40 +90,21 @@ export async function handleChiefCapabilityPlan(request) {
   }
 
   try {
-    const outcomeFeedback = applyCapabilityOutcomeFeedback(
-      input.requestedAuthority || 'reason',
-      input.latestOutcomeObservation,
-    );
-    const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
+    const capabilityPlan = createSubmittedRegistryProposal(input);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
-    const connectionHandoff = createConnectionHandoff(input.connectionRequests);
-    // Chief describes the remote founder-control handoff; it never resolves approval itself.
-    const founderControl = founderControlHandoff(capabilityPlan);
-    const trustTransition = createTrustTransitionProposal(capabilityPlan, input.goalPlan);
 
     return json({
       data: {
         capabilityPlan,
         handoffReceipt,
-        connectionHandoff,
-        outcomeFeedback,
-        founderControl,
-        trustTransition,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
           registrySnapshotResolvedByFcr: false,
           exactHeadVerifiedByFcr: false,
           founderApprovalRequired: true,
-          outcomeCanIncreaseAuthority: false,
-          submittedOutcomeAuthenticated: false,
-          remoteFounderSurfacesMaySelfAuthorize: false,
-          connectionResolutionAuthority: 'founder-control-room',
-          rawCredentialsAccepted: false,
-          rawCredentialsReturned: false,
-          connectionResolver: '/mcp/vault/resolve',
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, bind the TrustTransition fingerprint/cookie to explicit founder authority, and only then allow n8n or Zapier to execute the exact approved proposal.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, and bind explicit founder approval before any execution lane may act.',
         },
       },
       meta: meta(),
