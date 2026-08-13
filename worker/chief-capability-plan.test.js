@@ -63,6 +63,9 @@ describe('Chief capability-plan proposal API', () => {
     expect(body.data.capabilityPlan.contract).toBe('juss-v10/capability-plan@v1');
     expect(body.data.capabilityPlan.expectedHeadSha).toBe(expectedHeadSha);
     expect(body.data.capabilityPlan.registryHash).toBe(snapshot.registryHash);
+    expect(body.data.capabilityPlan.routingReason).toContain('submitted registry snapshot');
+    expect(body.data.capabilityPlan.routingReason).toContain('Founder Control Room trust resolution is still required');
+    expect(body.data.capabilityPlan.routingReason).not.toContain('trusted registry');
     expect(body.data.handoffReceipt.contract).toBe('juss-v10/execution-handoff@v1');
     expect(body.data.handoffReceipt.status).toBe('proposed');
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
