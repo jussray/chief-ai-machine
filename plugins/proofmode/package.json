@@ -1,0 +1,14 @@
+{
+  "name": "proofmode-plugin",
+  "version": "0.1.0-core",
+  "private": true,
+  "type": "module",
+  "description": "Read-only evidence analysis for software repository claims, implementation, tests, deployment evidence, and runtime verification gaps.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check src/github.js && node --check src/audit.js"
+  }
+}

@@ -1,4 +1,5 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
   const candidates = [
@@ -14,11 +15,8 @@ function getReleaseSha(env) {
 // Chief AI Worker entry point.
 //
 // Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
-// /api/* is routed here first (see wrangler.jsonc run_worker_first) so
-// authenticated API routes and private prompt storage have somewhere to
-// live without a routing/config change. No API routes exist yet — this
-// intentionally returns 501 instead of silently 404ing through to assets,
-// so it's obvious the route is reserved, not missing.
+// Runtime-first routes are declared in wrangler.jsonc so they cannot silently
+// fall through to SPA assets.
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -28,6 +26,10 @@ export default {
         { ok: true, sha: getReleaseSha(env) },
         { headers: { 'Cache-Control': 'no-store' } },
       );
+    }
+
+    if (url.pathname === '/mcp') {
+      return handleProofModeMcp(request);
     }
 
     if (url.pathname.startsWith('/api/')) {
