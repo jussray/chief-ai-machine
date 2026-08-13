@@ -2,8 +2,10 @@ import { expect, test } from 'vitest';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 test('returns a machine-readable evidence error code', async () => {
-  const failure = new Error('GitHub refused the evidence request.');
-  failure.code = 'source_forbidden';
+  const failure = Object.assign(
+    new Error('GitHub refused the evidence request.'),
+    { code: 'source_forbidden' },
+  );
 
   const response = await handleProofModeMcp(
     new Request('https://proofmode.example/mcp', {
