@@ -184,9 +184,9 @@ async function loadFromExactShaArchive({ owner, repo, ref }, fetchImpl) {
   if (response.status === 404) throw new ProofModeGitHubError("repository_unavailable", "Repository or exact ref was not publicly readable from the bounded archive source.");
   if (response.status === 403 || response.status === 429) throw new ProofModeGitHubError("source_rate_limited", "GitHub temporarily refused both API and exact-head archive evidence requests. Try again later.");
   if (!response.ok) throw new ProofModeGitHubError("source_error", `GitHub exact-head archive request failed with HTTP ${response.status}.`);
-  if (typeof DecompressionStream !== "function") throw new ProofModeGitHubError("archive_unavailable", "This runtime cannot decompress GitHub's exact-head evidence archive.");
+  if (typeof globalThis.DecompressionStream !== "function") throw new ProofModeGitHubError("archive_unavailable", "This runtime cannot decompress GitHub's exact-head evidence archive.");
 
-  const decompressed = response.body.pipeThrough(new DecompressionStream("gzip"));
+  const decompressed = response.body.pipeThrough(new globalThis.DecompressionStream("gzip"));
   const bytes = await readStreamWithLimit(decompressed, MAX_ARCHIVE_BYTES);
   const archive = parseTarArchive(bytes);
 
