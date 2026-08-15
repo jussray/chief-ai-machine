@@ -8,12 +8,12 @@ function normalizeRequestedAuthority(value) {
 }
 
 /**
- * Consume a prior FCR outcome observation for the next Chief route.
+ * Consume a submitted prior outcome observation for the next Chief route.
  *
- * Feedback may only preserve or reduce the authority the caller requested.
- * A successful observation never grants broader authority and never promotes a
- * capability automatically. Invalid, unverified, failed, overridden, rolled
- * back, or incomplete outcomes fail closed to reasoning-only.
+ * This boundary does not authenticate that the observation came from Founder
+ * Control Room. Treat it as submitted/unverified provenance until FCR resolves
+ * the exact execution/truth binding. Feedback may only preserve or reduce the
+ * authority the caller requested, so untrusted input cannot raise authority.
  */
 export function applyCapabilityOutcomeFeedback(requestedAuthority, observation) {
   const requested = normalizeRequestedAuthority(requestedAuthority);
@@ -21,6 +21,7 @@ export function applyCapabilityOutcomeFeedback(requestedAuthority, observation) 
   if (!observation) {
     return {
       observed: false,
+      sourceTrust: 'none',
       requestedAuthority: requested,
       effectiveAuthority: requested,
       recommendation: 'none',
@@ -37,6 +38,7 @@ export function applyCapabilityOutcomeFeedback(requestedAuthority, observation) 
 
   return {
     observed: true,
+    sourceTrust: 'submitted-unverified',
     requestedAuthority: requested,
     effectiveAuthority,
     recommendation: assessment.recommendation,
