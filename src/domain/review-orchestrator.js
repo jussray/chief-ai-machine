@@ -9,6 +9,10 @@ function cleanText(value, maxLength = 4000) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
+function normalizedIdentity(value) {
+  return cleanText(value, 160).toLowerCase();
+}
+
 function bundleSeed(bundle) {
   return JSON.stringify([
     bundle.contract,
@@ -57,7 +61,10 @@ export function createReviewBundle(input) {
   }
 
   const reviewerIds = reviews.map((review) => cleanText(review.reviewer.id, 160));
-  if (new Set(reviewerIds).size !== reviewerIds.length) throw new Error('Duplicate reviewer identity in bundle');
+  const normalizedReviewerIds = reviewerIds.map(normalizedIdentity);
+  if (new Set(normalizedReviewerIds).size !== normalizedReviewerIds.length) {
+    throw new Error('Duplicate reviewer identity in bundle');
+  }
 
   const semanticReviewerIds = reviews
     .filter((review) => review.reviewer.kind === 'semantic')
