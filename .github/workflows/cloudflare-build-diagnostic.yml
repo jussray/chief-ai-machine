@@ -6,7 +6,7 @@ on:
       - fix/chief-cloudflare-build-diagnostic-83
     paths:
       - scripts/inspect-cloudflare-build.mjs
-      - src/domain/cloudflare-build-diagnostic-contract.test.js
+      - test/cloudflare-build-diagnostic-contract.test.mjs
       - .github/workflows/cloudflare-build-diagnostic.yml
   workflow_dispatch:
     inputs:
