@@ -45,8 +45,8 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
 
   const capabilities = resolveCapabilities(registrySnapshot, goalPlan.capabilities);
   const feedbackReason = outcomeFeedback.observed
-    ? `Prior FCR outcome recommends ${outcomeFeedback.recommendation}; next-plan authority is ${outcomeFeedback.effectiveAuthority}.`
-    : 'No prior FCR outcome observation was supplied; existing proposal authority rules apply.';
+    ? `Submitted prior outcome recommends ${outcomeFeedback.recommendation}; next-plan authority is ${outcomeFeedback.effectiveAuthority}. Source trust remains ${outcomeFeedback.sourceTrust}.`
+    : 'No prior outcome observation was supplied; existing proposal authority rules apply.';
   const routingReason = [
     `Founder goal composed against submitted registry snapshot ${registrySnapshot.registryId}@${registrySnapshot.version}.`,
     feedbackReason,
@@ -114,8 +114,9 @@ export async function handleChiefCapabilityPlan(request) {
           exactHeadVerifiedByFcr: false,
           founderApprovalRequired: true,
           outcomeCanIncreaseAuthority: false,
+          submittedOutcomeAuthenticated: false,
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, and bind explicit founder approval before any execution lane may act.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, and bind explicit founder approval before any execution lane may act.',
         },
       },
       meta: meta(),
