@@ -15,9 +15,10 @@ const VERIFIED_SUCCESS = {
 };
 
 describe('V10 outcome feedback routing', () => {
-  it('preserves the caller request after strong verified success but never raises it', () => {
+  it('preserves the caller request after strong submitted success but never raises it', () => {
     const feedback = applyCapabilityOutcomeFeedback('draft', VERIFIED_SUCCESS);
     expect(feedback.observed).toBe(true);
+    expect(feedback.sourceTrust).toBe('submitted-unverified');
     expect(feedback.recommendation).toBe('candidate-promote');
     expect(feedback.requestedAuthority).toBe('draft');
     expect(feedback.effectiveAuthority).toBe('draft');
@@ -25,7 +26,7 @@ describe('V10 outcome feedback routing', () => {
     expect(feedback.founderReviewRequired).toBe(true);
   });
 
-  it('reduces the next plan to reasoning-only after a verified goal failure', () => {
+  it('reduces the next plan to reasoning-only after a submitted goal failure', () => {
     const feedback = applyCapabilityOutcomeFeedback('reversible', {
       ...VERIFIED_SUCCESS,
       goalSucceeded: false,
@@ -53,6 +54,7 @@ describe('V10 outcome feedback routing', () => {
       goalSucceeded: null,
       evidenceUrls: [],
     });
+    expect(feedback.sourceTrust).toBe('submitted-unverified');
     expect(feedback.recommendation).toBe('hold');
     expect(feedback.effectiveAuthority).toBe('reason');
     expect(feedback.promotionAllowed).toBe(false);
@@ -61,6 +63,7 @@ describe('V10 outcome feedback routing', () => {
   it('leaves the existing requested authority unchanged when no feedback exists', () => {
     const feedback = applyCapabilityOutcomeFeedback('reversible');
     expect(feedback.observed).toBe(false);
+    expect(feedback.sourceTrust).toBe('none');
     expect(feedback.effectiveAuthority).toBe('reversible');
   });
 });
