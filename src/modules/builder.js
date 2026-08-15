@@ -7,27 +7,19 @@ const GOALFIX_BUILDER_OPTIONS = [
   ['goalfix-v1-friend-mode', 'Friend Mode v1'],
   ['goalfix-v1-creative-director', 'Creative Director v1'],
 ];
-const FOUNDER_OS_BUILDER_OPTIONS = [
-  ['founder-os-v1-mission-compiler', 'Founder OS Mission'],
-];
 
-function installBuilderOptions(select, label, dataKey, options) {
-  if (!select || select.querySelector(`optgroup[data-${dataKey}]`)) return;
+function installGoalfixBuilderOptions(select) {
+  if (!select || select.querySelector('optgroup[data-goalfix-v1]')) return;
   const group = document.createElement('optgroup');
-  group.label = label;
-  group.dataset[dataKey] = 'true';
-  for (const [id, optionLabel] of options) {
+  group.label = 'Goalfix v1';
+  group.dataset.goalfixV1 = 'true';
+  for (const [id, label] of GOALFIX_BUILDER_OPTIONS) {
     const option = document.createElement('option');
     option.value = `${PROMPT_PACK_PREFIX}${id}`;
-    option.textContent = optionLabel;
+    option.textContent = label;
     group.appendChild(option);
   }
   select.appendChild(group);
-}
-
-function installPromptBuilderOptions(select) {
-  installBuilderOptions(select, 'Goalfix v1', 'goalfixV1', GOALFIX_BUILDER_OPTIONS);
-  installBuilderOptions(select, 'Founder OS', 'founderOs', FOUNDER_OS_BUILDER_OPTIONS);
 }
 
 export function selectBuilderPrompt(PROMPTS, pack, platform) {
@@ -48,7 +40,7 @@ export function initBuilder(PROMPTS) {
   const constraintsEl = document.getElementById('bConstraints');
   const out = document.getElementById('builderOut');
 
-  installPromptBuilderOptions(packEl);
+  installGoalfixBuilderOptions(packEl);
 
   function build() {
     const pack = packEl?.value || 'coding';
