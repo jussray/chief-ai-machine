@@ -6,8 +6,18 @@ on:
       - fix/chief-cloudflare-build-diagnostic-83
     paths:
       - scripts/inspect-cloudflare-build.mjs
+      - src/domain/cloudflare-build-diagnostic-contract.test.js
       - .github/workflows/cloudflare-build-diagnostic.yml
   workflow_dispatch:
+    inputs:
+      expected_head_sha:
+        description: Exact 40-character commit SHA whose Cloudflare build should be inspected
+        required: true
+        type: string
+      build_uuid:
+        description: Exact Cloudflare Workers Build UUID to inspect
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,10 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      EXPECTED_HEAD_SHA: 0213e89227f72d448a273585fb849c923836d5fa
-      CF_BUILD_UUID: 6766af93-47ca-412b-9873-88411fe1c258
+      EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_head_sha || '0213e89227f72d448a273585fb849c923836d5fa' }}
+      CF_BUILD_UUID: ${{ github.event_name == 'workflow_dispatch' && inputs.build_uuid || '9c2c2955-557f-46ca-98d0-a3e8889cfa91' }}
       CF_ACCOUNT_ID: 9b59861bd1747cf7525571b4c51d2aa0
-      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_BUILDS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_BUILDS_API_TOKEN }}
       CF_PUBLIC_VERSION_URL: https://chief-ai.mcgill-raylene.workers.dev/version
 
     steps:
