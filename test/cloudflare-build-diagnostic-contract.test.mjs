@@ -1,13 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const workflow = readFileSync(
-  resolve(process.cwd(), '.github/workflows/cloudflare-build-diagnostic.yml'),
+  new URL('../.github/workflows/cloudflare-build-diagnostic.yml', import.meta.url),
   'utf8',
 );
 const inspector = readFileSync(
-  resolve(process.cwd(), 'scripts/inspect-cloudflare-build.mjs'),
+  new URL('../scripts/inspect-cloudflare-build.mjs', import.meta.url),
   'utf8',
 );
 
