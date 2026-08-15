@@ -24,7 +24,7 @@ function registry() {
 
 function goal() {
   return createGoalPlan({
-    goal: 'Choose the next bounded route from verified outcome feedback',
+    goal: 'Choose the next bounded route from outcome feedback',
     project: 'chief-ai-machine',
     definitionOfDone: 'The next route reacts to prior outcome evidence without raising authority',
     strategicLenses: ['ooda', 'truthmode'],
@@ -70,23 +70,27 @@ async function propose(latestOutcomeObservation) {
 }
 
 describe('Chief runtime outcome feedback', () => {
-  it('keeps reversible as a founder-gated request after strong verified success', async () => {
+  it('keeps reversible as a founder-gated request after strong submitted success', async () => {
     const { response, body } = await propose(outcome());
     expect(response.status).toBe(200);
+    expect(body.data.outcomeFeedback.sourceTrust).toBe('submitted-unverified');
     expect(body.data.outcomeFeedback.recommendation).toBe('candidate-promote');
     expect(body.data.outcomeFeedback.effectiveAuthority).toBe('reversible');
     expect(body.data.outcomeFeedback.promotionAllowed).toBe(false);
     expect(body.data.capabilityPlan.requestedAuthority).toBe('reversible');
     expect(body.data.governanceBoundary.outcomeCanIncreaseAuthority).toBe(false);
+    expect(body.data.governanceBoundary.submittedOutcomeAuthenticated).toBe(false);
   });
 
-  it('downgrades the next plan to reasoning-only after a verified goal failure', async () => {
+  it('downgrades the next plan to reasoning-only after a submitted goal failure', async () => {
     const { response, body } = await propose(outcome({ goalSucceeded: false }));
     expect(response.status).toBe(200);
+    expect(body.data.outcomeFeedback.sourceTrust).toBe('submitted-unverified');
     expect(body.data.outcomeFeedback.recommendation).toBe('review');
     expect(body.data.outcomeFeedback.effectiveAuthority).toBe('reason');
     expect(body.data.capabilityPlan.requestedAuthority).toBe('reason');
-    expect(body.data.capabilityPlan.routingReason).toContain('Prior FCR outcome recommends review');
+    expect(body.data.capabilityPlan.routingReason).toContain('Submitted prior outcome recommends review');
+    expect(body.data.capabilityPlan.routingReason).toContain('Source trust remains submitted-unverified');
   });
 
   it('fails closed to reasoning-only for unverified feedback', async () => {
