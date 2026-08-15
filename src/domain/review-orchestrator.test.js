@@ -84,4 +84,10 @@ describe('review orchestrator', () => {
       reviews: [review('semantic-reviewer-1', 'semantic'), review('semantic-reviewer-1', 'semantic')],
     })).toThrow(/Duplicate reviewer identity/);
   });
+
+  it('rejects case-variant duplicate reviewer identities', () => {
+    expect(() => createReviewBundle({
+      reviews: [review('Semantic-Reviewer-1', 'semantic'), review('semantic-reviewer-1', 'semantic')],
+    })).toThrow(/Duplicate reviewer identity/);
+  });
 });
