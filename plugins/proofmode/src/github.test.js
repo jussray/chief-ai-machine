@@ -1,9 +1,9 @@
+import { Buffer } from 'node:buffer';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
   loadPublicRepositoryEvidence,
   parseTarArchive,
-  ProofModeGitHubError,
 } from './github.js';
 
 const SHA = '0123456789abcdef0123456789abcdef01234567';
