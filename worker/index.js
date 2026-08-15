@@ -1,5 +1,6 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
+import { handleChiefIndependentReview } from './chief-independent-review.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
@@ -35,6 +36,10 @@ export default {
 
     if (url.pathname === '/api/chief/capability-plan') {
       return handleChiefCapabilityPlan(request);
+    }
+
+    if (url.pathname === '/api/chief/independent-review') {
+      return handleChiefIndependentReview(request);
     }
 
     if (url.pathname.startsWith('/api/')) {
