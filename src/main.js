@@ -1,6 +1,7 @@
 // Copyright © 2026 Juss Ray. All rights reserved. Proprietary and confidential.
 import { PROMPTS } from './data/prompts.js';
 import { GOALFIX_V1_PROMPTS } from './data/goalfix-v1.js';
+import { FOUNDER_OS_V1_PROMPTS } from './data/founder-os-v1.js';
 import { BENCHMARKS } from './data/benchmarks.js';
 import { initThemeToggle, showToast, initNav } from './modules/ui.js';
 import { initLibrary } from './modules/library.js';
@@ -13,7 +14,7 @@ import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
-const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
+const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS, ...FOUNDER_OS_V1_PROMPTS];
 
 function readArray(key) {
   try {
