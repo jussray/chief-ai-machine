@@ -7,6 +7,7 @@ on:
     paths:
       - "worker/proofmode-mcp.js"
       - "worker/index.js"
+      - "plugins/proofmode/src/**"
       - "wrangler.jsonc"
       - "e2e/proofmode-mcp.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
