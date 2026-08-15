@@ -81,4 +81,39 @@ describe('independent review contract', () => {
     }));
     expect(review.verdict).toBe('blocked');
   });
+
+  it('fails closed instead of silently dropping a malformed P1 finding', () => {
+    expect(() => createIndependentReview(base({
+      findings: [{
+        id: 'p1-malformed',
+        severity: 'P1',
+        title: '',
+        evidence: 'A provider supplied a blocking finding with a missing title.',
+      }],
+    }))).toThrow(/title is required/);
+  });
+
+  it('refuses duplicate finding ids instead of de-duplicating away evidence', () => {
+    const finding = {
+      id: 'same-id',
+      severity: 'P1',
+      title: 'Duplicate identity',
+      evidence: 'Two provider findings reused one id.',
+    };
+    expect(() => createIndependentReview(base({ findings: [finding, finding] }))).toThrow(/Duplicate finding id/);
+  });
+
+  it('returns invalid rather than throwing on malformed deserialized review fields', () => {
+    const malformed = {
+      contract: INDEPENDENT_REVIEW_CONTRACT,
+      repository: null,
+      pullRequestNumber: '361',
+      reviewer: null,
+      findings: 'not-an-array',
+      verdict: 'clear',
+      reviewHash: 'not-a-hash',
+    };
+    expect(() => validateIndependentReview(malformed)).not.toThrow();
+    expect(validateIndependentReview(malformed).valid).toBe(false);
+  });
 });
