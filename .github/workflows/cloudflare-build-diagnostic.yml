@@ -52,6 +52,15 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Verify dedicated observer token is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$CF_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_BUILDS_API_TOKEN is not available to this workflow."
+            exit 1
+          fi
+
       - name: Inspect exact failed Cloudflare build
         run: node scripts/inspect-cloudflare-build.mjs
 
