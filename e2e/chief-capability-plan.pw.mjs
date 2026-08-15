@@ -84,7 +84,7 @@ test.describe('Chief capability-plan live runtime', () => {
     expect(body.data.handoffReceipt.status).toBe('proposed');
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
     expect(body.data.handoffReceipt.requiresFounderApproval).toBe(true);
-    expect(body.data.outcomeFeedback.observed).toBe(false);
+    expect(body.data.outcomeFeedback).toMatchObject({ observed: false, sourceTrust: 'none' });
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,
@@ -92,10 +92,11 @@ test.describe('Chief capability-plan live runtime', () => {
       exactHeadVerifiedByFcr: false,
       founderApprovalRequired: true,
       outcomeCanIncreaseAuthority: false,
+      submittedOutcomeAuthenticated: false,
     });
   });
 
-  test('reduces the live next-plan authority after verified goal failure feedback', async ({ request }) => {
+  test('reduces the live next-plan authority after submitted goal failure feedback', async ({ request }) => {
     const input = proposalInput();
     input.latestOutcomeObservation = priorOutcome({ goalSucceeded: false });
     const response = await request.post(`${baseURL}/api/chief/capability-plan`, {
@@ -108,6 +109,7 @@ test.describe('Chief capability-plan live runtime', () => {
     expect(body.error).toBeNull();
     expect(body.data.outcomeFeedback).toMatchObject({
       observed: true,
+      sourceTrust: 'submitted-unverified',
       recommendation: 'review',
       requestedAuthority: 'reversible',
       effectiveAuthority: 'reason',
@@ -115,7 +117,8 @@ test.describe('Chief capability-plan live runtime', () => {
       founderReviewRequired: true,
     });
     expect(body.data.capabilityPlan.requestedAuthority).toBe('reason');
-    expect(body.data.capabilityPlan.routingReason).toContain('Prior FCR outcome recommends review');
+    expect(body.data.capabilityPlan.routingReason).toContain('Submitted prior outcome recommends review');
+    expect(body.data.capabilityPlan.routingReason).toContain('Source trust remains submitted-unverified');
   });
 
   test('fails closed for a capability absent from the submitted snapshot', async ({ request }) => {
