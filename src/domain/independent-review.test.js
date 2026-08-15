@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  INDEPENDENT_REVIEW_CONTRACT,
   createIndependentReview,
   deriveReviewVerdict,
   validateIndependentReview,
