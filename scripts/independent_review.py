@@ -87,14 +87,28 @@ BUILTIN_RULES = (
 )
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+MAX_FINDINGS = 100
+MAX_POLICY_RULES = 100
+MAX_POLICY_PATTERN_LENGTH = 1000
 
 
 def load_policy(path: str | None) -> list[Rule]:
     if not path:
         return []
     data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Review policy must be a JSON object")
+    raw_rules = data.get("forbiddenPatterns", [])
+    if not isinstance(raw_rules, list):
+        raise ValueError("forbiddenPatterns must be an array")
+    if len(raw_rules) > MAX_POLICY_RULES:
+        raise ValueError(f"Review policy exceeds {MAX_POLICY_RULES} forbidden patterns")
+
     rules: list[Rule] = []
-    for item in data.get("forbiddenPatterns", []):
+    seen_rule_ids: set[str] = set()
+    for item in raw_rules:
+        if not isinstance(item, dict):
+            raise ValueError("Each forbiddenPatterns entry must be an object")
         rule_id = str(item.get("id", "")).strip()
         severity = str(item.get("severity", "P2")).strip().upper()
         title = str(item.get("title", rule_id)).strip()
@@ -102,6 +116,11 @@ def load_policy(path: str | None) -> list[Rule]:
         recommendation = str(item.get("recommendation", "Review and remove the forbidden pattern.")).strip()
         if not rule_id or severity not in {"P0", "P1", "P2", "P3"} or not pattern:
             raise ValueError("Invalid forbiddenPatterns entry in review policy")
+        if rule_id in seen_rule_ids:
+            raise ValueError(f"Duplicate review policy rule id: {rule_id}")
+        if len(pattern) > MAX_POLICY_PATTERN_LENGTH:
+            raise ValueError(f"Review policy pattern exceeds {MAX_POLICY_PATTERN_LENGTH} characters: {rule_id}")
+        seen_rule_ids.add(rule_id)
         rules.append(Rule(rule_id, severity, title, re.compile(pattern), recommendation))
     return rules
 
@@ -131,6 +150,10 @@ def finding_id(rule_id: str, path: str, line: int, text: str) -> str:
     return f"py-{rule_id}-{digest}"
 
 
+def line_fingerprint(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
 def analyze(diff_text: str, rules: Iterable[Rule]) -> list[dict]:
     findings: list[dict] = []
     seen: set[tuple[str, str, int]] = set()
@@ -149,12 +172,20 @@ def analyze(diff_text: str, rules: Iterable[Rule]) -> list[dict]:
                     "title": rule.title,
                     "path": path,
                     "line": line if line > 0 else None,
-                    "evidence": f"Added line matched deterministic rule {rule.rule_id}: {text[:500]}",
+                    "evidence": (
+                        f"Added line at {path or '<unknown>'}:{line if line > 0 else '?'} "
+                        f"matched deterministic rule {rule.rule_id}; "
+                        f"line_sha256_prefix={line_fingerprint(text)}"
+                    ),
                     "recommendation": rule.recommendation,
                 }
             )
+            if len(findings) > MAX_FINDINGS:
+                raise ValueError(
+                    f"Deterministic findings exceed {MAX_FINDINGS}; review must be split or consolidated without dropping evidence"
+                )
     findings.sort(key=lambda item: (item["severity"], item["path"], item["line"] or 0, item["id"]))
-    return findings[:100]
+    return findings
 
 
 def main() -> int:
