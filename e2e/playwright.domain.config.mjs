@@ -8,7 +8,10 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   workers: 1,
-  reporter: [['line']],
+  reporter: [
+    ['line'],
+    ['html', { outputFolder: '../playwright-report/domain-authority', open: 'never' }],
+  ],
   outputDir: '../test-results/domain-authority',
   use: {
     trace: 'retain-on-failure',
