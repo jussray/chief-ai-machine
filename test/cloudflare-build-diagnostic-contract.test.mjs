@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+// Retrigger marker: validate the currently stored observer secret on a fresh run.
 const workflow = readFileSync(
   new URL('../.github/workflows/cloudflare-build-diagnostic.yml', import.meta.url),
   'utf8',
