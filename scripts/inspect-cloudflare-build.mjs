@@ -33,21 +33,41 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function providerMessages(body) {
+  return [
+    ...(body?.errors ?? []).map((entry) => entry?.message),
+    ...(body?.messages ?? []).map((entry) =>
+      typeof entry === 'string' ? entry : entry?.message,
+    ),
+  ].filter(Boolean);
+}
+
 async function cloudflare(path) {
   const response = await fetch(`${apiBase}${path}`, {
     headers: { Authorization: `Bearer ${apiToken}` },
   });
   const body = await response.json().catch(() => null);
   if (!response.ok || body?.success === false) {
-    const messages = [
-      ...(body?.errors ?? []).map((entry) => entry?.message),
-      ...(body?.messages ?? []),
-    ].filter(Boolean);
     throw new Error(
-      `Cloudflare API ${response.status}: ${redact(messages.join('; ') || 'request failed')}`,
+      `Cloudflare API ${response.status}: ${redact(providerMessages(body).join('; ') || 'request failed')}`,
     );
   }
   return body?.result;
+}
+
+async function verifyUserToken() {
+  const response = await fetch(`${apiBase}/user/tokens/verify`, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  const body = await response.json().catch(() => null);
+  const status = typeof body?.result?.status === 'string' ? body.result.status : null;
+  const error = redact(providerMessages(body).join('; '));
+  return {
+    ok: response.ok && body?.success === true && status === 'active',
+    httpStatus: response.status,
+    status,
+    error: error || null,
+  };
 }
 
 function normalizeLogLine(line) {
@@ -109,6 +129,7 @@ const receipt = {
   providerCredentials: {
     accountIdPresent: Boolean(accountId),
     apiTokenPresent: Boolean(apiToken),
+    tokenVerification: null,
   },
   publicRuntime: null,
   build: null,
@@ -159,6 +180,15 @@ try {
   if (!accountId || !apiToken) {
     throw new Error(
       'PROVIDER_CREDENTIALS_UNAVAILABLE: Cloudflare account ID and a Workers CI Read token are required.',
+    );
+  }
+
+  const tokenVerification = await verifyUserToken();
+  receipt.providerCredentials.tokenVerification = tokenVerification;
+  if (!tokenVerification.ok) {
+    receipt.classification = 'provider-token-invalid';
+    throw new Error(
+      `CLOUDFLARE_USER_TOKEN_VERIFICATION_FAILED: HTTP ${tokenVerification.httpStatus}; status ${tokenVerification.status || 'unknown'}${tokenVerification.error ? `; ${tokenVerification.error}` : ''}`,
     );
   }
 
@@ -225,6 +255,9 @@ try {
   receipt.ok = true;
 } catch (error) {
   receipt.error = redact(error instanceof Error ? error.message : error);
+  if (!receipt.classification && /Authentication failed|invalid token|unauthori[sz]ed|forbidden/i.test(receipt.error)) {
+    receipt.classification = 'provider-resource-auth';
+  }
   console.error(receipt.error);
   process.exitCode = 1;
 }
