@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
+const UPSTREAM_RECEIPT = '11111111-1111-4111-8111-111111111111';
+
 function mcpRequest(body, headers = {}) {
   return new Request('https://proofmode.example/mcp', {
     method: 'POST',
@@ -36,6 +38,7 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.protocolVersion).toBe('2025-06-18');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
+    expect(payload.result.instructions).toContain('juss-proof/v1');
   });
 
   it('lists only the read-only repository audit tool', async () => {
@@ -47,9 +50,10 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.tools).toHaveLength(1);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    expect(payload.result.tools[0].inputSchema.properties.acknowledges.maxItems).toBe(50);
   });
 
-  it('calls the audit tool without mutation capability', async () => {
+  it('calls the audit tool without mutation capability and emits a federation receipt', async () => {
     const evidence = {
       owner: 'acme',
       repo: 'app',
@@ -88,7 +92,10 @@ describe('ProofMode MCP transport', () => {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
-        params: { name: 'audit_repository', arguments: { owner: 'acme', repo: 'app' } },
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', acknowledges: [UPSTREAM_RECEIPT] },
+        },
       }),
       deps,
     );
@@ -96,6 +103,27 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent.repository).toBe('acme/app');
+    expect(payload.result.structuredContent.proofReceipt).toMatchObject({
+      schema: 'juss-proof/v1',
+      project: 'acme/app',
+      actor: 'proofmode-github-mcp',
+      authority: {
+        provider: 'github',
+        scope: 'repository',
+        target: 'acme/app',
+        mode: 'verify',
+      },
+      exactTarget: {
+        repository: 'acme/app',
+        branch: 'main',
+        sha: evidence.headSha,
+      },
+      operation: 'repository_evidence_audit',
+      state: 'verified',
+      acknowledges: [UPSTREAM_RECEIPT],
+      dependsOn: [UPSTREAM_RECEIPT],
+      nextAuthority: 'runtime-provider-mcp',
+    });
   });
 
   it('rejects browser cross-origin requests', async () => {
