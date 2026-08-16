@@ -117,6 +117,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: chief-domain-authority-${{ env.EXPECTED_HEAD_SHA }}
-          path: test-results/domain-authority
+          path: |
+            playwright-report/domain-authority
+            test-results/domain-authority
           if-no-files-found: warn
           retention-days: 14
