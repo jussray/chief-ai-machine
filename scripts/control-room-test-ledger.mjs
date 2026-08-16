@@ -16,6 +16,15 @@ const normalizeSha = (value) => clean(value).toLowerCase();
 const timestamp = (value) => (Number.isFinite(Date.parse(value ?? '')) ? Date.parse(value ?? '') : 0);
 const checkKey = (run) => `${clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app'}\u0000${clean(run?.name)}`;
 
+export function classifyCheckAuthority(run) {
+  const app = clean(run?.app?.slug) || clean(run?.app?.name);
+  const name = clean(run?.name);
+  if (app === 'cloudflare-workers-and-pages' && name === 'Workers Builds: chief-ai') {
+    return 'observational';
+  }
+  return 'blocking';
+}
+
 export function mapCheckState(run) {
   const status = clean(run?.status);
   const conclusion = clean(run?.conclusion);
@@ -45,24 +54,31 @@ export function selectLatestChecks(checkRuns, expectedSha, observerCheckName = '
     }
   }
   return [...selected.values()]
-    .map((run) => ({
-      id: String(run.id ?? ''),
-      name: clean(run.name),
-      app: clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app',
-      state: mapCheckState(run),
-      status: clean(run.status) || 'unknown',
-      conclusion: clean(run.conclusion) || null,
-      headSha: normalizeSha(run.head_sha),
-      startedAt: clean(run.started_at) || null,
-      completedAt: clean(run.completed_at) || null,
-      detailsUrl: clean(run.details_url) || clean(run.html_url) || null,
-      externalId: clean(run.external_id) || null,
-    }))
+    .map((run) => {
+      const authority = classifyCheckAuthority(run);
+      return {
+        id: String(run.id ?? ''),
+        name: clean(run.name),
+        app: clean(run?.app?.slug) || clean(run?.app?.name) || 'unknown-app',
+        state: mapCheckState(run),
+        authority,
+        blocking: authority === 'blocking',
+        status: clean(run.status) || 'unknown',
+        conclusion: clean(run.conclusion) || null,
+        headSha: normalizeSha(run.head_sha),
+        startedAt: clean(run.started_at) || null,
+        completedAt: clean(run.completed_at) || null,
+        detailsUrl: clean(run.details_url) || clean(run.html_url) || null,
+        externalId: clean(run.external_id) || null,
+      };
+    })
     .sort((left, right) => left.name.localeCompare(right.name) || left.app.localeCompare(right.app));
 }
 
 export function aggregateTestLedger(checks) {
   const list = Array.isArray(checks) ? checks : [];
+  const blocking = list.filter((check) => check.blocking !== false);
+  const observational = list.filter((check) => check.blocking === false);
   const counts = {
     total: list.length,
     passed: list.filter((check) => check.state === 'passed').length,
@@ -71,12 +87,22 @@ export function aggregateTestLedger(checks) {
     running: list.filter((check) => check.state === 'running').length,
     skipped: list.filter((check) => check.state === 'skipped').length,
     unknown: list.filter((check) => check.state === 'unknown').length,
+    blockingTotal: blocking.length,
+    blockingFailed: blocking.filter((check) => check.state === 'failed').length,
+    blockingQueued: blocking.filter((check) => check.state === 'queued').length,
+    blockingRunning: blocking.filter((check) => check.state === 'running').length,
+    blockingUnknown: blocking.filter((check) => check.state === 'unknown').length,
+    observationalFailed: observational.filter((check) => check.state === 'failed').length,
   };
   let state = 'passed';
-  if (counts.total === 0) state = 'unknown';
-  else if (counts.failed > 0) state = 'failed';
-  else if (counts.queued > 0 || counts.running > 0) state = 'pending';
-  else if (counts.skipped > 0 || counts.unknown > 0) state = 'warning';
+  if (counts.total === 0 || counts.blockingTotal === 0) state = 'unknown';
+  else if (counts.blockingFailed > 0) state = 'failed';
+  else if (counts.blockingQueued > 0 || counts.blockingRunning > 0) state = 'pending';
+  else if (
+    counts.skipped > 0
+    || counts.blockingUnknown > 0
+    || counts.observationalFailed > 0
+  ) state = 'warning';
   return { state, counts };
 }
 
@@ -101,6 +127,7 @@ export function buildTestLedger({
       dedupe: 'latest-by-app-and-name',
       includesAllDiscoveredChecks: true,
       excludesObserverCheck: true,
+      preservesObservationalProviderSignals: true,
     },
     runner: {
       provider: 'github-actions',
@@ -120,11 +147,14 @@ export function enforceTestLedgerPolicy(
   const counts = ledger?.aggregate?.counts || {};
   const blockers = [];
   const total = Number(counts.total || 0);
-  const failed = Number(counts.failed || 0);
-  const pending = Number(counts.queued || 0) + Number(counts.running || 0);
-  const unknown = Number(counts.unknown || 0);
+  const blockingTotal = Number(counts.blockingTotal ?? total);
+  const failed = Number(counts.blockingFailed ?? counts.failed ?? 0);
+  const pending = Number(counts.blockingQueued ?? counts.queued ?? 0)
+    + Number(counts.blockingRunning ?? counts.running ?? 0);
+  const unknown = Number(counts.blockingUnknown ?? counts.unknown ?? 0);
 
   if (total === 0) blockers.push('no exact-head checks were discovered');
+  else if (blockingTotal === 0) blockers.push('no blocking exact-head checks were discovered');
   if (ledger?.runner?.observerState !== 'stable') {
     blockers.push(`observer did not reach a stable terminal state (${ledger?.runner?.observerState || 'unknown'})`);
   }
@@ -213,7 +243,7 @@ export async function observeExactHeadChecks(env = process.env) {
     );
     writeLedger(outputPath, buildTestLedger({ repository, sha, branch, runId, checks }));
     const fingerprint = JSON.stringify(
-      checks.map((check) => [check.app, check.name, check.state]),
+      checks.map((check) => [check.app, check.name, check.state, check.authority]),
     );
     const terminal = !checks.some(
       (check) => check.state === 'queued' || check.state === 'running',
