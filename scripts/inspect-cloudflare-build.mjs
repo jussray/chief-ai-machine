@@ -61,7 +61,9 @@ function classifyTokenShape(token) {
       ? 'user-token'
       : token.startsWith('cfat_')
         ? 'account-token'
-        : 'legacy-or-unknown',
+        : token.startsWith('cfk_')
+          ? 'global-key'
+          : 'legacy-or-unknown',
     matchesAccountId: Boolean(accountId && token === accountId),
     hasBearerPrefix: /^Bearer\s+/i.test(token),
     hasWhitespace: /\s/.test(token),
@@ -116,6 +118,18 @@ function tokenPreflightError(shape) {
     return {
       classification: 'provider-token-header-unsafe',
       message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token looks like a variable assignment rather than a token value.',
+    };
+  }
+  if (shape.credentialType === 'account-token') {
+    return {
+      classification: 'provider-token-type-unsupported',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: Workers Builds inspection requires a user-scoped Cloudflare API token; account-scoped tokens are unsupported.',
+    };
+  }
+  if (shape.credentialType === 'global-key') {
+    return {
+      classification: 'provider-token-type-unsupported',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: Workers Builds inspection requires a user-scoped Cloudflare API token; a global API key is unsupported.',
     };
   }
   return null;
