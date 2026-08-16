@@ -6,7 +6,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "verify:v10-capability-kernel": "vitest run src/domain/capability-plan.test.js src/domain/capability-security.test.js src/domain/capability-outcome.test.js",
+    "verify:v10-capability-kernel": "vitest run src/domain/capability-plan.test.js src/domain/capability-security.test.js src/domain/capability-outcome.test.js src/domain/decision-cycle.test.js",
     "verify:mcp": "node scripts/verify-mcp-config.mjs",
     "verify:cookies": "node scripts/verify-cookie-contract.mjs",
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs",
