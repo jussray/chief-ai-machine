@@ -3,6 +3,7 @@ import {
   resolveCapabilities,
 } from '../src/domain/capability-registry.js';
 import { createCapabilityPlan } from '../src/domain/capability-plan.js';
+import { createConnectionHandoff } from '../src/domain/connection-requests.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 
 const ROUTE = '/api/chief/capability-plan';
@@ -92,19 +93,25 @@ export async function handleChiefCapabilityPlan(request) {
   try {
     const capabilityPlan = createSubmittedRegistryProposal(input);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
+    const connectionHandoff = createConnectionHandoff(input.connectionRequests);
 
     return json({
       data: {
         capabilityPlan,
         handoffReceipt,
+        connectionHandoff,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
           registrySnapshotResolvedByFcr: false,
           exactHeadVerifiedByFcr: false,
           founderApprovalRequired: true,
+          connectionResolutionAuthority: 'founder-control-room',
+          rawCredentialsAccepted: false,
+          rawCredentialsReturned: false,
+          connectionResolver: '/mcp/vault/resolve',
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, and bind explicit founder approval before any execution lane may act.',
+            'Founder Control Room must resolve the approved registry snapshot, exact-head context, connection requirements, and explicit founder approval before any execution lane may act.',
         },
       },
       meta: meta(),
