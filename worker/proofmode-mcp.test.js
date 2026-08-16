@@ -81,7 +81,10 @@ describe('ProofMode MCP transport', () => {
         ref: input.ref,
         headSha: input.headSha,
         readiness: 'repository_supported_runtime_unverified',
-        layers: [],
+        layers: [
+          { layer: 'implemented', state: 'supported' },
+          { layer: 'verified', state: 'not_proven' },
+        ],
         nextChecks: [],
         limitations: [],
       }),
@@ -119,11 +122,18 @@ describe('ProofMode MCP transport', () => {
         sha: evidence.headSha,
       },
       operation: 'repository_evidence_audit',
-      state: 'verified',
+      state: 'inferred',
       acknowledges: [UPSTREAM_RECEIPT],
       dependsOn: [UPSTREAM_RECEIPT],
       nextAuthority: 'runtime-provider-mcp',
     });
+    expect(payload.result.structuredContent.proofReceipt.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'repository_snapshot', state: 'verified' }),
+        expect.objectContaining({ type: 'proofmode_layer', name: 'implemented: supported', state: 'verified' }),
+        expect.objectContaining({ type: 'proofmode_layer', name: 'verified: not_proven', state: 'unknown' }),
+      ]),
+    );
   });
 
   it('rejects browser cross-origin requests', async () => {
