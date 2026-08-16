@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out exact workflow source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -54,12 +54,12 @@ jobs:
           printf 'Expected production head: %s\n' "$expected"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           cache: npm
 
-      - name: Wait for exact-head Cloudflare production build
+      - name: Observe Cloudflare GitHub-App build signal
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,16 +94,16 @@ jobs:
             ')"
 
             if [ "$state" = "success" ]; then
-              printf 'Cloudflare production build is green for %s\n' "$EXPECTED_HEAD_SHA"
+              printf 'Cloudflare GitHub-App build signal is green for %s\n' "$EXPECTED_HEAD_SHA"
               break
             fi
             if [ "$state" = "failure" ]; then
-              printf 'Cloudflare production build failed for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
+              printf '::warning title=Cloudflare GitHub-App signal is red::The external check reported failure for %s; exact runtime SHA and Playwright remain authoritative.\n' "$EXPECTED_HEAD_SHA"
+              break
             fi
             if [ "$attempt" -eq 90 ]; then
-              printf 'Cloudflare production build did not complete for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
+              printf '::warning title=Cloudflare GitHub-App signal did not settle::No terminal external check was observed for %s; continuing to exact runtime proof.\n' "$EXPECTED_HEAD_SHA"
+              break
             fi
             sleep 2
           done
@@ -167,7 +167,7 @@ jobs:
 
       - name: Retain production Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |
