@@ -23,9 +23,9 @@ on:
 permissions:
   contents: read
 
-# Repository secrets are read when a workflow run is queued. After rotating the
-# observer token, trigger a fresh run instead of rerunning an older attempt.
-# Fresh proof marker: 2026-08-16T16:41-04:00.
+# Repository secrets are read when a workflow run is queued. This observer uses a
+# uniquely named repository secret so stale org/repo secret collisions cannot
+# masquerade as a successful rotation.
 jobs:
   inspect:
     name: Redacted provider receipt
@@ -35,7 +35,7 @@ jobs:
       EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_head_sha || '0213e89227f72d448a273585fb849c923836d5fa' }}
       CF_BUILD_UUID: ${{ github.event_name == 'workflow_dispatch' && inputs.build_uuid || '9c2c2955-557f-46ca-98d0-a3e8889cfa91' }}
       CF_ACCOUNT_ID: 9b59861bd1747cf7525571b4c51d2aa0
-      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_BUILDS_API_TOKEN }}
+      CF_API_TOKEN: ${{ secrets.CHIEF_CLOUDFLARE_BUILDS_USER_TOKEN }}
       CF_PUBLIC_VERSION_URL: https://chief-ai.mcgill-raylene.workers.dev/version
 
     steps:
@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$CF_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_BUILDS_API_TOKEN is not available to this workflow."
+            echo "::error::CHIEF_CLOUDFLARE_BUILDS_USER_TOKEN is not available to this workflow."
             exit 1
           fi
 
