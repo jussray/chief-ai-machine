@@ -26,6 +26,37 @@ function canonicalTimestamp(value) {
   return parsed.toISOString();
 }
 
+function receiptState(report) {
+  if (report.readiness === 'repository_supported_runtime_unverified') return 'inferred';
+  return 'unknown';
+}
+
+function layerState(state) {
+  switch (state) {
+    case 'supported':
+      return 'verified';
+    case 'partial':
+      return 'inferred';
+    case 'blocked':
+      return 'blocked';
+    case 'not_proven':
+    default:
+      return 'unknown';
+  }
+}
+
+function layerEvidence(report) {
+  if (!Array.isArray(report.layers)) return [];
+  return report.layers
+    .filter((layer) => layer && typeof layer === 'object' && typeof layer.layer === 'string')
+    .slice(0, 20)
+    .map((layer) => ({
+      type: 'proofmode_layer',
+      name: `${layer.layer}: ${typeof layer.state === 'string' ? layer.state : 'not_proven'}`,
+      state: layerState(layer.state),
+    }));
+}
+
 export function createProofModeReceipt(report, options = {}) {
   if (!report || typeof report !== 'object') throw new Error('invalid_report');
   if (typeof report.repository !== 'string' || !report.repository.includes('/')) {
@@ -58,14 +89,15 @@ export function createProofModeReceipt(report, options = {}) {
       sha: report.headSha.toLowerCase(),
     },
     operation: 'repository_evidence_audit',
-    state: 'verified',
+    state: receiptState(report),
     evidence: [
       {
         type: 'repository_snapshot',
-        name: 'ProofMode GitHub repository evidence',
+        name: 'ProofMode GitHub repository evidence collected',
         state: 'verified',
         ...(typeof report.repositoryUrl === 'string' ? { ref: report.repositoryUrl } : {}),
       },
+      ...layerEvidence(report),
     ],
     acknowledges,
     dependsOn: [...acknowledges],
