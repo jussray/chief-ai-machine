@@ -1,0 +1,122 @@
+name: Chief Domain Authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "wrangler.jsonc"
+      - "config/domain-authority.json"
+      - "e2e/domain-authority.pw.mjs"
+      - "e2e/playwright.domain.config.mjs"
+      - ".github/workflows/domain-authority.yml"
+  push:
+    branches: [main]
+    paths:
+      - "wrangler.jsonc"
+      - "config/domain-authority.json"
+      - "e2e/domain-authority.pw.mjs"
+      - "e2e/playwright.domain.config.mjs"
+      - ".github/workflows/domain-authority.yml"
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: Canonical Chief origin to verify
+        required: false
+        default: "https://chief.foundercontrolroom.org"
+        type: string
+      expected_sha:
+        description: Exact deployed SHA; defaults to workflow SHA
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chief-domain-authority-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  verify:
+    name: Verify Chief domain authority
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Resolve proof mode
+        shell: bash
+        env:
+          MANUAL_ORIGIN: ${{ inputs.origin || '' }}
+          MANUAL_SHA: ${{ inputs.expected_sha || '' }}
+        run: |
+          set -euo pipefail
+          origin=""
+          expected="$EXPECTED_HEAD_SHA"
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            origin="https://chief.foundercontrolroom.org"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            origin="$MANUAL_ORIGIN"
+            if [ -n "$MANUAL_SHA" ]; then
+              expected="$MANUAL_SHA"
+            fi
+          fi
+
+          if [ -n "$expected" ] && ! printf '%s' "$expected" | grep -Eq '^[0-9a-f]{40}$'; then
+            printf 'Invalid exact SHA: %s\n' "$expected" >&2
+            exit 1
+          fi
+
+          printf 'CHIEF_PUBLIC_ORIGIN=%s\n' "$origin" >> "$GITHUB_ENV"
+          printf 'DOMAIN_EXPECTED_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
+          printf 'Remote proof origin: %s\n' "${origin:-<contract-only>}"
+          printf 'Expected runtime SHA: %s\n' "$expected"
+
+      - name: Install Chromium when remote proof is enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${CHIEF_PUBLIC_ORIGIN:-}" ]; then
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: Run domain authority proof
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: npx playwright test --config=e2e/playwright.domain.config.mjs
+
+      - name: Retain domain proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: chief-domain-authority-${{ env.EXPECTED_HEAD_SHA }}
+          path: test-results/domain-authority
+          if-no-files-found: warn
+          retention-days: 14
