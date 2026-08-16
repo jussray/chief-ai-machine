@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 const accountId = process.env.CF_ACCOUNT_ID?.trim();
-const apiToken = process.env.CF_API_TOKEN?.trim();
+const apiToken = process.env.CF_API_TOKEN ?? '';
 const buildUuid = process.env.CF_BUILD_UUID?.trim();
 const expectedHeadSha = process.env.EXPECTED_HEAD_SHA?.trim();
 const publicVersionUrl =
@@ -46,19 +46,79 @@ function classifyTokenShape(token) {
   if (!token) {
     return {
       credentialType: 'missing',
+      matchesAccountId: false,
       hasBearerPrefix: false,
       hasWhitespace: false,
+      hasLeadingOrTrailingWhitespace: false,
+      hasNonAscii: false,
+      hasWrappingQuote: false,
+      looksLikeAssignment: false,
+      headerSafe: false,
     };
   }
-  return {
+  const shape = {
     credentialType: token.startsWith('cfut_')
       ? 'user-token'
       : token.startsWith('cfat_')
         ? 'account-token'
         : 'legacy-or-unknown',
+    matchesAccountId: Boolean(accountId && token === accountId),
     hasBearerPrefix: /^Bearer\s+/i.test(token),
     hasWhitespace: /\s/.test(token),
+    hasLeadingOrTrailingWhitespace: token !== token.trim(),
+    hasNonAscii: /[^\x20-\x7E]/.test(token),
+    hasWrappingQuote: /^(?:".*"|'.*')$/.test(token),
+    looksLikeAssignment: /^[A-Za-z_][A-Za-z0-9_]*=/.test(token),
   };
+  return {
+    ...shape,
+    headerSafe: !shape.matchesAccountId
+      && !shape.hasBearerPrefix
+      && !shape.hasWhitespace
+      && !shape.hasNonAscii
+      && !shape.hasWrappingQuote
+      && !shape.looksLikeAssignment,
+  };
+}
+
+function tokenPreflightError(shape) {
+  if (shape.matchesAccountId) {
+    return {
+      classification: 'provider-token-account-id',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token equals the Cloudflare account ID.',
+    };
+  }
+  if (shape.hasNonAscii) {
+    return {
+      classification: 'provider-token-header-unsafe',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token contains non-ASCII characters and cannot be used as an HTTP Authorization value.',
+    };
+  }
+  if (shape.hasBearerPrefix) {
+    return {
+      classification: 'provider-token-header-unsafe',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token includes a Bearer prefix; store only the token value.',
+    };
+  }
+  if (shape.hasWhitespace) {
+    return {
+      classification: 'provider-token-header-unsafe',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token contains whitespace.',
+    };
+  }
+  if (shape.hasWrappingQuote) {
+    return {
+      classification: 'provider-token-header-unsafe',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token is wrapped in quotes.',
+    };
+  }
+  if (shape.looksLikeAssignment) {
+    return {
+      classification: 'provider-token-header-unsafe',
+      message: 'CLOUDFLARE_TOKEN_PREFLIGHT_FAILED: configured token looks like a variable assignment rather than a token value.',
+    };
+  }
+  return null;
 }
 
 async function cloudflare(path) {
@@ -201,6 +261,12 @@ try {
     throw new Error(
       'PROVIDER_CREDENTIALS_UNAVAILABLE: Cloudflare account ID and a Workers CI Read token are required.',
     );
+  }
+
+  const preflight = tokenPreflightError(receipt.providerCredentials.tokenShape);
+  if (preflight) {
+    receipt.classification = preflight.classification;
+    throw new Error(preflight.message);
   }
 
   const tokenVerification = await verifyUserToken();
