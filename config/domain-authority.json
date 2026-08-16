@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "project": "chief-ai-machine",
+  "mode": "production-pending-domain",
+  "worker": {
+    "name": "chief-ai",
+    "versionPath": "/version"
+  },
+  "canonicalOrigin": null,
+  "requirementsBeforePublic": [
+    "choose one canonical HTTPS custom domain",
+    "bind that domain to the chief-ai Worker",
+    "verify the public UI with Playwright",
+    "verify /version serves the intended exact SHA"
+  ]
+}
