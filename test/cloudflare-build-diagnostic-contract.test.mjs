@@ -31,6 +31,19 @@ describe('Cloudflare build observer contract', () => {
     expect(classifier).toContain('matchesAccountId');
   });
 
+  it('rejects header-unsafe secret shapes before any provider request', () => {
+    expect(classifier).toContain("'token-header-non-ascii'");
+    expect(classifier).toContain("'token-includes-bearer-prefix'");
+    expect(classifier).toContain("'token-header-whitespace'");
+    expect(classifier).toContain('hasNonAscii');
+    expect(classifier).toContain('hasLeadingOrTrailingWhitespace');
+    expect(inspector).toContain("classification: 'provider-token-header-unsafe'");
+    expect(inspector).toContain('CLOUDFLARE_TOKEN_PREFLIGHT_FAILED');
+    expect(inspector).toContain('tokenPreflightError(receipt.providerCredentials.tokenShape)');
+    expect(inspector).toContain("const apiToken = process.env.CF_API_TOKEN ?? '';");
+    expect(classifier).toContain("const token = process.env.CF_API_TOKEN ?? '';");
+  });
+
   it('verifies the user token before account or build reads', () => {
     expect(inspector).toContain('/user/tokens/verify');
     expect(inspector).toContain('tokenVerification: null');
