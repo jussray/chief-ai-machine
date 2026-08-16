@@ -71,6 +71,7 @@ describe('Cloudflare build observer contract', () => {
   it('keeps provider mutation outside the observer lane', () => {
     expect(workflow).not.toMatch(/wrangler\s+(deploy|versions\s+upload)/i);
     expect(inspector).toContain("mode: 'read-only'");
-    expect(inspector).toContain('Workers CI Read token');
+    expect(inspector).toContain('user-scoped Workers Builds API token');
+    expect(inspector).not.toContain('Workers CI Read token');
   });
 });
