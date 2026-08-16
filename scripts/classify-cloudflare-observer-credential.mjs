@@ -44,6 +44,8 @@ function preflightClassification(shape) {
   if (shape.hasWhitespace) return 'token-header-whitespace';
   if (shape.hasWrappingQuote) return 'token-wrapped-in-quotes';
   if (shape.looksLikeAssignment) return 'token-looks-like-assignment';
+  if (shape.prefixKind === 'cfat-account') return 'account-token-unsupported-for-builds';
+  if (shape.prefixKind === 'cfk-global-key') return 'global-key-unsupported-for-builds';
   return null;
 }
 
@@ -92,7 +94,7 @@ const classification =
   user.success && user.status === 'active'
     ? 'user-token-active'
     : account.success && account.status === 'active'
-      ? 'account-token-active'
+      ? 'account-token-active-unexpected'
       : 'not-accepted-as-user-or-account-token';
 
 console.log(JSON.stringify({
