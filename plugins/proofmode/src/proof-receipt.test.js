@@ -13,7 +13,11 @@ function report(overrides = {}) {
     ref: 'main',
     headSha: SHA,
     readiness: 'repository_supported_runtime_unverified',
-    layers: [],
+    layers: [
+      { layer: 'implemented', state: 'supported' },
+      { layer: 'tested', state: 'supported' },
+      { layer: 'verified', state: 'not_proven' },
+    ],
     nextChecks: [],
     limitations: [],
     ...overrides,
@@ -21,7 +25,7 @@ function report(overrides = {}) {
 }
 
 describe('ProofMode federation receipt', () => {
-  it('binds repository evidence to one exact SHA and upstream lineage', () => {
+  it('binds repository evidence to one exact SHA and preserves runtime-unverified truth', () => {
     const receipt = createProofModeReceipt(report(), {
       receiptId: RECEIPT,
       acknowledges: [UPSTREAM],
@@ -45,13 +49,29 @@ describe('ProofMode federation receipt', () => {
         sha: SHA,
       },
       operation: 'repository_evidence_audit',
-      state: 'verified',
+      state: 'inferred',
       acknowledges: [UPSTREAM],
       dependsOn: [UPSTREAM],
       supersedes: [],
       nextAuthority: 'runtime-provider-mcp',
       issuedAt: NOW,
     });
+    expect(receipt.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'repository_snapshot', state: 'verified' }),
+        expect.objectContaining({ name: 'implemented: supported', state: 'verified' }),
+        expect.objectContaining({ name: 'verified: not_proven', state: 'unknown' }),
+      ]),
+    );
+  });
+
+  it('marks incomplete repository evidence unknown instead of verified', () => {
+    const receipt = createProofModeReceipt(
+      report({ readiness: 'evidence_incomplete' }),
+      { receiptId: RECEIPT, issuedAt: NOW },
+    );
+    expect(receipt.state).toBe('unknown');
+    expect(receipt.nextAuthority).toBeUndefined();
   });
 
   it('fails closed on malformed exact-SHA or receipt lineage input', () => {
