@@ -44,6 +44,14 @@ describe('Cloudflare build observer contract', () => {
     expect(classifier).toContain("const token = process.env.CF_API_TOKEN ?? '';");
   });
 
+  it('rejects unsupported account-token and global-key credential classes for Workers Builds', () => {
+    expect(classifier).toContain("'account-token-unsupported-for-builds'");
+    expect(classifier).toContain("'global-key-unsupported-for-builds'");
+    expect(inspector).toContain("classification: 'provider-token-type-unsupported'");
+    expect(inspector).toContain("shape.credentialType === 'account-token'");
+    expect(inspector).toContain('Workers Builds inspection requires a user-scoped Cloudflare API token');
+  });
+
   it('verifies the user token before account or build reads', () => {
     expect(inspector).toContain('/user/tokens/verify');
     expect(inspector).toContain('tokenVerification: null');
