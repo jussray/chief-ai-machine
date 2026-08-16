@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// Retrigger marker: validate the recreated cfut_ repository observer secret on a fresh run.
+// Retrigger marker: validate the uniquely named repository observer secret on a fresh run.
 const workflow = readFileSync(
   new URL('../.github/workflows/cloudflare-build-diagnostic.yml', import.meta.url),
   'utf8',
@@ -17,10 +17,11 @@ const classifier = readFileSync(
 );
 
 describe('Cloudflare build observer contract', () => {
-  it('uses only the dedicated Workers Builds API token', () => {
+  it('uses only the dedicated Workers Builds user token', () => {
     expect(workflow).toContain(
-      'CF_API_TOKEN: ${{ secrets.CLOUDFLARE_BUILDS_API_TOKEN }}',
+      'CF_API_TOKEN: ${{ secrets.CHIEF_CLOUDFLARE_BUILDS_USER_TOKEN }}',
     );
+    expect(workflow).not.toContain('secrets.CLOUDFLARE_BUILDS_API_TOKEN');
     expect(workflow).not.toContain('secrets.CLOUDFLARE_API_TOKEN');
     expect(workflow).toContain('permissions:\n  contents: read');
   });
