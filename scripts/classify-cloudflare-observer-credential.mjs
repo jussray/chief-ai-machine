@@ -2,7 +2,7 @@
 
 const apiBase = 'https://api.cloudflare.com/client/v4';
 const accountId = process.env.CF_ACCOUNT_ID?.trim();
-const token = process.env.CF_API_TOKEN?.trim();
+const token = process.env.CF_API_TOKEN ?? '';
 
 function messages(body) {
   return [
@@ -29,11 +29,22 @@ function safeShape(value) {
     lowercaseHexOnly: /^[a-f0-9]+$/.test(value),
     matchesAccountId: Boolean(accountId && value === accountId),
     hasWhitespace: /\s/.test(value),
+    hasLeadingOrTrailingWhitespace: value !== value.trim(),
     hasNonAscii: /[^\x20-\x7E]/.test(value),
     hasWrappingQuote: /^(?:".*"|'.*')$/.test(value),
     looksLikeAssignment: /^[A-Za-z_][A-Za-z0-9_]*=/.test(value),
     hasBearerPrefix: /^Bearer\s+/i.test(value),
   };
+}
+
+function preflightClassification(shape) {
+  if (shape.matchesAccountId) return 'account-id-stored-as-token';
+  if (shape.hasNonAscii) return 'token-header-non-ascii';
+  if (shape.hasBearerPrefix) return 'token-includes-bearer-prefix';
+  if (shape.hasWhitespace) return 'token-header-whitespace';
+  if (shape.hasWrappingQuote) return 'token-wrapped-in-quotes';
+  if (shape.looksLikeAssignment) return 'token-looks-like-assignment';
+  return null;
 }
 
 async function verify(path) {
@@ -50,11 +61,26 @@ async function verify(path) {
   };
 }
 
+const tokenShape = safeShape(token);
+
 if (!accountId || !token) {
   console.log(JSON.stringify({
     classification: 'missing-input',
     accountIdPresent: Boolean(accountId),
-    tokenShape: safeShape(token),
+    tokenShape,
+    userVerify: null,
+    accountVerify: null,
+  }));
+  process.exit(1);
+}
+
+const preflight = preflightClassification(tokenShape);
+if (preflight) {
+  console.log(JSON.stringify({
+    classification: preflight,
+    tokenShape,
+    userVerify: null,
+    accountVerify: null,
   }));
   process.exit(1);
 }
@@ -63,17 +89,15 @@ const user = await verify('/user/tokens/verify');
 const account = await verify(`/accounts/${accountId}/tokens/verify`);
 
 const classification =
-  token === accountId
-    ? 'account-id-stored-as-token'
-    : user.success && user.status === 'active'
-      ? 'user-token-active'
-      : account.success && account.status === 'active'
-        ? 'account-token-active'
-        : 'not-accepted-as-user-or-account-token';
+  user.success && user.status === 'active'
+    ? 'user-token-active'
+    : account.success && account.status === 'active'
+      ? 'account-token-active'
+      : 'not-accepted-as-user-or-account-token';
 
 console.log(JSON.stringify({
   classification,
-  tokenShape: safeShape(token),
+  tokenShape,
   userVerify: user,
   accountVerify: account,
 }));
