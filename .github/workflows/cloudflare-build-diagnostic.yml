@@ -23,6 +23,8 @@ on:
 permissions:
   contents: read
 
+# Repository secrets are read when a workflow run is queued. After rotating the
+# observer token, trigger a fresh run instead of rerunning an older attempt.
 jobs:
   inspect:
     name: Redacted provider receipt
