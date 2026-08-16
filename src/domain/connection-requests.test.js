@@ -42,6 +42,24 @@ describe('Chief FCR connection requests', () => {
     ])).toThrow(/forbidden fields: secretRef/);
   });
 
+  it('fails closed on unknown environments and empty capability requests', () => {
+    expect(() => normalizeConnectionRequests([
+      {
+        connectionType: 'github',
+        environment: 'prod',
+        capabilities: ['inspect_repos'],
+      },
+    ])).toThrow(/environment must be development, preview, or production/);
+
+    expect(() => normalizeConnectionRequests([
+      {
+        connectionType: 'github',
+        environment: 'production',
+        capabilities: [],
+      },
+    ])).toThrow(/capabilities must contain 1-20 entries/);
+  });
+
   it('creates an opaque FCR handoff instead of a credential bundle', () => {
     const handoff = createConnectionHandoff([
       {
