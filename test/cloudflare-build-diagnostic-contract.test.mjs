@@ -20,6 +20,13 @@ describe('Cloudflare build observer contract', () => {
     expect(workflow).toContain('permissions:\n  contents: read');
   });
 
+  it('verifies the user token before account or build reads', () => {
+    expect(inspector).toContain('/user/tokens/verify');
+    expect(inspector).toContain('tokenVerification: null');
+    expect(inspector).toContain("classification = 'provider-token-invalid'");
+    expect(inspector).toContain('CLOUDFLARE_USER_TOKEN_VERIFICATION_FAILED');
+  });
+
   it('accepts an exact SHA and build UUID for reusable read-only inspection', () => {
     expect(workflow).toContain('expected_head_sha:');
     expect(workflow).toContain('build_uuid:');
