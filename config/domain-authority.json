@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "chief-ai-machine",
-  "mode": "production",
+  "mode": "production-target",
   "worker": {
     "name": "chief-ai",
     "versionPath": "/version"
@@ -12,10 +12,13 @@
     "previewUrls": true,
     "providerPreviewIsCanonical": false
   },
+  "publicClaimAuthorized": false,
   "requirementsBeforePublicClaim": [
+    "merge the reviewed production-domain binding",
     "Cloudflare custom domain is active for chief.foundercontrolroom.org",
     "browser loads the canonical origin",
     "/version returns JSON from the chief-ai Worker",
-    "/version sha equals the intended exact deployment SHA"
+    "/version sha equals the intended exact deployment SHA",
+    "set publicClaimAuthorized true only in a later evidence-backed change"
   ]
 }
