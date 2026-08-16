@@ -27,6 +27,7 @@ function safeShape(value) {
           : 'unprefixed-or-unknown',
     alphanumericOnly: /^[A-Za-z0-9]+$/.test(value),
     lowercaseHexOnly: /^[a-f0-9]+$/.test(value),
+    matchesAccountId: Boolean(accountId && value === accountId),
     hasWhitespace: /\s/.test(value),
     hasNonAscii: /[^\x20-\x7E]/.test(value),
     hasWrappingQuote: /^(?:".*"|'.*')$/.test(value),
@@ -62,11 +63,13 @@ const user = await verify('/user/tokens/verify');
 const account = await verify(`/accounts/${accountId}/tokens/verify`);
 
 const classification =
-  user.success && user.status === 'active'
-    ? 'user-token-active'
-    : account.success && account.status === 'active'
-      ? 'account-token-active'
-      : 'not-accepted-as-user-or-account-token';
+  token === accountId
+    ? 'account-id-stored-as-token'
+    : user.success && user.status === 'active'
+      ? 'user-token-active'
+      : account.success && account.status === 'active'
+        ? 'account-token-active'
+        : 'not-accepted-as-user-or-account-token';
 
 console.log(JSON.stringify({
   classification,
