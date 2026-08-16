@@ -6,6 +6,7 @@ on:
       - fix/chief-cloudflare-build-diagnostic-83
     paths:
       - scripts/inspect-cloudflare-build.mjs
+      - scripts/classify-cloudflare-observer-credential.mjs
       - test/cloudflare-build-diagnostic-contract.test.mjs
       - .github/workflows/cloudflare-build-diagnostic.yml
   workflow_dispatch:
@@ -60,6 +61,10 @@ jobs:
             echo "::error::CLOUDFLARE_BUILDS_API_TOKEN is not available to this workflow."
             exit 1
           fi
+
+      - name: Classify Cloudflare credential authority
+        continue-on-error: true
+        run: node scripts/classify-cloudflare-observer-credential.mjs
 
       - name: Inspect exact failed Cloudflare build
         run: node scripts/inspect-cloudflare-build.mjs
