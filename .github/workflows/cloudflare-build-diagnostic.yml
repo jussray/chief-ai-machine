@@ -25,6 +25,7 @@ permissions:
 
 # Repository secrets are read when a workflow run is queued. After rotating the
 # observer token, trigger a fresh run instead of rerunning an older attempt.
+# Fresh proof marker: 2026-08-16T16:41-04:00.
 jobs:
   inspect:
     name: Redacted provider receipt
