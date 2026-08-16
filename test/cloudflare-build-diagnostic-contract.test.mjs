@@ -10,6 +10,10 @@ const inspector = readFileSync(
   new URL('../scripts/inspect-cloudflare-build.mjs', import.meta.url),
   'utf8',
 );
+const classifier = readFileSync(
+  new URL('../scripts/classify-cloudflare-observer-credential.mjs', import.meta.url),
+  'utf8',
+);
 
 describe('Cloudflare build observer contract', () => {
   it('uses only the dedicated Workers Builds API token', () => {
@@ -18,6 +22,13 @@ describe('Cloudflare build observer contract', () => {
     );
     expect(workflow).not.toContain('secrets.CLOUDFLARE_API_TOKEN');
     expect(workflow).toContain('permissions:\n  contents: read');
+  });
+
+  it('verifies both credential authority classes and catches account-id wiring mistakes', () => {
+    expect(classifier).toContain('/user/tokens/verify');
+    expect(classifier).toContain('/accounts/${accountId}/tokens/verify');
+    expect(classifier).toContain("'account-id-stored-as-token'");
+    expect(classifier).toContain('matchesAccountId');
   });
 
   it('verifies the user token before account or build reads', () => {
