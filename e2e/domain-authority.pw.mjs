@@ -13,10 +13,11 @@ const canonicalOrigin = String(contract.canonicalOrigin || '').trim();
 const explicitOrigin = String(process.env.CHIEF_PUBLIC_ORIGIN || '').trim();
 const expectedSha = String(process.env.DOMAIN_EXPECTED_SHA || '').trim();
 
-test('Chief production authority is one committed custom domain', () => {
+test('Chief production target is one committed custom domain', () => {
   expect(contract.schemaVersion).toBe(1);
   expect(contract.project).toBe('chief-ai-machine');
-  expect(contract.mode).toBe('production');
+  expect(contract.mode).toBe('production-target');
+  expect(contract.publicClaimAuthorized).toBe(false);
   expect(contract.worker?.name).toBe('chief-ai');
   expect(canonicalOrigin).toBe('https://chief.foundercontrolroom.org');
   expect(canonicalOrigin).not.toContain('.workers.dev');
