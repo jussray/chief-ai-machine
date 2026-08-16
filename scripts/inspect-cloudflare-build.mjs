@@ -42,6 +42,25 @@ function providerMessages(body) {
   ].filter(Boolean);
 }
 
+function classifyTokenShape(token) {
+  if (!token) {
+    return {
+      credentialType: 'missing',
+      hasBearerPrefix: false,
+      hasWhitespace: false,
+    };
+  }
+  return {
+    credentialType: token.startsWith('cfut_')
+      ? 'user-token'
+      : token.startsWith('cfat_')
+        ? 'account-token'
+        : 'legacy-or-unknown',
+    hasBearerPrefix: /^Bearer\s+/i.test(token),
+    hasWhitespace: /\s/.test(token),
+  };
+}
+
 async function cloudflare(path) {
   const response = await fetch(`${apiBase}${path}`, {
     headers: { Authorization: `Bearer ${apiToken}` },
@@ -129,6 +148,7 @@ const receipt = {
   providerCredentials: {
     accountIdPresent: Boolean(accountId),
     apiTokenPresent: Boolean(apiToken),
+    tokenShape: classifyTokenShape(apiToken),
     tokenVerification: null,
   },
   publicRuntime: null,
