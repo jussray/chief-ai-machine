@@ -219,6 +219,9 @@ function normalizeDecisionCycle(input = {}, options = {}) {
 
 export function createDecisionCycle(input = {}) {
   const cycle = normalizeDecisionCycle(input);
+  if (!('decisionHash' in cycle) || typeof cycle.decisionHash !== 'string') {
+    throw new Error('Decision cycle hash was not created');
+  }
   const validation = validateDecisionCycle(cycle);
   if (!validation.valid) throw new Error(validation.errors.join('; '));
   return Object.freeze(cycle);
