@@ -273,7 +273,7 @@ try {
 
   if (!accountId || !apiToken) {
     throw new Error(
-      'PROVIDER_CREDENTIALS_UNAVAILABLE: Cloudflare account ID and a Workers CI Read token are required.',
+      'PROVIDER_CREDENTIALS_UNAVAILABLE: Cloudflare account ID and a user-scoped Workers Builds API token are required.',
     );
   }
 
