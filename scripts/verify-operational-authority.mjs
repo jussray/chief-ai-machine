@@ -103,7 +103,9 @@ export function scanWorkflowBudget(text, workflow = 'unknown') {
   const lines = String(text || '').split(/\r?\n/);
   const fullCoverageLines = [];
   lines.forEach((line, index) => {
-    if (/^\s*-\s*run:\s*npm\s+test\b.*--coverage\b/i.test(line)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    if (/\bnpm\s+test\b.*--coverage\b/i.test(trimmed)) {
       fullCoverageLines.push(index + 1);
     }
   });
