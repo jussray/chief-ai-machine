@@ -12,6 +12,7 @@ export const FAILURE_PRIORITY = [
   'runtime_non_json',
   'runtime_json_missing_sha',
   'runtime_sha_mismatch',
+  'runtime_unknown',
   'provider_build_failure',
   'repository_check_failure',
   'unknown_failure',
@@ -25,6 +26,14 @@ export function classifyCheckFailure(check) {
   if (conclusion === 'startup_failure') return 'startup_failure';
   if (name.includes('provider receipt') || name.includes('cloudflare build diagnostic')) {
     return 'provider_observability_missing';
+  }
+  if (
+    name.includes('exact chief runtime')
+    || name.includes('production proofmode')
+    || name.includes('live proofmode mcp')
+    || name.includes('live chief capability plan')
+  ) {
+    return 'runtime_unknown';
   }
   if (name.startsWith('workers builds:')) return 'provider_build_failure';
   if (state === 'failed') return 'repository_check_failure';
@@ -63,10 +72,10 @@ function nextActionFor(failureClass) {
     runtime_non_json: 'inspect provider routing or deploy configuration because /version is not reaching the Worker JSON handler',
     runtime_json_missing_sha: 'repair the version receipt before making deployment claims',
     runtime_sha_mismatch: 'stop promotion and reconcile deployed identity with the exact candidate SHA',
+    runtime_unknown: 'collect the structured runtime witness before choosing a code or provider fix',
     provider_build_failure: 'inspect exact provider build evidence before changing repository code',
     repository_check_failure: 'repair the smallest deterministic repository failure and rerun exact-head checks',
     unknown_failure: 'preserve UNKNOWN and gather evidence; do not infer green',
-    runtime_unknown: 'preserve UNKNOWN and gather a structured runtime witness',
   };
   return actions[failureClass] || 'continue exact-head verification';
 }
@@ -74,18 +83,22 @@ function nextActionFor(failureClass) {
 export function buildOperatorTruthSummary({ ledger, runtimeWitness = null }) {
   const checks = Array.isArray(ledger?.checks) ? ledger.checks : [];
   const failures = [];
+  const nonBlockingSignals = [];
   const failureClassCounts = {};
 
   for (const check of checks) {
     const failureClass = classifyCheckFailure(check);
     if (!failureClass) continue;
     failureClassCounts[failureClass] = (failureClassCounts[failureClass] || 0) + 1;
-    failures.push({
+    const state = clean(check?.policyState || check?.state) || 'unknown';
+    const signal = {
       failureClass,
       checkName: clean(check?.name),
-      state: clean(check?.policyState || check?.state) || 'unknown',
+      state,
       detailsUrl: clean(check?.detailsUrl) || null,
-    });
+    };
+    if (state === 'warning') nonBlockingSignals.push(signal);
+    else failures.push(signal);
   }
 
   if (runtimeWitness) {
@@ -98,6 +111,10 @@ export function buildOperatorTruthSummary({ ledger, runtimeWitness = null }) {
 
   const priority = new Map(FAILURE_PRIORITY.map((value, index) => [value, index]));
   failures.sort((left, right) => (
+    (priority.get(left.failureClass) ?? 999) - (priority.get(right.failureClass) ?? 999)
+      || left.checkName.localeCompare(right.checkName)
+  ));
+  nonBlockingSignals.sort((left, right) => (
     (priority.get(left.failureClass) ?? 999) - (priority.get(right.failureClass) ?? 999)
       || left.checkName.localeCompare(right.checkName)
   ));
@@ -128,6 +145,7 @@ export function buildOperatorTruthSummary({ ledger, runtimeWitness = null }) {
       unknown: Number(ledger?.aggregate?.counts?.unknown || 0),
     },
     failures,
+    nonBlockingSignals,
   };
 }
 
