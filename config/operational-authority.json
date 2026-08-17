@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "project": "chief-ai-machine",
+  "truthSource": {
+    "repository": "jussray/chief-ai-machine",
+    "branch": "main",
+    "refType": "exact-commit-sha"
+  },
+  "workflowRules": {
+    "auditExactMainBeforeEdits": true,
+    "auditExactMainBeforeMerge": true,
+    "singleAuthoritativeRepairLane": true,
+    "closeSupersededPullRequestsUnmerged": true,
+    "pinThirdPartyActionsToFullCommitSha": true,
+    "providerBuildSuccessIsNotRuntimeProof": true,
+    "providerPreviewIsNotProductionAuthority": true,
+    "uiAndRuntimeClaimsRequirePlaywright": true,
+    "exactRuntimeShaRequiredBeforeMerge": true,
+    "canonicalRuntimeShaRequiredAfterMerge": true,
+    "publicProductionClaimRequiresSeparateEvidenceBackedChange": true,
+    "providerMutationRequiresExplicitFounderGate": true,
+    "neverRequestSecretsInChat": true,
+    "unknownOrMissingAuthorityFailsClosed": true
+  },
+  "failureTaxonomy": [
+    "startup_failure",
+    "provider_build_failure",
+    "provider_observability_missing",
+    "runtime_transport_error",
+    "runtime_http_error",
+    "runtime_non_json",
+    "runtime_json_missing_sha",
+    "runtime_sha_mismatch",
+    "repository_check_failure",
+    "exact_runtime_green"
+  ],
+  "mergeGate": [
+    "re-audit exact main immediately before merge",
+    "exact candidate head is immutable and unchanged",
+    "repository quality checks are green",
+    "provider build for exact candidate SHA is green when provider runtime is in scope",
+    "immutable preview runtime returns JSON with exact candidate SHA when runtime is in scope",
+    "Playwright executes against the exact runtime witness and passes when UI or runtime changes",
+    "no unresolved blocking review thread remains"
+  ],
+  "postMergeGate": [
+    "re-pin exact merged main SHA",
+    "provider deploy for exact merged SHA succeeds when runtime is in scope",
+    "canonical production origin resolves when runtime is in scope",
+    "canonical /version returns JSON with exact merged SHA when runtime is in scope",
+    "canonical browser and API Playwright proof passes when UI or runtime changes",
+    "only then may production truth be represented as verified"
+  ]
+}
