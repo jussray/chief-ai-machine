@@ -61,6 +61,8 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Verify immutable GitHub Action pins
+        run: node scripts/verify-actions-pins.mjs
       - run: npm run lint
       - run: npm run verify:mcp
       - run: npm run verify:gmail-resolve-skill
