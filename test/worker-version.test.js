@@ -16,10 +16,9 @@ const releaseBakeScript = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes runtime endpoints through the Worker before asset fallback', () => {
-    expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
-    );
+  it('routes every request through the Worker before Static Assets', () => {
+    expect(wranglerConfig).toMatch(/"run_worker_first":\s*true/);
+    expect(wranglerConfig).not.toMatch(/"not_found_handling"/);
   });
 
   it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
