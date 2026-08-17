@@ -91,7 +91,15 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Generate PromptOS quality artifact
+        run: npm run generate:promptos
       - run: npm test -- --coverage --reporter=json --outputFile=test-results.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: promptos-catalog-quality
+          path: artifacts/promptos/catalog-quality-report.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
