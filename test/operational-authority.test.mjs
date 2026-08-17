@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   applyWorkflowAuthorityWaivers,
   auditActionReference,
+  scanWorkflowBudget,
   scanWorkflowText,
+  validateTemporalAuthority,
   validateWorkflowAuthorityWaivers,
 } from '../scripts/verify-operational-authority.mjs';
 
@@ -81,6 +83,47 @@ describe('operational authority contract', () => {
       '.github/workflows/issues.yml',
     );
     expect(findings.filter((finding) => finding.classification === 'superseded-pr-runs-not-cancelled')).toHaveLength(0);
+  });
+
+  it('rejects duplicate full-suite coverage execution inside one workflow', () => {
+    const duplicate = scanWorkflowBudget(
+      'jobs:\n  unit:\n    steps:\n      - run: npm test -- --coverage\n  sonar:\n    steps:\n      - run: npm test -- --coverage\n',
+      '.github/workflows/quality.yml',
+    );
+    expect(duplicate.fullCoverageExecutions).toBe(2);
+    expect(duplicate.violations).toEqual([
+      expect.objectContaining({
+        classification: 'duplicate-full-suite-coverage-execution',
+        count: 2,
+      }),
+    ]);
+
+    const reused = scanWorkflowBudget(
+      'jobs:\n  unit:\n    steps:\n      - run: npm test -- --coverage\n  sonar:\n    steps:\n      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c\n',
+      '.github/workflows/quality.yml',
+    );
+    expect(reused.fullCoverageExecutions).toBe(1);
+    expect(reused.violations).toHaveLength(0);
+  });
+
+  it('keeps Current You authoritative while FutureYou remains advisory', () => {
+    const valid = {
+      currentFounderIntent: 'authoritative-for-founder-preferences-and-goals',
+      futureYou: 'advisory-only',
+      historicalIntentOnConflict: 'superseded-reconfirm-before-use',
+      runtimeFacts: 'provider-evidence-authoritative',
+      executionAuthorization: 'bind-to-current-intent-and-exact-proposal',
+    };
+    expect(validateTemporalAuthority(valid)).toEqual([]);
+
+    expect(validateTemporalAuthority({ ...valid, futureYou: 'authoritative' })).toEqual([
+      expect.objectContaining({
+        classification: 'temporal-authority-mismatch',
+        key: 'futureYou',
+        expected: 'advisory-only',
+        actual: 'authoritative',
+      }),
+    ]);
   });
 
   it('waives only one exact workflow/reference pair', () => {
