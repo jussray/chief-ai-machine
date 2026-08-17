@@ -57,6 +57,49 @@ describe('operator truth summary', () => {
     expect(summary.mergeRecommended).toBe(false);
   });
 
+  it('treats a failed runtime proof check as runtime-unknown until its witness is inspected', () => {
+    const summary = buildOperatorTruthSummary({
+      ledger: {
+        ...baseLedger,
+        checks: [
+          { name: 'Verify exact Chief runtime with Playwright', state: 'failed', conclusion: 'failure' },
+        ],
+      },
+    });
+    expect(summary.primaryBlocker).toMatchObject({
+      failureClass: 'runtime_unknown',
+      owner: 'runtime-routing',
+    });
+    expect(summary.primaryBlocker.nextAction).toContain('structured runtime witness');
+  });
+
+  it('counts a softened provider retry failure but keeps it nonblocking', () => {
+    const summary = buildOperatorTruthSummary({
+      ledger: {
+        ...baseLedger,
+        aggregate: {
+          state: 'warning',
+          counts: { warning: 1, failed: 0, queued: 0, running: 0, unknown: 0 },
+        },
+        checks: [
+          {
+            name: 'Workers Builds: chief-ai',
+            state: 'failed',
+            policyState: 'warning',
+            conclusion: 'failure',
+          },
+        ],
+      },
+    });
+
+    expect(summary.primaryBlocker).toBeNull();
+    expect(summary.nonBlockingSignals).toEqual([
+      expect.objectContaining({ failureClass: 'provider_build_failure', state: 'warning' }),
+    ]);
+    expect(summary.metrics.failureClassCounts.provider_build_failure).toBe(1);
+    expect(summary.mergeRecommended).toBe(false);
+  });
+
   it('recommends merge only when the ledger is passed and there is no blocker', () => {
     const summary = buildOperatorTruthSummary({
       ledger: {
