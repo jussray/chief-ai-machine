@@ -9,6 +9,7 @@ const REQUIRED_RULES = [
   'auditExactMainBeforeMerge',
   'singleAuthoritativeRepairLane',
   'pinThirdPartyActionsToFullCommitSha',
+  'disablePersistedCheckoutCredentials',
   'providerBuildSuccessIsNotRuntimeProof',
   'providerPreviewIsNotProductionAuthority',
   'uiAndRuntimeClaimsRequirePlaywright',
@@ -28,6 +29,22 @@ export function auditActionReference(reference) {
   return { ok: false, classification: 'mutable-action-reference', reference: value };
 }
 
+function indentation(line) {
+  return String(line || '').match(/^\s*/)?.[0].length ?? 0;
+}
+
+function checkoutDisablesPersistedCredentials(lines, usesIndex) {
+  const usesIndent = indentation(lines[usesIndex]);
+  for (let index = usesIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('- ') && indentation(line) <= usesIndent) break;
+    if (/^persist-credentials:\s*false\s*(?:#.*)?$/i.test(trimmed)) return true;
+  }
+  return false;
+}
+
 export function scanWorkflowText(text, workflow = 'unknown') {
   const findings = [];
   const lines = String(text || '').split(/\r?\n/);
@@ -36,6 +53,19 @@ export function scanWorkflowText(text, workflow = 'unknown') {
     if (!match) return;
     const result = auditActionReference(match[1]);
     findings.push({ workflow, line: index + 1, ...result });
+    if (
+      result.ok
+      && result.reference.startsWith('actions/checkout@')
+      && !checkoutDisablesPersistedCredentials(lines, index)
+    ) {
+      findings.push({
+        workflow,
+        line: index + 1,
+        ok: false,
+        classification: 'checkout-persist-credentials-enabled',
+        reference: result.reference,
+      });
+    }
   });
   return findings;
 }
@@ -114,17 +144,23 @@ export function applyWorkflowAuthorityWaivers(findings, waivers) {
       reason: 'waiver no longer matches a mutable action reference and must be removed',
     }));
 
-  return {
-    findings: annotated,
-    waiversApplied: annotated
-      .filter((finding) => finding.waived)
-      .map((finding) => ({
+  const uniqueApplied = new Map();
+  for (const finding of annotated.filter((item) => item.waived)) {
+    const key = waiverKey(finding.workflow, finding.reference);
+    if (!uniqueApplied.has(key)) {
+      uniqueApplied.set(key, {
         workflow: finding.workflow,
         line: finding.line,
         reference: finding.reference,
         tracking: finding.waiver.tracking,
         removalGate: finding.waiver.removalGate,
-      })),
+      });
+    }
+  }
+
+  return {
+    findings: annotated,
+    waiversApplied: [...uniqueApplied.values()],
     unusedWaivers,
   };
 }
@@ -145,7 +181,8 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     .filter((rule) => config?.workflowRules?.[rule] !== true)
     .map((rule) => ({ classification: 'missing-required-rule', rule }));
 
-  const rawFindings = workflowFiles(rootDir).flatMap((file) => (
+  const files = workflowFiles(rootDir);
+  const rawFindings = files.flatMap((file) => (
     scanWorkflowText(fs.readFileSync(file, 'utf8'), path.relative(rootDir, file))
   ));
   const waivers = Array.isArray(config?.workflowAuthorityWaivers)
@@ -164,10 +201,11 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     schemaVersion: 1,
     project: config?.project || null,
     truthSource: config?.truthSource || null,
-    workflowsScanned: new Set(rawFindings.map((finding) => finding.workflow)).size,
-    actionReferencesScanned: rawFindings.length,
-    immutableActionReferences: rawFindings.filter((finding) => finding.ok).length,
-    mutableActionReferences: rawFindings.filter((finding) => !finding.ok).length,
+    workflowsScanned: files.length,
+    actionReferencesScanned: rawFindings.filter((finding) => finding.classification !== 'checkout-persist-credentials-enabled').length,
+    immutableActionReferences: rawFindings.filter((finding) => finding.classification === 'immutable-action-sha').length,
+    mutableActionReferences: rawFindings.filter((finding) => finding.classification === 'mutable-action-reference').length,
+    checkoutCredentialViolations: rawFindings.filter((finding) => finding.classification === 'checkout-persist-credentials-enabled').length,
     waiversApplied: waiverResult.waiversApplied,
     invalidWaivers,
     unusedWaivers: waiverResult.unusedWaivers,
