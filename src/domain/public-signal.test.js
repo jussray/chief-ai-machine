@@ -45,9 +45,10 @@ function request(packet = draft(), overrides = {}) {
 
 describe('public-safe progress signal', () => {
   it('removes effectful approval and provider-payload minting from Chief', () => {
-    expect(publicSignal.createPublishApproval).toBeUndefined();
-    expect(publicSignal.evaluatePublishApproval).toBeUndefined();
-    expect(publicSignal.toPublisherPayload).toBeUndefined();
+    const exportedNames = Object.keys(publicSignal);
+    expect(exportedNames).not.toContain('createPublishApproval');
+    expect(exportedNames).not.toContain('evaluatePublishApproval');
+    expect(exportedNames).not.toContain('toPublisherPayload');
 
     const outbound = request();
     expect(outbound).not.toHaveProperty('founder_approval_id');
