@@ -56,6 +56,33 @@ describe('operational authority contract', () => {
     expect(safe.filter((finding) => !finding.ok)).toHaveLength(0);
   });
 
+  it('requires pull-request workflows to cancel superseded runs', () => {
+    const unsafe = scanWorkflowText(
+      'name: Unsafe\non:\n  pull_request:\n    branches: [main]\njobs:\n  test:\n    runs-on: ubuntu-latest\n',
+      '.github/workflows/unsafe-pr.yml',
+    );
+    expect(unsafe).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'superseded-pr-runs-not-cancelled',
+        ok: false,
+      }),
+    ]));
+
+    const safe = scanWorkflowText(
+      'name: Safe\non:\n  pull_request:\n    branches: [main]\nconcurrency:\n  group: safe-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\njobs:\n  test:\n    runs-on: ubuntu-latest\n',
+      '.github/workflows/safe-pr.yml',
+    );
+    expect(safe.filter((finding) => finding.classification === 'superseded-pr-runs-not-cancelled')).toHaveLength(0);
+  });
+
+  it('does not require PR concurrency for workflows without pull_request triggers', () => {
+    const findings = scanWorkflowText(
+      'name: Issue only\non:\n  issues:\n    types: [closed]\njobs:\n  enforce:\n    runs-on: ubuntu-latest\n',
+      '.github/workflows/issues.yml',
+    );
+    expect(findings.filter((finding) => finding.classification === 'superseded-pr-runs-not-cancelled')).toHaveLength(0);
+  });
+
   it('waives only one exact workflow/reference pair', () => {
     const findings = [
       ...scanWorkflowText('steps:\n  - uses: actions/checkout@v4\n', '.github/workflows/runtime.yml'),
