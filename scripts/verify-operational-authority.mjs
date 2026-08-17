@@ -11,11 +11,20 @@ const REQUIRED_RULES = [
   'pinThirdPartyActionsToFullCommitSha',
   'disablePersistedCheckoutCredentials',
   'cancelSupersededPullRequestRuns',
+  'singleFullCoverageExecutionPerWorkflow',
   'providerBuildSuccessIsNotRuntimeProof',
   'providerPreviewIsNotProductionAuthority',
   'uiAndRuntimeClaimsRequirePlaywright',
   'unknownOrMissingAuthorityFailsClosed',
 ];
+
+const REQUIRED_TEMPORAL_AUTHORITY = Object.freeze({
+  currentFounderIntent: 'authoritative-for-founder-preferences-and-goals',
+  futureYou: 'advisory-only',
+  historicalIntentOnConflict: 'superseded-reconfirm-before-use',
+  runtimeFacts: 'provider-evidence-authoritative',
+  executionAuthorization: 'bind-to-current-intent-and-exact-proposal',
+});
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 const waiverKey = (workflow, reference) => `${clean(workflow)}\u0000${clean(reference)}`;
@@ -88,6 +97,47 @@ export function scanWorkflowText(text, workflow = 'unknown') {
     });
   }
   return findings;
+}
+
+export function scanWorkflowBudget(text, workflow = 'unknown') {
+  const lines = String(text || '').split(/\r?\n/);
+  const fullCoverageLines = [];
+  lines.forEach((line, index) => {
+    if (/^\s*-\s*run:\s*npm\s+test\b.*--coverage\b/i.test(line)) {
+      fullCoverageLines.push(index + 1);
+    }
+  });
+
+  const violations = fullCoverageLines.length > 1
+    ? [{
+        classification: 'duplicate-full-suite-coverage-execution',
+        workflow,
+        count: fullCoverageLines.length,
+        lines: fullCoverageLines,
+        reason: 'one workflow must execute the full coverage suite once and reuse the resulting receipt',
+      }]
+    : [];
+
+  return {
+    workflow,
+    fullCoverageExecutions: fullCoverageLines.length,
+    lines: fullCoverageLines,
+    violations,
+  };
+}
+
+export function validateTemporalAuthority(authority) {
+  const source = authority && typeof authority === 'object' && !Array.isArray(authority)
+    ? authority
+    : {};
+  return Object.entries(REQUIRED_TEMPORAL_AUTHORITY)
+    .filter(([key, expected]) => clean(source[key]) !== expected)
+    .map(([key, expected]) => ({
+      classification: 'temporal-authority-mismatch',
+      key,
+      expected,
+      actual: clean(source[key]) || null,
+    }));
 }
 
 export function validateWorkflowAuthorityWaivers(waivers) {
@@ -200,11 +250,17 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
   const ruleViolations = REQUIRED_RULES
     .filter((rule) => config?.workflowRules?.[rule] !== true)
     .map((rule) => ({ classification: 'missing-required-rule', rule }));
+  const temporalAuthorityViolations = validateTemporalAuthority(config?.temporalAuthority);
 
   const files = workflowFiles(rootDir);
   const rawFindings = files.flatMap((file) => (
     scanWorkflowText(fs.readFileSync(file, 'utf8'), path.relative(rootDir, file))
   ));
+  const workflowBudget = files.map((file) => (
+    scanWorkflowBudget(fs.readFileSync(file, 'utf8'), path.relative(rootDir, file))
+  ));
+  const workflowBudgetViolations = workflowBudget.flatMap((item) => item.violations);
+
   const waivers = Array.isArray(config?.workflowAuthorityWaivers)
     ? config.workflowAuthorityWaivers
     : [];
@@ -213,6 +269,8 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
   const actionViolations = waiverResult.findings.filter((finding) => !finding.ok && !finding.waived);
   const violations = [
     ...ruleViolations,
+    ...temporalAuthorityViolations,
+    ...workflowBudgetViolations,
     ...invalidWaivers,
     ...waiverResult.unusedWaivers,
     ...actionViolations,
@@ -221,6 +279,8 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     schemaVersion: 1,
     project: config?.project || null,
     truthSource: config?.truthSource || null,
+    temporalAuthority: config?.temporalAuthority || null,
+    temporalAuthorityViolations,
     workflowsScanned: files.length,
     actionReferencesScanned: rawFindings.filter((finding) => (
       !['checkout-persist-credentials-enabled', 'superseded-pr-runs-not-cancelled'].includes(finding.classification)
@@ -229,6 +289,10 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     mutableActionReferences: rawFindings.filter((finding) => finding.classification === 'mutable-action-reference').length,
     checkoutCredentialViolations: rawFindings.filter((finding) => finding.classification === 'checkout-persist-credentials-enabled').length,
     supersededRunCancellationViolations: rawFindings.filter((finding) => finding.classification === 'superseded-pr-runs-not-cancelled').length,
+    workflowBudget: {
+      fullCoverageExecutions: workflowBudget.reduce((sum, item) => sum + item.fullCoverageExecutions, 0),
+      duplicateFullCoverageViolations: workflowBudgetViolations.length,
+    },
     waiversApplied: waiverResult.waiversApplied,
     invalidWaivers,
     unusedWaivers: waiverResult.unusedWaivers,
