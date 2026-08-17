@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - ".github/workflows/proofmode-production-playwright.yml"
+      - "config/domain-authority.json"
+      - "e2e/domain-authority.pw.mjs"
+      - "e2e/playwright.domain.config.mjs"
       - "e2e/proofmode-mcp.pw.mjs"
       - "worker/proofmode-mcp.js"
       - "worker/index.js"
@@ -25,111 +28,199 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+  PROOFMODE_CANONICAL_ORIGIN: https://chief.foundercontrolroom.org
 
 jobs:
   verify:
-    name: Verify production ProofMode MCP with Playwright
+    name: Verify exact Chief runtime with Playwright
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out exact workflow source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
-      - name: Resolve expected production head
+      - name: Resolve exact runtime target
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: |
+          set -euo pipefail
+          expected="$GITHUB_SHA"
+          mode="canonical"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            expected="$PR_BASE_SHA"
-          else
-            expected="$GITHUB_SHA"
+            expected="$PR_HEAD_SHA"
+            mode="preview"
           fi
-          test -n "$expected"
+          printf '%s' "$expected" | grep -Eq '^[0-9a-f]{40}$'
           printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
-          printf 'Expected production head: %s\n' "$expected"
+          printf 'RUNTIME_TARGET_MODE=%s\n' "$mode" >> "$GITHUB_ENV"
+          printf 'Runtime target: %s @ %s\n' "$mode" "$expected"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
 
-      - name: Wait for exact-head Cloudflare production build
+      - name: Observe exact-head Cloudflare build and resolve witness
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          resolved=""
           for attempt in {1..90}; do
             checks="$(curl --fail --silent --show-error \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?filter=all&per_page=100" || true)"
 
-            state="$(printf '%s' "$checks" | node -e '
+            IFS=$'\t' read -r has_success latest_state latest_external preview_url <<< "$(printf '%s' "$checks" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
               process.stdin.on("end", () => {
                 try {
                   const data = JSON.parse(raw);
-                  const runs = (data.check_runs || []).filter((run) => run.name === "Workers Builds: chief-ai");
-                  if (runs.some((run) => run.status === "completed" && run.conclusion === "success")) {
-                    console.log("success");
-                    return;
+                  const runs = (data.check_runs || [])
+                    .filter((run) => run.name === "Workers Builds: chief-ai")
+                    .sort((left, right) => Date.parse(left.completed_at || left.started_at || 0)
+                      - Date.parse(right.completed_at || right.started_at || 0));
+                  const latest = runs.at(-1);
+                  const successes = runs.filter((run) => run.status === "completed" && run.conclusion === "success");
+                  const success = successes.at(-1);
+                  let latestState = "pending";
+                  if (latest?.status === "completed") {
+                    latestState = latest.conclusion === "success" ? "success" : "failure";
                   }
-                  if (runs.some((run) => run.status === "completed" && run.conclusion && run.conclusion !== "success")) {
-                    console.log("failure");
-                    return;
-                  }
-                  console.log("pending");
+                  const summary = success?.output?.summary || "";
+                  const preview = summary.match(/Preview URL:\s*(https:\/\/\S+)/)?.[1] || "none";
+                  console.log([
+                    success ? "yes" : "no",
+                    latestState,
+                    latest?.external_id || "none",
+                    preview,
+                  ].join("\t"));
                 } catch {
-                  console.log("pending");
+                  console.log("no\tpending\tnone\tnone");
                 }
               });
             ')"
 
-            if [ "$state" = "success" ]; then
-              printf 'Cloudflare production build is green for %s\n' "$EXPECTED_HEAD_SHA"
+            if [ "$has_success" = "yes" ]; then
+              if [ "$RUNTIME_TARGET_MODE" = "preview" ]; then
+                if [ "$preview_url" = "none" ]; then
+                  if [ "$attempt" -eq 90 ]; then
+                    printf '::error::Exact-SHA Cloudflare success did not expose an immutable preview URL.\n' >&2
+                    exit 1
+                  fi
+                  sleep 2
+                  continue
+                fi
+                resolved="$preview_url"
+              else
+                resolved="$PROOFMODE_CANONICAL_ORIGIN"
+              fi
+              if [ "$latest_state" = "failure" ]; then
+                printf '::warning::Latest Cloudflare Git attempt (%s) failed after successful exact-SHA deployment evidence; runtime truth remains authoritative.\n' "$latest_external"
+              fi
               break
             fi
-            if [ "$state" = "failure" ]; then
-              printf 'Cloudflare production build failed for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
+
+            if [ "$latest_state" = "failure" ]; then
+              if [ "$RUNTIME_TARGET_MODE" = "preview" ]; then
+                printf '::error::Exact PR SHA has no successful Cloudflare deployment/preview evidence; latest build %s failed.\n' "$latest_external" >&2
+                exit 1
+              fi
+              printf '::warning::No successful exact-SHA Cloudflare Git build is recorded; canonical runtime will be checked independently.\n'
+              resolved="$PROOFMODE_CANONICAL_ORIGIN"
+              break
             fi
+
             if [ "$attempt" -eq 90 ]; then
-              printf 'Cloudflare production build did not complete for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
+              if [ "$RUNTIME_TARGET_MODE" = "preview" ]; then
+                printf '::error::Timed out waiting for exact-SHA Cloudflare preview evidence.\n' >&2
+                exit 1
+              fi
+              printf '::warning::Cloudflare build evidence remained inconclusive; canonical runtime will be checked independently.\n'
+              resolved="$PROOFMODE_CANONICAL_ORIGIN"
+              break
             fi
             sleep 2
           done
 
-      - name: Wait for production runtime to serve exact head
+          test -n "$resolved"
+          printf 'PROOFMODE_BASE_URL=%s\n' "$resolved" >> "$GITHUB_ENV"
+          printf 'Resolved runtime witness: %s\n' "$resolved"
+
+      - name: Wait for runtime witness to serve exact target
         shell: bash
         run: |
+          set -euo pipefail
+          last_result='{}'
           for attempt in {1..90}; do
-            body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
-            actual="$(printf '%s' "$body" | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                try {
-                  console.log(JSON.parse(raw).sha || "");
-                } catch {
-                  console.log("");
-                }
-              });
-            ')"
-            if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
-              printf 'Production runtime is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+            result="$(node --input-type=module <<'NODE'
+          const url = `${process.env.PROOFMODE_BASE_URL}/version`;
+          const expected = process.env.EXPECTED_HEAD_SHA || '';
+          try {
+            const response = await fetch(url, {
+              redirect: 'follow',
+              signal: AbortSignal.timeout(8000),
+              headers: { Accept: 'application/json' },
+            });
+            const text = await response.text();
+            const contentType = response.headers.get('content-type') || '';
+            const metadata = {
+              classification: 'runtime-unknown',
+              status: response.status,
+              ok: response.ok,
+              contentType: contentType.slice(0, 120),
+              bodyBytes: Buffer.byteLength(text),
+              sha: '',
+            };
+            if (!response.ok) {
+              metadata.classification = 'runtime-http-error';
+            } else {
+              try {
+                const payload = JSON.parse(text);
+                metadata.sha = typeof payload?.sha === 'string' ? payload.sha.trim() : '';
+                if (!metadata.sha) metadata.classification = 'runtime-json-missing-sha';
+                else if (metadata.sha === expected) metadata.classification = 'runtime-exact-sha';
+                else metadata.classification = 'runtime-sha-mismatch';
+              } catch {
+                metadata.classification = 'runtime-non-json';
+              }
+            }
+            console.log(JSON.stringify(metadata));
+          } catch (error) {
+            console.log(JSON.stringify({
+              classification: 'runtime-transport-error',
+              status: null,
+              ok: false,
+              contentType: '',
+              bodyBytes: 0,
+              sha: '',
+              errorName: error instanceof Error ? error.name : 'Error',
+            }));
+          }
+          NODE
+            )"
+            last_result="$result"
+            classification="$(printf '%s' "$result" | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(r).classification||"runtime-unknown")}catch{console.log("runtime-classifier-error")}})')"
+            actual="$(printf '%s' "$result" | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(r).sha||"")}catch{console.log("")}})')"
+            if [ "$classification" = "runtime-exact-sha" ] && [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
+              printf 'Runtime witness is serving exact target %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
+            if [ "$attempt" -eq 1 ] || [ "$attempt" -eq 90 ]; then
+              printf 'Runtime witness attempt %s: %s\n' "$attempt" "$result"
+            fi
             if [ "$attempt" -eq 90 ]; then
-              printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
+              printf '::error::Runtime did not prove expected head %s. Final witness: %s\n' "$EXPECTED_HEAD_SHA" "$last_result" >&2
               exit 1
             fi
             sleep 2
@@ -141,7 +232,24 @@ jobs:
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Run production ProofMode MCP Playwright proof
+      - name: Install Chromium for canonical browser proof
+        if: ${{ github.event_name != 'pull_request' }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify committed domain authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNTIME_TARGET_MODE" = "canonical" ]; then
+            CHIEF_PUBLIC_ORIGIN="$PROOFMODE_CANONICAL_ORIGIN" \
+            DOMAIN_EXPECTED_SHA="$EXPECTED_HEAD_SHA" \
+              npx playwright test --config=e2e/playwright.domain.config.mjs
+          else
+            DOMAIN_EXPECTED_SHA="$EXPECTED_HEAD_SHA" \
+              npx playwright test --config=e2e/playwright.domain.config.mjs
+          fi
+
+      - name: Run exact-runtime ProofMode MCP Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -165,13 +273,15 @@ jobs:
           EOF
           npx playwright test --config=playwright.proofmode-production.config.mjs
 
-      - name: Retain production Playwright report
+      - name: Retain runtime proof artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          name: proofmode-runtime-${{ env.EXPECTED_HEAD_SHA }}
           path: |
             playwright-report/proofmode-production
+            playwright-report/domain-authority
             test-results/proofmode-production
-          if-no-files-found: error
+            test-results/domain-authority
+          if-no-files-found: warn
           retention-days: 14
