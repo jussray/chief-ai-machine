@@ -14,6 +14,7 @@
     "pinThirdPartyActionsToFullCommitSha": true,
     "disablePersistedCheckoutCredentials": true,
     "cancelSupersededPullRequestRuns": true,
+    "singleFullCoverageExecutionPerWorkflow": true,
     "providerBuildSuccessIsNotRuntimeProof": true,
     "providerPreviewIsNotProductionAuthority": true,
     "uiAndRuntimeClaimsRequirePlaywright": true,
@@ -23,6 +24,13 @@
     "providerMutationRequiresExplicitFounderGate": true,
     "neverRequestSecretsInChat": true,
     "unknownOrMissingAuthorityFailsClosed": true
+  },
+  "temporalAuthority": {
+    "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
+    "futureYou": "advisory-only",
+    "historicalIntentOnConflict": "superseded-reconfirm-before-use",
+    "runtimeFacts": "provider-evidence-authoritative",
+    "executionAuthorization": "bind-to-current-intent-and-exact-proposal"
   },
   "workflowAuthorityWaivers": [
     {
