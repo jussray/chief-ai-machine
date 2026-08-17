@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-test('PromptOS filters 5K recipes and compiles a concrete repo-audit prompt', async ({ page }) => {
+test('PromptOS stays lazy, filters 5K recipes, and compiles concrete founder context', async ({ page }) => {
   await page.goto('/');
+
+  await expect(page.locator('.promptos-card')).toHaveCount(0);
+  await expect(page.locator('#promptosResultCount')).toHaveText('Catalog loads when opened');
+
   await page.locator('[data-page="promptos"]:visible').click();
 
   await expect(page.locator('#page-promptos')).toHaveClass(/on/);
