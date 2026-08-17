@@ -13,11 +13,28 @@ function getReleaseSha(env) {
   return value?.trim() || 'unknown';
 }
 
+function acceptsHtml(request) {
+  return request.headers.get('accept')?.includes('text/html') ?? false;
+}
+
+async function serveStaticOrSpa(request, env, url) {
+  const assetResponse = await env.ASSETS.fetch(request);
+  if (assetResponse.status !== 404) return assetResponse;
+
+  if (!['GET', 'HEAD'].includes(request.method) || !acceptsHtml(request)) {
+    return assetResponse;
+  }
+
+  const indexUrl = new URL('/index.html', url);
+  const indexRequest = new Request(indexUrl, request);
+  return env.ASSETS.fetch(indexRequest);
+}
+
 // Chief AI Worker entry point.
 //
-// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
-// Runtime-first routes are declared in wrangler.jsonc so they cannot silently
-// fall through to SPA assets.
+// Runtime routes always get first refusal. Static Assets serve real files only;
+// browser navigation falls back to index.html here so provider-level SPA routing
+// cannot swallow /version, /mcp, or /api/* before the Worker sees them.
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -41,6 +58,6 @@ export default {
       return new Response('Not implemented', { status: 501 });
     }
 
-    return env.ASSETS.fetch(request);
+    return serveStaticOrSpa(request, env, url);
   },
 };
