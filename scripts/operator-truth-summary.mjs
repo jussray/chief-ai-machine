@@ -121,12 +121,22 @@ export function buildOperatorTruthSummary({ ledger, runtimeWitness = null }) {
 
   const primary = failures[0] || null;
   const aggregateState = clean(ledger?.aggregate?.state) || 'unknown';
+  const repositoryChecksGreen = aggregateState === 'passed' && !primary;
   return {
     schemaVersion: 1,
     repository: clean(ledger?.repository) || null,
     commitSha: clean(ledger?.commitSha) || null,
     aggregateState,
-    mergeRecommended: aggregateState === 'passed' && !primary,
+    repositoryChecksGreen,
+    // Operator telemetry never grants merge authority. Independent review,
+    // current-base binding, and live repository/provider policy are separate
+    // authority surfaces and are intentionally not inferred from the ledger.
+    mergeRecommended: false,
+    mergeAuthority: {
+      evaluated: false,
+      state: 'not_evaluated',
+      reason: 'operator truth summarizes repository/runtime evidence only; independent review and live merge-policy authority require separate provider-backed proof',
+    },
     publicClaimAuthorized: false,
     primaryBlocker: primary
       ? {
