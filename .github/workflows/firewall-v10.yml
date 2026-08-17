@@ -23,6 +23,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Verify policy-as-code
         run: node scripts/verify-firewall-v10.mjs
