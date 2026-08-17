@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out exact requested head
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
 
@@ -49,7 +49,7 @@ jobs:
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
@@ -111,7 +111,7 @@ jobs:
         shell: bash
         run: |
           for attempt in {1..10}; do
-            body="$(curl --fail --silent --location "$PROOFMODE_BASE_URL/version" || true)"
+            body="$(curl --fail --silent "$PROOFMODE_BASE_URL/version" || true)"
             if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
               printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
@@ -119,7 +119,7 @@ jobs:
             sleep 2
           done
           printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          curl --silent --show-error --location "$PROOFMODE_BASE_URL/version" || true
+          curl --silent --show-error "$PROOFMODE_BASE_URL/version" || true
           exit 1
 
       - name: Run live ProofMode MCP Playwright proof
@@ -148,7 +148,7 @@ jobs:
 
       - name: Retain Playwright report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: proofmode-mcp-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |

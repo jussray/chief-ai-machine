@@ -28,30 +28,26 @@ permissions:
 env:
   PAIR_REF: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
 
-concurrency:
-  group: founder-chief-pair-contract-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   verify-pair-contract:
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact Chief AI source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           path: chief-ai-machine
           persist-credentials: false
 
       - name: Check out paired Founder Control Room ref
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@v4
         with:
           repository: jussray/founder-control-room
           ref: ${{ env.PAIR_REF }}
           path: founder-control-room
           persist-credentials: false
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 

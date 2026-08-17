@@ -17,16 +17,12 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: firewall-v10-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   verify-firewall-v10:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@v4
       - name: Verify policy-as-code
         run: node scripts/verify-firewall-v10.mjs
