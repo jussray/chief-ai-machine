@@ -25,6 +25,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: founder-chief-pair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   PAIR_REF: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
 
