@@ -1,15 +1,6 @@
 name: ProofMode Production Playwright
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/proofmode-production-playwright.yml"
-      - "e2e/proofmode-mcp.pw.mjs"
-      - "worker/proofmode-mcp.js"
-      - "worker/index.js"
-      - "wrangler.jsonc"
   push:
     branches:
       - main
@@ -36,19 +27,12 @@ jobs:
       - name: Check out exact workflow source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Resolve expected production head
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            expected="$PR_BASE_SHA"
-          else
-            expected="$GITHUB_SHA"
-          fi
+          expected="$GITHUB_SHA"
           test -n "$expected"
           printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
           printf 'Expected production head: %s\n' "$expected"
