@@ -32,11 +32,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_head_sha || 'fe7fd2d73f50735893dc05359613681469a997e1' }}
-      CF_BUILD_UUID: ${{ github.event_name == 'workflow_dispatch' && inputs.build_uuid || 'e86517a2-a091-4f6e-a4b1-65536a0b23de' }}
+      EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_head_sha || 'c8a92e8c34e0c5646664f3f0604e48049bf41e40' }}
+      CF_BUILD_UUID: ${{ github.event_name == 'workflow_dispatch' && inputs.build_uuid || 'ac575c4f-fd91-40f4-abbe-43c3ff47845f' }}
       CF_ACCOUNT_ID: 9b59861bd1747cf7525571b4c51d2aa0
       CF_API_TOKEN: ${{ secrets.CHIEF_CLOUDFLARE_BUILDS_USER_TOKEN }}
-      CF_PUBLIC_VERSION_URL: https://e2697d25-chief-ai.mcgill-raylene.workers.dev/version
+      CF_PUBLIC_VERSION_URL: https://c1ef58e8-chief-ai.mcgill-raylene.workers.dev/version
 
     steps:
       - name: Check out exact diagnostic head
