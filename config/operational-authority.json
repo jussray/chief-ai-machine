@@ -12,6 +12,7 @@
     "singleAuthoritativeRepairLane": true,
     "closeSupersededPullRequestsUnmerged": true,
     "pinThirdPartyActionsToFullCommitSha": true,
+    "disablePersistedCheckoutCredentials": true,
     "providerBuildSuccessIsNotRuntimeProof": true,
     "providerPreviewIsNotProductionAuthority": true,
     "uiAndRuntimeClaimsRequirePlaywright": true,
