@@ -85,9 +85,9 @@ describe('operational authority contract', () => {
     expect(findings.filter((finding) => finding.classification === 'superseded-pr-runs-not-cancelled')).toHaveLength(0);
   });
 
-  it('rejects duplicate full-suite coverage execution inside one workflow', () => {
+  it('rejects duplicate full-suite coverage execution inside one workflow, including multiline run blocks', () => {
     const duplicate = scanWorkflowBudget(
-      'jobs:\n  unit:\n    steps:\n      - run: npm test -- --coverage\n  sonar:\n    steps:\n      - run: npm test -- --coverage\n',
+      'jobs:\n  unit:\n    steps:\n      - run: npm test -- --coverage\n  sonar:\n    steps:\n      - run: |\n          npm test -- --coverage\n',
       '.github/workflows/quality.yml',
     );
     expect(duplicate.fullCoverageExecutions).toBe(2);
