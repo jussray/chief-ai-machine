@@ -157,19 +157,23 @@ jobs:
           printf 'PROOFMODE_BASE_URL=%s\n' "$resolved" >> "$GITHUB_ENV"
           printf 'Resolved runtime witness: %s\n' "$resolved"
 
-      - name: Wait for runtime witness to serve exact target
+      - name: Verify runtime witness serves exact target
         shell: bash
         run: |
           set -euo pipefail
+          deadline=$((SECONDS + 90))
+          attempt=0
           last_result='{}'
-          for attempt in {1..90}; do
+
+          while (( SECONDS < deadline )); do
+            attempt=$((attempt + 1))
             result="$(node --input-type=module <<'NODE'
           const url = `${process.env.PROOFMODE_BASE_URL}/version`;
           const expected = process.env.EXPECTED_HEAD_SHA || '';
           try {
             const response = await fetch(url, {
               redirect: 'follow',
-              signal: AbortSignal.timeout(8000),
+              signal: AbortSignal.timeout(5000),
               headers: { Accept: 'application/json' },
             });
             const text = await response.text();
@@ -212,19 +216,34 @@ jobs:
             last_result="$result"
             classification="$(printf '%s' "$result" | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(r).classification||"runtime-unknown")}catch{console.log("runtime-classifier-error")}})')"
             actual="$(printf '%s' "$result" | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(r).sha||"")}catch{console.log("")}})')"
+            status="$(printf '%s' "$result" | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>{try{const s=JSON.parse(r).status;console.log(Number.isInteger(s)?s:0)}catch{console.log(0)}})')"
+
             if [ "$classification" = "runtime-exact-sha" ] && [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
-              printf 'Runtime witness is serving exact target %s\n' "$EXPECTED_HEAD_SHA"
+              printf 'Runtime witness is serving exact target %s after %s attempt(s).\n' "$EXPECTED_HEAD_SHA" "$attempt"
               exit 0
             fi
-            if [ "$attempt" -eq 1 ] || [ "$attempt" -eq 90 ]; then
-              printf 'Runtime witness attempt %s: %s\n' "$attempt" "$result"
-            fi
-            if [ "$attempt" -eq 90 ]; then
-              printf '::error::Runtime did not prove expected head %s. Final witness: %s\n' "$EXPECTED_HEAD_SHA" "$last_result" >&2
-              exit 1
+
+            case "$classification" in
+              runtime-non-json|runtime-json-missing-sha|runtime-sha-mismatch)
+                printf '::error::Immutable runtime witness has a deterministic contract mismatch; retrying cannot change this version. Witness: %s\n' "$result" >&2
+                exit 1
+                ;;
+              runtime-http-error)
+                if [ "$status" -ge 400 ] && [ "$status" -lt 500 ]; then
+                  printf '::error::Immutable runtime witness returned non-retryable HTTP %s. Witness: %s\n' "$status" "$result" >&2
+                  exit 1
+                fi
+                ;;
+            esac
+
+            if [ "$attempt" -eq 1 ]; then
+              printf 'Transient runtime witness state: %s\n' "$result"
             fi
             sleep 2
           done
+
+          printf '::error::Runtime did not prove expected head %s within the 90-second transient-error budget. Final witness: %s\n' "$EXPECTED_HEAD_SHA" "$last_result" >&2
+          exit 1
 
       - name: Install locked application dependencies
         run: npm ci
