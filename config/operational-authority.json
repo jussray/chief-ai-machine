@@ -32,62 +32,7 @@
     "runtimeFacts": "provider-evidence-authoritative",
     "executionAuthorization": "bind-to-current-intent-and-exact-proposal"
   },
-  "workflowAuthorityWaivers": [
-    {
-      "workflow": ".github/workflows/chief-capability-plan-playwright.yml",
-      "reference": "actions/checkout@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/chief-capability-plan-playwright.yml",
-      "reference": "actions/setup-node@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/chief-capability-plan-playwright.yml",
-      "reference": "actions/upload-artifact@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-mcp-playwright.yml",
-      "reference": "actions/checkout@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-mcp-playwright.yml",
-      "reference": "actions/setup-node@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-mcp-playwright.yml",
-      "reference": "actions/upload-artifact@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/checkout@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/setup-node@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/upload-artifact@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    }
-  ],
+  "workflowAuthorityWaivers": [],
   "failureTaxonomy": [
     "startup_failure",
     "provider_build_failure",
