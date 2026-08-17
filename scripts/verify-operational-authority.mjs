@@ -10,6 +10,7 @@ const REQUIRED_RULES = [
   'singleAuthoritativeRepairLane',
   'pinThirdPartyActionsToFullCommitSha',
   'disablePersistedCheckoutCredentials',
+  'cancelSupersededPullRequestRuns',
   'providerBuildSuccessIsNotRuntimeProof',
   'providerPreviewIsNotProductionAuthority',
   'uiAndRuntimeClaimsRequirePlaywright',
@@ -45,9 +46,18 @@ function checkoutDisablesPersistedCredentials(lines, usesIndex) {
   return false;
 }
 
+function pullRequestWorkflowCancelsSupersededRuns(text) {
+  const value = String(text || '');
+  if (!/^\s*pull_request\s*:/m.test(value)) return true;
+  const hasConcurrency = /^\s*concurrency\s*:/m.test(value);
+  const cancelsInProgress = /^\s*cancel-in-progress:\s*true\s*(?:#.*)?$/mi.test(value);
+  return hasConcurrency && cancelsInProgress;
+}
+
 export function scanWorkflowText(text, workflow = 'unknown') {
+  const value = String(text || '');
   const findings = [];
-  const lines = String(text || '').split(/\r?\n/);
+  const lines = value.split(/\r?\n/);
   lines.forEach((line, index) => {
     const match = line.match(/^\s*-?\s*uses:\s*([^#]+?)(?:\s+#.*)?$/);
     if (!match) return;
@@ -67,6 +77,16 @@ export function scanWorkflowText(text, workflow = 'unknown') {
       });
     }
   });
+
+  if (!pullRequestWorkflowCancelsSupersededRuns(value)) {
+    findings.push({
+      workflow,
+      line: 1,
+      ok: false,
+      classification: 'superseded-pr-runs-not-cancelled',
+      reference: 'workflow-concurrency',
+    });
+  }
   return findings;
 }
 
@@ -202,10 +222,13 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     project: config?.project || null,
     truthSource: config?.truthSource || null,
     workflowsScanned: files.length,
-    actionReferencesScanned: rawFindings.filter((finding) => finding.classification !== 'checkout-persist-credentials-enabled').length,
+    actionReferencesScanned: rawFindings.filter((finding) => (
+      !['checkout-persist-credentials-enabled', 'superseded-pr-runs-not-cancelled'].includes(finding.classification)
+    )).length,
     immutableActionReferences: rawFindings.filter((finding) => finding.classification === 'immutable-action-sha').length,
     mutableActionReferences: rawFindings.filter((finding) => finding.classification === 'mutable-action-reference').length,
     checkoutCredentialViolations: rawFindings.filter((finding) => finding.classification === 'checkout-persist-credentials-enabled').length,
+    supersededRunCancellationViolations: rawFindings.filter((finding) => finding.classification === 'superseded-pr-runs-not-cancelled').length,
     waiversApplied: waiverResult.waiversApplied,
     invalidWaivers,
     unusedWaivers: waiverResult.unusedWaivers,
