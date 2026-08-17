@@ -66,6 +66,62 @@ const base = {
 };
 
 describe('first-party founder content brain', () => {
+  it('matches the fixed Chief v1 receipt consumed by FCR', () => {
+    const sourceSha = 'b'.repeat(40);
+    const evidenceRef = `github:chief-ai-machine@${sourceSha}#quality-gate`;
+    const proposal = buildFounderContentProposal({
+      source_repo: 'jussray/chief-ai-machine',
+      source_commit_sha: sourceSha,
+      platform: 'linkedin',
+      story_type: 'founder-progress',
+      issued_at: '2026-08-17T07:45:00.000Z',
+      expires_at: '2026-08-18T07:45:00.000Z',
+      draft_text: 'I changed how my product decides what it is allowed to say publicly.',
+      public_claims: [
+        {
+          claim_id: 'proof-bound',
+          text: 'Public progress claims are now bound to verified evidence.',
+          truth_state: 'verified',
+          public_safe: true,
+          evidence_ref: evidenceRef,
+          evidence_scope: 'founder-content-contract',
+        },
+      ],
+      internal_evidence: {
+        verified: true,
+        ref: evidenceRef,
+        kind: 'github-exact-head-contract',
+        digest: 'c'.repeat(64),
+        not_for_publication: true,
+        source_repo: 'jussray/chief-ai-machine',
+        source_commit_sha: sourceSha,
+        proves: ['founder-content-contract'],
+        does_not_prove: ['production-runtime', 'traction', 'revenue'],
+      },
+      sauce_guard: {
+        private_implementation_removed: true,
+        secret_material_removed: true,
+        raw_diff_removed: true,
+        private_metrics_removed: true,
+        unreleased_roadmap_removed: true,
+        customer_private_data_removed: true,
+        security_sensitive_details_removed: true,
+        public_claims_only: true,
+        withheld_categories: ['private-implementation', 'private-prompt'],
+      },
+      current_you: {
+        authenticated: true,
+        intent_id: 'chief-content-intent-current',
+        intent_version: 7,
+        source: 'current_authenticated_founder',
+        observed_at: '2026-08-17T07:40:00.000Z',
+      },
+      evaluated_at: '2026-08-17T07:44:00.000Z',
+    });
+
+    expect(proposal.proposal_hash).toBe('5dac904c02b00e5b5d79c11d6fd819a431df38094363b25bfcda64e52a1d66ce');
+  });
+
   it('keeps internal proof mandatory while public proof links remain editorially optional', () => {
     const proposal = buildFounderContentProposal(base);
 
@@ -110,7 +166,8 @@ describe('first-party founder content brain', () => {
   it('refuses inferred progress claims; interpretation belongs in narrative copy', () => {
     expect(() => buildFounderContentProposal({
       ...base,
-      public_claims: [{ ...base.public_claims[0], truth_state: 'inferred' }],
+      public_claims: [{ ...base.public_claims[0], truth_state: 'inferred' },
+      ],
     })).toThrow(/truth_state must be verified/);
   });
 
