@@ -13,7 +13,7 @@ export default [
       globals: {
         document: 'readonly', window: 'readonly', navigator: 'readonly', localStorage: 'readonly',
         fetch: 'readonly', console: 'readonly', URL: 'readonly', Blob: 'readonly', FileReader: 'readonly',
-        setTimeout: 'readonly', clearTimeout: 'readonly', confirm: 'readonly', location: 'readonly',
+        TextEncoder: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', confirm: 'readonly', location: 'readonly',
       },
     },
   },
