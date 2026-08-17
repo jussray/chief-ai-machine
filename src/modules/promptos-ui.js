@@ -158,149 +158,173 @@ export function mountPromptOS() {
   const main = document.querySelector('.main');
   if (!main) return;
 
-  const built = buildCatalogRecipes();
-  const recipes = built.recipes;
   const page = createPage();
   const dialog = createDialog();
   main.appendChild(page);
   document.body.appendChild(dialog);
 
-  page.querySelector('#promptosTotal').textContent = recipes.length.toLocaleString();
-  page.querySelector('#promptosCandidateTotal').textContent = built.candidateCount.toLocaleString();
+  page.querySelector('#promptosResultCount').textContent = 'Catalog loads when opened';
+  page.querySelector('#promptosShownCount').textContent = '0 shown';
+  page.querySelector('#promptosMore').hidden = true;
 
-  const search = page.querySelector('#promptosSearch');
-  const family = page.querySelector('#promptosFamily');
-  const platform = page.querySelector('#promptosPlatform');
-  const stage = page.querySelector('#promptosStage');
-  const grid = page.querySelector('#promptosGrid');
-  const resultCount = page.querySelector('#promptosResultCount');
-  const shownCount = page.querySelector('#promptosShownCount');
-  const more = page.querySelector('#promptosMore');
+  let initialized = false;
+  let recipes = [];
   let visibleCount = PAGE_SIZE;
   let currentRecipe = null;
   let currentResult = null;
 
-  for (const item of Object.values(canonicalFamilies)) option(family, item.id, item.title);
-  for (const value of [...new Set(recipes.map((recipe) => recipe.platform))].sort()) option(platform, value);
-  for (const value of [...new Set(recipes.map((recipe) => recipe.stage))].sort()) option(stage, value);
+  function initializeCatalog() {
+    if (initialized) return;
+    initialized = true;
 
-  function filtered() {
-    const query = search.value.trim().toLowerCase();
-    return recipes.filter((recipe) => {
-      if (family.value && recipe.familyId !== family.value) return false;
-      if (platform.value && recipe.platform !== platform.value) return false;
-      if (stage.value && recipe.stage !== stage.value) return false;
-      if (!query) return true;
-      return [recipe.title, recipe.description, recipe.pack, recipe.familyId, recipe.riskLens, ...recipe.modes]
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
-  }
+    const built = buildCatalogRecipes();
+    recipes = built.recipes;
 
-  function openRecipe(recipe) {
-    currentRecipe = recipe;
-    currentResult = null;
-    dialog.querySelector('#promptosDialogFamily').textContent = recipe.familyId;
-    dialog.querySelector('#promptosDialogTitle').textContent = recipe.title;
-    dialog.querySelector('#promptosDialogDescription').textContent = recipe.description;
-    const inputs = dialog.querySelector('#promptosInputs');
-    inputs.innerHTML = '';
+    page.querySelector('#promptosTotal').textContent = recipes.length.toLocaleString();
+    page.querySelector('#promptosCandidateTotal').textContent = built.candidateCount.toLocaleString();
 
-    for (const key of recipe.inputs) {
-      const wrapper = document.createElement('label');
-      wrapper.className = 'field';
-      const label = document.createElement('span');
-      label.textContent = key.replace(/([a-z])([A-Z])/g, '$1 $2');
-      const control = document.createElement(LONG_INPUTS.has(key) ? 'textarea' : 'input');
-      control.dataset.promptosInput = key;
-      control.name = key;
-      control.required = true;
-      control.autocomplete = 'off';
-      wrapper.append(label, control);
-      inputs.appendChild(wrapper);
+    const search = page.querySelector('#promptosSearch');
+    const family = page.querySelector('#promptosFamily');
+    const platform = page.querySelector('#promptosPlatform');
+    const stage = page.querySelector('#promptosStage');
+    const grid = page.querySelector('#promptosGrid');
+    const resultCount = page.querySelector('#promptosResultCount');
+    const shownCount = page.querySelector('#promptosShownCount');
+    const more = page.querySelector('#promptosMore');
+
+    for (const item of Object.values(canonicalFamilies)) option(family, item.id, item.title);
+    for (const value of [...new Set(recipes.map((recipe) => recipe.platform))].sort()) option(platform, value);
+    for (const value of [...new Set(recipes.map((recipe) => recipe.stage))].sort()) option(stage, value);
+
+    function filtered() {
+      const query = search.value.trim().toLowerCase();
+      return recipes.filter((recipe) => {
+        if (family.value && recipe.familyId !== family.value) return false;
+        if (platform.value && recipe.platform !== platform.value) return false;
+        if (stage.value && recipe.stage !== stage.value) return false;
+        if (!query) return true;
+        return [recipe.title, recipe.description, recipe.pack, recipe.familyId, recipe.riskLens, ...recipe.modes]
+          .some((value) => String(value).toLowerCase().includes(query));
+      });
     }
 
-    dialog.querySelector('#promptosOutput').textContent = 'Fill the required inputs, then compile.';
-    dialog.querySelector('#promptosReadiness').textContent = `${recipe.inputs.length} required inputs`;
-    dialog.querySelector('#promptosReadiness').removeAttribute('data-state');
-    dialog.querySelector('#promptosCopy').disabled = true;
-    dialog.querySelector('#promptosProvenance').textContent = `${recipe.platform} · ${recipe.stage} · ${recipe.modes.join(', ')} · ${recipe.riskLens}`;
-    emitAnalytics('card_opened', recipe);
-    dialog.showModal();
-    inputs.querySelector('input, textarea')?.focus();
-  }
+    function openRecipe(recipe) {
+      currentRecipe = recipe;
+      currentResult = null;
+      dialog.querySelector('#promptosDialogFamily').textContent = recipe.familyId;
+      dialog.querySelector('#promptosDialogTitle').textContent = recipe.title;
+      dialog.querySelector('#promptosDialogDescription').textContent = recipe.description;
+      const inputs = dialog.querySelector('#promptosInputs');
+      inputs.innerHTML = '';
 
-  function render() {
-    const list = filtered();
-    const visible = list.slice(0, visibleCount);
-    grid.replaceChildren(...visible.map((recipe) => cardFor(recipe, openRecipe)));
-    resultCount.textContent = `${list.length.toLocaleString()} recipe${list.length === 1 ? '' : 's'}`;
-    shownCount.textContent = `${visible.length.toLocaleString()} shown`;
-    more.hidden = visible.length >= list.length;
-  }
+      for (const key of recipe.inputs) {
+        const wrapper = document.createElement('label');
+        wrapper.className = 'field';
+        const label = document.createElement('span');
+        label.textContent = key.replace(/([a-z])([A-Z])/g, '$1 $2');
+        const control = document.createElement(LONG_INPUTS.has(key) ? 'textarea' : 'input');
+        control.dataset.promptosInput = key;
+        control.name = key;
+        control.required = true;
+        control.autocomplete = 'off';
+        wrapper.append(label, control);
+        inputs.appendChild(wrapper);
+      }
 
-  function resetAndRender() {
-    visibleCount = PAGE_SIZE;
-    render();
-    emitAnalytics('catalog_filtered', null, {
-      hasSearch: Boolean(search.value.trim()),
-      family: family.value || null,
-      platform: platform.value || null,
-      stage: stage.value || null,
-    });
-  }
-
-  for (const control of [search, family, platform, stage]) {
-    control.addEventListener(control === search ? 'input' : 'change', resetAndRender);
-  }
-
-  page.querySelector('#promptosReset').addEventListener('click', () => {
-    search.value = '';
-    family.value = '';
-    platform.value = '';
-    stage.value = '';
-    resetAndRender();
-  });
-
-  more.addEventListener('click', () => {
-    visibleCount += PAGE_SIZE;
-    render();
-  });
-
-  dialog.querySelector('#promptosClose').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) dialog.close();
-  });
-
-  dialog.querySelector('#promptosCompile').addEventListener('click', () => {
-    if (!currentRecipe) return;
-    const values = {};
-    dialog.querySelectorAll('[data-promptos-input]').forEach((control) => {
-      values[control.dataset.promptosInput] = control.value;
-    });
-    currentResult = openPromptCard(currentRecipe, values, {});
-    const output = dialog.querySelector('#promptosOutput');
-    const readiness = dialog.querySelector('#promptosReadiness');
-    const copy = dialog.querySelector('#promptosCopy');
-    output.textContent = currentResult.preview;
-    copy.disabled = !currentResult.readyToCopy;
-    if (currentResult.readyToCopy) {
-      readiness.textContent = 'Ready to copy · all required context is present.';
-      readiness.dataset.state = 'ready';
-      emitAnalytics('compile_ready', currentRecipe);
-    } else {
-      readiness.textContent = `Missing: ${currentResult.missingInputs.join(', ')}`;
-      readiness.dataset.state = 'missing';
-      emitAnalytics('compile_missing_input', currentRecipe, { missingCount: currentResult.missingInputs.length });
+      dialog.querySelector('#promptosOutput').textContent = 'Fill the required inputs, then compile.';
+      dialog.querySelector('#promptosReadiness').textContent = `${recipe.inputs.length} required inputs`;
+      dialog.querySelector('#promptosReadiness').removeAttribute('data-state');
+      dialog.querySelector('#promptosCopy').disabled = true;
+      dialog.querySelector('#promptosProvenance').textContent = `${recipe.platform} · ${recipe.stage} · ${recipe.modes.join(', ')} · ${recipe.riskLens}`;
+      emitAnalytics('card_opened', recipe);
+      dialog.showModal();
+      inputs.querySelector('input, textarea')?.focus();
     }
-  });
 
-  dialog.querySelector('#promptosCopy').addEventListener('click', async () => {
-    if (!currentRecipe || !currentResult?.readyToCopy) return;
-    await navigator.clipboard?.writeText(currentResult.preview);
-    showToast('PromptOS prompt copied.');
-    emitAnalytics('prompt_copied', currentRecipe);
-  });
+    function render() {
+      const list = filtered();
+      const visible = list.slice(0, visibleCount);
+      grid.replaceChildren(...visible.map((recipe) => cardFor(recipe, openRecipe)));
+      resultCount.textContent = `${list.length.toLocaleString()} recipe${list.length === 1 ? '' : 's'}`;
+      shownCount.textContent = `${visible.length.toLocaleString()} shown`;
+      more.hidden = visible.length >= list.length;
+    }
 
-  render();
-  emitAnalytics('catalog_mounted', null, { selectedCount: recipes.length, candidateCount: built.candidateCount });
+    function resetAndRender() {
+      visibleCount = PAGE_SIZE;
+      render();
+      emitAnalytics('catalog_filtered', null, {
+        hasSearch: Boolean(search.value.trim()),
+        family: family.value || null,
+        platform: platform.value || null,
+        stage: stage.value || null,
+      });
+    }
+
+    for (const control of [search, family, platform, stage]) {
+      control.addEventListener(control === search ? 'input' : 'change', resetAndRender);
+    }
+
+    page.querySelector('#promptosReset').addEventListener('click', () => {
+      search.value = '';
+      family.value = '';
+      platform.value = '';
+      stage.value = '';
+      resetAndRender();
+    });
+
+    more.addEventListener('click', () => {
+      visibleCount += PAGE_SIZE;
+      render();
+    });
+
+    dialog.querySelector('#promptosClose').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+
+    dialog.querySelector('#promptosCompile').addEventListener('click', () => {
+      if (!currentRecipe) return;
+      const values = {};
+      dialog.querySelectorAll('[data-promptos-input]').forEach((control) => {
+        values[control.dataset.promptosInput] = control.value;
+      });
+      currentResult = openPromptCard(currentRecipe, values, {});
+      const output = dialog.querySelector('#promptosOutput');
+      const readiness = dialog.querySelector('#promptosReadiness');
+      const copy = dialog.querySelector('#promptosCopy');
+      output.textContent = currentResult.preview;
+      copy.disabled = !currentResult.readyToCopy;
+      if (currentResult.readyToCopy) {
+        readiness.textContent = 'Ready to copy · all required context is present.';
+        readiness.dataset.state = 'ready';
+        emitAnalytics('compile_ready', currentRecipe);
+      } else {
+        readiness.textContent = `Missing: ${currentResult.missingInputs.join(', ')}`;
+        readiness.dataset.state = 'missing';
+        emitAnalytics('compile_missing_input', currentRecipe, { missingCount: currentResult.missingInputs.length });
+      }
+    });
+
+    dialog.querySelector('#promptosCopy').addEventListener('click', async () => {
+      if (!currentRecipe || !currentResult?.readyToCopy) return;
+      if (!navigator.clipboard?.writeText) {
+        showToast('Clipboard access is unavailable in this browser.');
+        return;
+      }
+      await navigator.clipboard.writeText(currentResult.preview);
+      showToast('PromptOS prompt copied.');
+      emitAnalytics('prompt_copied', currentRecipe);
+    });
+
+    render();
+    emitAnalytics('catalog_mounted', null, {
+      selectedCount: recipes.length,
+      candidateCount: built.candidateCount,
+    });
+  }
+
+  document.querySelectorAll('[data-page="promptos"]').forEach((button) => {
+    button.addEventListener('click', initializeCatalog);
+  });
 }
