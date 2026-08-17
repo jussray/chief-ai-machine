@@ -28,6 +28,10 @@ permissions:
 env:
   PAIR_REF: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
 
+concurrency:
+  group: founder-chief-pair-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify-pair-contract:
     runs-on: ubuntu-latest

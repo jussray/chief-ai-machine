@@ -41,6 +41,10 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CONTROL_ROOM_TEST_REPORT_PATH: artifacts/control-room-tests.json
 
+concurrency:
+  group: control-room-contracts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     name: Verify Chief AI control room contracts
