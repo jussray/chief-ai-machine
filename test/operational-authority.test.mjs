@@ -9,15 +9,15 @@ import {
 describe('operational authority contract', () => {
   it('accepts local actions and full-SHA third-party actions', () => {
     expect(auditActionReference('./.github/actions/local')).toMatchObject({ ok: true });
-    expect(auditActionReference('actions/checkout@11d5960a326750d5838078e36cf38b85af677262'))
+    expect(auditActionReference('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'))
       .toMatchObject({ ok: true, classification: 'immutable-action-sha' });
   });
 
   it('rejects mutable tags, branches, and short SHAs', () => {
     for (const reference of [
-      'actions/checkout@v4',
+      'actions/checkout@v7',
       'actions/setup-node@main',
-      'actions/upload-artifact@ea165f8',
+      'actions/upload-artifact@043fb46',
     ]) {
       expect(auditActionReference(reference)).toMatchObject({
         ok: false,
@@ -36,6 +36,24 @@ describe('operational authority contract', () => {
         reference: 'actions/checkout@v4',
       }),
     ]);
+  });
+
+  it('requires immutable checkout steps to opt out of persisted credentials', () => {
+    const reference = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1';
+    const unsafe = scanWorkflowText(`steps:\n  - uses: ${reference}\n`, '.github/workflows/unsafe.yml');
+    expect(unsafe).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'checkout-persist-credentials-enabled',
+        ok: false,
+        reference,
+      }),
+    ]));
+
+    const safe = scanWorkflowText(
+      `steps:\n  - uses: ${reference}\n    with:\n      persist-credentials: false\n`,
+      '.github/workflows/safe.yml',
+    );
+    expect(safe.filter((finding) => !finding.ok)).toHaveLength(0);
   });
 
   it('waives only one exact workflow/reference pair', () => {
@@ -67,7 +85,7 @@ describe('operational authority contract', () => {
       },
       {
         workflow: '.github/workflows/runtime.yml',
-        reference: 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262',
+        reference: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
         tracking: '#92',
         removalGate: 'later',
       },
@@ -83,7 +101,7 @@ describe('operational authority contract', () => {
 
   it('makes a waiver self-expire when the mutable reference disappears', () => {
     const findings = scanWorkflowText(
-      'steps:\n  - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n',
+      'steps:\n  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1\n    with:\n      persist-credentials: false\n',
       '.github/workflows/runtime.yml',
     );
     const result = applyWorkflowAuthorityWaivers(findings, [{
