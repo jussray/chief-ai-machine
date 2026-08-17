@@ -29,9 +29,6 @@ concurrency:
   group: founder-chief-pair-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  PAIR_REF: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
-
 jobs:
   verify-pair-contract:
     runs-on: ubuntu-latest
@@ -43,11 +40,42 @@ jobs:
           path: chief-ai-machine
           persist-credentials: false
 
+      - name: Resolve paired Founder Control Room authority
+        id: pair-ref
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHIEF_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          ref="main"
+          source="founder-control-room/main"
+
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$CHIEF_HEAD_REF" ]; then
+            git check-ref-format --branch "$CHIEF_HEAD_REF" >/dev/null
+            if git ls-remote --exit-code --heads \
+              https://github.com/jussray/founder-control-room.git \
+              "refs/heads/$CHIEF_HEAD_REF" >/dev/null 2>&1; then
+              ref="$CHIEF_HEAD_REF"
+              source="paired-same-name-branch"
+            fi
+          fi
+
+          printf 'ref=%s\n' "$ref" >> "$GITHUB_OUTPUT"
+          printf 'source=%s\n' "$source" >> "$GITHUB_OUTPUT"
+          {
+            echo '## Founder ↔ Chief pair authority'
+            echo
+            printf -- '- Chief exact source: `%s`\n' "$GITHUB_SHA"
+            printf -- '- FCR ref selected: `%s`\n' "$ref"
+            printf -- '- Selection mode: `%s`\n' "$source"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Check out paired Founder Control Room ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: jussray/founder-control-room
-          ref: ${{ env.PAIR_REF }}
+          ref: ${{ steps.pair-ref.outputs.ref }}
           path: founder-control-room
           persist-credentials: false
 
@@ -60,4 +88,6 @@ jobs:
         env:
           PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
           PAIR_CROSS_REPO_REQUIRED: 'true'
+          PAIR_SELECTED_REF: ${{ steps.pair-ref.outputs.ref }}
+          PAIR_SELECTION_MODE: ${{ steps.pair-ref.outputs.source }}
         run: node scripts/verify-founder-chief-pair.mjs
