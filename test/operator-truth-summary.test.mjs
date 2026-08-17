@@ -36,6 +36,7 @@ describe('operator truth summary', () => {
       owner: 'provider-authority',
     });
     expect(summary.primaryBlocker.nextAction).toContain('read-only provider observability');
+    expect(summary.repositoryChecksGreen).toBe(false);
     expect(summary.mergeRecommended).toBe(false);
   });
 
@@ -54,6 +55,7 @@ describe('operator truth summary', () => {
       owner: 'runtime-routing',
     });
     expect(summary.primaryBlocker.nextAction).toContain('/version');
+    expect(summary.repositoryChecksGreen).toBe(false);
     expect(summary.mergeRecommended).toBe(false);
   });
 
@@ -97,10 +99,11 @@ describe('operator truth summary', () => {
       expect.objectContaining({ failureClass: 'provider_build_failure', state: 'warning' }),
     ]);
     expect(summary.metrics.failureClassCounts.provider_build_failure).toBe(1);
+    expect(summary.repositoryChecksGreen).toBe(false);
     expect(summary.mergeRecommended).toBe(false);
   });
 
-  it('recommends merge only when the ledger is passed and there is no blocker', () => {
+  it('keeps merge authority fail-closed even when repository and runtime evidence are green', () => {
     const summary = buildOperatorTruthSummary({
       ledger: {
         ...baseLedger,
@@ -108,8 +111,16 @@ describe('operator truth summary', () => {
       },
       runtimeWitness: { classification: 'runtime-exact-sha' },
     });
+
     expect(summary.primaryBlocker).toBeNull();
-    expect(summary.mergeRecommended).toBe(true);
+    expect(summary.repositoryChecksGreen).toBe(true);
+    expect(summary.mergeRecommended).toBe(false);
+    expect(summary.mergeAuthority).toMatchObject({
+      evaluated: false,
+      state: 'not_evaluated',
+    });
+    expect(summary.mergeAuthority.reason).toContain('independent review');
+    expect(summary.mergeAuthority.reason).toContain('live merge-policy authority');
     expect(summary.publicClaimAuthorized).toBe(false);
   });
 });
