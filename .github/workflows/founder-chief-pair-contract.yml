@@ -48,36 +48,49 @@ jobs:
           CHIEF_HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          ref="main"
+          selected_ref="main"
           source="founder-control-room/main"
+          remote="https://github.com/jussray/founder-control-room.git"
 
           if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$CHIEF_HEAD_REF" ]; then
             git check-ref-format --branch "$CHIEF_HEAD_REF" >/dev/null
-            if git ls-remote --exit-code --heads \
-              https://github.com/jussray/founder-control-room.git \
-              "refs/heads/$CHIEF_HEAD_REF" >/dev/null 2>&1; then
-              ref="$CHIEF_HEAD_REF"
+            if git ls-remote --exit-code --heads "$remote" "refs/heads/$CHIEF_HEAD_REF" >/dev/null 2>&1; then
+              selected_ref="$CHIEF_HEAD_REF"
               source="paired-same-name-branch"
             fi
           fi
 
-          printf 'ref=%s\n' "$ref" >> "$GITHUB_OUTPUT"
+          selected_sha="$(git ls-remote --exit-code --heads "$remote" "refs/heads/$selected_ref" | awk 'NR==1 {print $1}')"
+          printf '%s' "$selected_sha" | grep -Eq '^[0-9a-f]{40}$'
+
+          printf 'ref=%s\n' "$selected_ref" >> "$GITHUB_OUTPUT"
+          printf 'sha=%s\n' "$selected_sha" >> "$GITHUB_OUTPUT"
           printf 'source=%s\n' "$source" >> "$GITHUB_OUTPUT"
           {
             echo '## Founder ↔ Chief pair authority'
             echo
             printf -- '- Chief exact source: `%s`\n' "$GITHUB_SHA"
-            printf -- '- FCR ref selected: `%s`\n' "$ref"
+            printf -- '- FCR logical ref selected: `%s`\n' "$selected_ref"
+            printf -- '- FCR exact SHA selected: `%s`\n' "$selected_sha"
             printf -- '- Selection mode: `%s`\n' "$source"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check out paired Founder Control Room ref
+      - name: Check out exact Founder Control Room authority
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: jussray/founder-control-room
-          ref: ${{ steps.pair-ref.outputs.ref }}
+          ref: ${{ steps.pair-ref.outputs.sha }}
           path: founder-control-room
           persist-credentials: false
+
+      - name: Verify exact Founder Control Room checkout
+        shell: bash
+        working-directory: founder-control-room
+        env:
+          EXPECTED_FCR_SHA: ${{ steps.pair-ref.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_FCR_SHA"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -89,5 +102,6 @@ jobs:
           PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
           PAIR_CROSS_REPO_REQUIRED: 'true'
           PAIR_SELECTED_REF: ${{ steps.pair-ref.outputs.ref }}
+          PAIR_SELECTED_SHA: ${{ steps.pair-ref.outputs.sha }}
           PAIR_SELECTION_MODE: ${{ steps.pair-ref.outputs.source }}
         run: node scripts/verify-founder-chief-pair.mjs
