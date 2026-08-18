@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /(freestyle-save|goalfix-v1)\.pw\.mjs$/,
+  testMatch: /(freestyle-save|goalfix-v1|promptos-catalog)\.pw\.mjs$/,
   fullyParallel: false,
   retries: 0,
   workers: 1,
