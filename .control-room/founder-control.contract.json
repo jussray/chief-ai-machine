@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "contract": "juss-v10/founder-control-decision@v1",
+  "status": "active",
+  "canonicalAuthority": {
+    "repository": "jussray/founder-control-room",
+    "rule": "founder-explicit-exact-proposal-only"
+  },
+  "founderSurfaces": [
+    "fcr",
+    "chatgpt",
+    "claude",
+    "perplexity"
+  ],
+  "orchestrationPlanes": [
+    "n8n",
+    "zapier"
+  ],
+  "rules": {
+    "surfaceMaySelfAuthorize": false,
+    "chiefMaySelfAuthorize": false,
+    "silenceIsApproval": false,
+    "proposalMutationInvalidatesApproval": true,
+    "executionRequiresExactProposalBinding": true,
+    "executionReceiptRequired": true,
+    "providerSuccessIsOutcomeProof": false
+  }
+}
