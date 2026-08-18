@@ -5,9 +5,6 @@
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
-  "secrets": {
-    "required": ["PROOFMODE_GITHUB_TOKEN"]
-  },
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
