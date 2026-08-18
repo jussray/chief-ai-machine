@@ -5,6 +5,7 @@ import {
 import { createCapabilityPlan } from '../src/domain/capability-plan.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
+import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
 
 const ROUTE = '/api/chief/capability-plan';
 
@@ -101,12 +102,14 @@ export async function handleChiefCapabilityPlan(request) {
     );
     const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
+    const founderControl = founderControlHandoff(capabilityPlan);
 
     return json({
       data: {
         capabilityPlan,
         handoffReceipt,
         outcomeFeedback,
+        founderControl,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
@@ -115,8 +118,9 @@ export async function handleChiefCapabilityPlan(request) {
           founderApprovalRequired: true,
           outcomeCanIncreaseAuthority: false,
           submittedOutcomeAuthenticated: false,
+          remoteFounderSurfacesMaySelfAuthorize: false,
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, and bind explicit founder approval before any execution lane may act.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, and bind an explicit founder decision relayed from FCR, ChatGPT, Claude, or Perplexity before n8n or Zapier may execute the exact approved proposal.',
         },
       },
       meta: meta(),
