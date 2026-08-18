@@ -8,13 +8,18 @@ on:
       - "control-room.manifest.json"
       - ".control-room/repository.manifest.json"
       - "scripts/verify-control-room-tests.mjs"
+      - "scripts/generateCatalog.mjs"
       - "src/main.js"
       - "src/data/goalfix-v1.js"
       - "src/modules/freestyle.js"
       - "src/modules/custom.js"
+      - "src/modules/promptos-ui.js"
       - "src/domain/evidence-first-prompt.js"
+      - "src/promptos/**"
+      - "styles/promptos.css"
       - "e2e/freestyle-save.pw.mjs"
       - "e2e/goalfix-v1.pw.mjs"
+      - "e2e/promptos-catalog.pw.mjs"
       - "e2e/playwright.freestyle.config.mjs"
       - ".github/workflows/control-room-contracts.yml"
       - ".github/workflows/freestyle-save-playwright.yml"
@@ -33,14 +38,15 @@ env:
 
 jobs:
   verify:
-    name: Verify Freestyle saved drafts in Chromium
+    name: Verify Freestyle, Goalfix, and PromptOS in Chromium
     runs-on: ubuntu-22.04
     timeout-minutes: 18
     steps:
       - name: Check out exact requested head
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
 
       - name: Record and verify exact head
         shell: bash
@@ -50,7 +56,7 @@ jobs:
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
@@ -76,7 +82,7 @@ jobs:
           cat /tmp/chief-ai-server.log
           exit 1
 
-      - name: Run rendered Freestyle and Goalfix v1 proof
+      - name: Run rendered Freestyle, Goalfix, and PromptOS proof
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
 
       - name: Stop static server
@@ -86,7 +92,7 @@ jobs:
 
       - name: Retain Playwright report and screenshots
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: freestyle-save-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |

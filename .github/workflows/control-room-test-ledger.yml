@@ -28,54 +28,80 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out exact head
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
+          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Run Control Room test-ledger contract in the repository test runner
-        run: npx vitest run test/control-room-test-ledger.test.mjs
+      - name: Run ledger and operator contracts
+        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs
 
   publish-ledger:
     name: Publish exact-head test ledger
     needs: ledger-contract
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - name: Check out exact head
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
+          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
       - name: Observe every exact-head check lane
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/control-room-test-ledger.mjs
-      - name: Upload repository-local Control Room ledger
+      - name: Build operator truth summary
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        run: |
+          if [ -f "$CONTROL_ROOM_TEST_LEDGER_PATH" ]; then
+            node scripts/operator-truth-summary.mjs
+          fi
+      - name: Publish operator summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f artifacts/operator-truth-summary.json ]; then
+            {
+              echo '## Operator Truth Summary'
+              echo
+              echo '```json'
+              cat artifacts/operator-truth-summary.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload repository-local truth receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: control-room-test-ledger-${{ env.EXPECTED_HEAD_SHA }}
-          path: artifacts/control-room-test-ledger.json
+          name: control-room-truth-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            artifacts/control-room-test-ledger.json
+            artifacts/operator-truth-summary.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
