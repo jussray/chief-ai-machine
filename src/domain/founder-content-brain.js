@@ -5,6 +5,12 @@ const HTTPS_URL = /^https:\/\//i;
 const OWNED_REPO = /^jussray\/[A-Za-z0-9._-]+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const ALLOWED_TRUTH_STATES = new Set(['verified']);
+const ALLOWED_TEMPORAL_CLASSES = new Set([
+  'historical_version',
+  'current_repo_state',
+  'current_runtime',
+  'metric',
+]);
 const ALLOWED_STORY_TYPES = new Set([
   'founder-progress',
   'product-learning',
@@ -36,6 +42,10 @@ const PRIVATE_URL = /https?:\/\/(?:localhost|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3})
 const PRIVATE_ARTIFACT = /github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/\d+(?:\/artifacts\/\d+)?/i;
 const SAUCE_DETAIL = /\b(?:system prompt|private prompt|chain[- ]of[- ]thought|routing weights?|scoring formula|secret algorithm|internal notes?|raw diff|service[_ -]?role|environment variable|provider payload|database password)\b/i;
 const HIGH_RISK_CLAIM = /\b(?:production[- ]ready|fully secure|security[- ]certified|compliance[- ]certified|certified compliant|live in production|production is live|customer traction|revenue traction)\b/i;
+const CURRENT_LANGUAGE = /\b(currently|right now|is live|are live|is green|are green|remains|still (?:is|are|has|have)|now (?:is|are|has|have))\b/i;
+const HISTORICAL_LANGUAGE = /\b(built|shipped|implemented|added|merged|completed|released|tested|verified|fixed|created|introduced|deployed|reached|grew|was|were|did)\b/i;
+const CURRENT_RUNTIME_LANGUAGE = /(?:\b(?:production|runtime|site|app|api|service|endpoint|deployment)\b.{0,80}\b(?:live|healthy|up|reachable|serving|available)\b)|(?:\b(?:live|healthy|up|reachable|serving|available)\b.{0,80}\b(?:production|runtime|site|app|api|service|endpoint|deployment)\b)/i;
+const METRIC_LANGUAGE = /(?:\b(?:have|has|currently|now)\b.{0,40}\b\d[\d,.]*\s*(?:followers?|impressions?|users?|downloads?|signups?|customers?|sales)\b)|(?:\b(?:revenue|mrr|arr|gmv|conversion|engagement rate)\b.{0,30}(?:\$\s?\d|\d[\d,.]*|\d+(?:\.\d+)?%))|(?:\d+(?:\.\d+)?%)/i;
 const MAX_INTENT_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_CONTENT_TTL_MS = 72 * 60 * 60 * 1000;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
@@ -257,7 +267,7 @@ function validateInternalEvidence(input = {}, sourceRepo, sourceCommitSha) {
   };
 }
 
-function normalizeClaims(claims, internalEvidence) {
+function normalizeClaims(claims, internalEvidence, sourceCommitSha) {
   if (!Array.isArray(claims) || claims.length === 0) {
     reject(['public_claims must contain at least one claim']);
   }
@@ -269,6 +279,10 @@ function normalizeClaims(claims, internalEvidence) {
     const truthState = asTrimmedString(claim?.truth_state).toLowerCase();
     const evidenceRef = asTrimmedString(claim?.evidence_ref);
     const evidenceScope = asTrimmedString(claim?.evidence_scope);
+    const temporalClass = asTrimmedString(claim?.temporal_class).toLowerCase();
+    const temporalVersionRaw = asTrimmedString(claim?.temporal_version).toLowerCase();
+    const temporalVersion = temporalVersionRaw || null;
+    const historical = HISTORICAL_LANGUAGE.test(text) && !CURRENT_LANGUAGE.test(text);
     const errors = [];
 
     if (!IDENTIFIER.test(claimId)) errors.push(`public_claims[${index}].claim_id is invalid`);
@@ -282,6 +296,25 @@ function normalizeClaims(claims, internalEvidence) {
     if (!evidenceScope || !internalEvidence.proves.includes(evidenceScope)) {
       errors.push(`public_claims[${index}].evidence_scope must be explicitly covered by internal evidence`);
     }
+    if (!ALLOWED_TEMPORAL_CLASSES.has(temporalClass)) {
+      errors.push(`public_claims[${index}].temporal_class must be historical_version, current_repo_state, current_runtime, or metric`);
+    }
+    if ((temporalClass === 'historical_version' || temporalClass === 'current_repo_state') && temporalVersion !== sourceCommitSha.toLowerCase()) {
+      errors.push(`public_claims[${index}].temporal_version must match the exact source_commit_sha for ${temporalClass}`);
+    }
+    if ((temporalClass === 'current_runtime' || temporalClass === 'metric') && temporalVersion !== null) {
+      errors.push(`public_claims[${index}].temporal_version must be empty for ${temporalClass}`);
+    }
+    if (temporalClass === 'historical_version') {
+      if (CURRENT_LANGUAGE.test(text)) errors.push(`public_claims[${index}] historical_version uses current-state language`);
+      if (!HISTORICAL_LANGUAGE.test(text)) errors.push(`public_claims[${index}] historical_version requires explicit historical framing`);
+    }
+    if (temporalClass === 'current_repo_state' && CURRENT_RUNTIME_LANGUAGE.test(text)) {
+      errors.push(`public_claims[${index}] current_repo_state uses runtime-state language and requires current_runtime evidence`);
+    }
+    if (temporalClass !== 'metric' && METRIC_LANGUAGE.test(text) && !historical) {
+      errors.push(`public_claims[${index}] current metric language requires metric evidence`);
+    }
     errors.push(...scanPublicText(text, `public_claims[${index}]`));
 
     if (errors.length > 0) reject(errors);
@@ -292,6 +325,8 @@ function normalizeClaims(claims, internalEvidence) {
       public_safe: true,
       evidence_ref: evidenceRef,
       evidence_scope: evidenceScope,
+      temporal_class: temporalClass,
+      temporal_version: temporalVersion,
     });
   });
 }
@@ -396,7 +431,7 @@ export function buildFounderContentProposal(input = {}) {
   const currentYou = validateCurrentYou(input.current_you, evaluatedAt);
   const freshness = validateFreshness(input, evaluatedAt);
   const internalEvidence = validateInternalEvidence(input, sourceRepo, sourceCommitSha);
-  const publicClaims = normalizeClaims(input.public_claims, internalEvidence);
+  const publicClaims = normalizeClaims(input.public_claims, internalEvidence, sourceCommitSha);
   const sauceGuard = validateSauceGuard(input, draftText);
 
   const publicPayload = {
