@@ -1,0 +1,54 @@
+{
+  "contract": "juss-v10/decision-cycle@v1",
+  "goal": "Prove one portable V10 decision identity across Chief AI, PromptOS, and FCR.",
+  "workspaceId": "juss-portfolio",
+  "projectSlug": "v10-conformance",
+  "expectedHeadSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "customerOutcome": "One decision can cross three peer repositories without semantic or authority drift.",
+  "desiredState": "Chief creates one deterministic identity, PromptOS preserves it, and FCR independently verifies it.",
+  "currentState": "Each repository implements its side of the V10 boundary but needs one shared conformance artifact.",
+  "bottleneck": "Cross-repo compatibility is inferred until all three repositories agree on the same receipt identity.",
+  "decisionClass": "reversible",
+  "reality": {
+    "verified": [
+      "Chief creates the decision identity.",
+      "FCR independently recomputes decision identity.",
+      "PromptOS preserves the submitted decision identity."
+    ],
+    "inferred": [
+      "A shared fixture should detect future contract drift."
+    ],
+    "unknown": [
+      "Long-run cross-repo drift rate is not measured yet."
+    ],
+    "blocked": []
+  },
+  "lensReports": [
+    {"lens":"billgates","finding":"billgates verifies the bounded V10 cross-repo conformance contract.","recommendation":"billgates preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:billgates"],"assumptions":["assumption:billgates"],"risks":["risk:billgates"],"blockers":[],"requestedEvidence":["proof:billgates"],"metrics":[]},
+    {"lens":"confess","finding":"confess verifies the bounded V10 cross-repo conformance contract.","recommendation":"confess preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:confess"],"assumptions":["assumption:confess"],"risks":["risk:confess"],"blockers":[],"requestedEvidence":["proof:confess"],"metrics":[]},
+    {"lens":"data-analytics","finding":"data-analytics verifies the bounded V10 cross-repo conformance contract.","recommendation":"data-analytics preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:data-analytics"],"assumptions":["assumption:data-analytics"],"risks":["risk:data-analytics"],"blockers":[],"requestedEvidence":["proof:data-analytics"],"metrics":[{"name":"cross-repo-hash-match","baseline":"unproven","target":"identical","source":"exact-head CI"}]},
+    {"lens":"deep-research","finding":"deep-research verifies the bounded V10 cross-repo conformance contract.","recommendation":"deep-research preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:deep-research"],"assumptions":["assumption:deep-research"],"risks":["risk:deep-research"],"blockers":[],"requestedEvidence":["proof:deep-research"],"metrics":[]},
+    {"lens":"elonmusk","finding":"elonmusk verifies the bounded V10 cross-repo conformance contract.","recommendation":"elonmusk preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:elonmusk"],"assumptions":["assumption:elonmusk"],"risks":["risk:elonmusk"],"blockers":[],"requestedEvidence":["proof:elonmusk"],"metrics":[]},
+    {"lens":"futureyou","finding":"futureyou verifies the bounded V10 cross-repo conformance contract.","recommendation":"futureyou preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:futureyou"],"assumptions":["assumption:futureyou"],"risks":["risk:futureyou"],"blockers":[],"requestedEvidence":["proof:futureyou"],"metrics":[]},
+    {"lens":"human","finding":"human verifies the bounded V10 cross-repo conformance contract.","recommendation":"human preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:human"],"assumptions":["assumption:human"],"risks":["risk:human"],"blockers":[],"requestedEvidence":["proof:human"],"metrics":[]},
+    {"lens":"lindymode","finding":"lindymode verifies the bounded V10 cross-repo conformance contract.","recommendation":"lindymode preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:lindymode"],"assumptions":["assumption:lindymode"],"risks":["risk:lindymode"],"blockers":[],"requestedEvidence":["proof:lindymode"],"metrics":[]},
+    {"lens":"me","finding":"me verifies the bounded V10 cross-repo conformance contract.","recommendation":"me preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:me"],"assumptions":["assumption:me"],"risks":["risk:me"],"blockers":[],"requestedEvidence":["proof:me"],"metrics":[]},
+    {"lens":"ooda","finding":"ooda verifies the bounded V10 cross-repo conformance contract.","recommendation":"ooda preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:ooda"],"assumptions":["assumption:ooda"],"risks":["risk:ooda"],"blockers":[],"requestedEvidence":["proof:ooda"],"metrics":[]},
+    {"lens":"product-design","finding":"product-design verifies the bounded V10 cross-repo conformance contract.","recommendation":"product-design preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:product-design"],"assumptions":["assumption:product-design"],"risks":["risk:product-design"],"blockers":[],"requestedEvidence":["proof:product-design"],"metrics":[]},
+    {"lens":"redteam","finding":"redteam verifies the bounded V10 cross-repo conformance contract.","recommendation":"redteam preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:redteam"],"assumptions":["assumption:redteam"],"risks":["risk:redteam"],"blockers":[],"requestedEvidence":["proof:redteam"],"metrics":[]},
+    {"lens":"steal","finding":"steal verifies the bounded V10 cross-repo conformance contract.","recommendation":"steal preserves the same decision identity without expanding authority.","confidence":0.7,"evidenceRefs":["conformance:steal"],"assumptions":["assumption:steal"],"risks":["risk:steal"],"blockers":[],"requestedEvidence":["proof:steal"],"metrics":[]},
+    {"lens":"truthmode","finding":"truthmode verifies the bounded V10 cross-repo conformance contract.","recommendation":"truthmode preserves the same decision identity without expanding authority.","confidence":0.8,"evidenceRefs":["conformance:truthmode"],"assumptions":["assumption:truthmode"],"risks":["risk:truthmode"],"blockers":[],"requestedEvidence":["proof:truthmode"],"metrics":[]}
+  ],
+  "dissent": ["Redteam requires independent recomputation before authority resolution."],
+  "candidateOptions": ["Keep repo-local fixtures only.","Use one identical cross-repo conformance fixture."],
+  "recommendation": "Use one identical decision receipt fixture across the three peer repositories.",
+  "authorityCeiling": "reason",
+  "proofRequirements": ["PromptOS hash preservation","exact-head CI","independent FCR hash recomputation"],
+  "outcomeSignals": ["cross-repo-hash-match","decision-contract-drift-rate","time-to-proof"],
+  "rollback": "Remove the conformance fixture and tests; no provider or production state changes.",
+  "stopConditions": ["authority expansion","decision hash mismatch","missing required lens"],
+  "nextGate": "All three peer repositories must prove the same decision identity before merge.",
+  "requiresFounderApproval": true,
+  "executionAuthorized": false,
+  "decisionHash": "44912cf24230209d5f8f64cab39cfb424ea2178091d3b3c7462abd607d65c7a2"
+}
