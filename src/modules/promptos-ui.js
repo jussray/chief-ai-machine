@@ -1,5 +1,4 @@
 import { buildCatalogRecipes, canonicalFamilies, openPromptCard } from '../promptos/index.js';
-import { PROMPTOS_PRODUCT } from '../domain/promptos-peer.js';
 import { showToast } from './ui.js';
 
 const PAGE_SIZE = 24;
@@ -13,10 +12,6 @@ function emitAnalytics(event, recipe = null, extra = {}) {
     detail: {
       event,
       catalogVersion: 'catalog-v1',
-      product: PROMPTOS_PRODUCT.product,
-      canonicalRepository: PROMPTOS_PRODUCT.repository,
-      relationship: 'peer-integration',
-      consumer: 'chief-ai-machine',
       ...(recipe ? {
         familyId: recipe.familyId,
         platform: recipe.platform,
@@ -41,7 +36,7 @@ function navButton({ mobile = false } = {}) {
   const button = document.createElement('button');
   button.className = 'nav-item';
   button.dataset.page = 'promptos';
-  button.setAttribute('aria-label', 'PromptOS peer integration');
+  button.setAttribute('aria-label', 'PromptOS catalog');
   if (mobile) {
     button.textContent = '⚙️';
   } else {
@@ -68,14 +63,14 @@ function createPage() {
   section.id = 'page-promptos';
   section.innerHTML = `
     <div class="page-head">
-      <div class="crumb"><b>PromptOS</b> <span>via</span> chief-ai</div>
+      <div class="crumb">chief-ai <span>/</span> <b>promptos</b></div>
       <h2>5,000 bounded prompt recipes. Compile only what you need.</h2>
-      <p>PromptOS is the host-neutral operating layer from <code>${PROMPTOS_PRODUCT.repository}</code>. This screen is Chief AI's peer integration, not product ownership. Filter the recipe index, add concrete task context, and compile a provider-ready prompt with provenance and proof guardrails.</p>
+      <p>Filter the recipe index, open one recipe, add the concrete task context, and compile a provider-ready prompt with provenance and proof guardrails.</p>
     </div>
     <div class="promptos-stats" aria-label="PromptOS catalog summary">
       <div class="stat"><div class="n" id="promptosTotal">5,000</div><div class="l">Selected recipes</div></div>
-      <div class="stat"><div class="n" id="promptosCandidateTotal">5,940</div><div class="l">Valid candidates</div></div>
-      <div class="stat"><div class="n">9</div><div class="l">Canonical families</div></div>
+      <div class="stat"><div class="n" id="promptosCandidateTotal">5,400</div><div class="l">Valid candidates</div></div>
+      <div class="stat"><div class="n">8</div><div class="l">Canonical families</div></div>
       <div class="stat"><div class="n">On demand</div><div class="l">Prompt compilation</div></div>
     </div>
     <div class="promptos-toolbar" aria-label="PromptOS filters">
