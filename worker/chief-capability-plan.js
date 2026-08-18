@@ -4,6 +4,7 @@ import {
 } from '../src/domain/capability-registry.js';
 import { createCapabilityPlan } from '../src/domain/capability-plan.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
+import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
 
 const ROUTE = '/api/chief/capability-plan';
 
@@ -34,7 +35,7 @@ function errorResponse(code, message, status = 400) {
   }, status);
 }
 
-function createSubmittedRegistryProposal(input) {
+function createSubmittedRegistryProposal(input, outcomeFeedback) {
   const goalPlan = input.goalPlan;
   const registrySnapshot = input.registrySnapshot;
   const goalValidation = validateGoalPlan(goalPlan);
@@ -43,8 +44,12 @@ function createSubmittedRegistryProposal(input) {
   }
 
   const capabilities = resolveCapabilities(registrySnapshot, goalPlan.capabilities);
+  const feedbackReason = outcomeFeedback.observed
+    ? `Submitted prior outcome recommends ${outcomeFeedback.recommendation}; next-plan authority is ${outcomeFeedback.effectiveAuthority}. Source trust remains ${outcomeFeedback.sourceTrust}.`
+    : 'No prior outcome observation was supplied; existing proposal authority rules apply.';
   const routingReason = [
     `Founder goal composed against submitted registry snapshot ${registrySnapshot.registryId}@${registrySnapshot.version}.`,
+    feedbackReason,
     'Founder Control Room trust resolution is still required.',
     `Next gate: ${goalPlan.nextGate}`,
   ].join(' ');
@@ -54,7 +59,7 @@ function createSubmittedRegistryProposal(input) {
     projectSlug: goalPlan.project,
     expectedHeadSha: input.expectedHeadSha,
     registryHash: registrySnapshot.registryHash,
-    requestedAuthority: input.requestedAuthority || 'reason',
+    requestedAuthority: outcomeFeedback.effectiveAuthority,
     strategicLenses: goalPlan.strategicLenses,
     routingReason,
     capabilities,
@@ -90,21 +95,28 @@ export async function handleChiefCapabilityPlan(request) {
   }
 
   try {
-    const capabilityPlan = createSubmittedRegistryProposal(input);
+    const outcomeFeedback = applyCapabilityOutcomeFeedback(
+      input.requestedAuthority || 'reason',
+      input.latestOutcomeObservation,
+    );
+    const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
 
     return json({
       data: {
         capabilityPlan,
         handoffReceipt,
+        outcomeFeedback,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
           registrySnapshotResolvedByFcr: false,
           exactHeadVerifiedByFcr: false,
           founderApprovalRequired: true,
+          outcomeCanIncreaseAuthority: false,
+          submittedOutcomeAuthenticated: false,
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, and bind explicit founder approval before any execution lane may act.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, and bind explicit founder approval before any execution lane may act.',
         },
       },
       meta: meta(),

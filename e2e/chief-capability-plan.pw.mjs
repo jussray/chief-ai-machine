@@ -41,6 +41,22 @@ function proposalInput() {
   };
 }
 
+function priorOutcome(overrides = {}) {
+  return {
+    contract: 'juss-v10/outcome-observation@v1',
+    capabilityPlanHash: 'a'.repeat(64),
+    executionReceiptId: `fcr-conveyor-receipt-v3:${'b'.repeat(64)}`,
+    verified: true,
+    goalSucceeded: true,
+    founderOverride: false,
+    rollbackUsed: false,
+    evidenceCompleteness: 100,
+    outcomeSignals: ['verification-pass'],
+    evidenceUrls: ['https://github.com/jussray/founder-control-room/actions/runs/1'],
+    ...overrides,
+  };
+}
+
 test.describe('Chief capability-plan live runtime', () => {
   test('serves the exact candidate head from /version', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
@@ -68,13 +84,41 @@ test.describe('Chief capability-plan live runtime', () => {
     expect(body.data.handoffReceipt.status).toBe('proposed');
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
     expect(body.data.handoffReceipt.requiresFounderApproval).toBe(true);
+    expect(body.data.outcomeFeedback).toMatchObject({ observed: false, sourceTrust: 'none' });
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,
       registrySnapshotResolvedByFcr: false,
       exactHeadVerifiedByFcr: false,
       founderApprovalRequired: true,
+      outcomeCanIncreaseAuthority: false,
+      submittedOutcomeAuthenticated: false,
     });
+  });
+
+  test('reduces the live next-plan authority after submitted goal failure feedback', async ({ request }) => {
+    const input = proposalInput();
+    input.latestOutcomeObservation = priorOutcome({ goalSucceeded: false });
+    const response = await request.post(`${baseURL}/api/chief/capability-plan`, {
+      headers: { 'Content-Type': 'application/json' },
+      data: input,
+    });
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.error).toBeNull();
+    expect(body.data.outcomeFeedback).toMatchObject({
+      observed: true,
+      sourceTrust: 'submitted-unverified',
+      recommendation: 'review',
+      requestedAuthority: 'reversible',
+      effectiveAuthority: 'reason',
+      promotionAllowed: false,
+      founderReviewRequired: true,
+    });
+    expect(body.data.capabilityPlan.requestedAuthority).toBe('reason');
+    expect(body.data.capabilityPlan.routingReason).toContain('Submitted prior outcome recommends review');
+    expect(body.data.capabilityPlan.routingReason).toContain('Source trust remains submitted-unverified');
   });
 
   test('fails closed for a capability absent from the submitted snapshot', async ({ request }) => {
