@@ -102,6 +102,7 @@ export async function handleChiefCapabilityPlan(request) {
     );
     const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
+    // Chief describes the remote founder-control handoff; it never resolves approval itself.
     const founderControl = founderControlHandoff(capabilityPlan);
 
     return json({
