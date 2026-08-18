@@ -180,7 +180,9 @@ describe('first-party founder content brain', () => {
   });
 
   it('requires every public claim to carry canonical temporal semantics', () => {
-    const { temporal_class: _temporalClass, temporal_version: _temporalVersion, ...claimWithoutTime } = base.public_claims[0];
+    const claimWithoutTime = { ...base.public_claims[0] };
+    delete claimWithoutTime.temporal_class;
+    delete claimWithoutTime.temporal_version;
     expect(() => buildFounderContentProposal({
       ...base,
       public_claims: [claimWithoutTime],
