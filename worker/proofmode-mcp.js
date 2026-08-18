@@ -4,6 +4,7 @@ import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.j
 
 const PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
+const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 
 const TOOL = {
   name: 'audit_repository',
@@ -81,13 +82,27 @@ function toolResult(report, proofReceipt) {
 
 function toolError(error) {
   const message = error instanceof Error ? error.message : 'ProofMode audit failed.';
+  const errorCode = typeof error?.code === 'string' && error.code
+    ? error.code
+    : 'audit_failed';
   return {
     content: [{ type: 'text', text: message }],
+    structuredContent: { errorCode, message },
     isError: true,
   };
 }
 
-async function dispatch(message, deps) {
+function resolveContext(envOrDeps, maybeDeps) {
+  const looksLikeDeps =
+    envOrDeps
+    && typeof envOrDeps.loadPublicRepositoryEvidence === 'function'
+    && typeof envOrDeps.classifyRepositoryEvidence === 'function';
+
+  if (looksLikeDeps) return { env: {}, deps: envOrDeps };
+  return { env: envOrDeps || {}, deps: maybeDeps || DEFAULT_DEPS };
+}
+
+async function dispatch(message, deps, env) {
   const { id, method, params } = message;
 
   if (method === 'initialize') {
@@ -126,6 +141,9 @@ async function dispatch(message, deps) {
         owner: args.owner.trim(),
         repo: args.repo.trim(),
         ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
+        token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
+          ? env.PROOFMODE_GITHUB_TOKEN
+          : undefined,
       });
       const report = deps.classifyRepositoryEvidence(evidence);
       const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
@@ -138,10 +156,9 @@ async function dispatch(message, deps) {
   return jsonRpcError(id, -32601, `Method not found: ${method || 'missing'}`);
 }
 
-export async function handleProofModeMcp(
-  request,
-  deps = { loadPublicRepositoryEvidence, classifyRepositoryEvidence },
-) {
+export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
+  const { env, deps } = resolveContext(envOrDeps, maybeDeps);
+
   if (!validateOrigin(request)) {
     return jsonResponse(jsonRpcError(null, -32000, 'Origin not allowed.'), 403);
   }
@@ -176,5 +193,5 @@ export async function handleProofModeMcp(
     return new Response(null, { status: 202 });
   }
 
-  return jsonResponse(await dispatch(message, deps));
+  return jsonResponse(await dispatch(message, deps, env));
 }

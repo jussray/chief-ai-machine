@@ -26,16 +26,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact head
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
           cache: 'npm'
@@ -47,16 +48,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact head
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
           cache: 'npm'
@@ -66,7 +68,7 @@ jobs:
       - run: npm run verify:gmail-resolve-skill
       - run: npm run verify:goalfix-skill
       - run: npm run eval:gmail-resolve -- --output gmail-resolve-eval-scorecard.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: gmail-resolve-eval-scorecard
@@ -77,54 +79,71 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact head
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Generate PromptOS quality artifact
+        run: npm run generate:promptos
       - run: npm test -- --coverage --reporter=json --outputFile=test-results.json
-      - uses: actions/upload-artifact@v4
+      - name: Upload PromptOS catalog quality receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: promptos-catalog-quality
+          path: artifacts/promptos/catalog-quality-report.json
+          if-no-files-found: error
+      - name: Upload unit-test and coverage receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: test-results
-          path: test-results.json
+          path: |
+            test-results.json
+            coverage/lcov.info
 
   sonarqube:
     name: "SonarQube – Founder Intelligence"
+    needs: unit-tests
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:
       - name: Check out exact head
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Record and verify exact head
         shell: bash
         run: |
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-      - uses: actions/setup-node@v4
+      - name: Download exact unit-test coverage receipt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm test -- --coverage
+          name: test-results
+          path: .
+      - name: Verify coverage receipt
+        shell: bash
+        run: test -s coverage/lcov.info
       - name: SonarQube Scan
         if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        uses: SonarSource/sonarqube-scan-action@master
+        uses: SonarSource/sonarqube-scan-action@ad8210318ac8bb816e41990d5af2b304f7a6c213
         with:
           args: >
             -Dsonar.projectKey=chief-ai-machine
