@@ -195,5 +195,5 @@ jobs:
           path: |
             playwright-report/proofmode-mcp
             test-results/proofmode-mcp
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
