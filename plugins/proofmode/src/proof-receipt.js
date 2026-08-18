@@ -66,7 +66,7 @@ export function createProofModeReceipt(report, options = {}) {
     throw new Error('invalid_head_sha');
   }
 
-  const receiptId = normalizeReceiptId(options.receiptId ?? crypto.randomUUID());
+  const receiptId = normalizeReceiptId(options.receiptId ?? globalThis.crypto.randomUUID());
   const acknowledges = normalizeAcknowledgements(options.acknowledges);
   const issuedAt = canonicalTimestamp(options.issuedAt ?? new Date().toISOString());
   const runtimeStillUnverified =
