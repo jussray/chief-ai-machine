@@ -70,6 +70,21 @@
         {"id": "ledger-policy-fails-closed", "path": "scripts/control-room-test-ledger.mjs", "marker": "enforceTestLedgerPolicy", "description": "Failed, pending, unknown, unstable, or absent evidence blocks the ledger lane."},
         {"id": "ledger-workflow-retains-sanitized-artifact", "path": ".github/workflows/control-room-test-ledger.yml", "marker": "artifacts/control-room-test-ledger.json", "description": "The ledger workflow retains the sanitized exact-head evidence artifact."}
       ]
+    },
+    {
+      "id": "founder-os-intent-envelope",
+      "description": "Turns a ready founder goal plan into a cognition-only Founder OS handoff that delegates protocol compilation to PromptOS and leaves live execution authority to Founder Control Room.",
+      "status": "active",
+      "evidencePaths": [
+        "src/domain/founder-intent-envelope.js",
+        "src/domain/founder-intent-envelope.test.js"
+      ],
+      "requiredSignals": ["unit-tests"],
+      "usageAssertions": [
+        {"id": "chief-delegates-prompt-compilation", "path": "src/domain/founder-intent-envelope.js", "marker": "PROMPTOS_MISSION_CONTRACT", "description": "Chief AI names the PromptOS mission contract instead of compiling PromptOS instructions itself."},
+        {"id": "chief-does-not-own-execution-authority", "path": "src/domain/founder-intent-envelope.js", "marker": "unresolved-by-chief-ai", "description": "Provider credentials and execution authority remain unresolved until FCR handles the mission."},
+        {"id": "chief-evaluates-goal-state", "path": "src/domain/founder-intent-envelope.js", "marker": "verified goal-state movement, not task-count completed", "description": "Chief AI evaluates outcomes instead of counting actions as success."}
+      ]
     }
   ],
   "buildAssist": {"enabled": true, "preferredBuilder": "codex", "riskLevel": "medium"},
