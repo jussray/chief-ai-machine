@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "CHATGPT.md"
       - "control-room.manifest.json"
       - ".control-room/repository.manifest.json"
       - "scripts/verify-control-room-tests.mjs"
@@ -19,6 +20,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "CHATGPT.md"
       - "control-room.manifest.json"
       - ".control-room/repository.manifest.json"
       - "scripts/verify-control-room-tests.mjs"
