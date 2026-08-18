@@ -111,16 +111,29 @@ jobs:
       - name: Verify immutable preview serves exact head
         shell: bash
         run: |
+          headers="$RUNNER_TEMP/proofmode-version.headers"
+          body_file="$RUNNER_TEMP/proofmode-version.body"
+          status="000"
+
           for attempt in {1..10}; do
-            body="$(curl --fail --silent "$PROOFMODE_BASE_URL/version" || true)"
-            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
+            status="$(curl --silent --show-error \
+              --dump-header "$headers" \
+              --output "$body_file" \
+              --write-out '%{http_code}' \
+              "$PROOFMODE_BASE_URL/version" || true)"
+            if grep -Fq "$EXPECTED_HEAD_SHA" "$body_file" 2>/dev/null; then
               printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
             sleep 2
           done
+
           printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          curl --silent --show-error "$PROOFMODE_BASE_URL/version" || true
+          printf 'Observed HTTP status: %s\n' "$status" >&2
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
+          if [ -n "$location" ]; then
+            printf 'Observed redirect location: %s\n' "$location" >&2
+          fi
           exit 1
 
       - name: Run live ProofMode MCP Playwright proof
