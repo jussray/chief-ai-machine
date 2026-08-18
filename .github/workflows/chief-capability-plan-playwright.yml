@@ -58,6 +58,7 @@ jobs:
           cache: npm
 
       - name: Resolve exact Cloudflare commit preview
+        id: resolve-preview
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -103,6 +104,34 @@ jobs:
 
           printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
           exit 1
+
+      - name: Report sanitized Cloudflare check state
+        if: failure() && steps.resolve-preview.outcome == 'failure'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api" > /tmp/checks.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/checks.json', 'utf8'));
+          const checks = (data.check_runs || [])
+            .filter((item) => item.name === 'Workers Builds: chief-ai')
+            .map((item) => ({
+              name: item.name,
+              status: item.status,
+              conclusion: item.conclusion,
+              outputTitle: item.output?.title || null,
+              summary: String(item.output?.summary || '').slice(0, 500),
+            }));
+          console.log(JSON.stringify({ expectedHeadSha: process.env.EXPECTED_HEAD_SHA, cloudflareChecks: checks }, null, 2));
+          NODE
 
       - name: Install locked application dependencies
         run: npm ci
@@ -157,5 +186,5 @@ jobs:
           path: |
             playwright-report/chief-capability-plan
             test-results/chief-capability-plan
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
