@@ -4,12 +4,13 @@ import { resolve } from 'node:path';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-const [contractText, constitution, communication, pkgText, chiefSkill] = await Promise.all([
+const [contractText, constitution, communication, pkgText, chiefSkill, chatgptContract] = await Promise.all([
   read('config/founder-chief-pair.contract.json'),
   read('docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'),
   read('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md'),
   read('package.json'),
   read('.claude/skills/juss-chief-ai/SKILL.md'),
+  read('CHATGPT.md'),
 ]);
 
 const contract = JSON.parse(contractText);
@@ -111,6 +112,49 @@ for (const marker of [
   requireValue(chiefSkill.includes(marker), `juss-chief-ai skill missing ${JSON.stringify(marker)}`);
 }
 
+for (const marker of [
+  'Repository/provider/runtime evidence inspected now outranks stale prose',
+  'Founder Control Room remains the governance/execution authority',
+  'Product Design + Data Analytics',
+  'Redteam I',
+  'Redteam II',
+  'Lindy',
+  'L99',
+  'OODA',
+  'Hormozi',
+  'Bill Gates',
+  'Elon Musk',
+  'Truth Decay / Truth Lease / FutureYou safety',
+  '`CURRENT`',
+  '`HISTORICAL`',
+  '`STALE`',
+  '`SUPERSEDED`',
+  '`UNKNOWN`',
+  'Founder-owned product progress publishing / Sauce Guard',
+  'historical_version',
+  'current_repo_state',
+  'current_runtime',
+  'metric',
+  'FCR revalidates truth at execution time',
+  'provider readback proves external outcome',
+  'observation-only analytics inform the next proposal',
+  'Product Design gate',
+  'Data Analytics gate',
+  'Multiple agents interpreting the same underlying evidence are correlated interpretation, not independent proof.',
+  'After merge, resolve the resulting exact `main`',
+]) {
+  requireValue(chatgptContract.includes(marker), `ChatGPT operating contract missing ${JSON.stringify(marker)}`);
+}
+
+requireValue(
+  !chatgptContract.includes('**Runtime:** Vanilla JavaScript SPA at time of last review.'),
+  'ChatGPT operating contract must not freeze an old SPA snapshot as current runtime authority',
+);
+requireValue(
+  chatgptContract.includes('Resolve current runtime, deployment, provider, storage, and security state at use time.'),
+  'ChatGPT operating contract must resolve mutable runtime/provider state at use time',
+);
+
 for (const field of contract.requiredExecutiveFields ?? []) {
   requireValue(constitution.includes(field), `Chief AI constitution missing executive field ${field}`);
 }
@@ -145,8 +189,8 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
-console.log('V10 Twin Core roles, capability selection, authority, outcomes, and public communication controls verified.');
+console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, and Sauce Guard controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
-console.log('Runtime behavior remains unverified.');
+console.log('Runtime behavior remains unverified and must be resolved at use time.');
