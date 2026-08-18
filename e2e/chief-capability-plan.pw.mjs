@@ -85,6 +85,19 @@ test.describe('Chief capability-plan live runtime', () => {
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
     expect(body.data.handoffReceipt.requiresFounderApproval).toBe(true);
     expect(body.data.outcomeFeedback).toMatchObject({ observed: false, sourceTrust: 'none' });
+    expect(body.data.founderControl).toMatchObject({
+      contract: 'juss-v10/founder-control-decision@v1',
+      surfaces: ['fcr', 'chatgpt', 'claude', 'perplexity'],
+      orchestrators: ['n8n', 'zapier'],
+      capabilityPlanHash: body.data.capabilityPlan.planHash,
+      founderDecisionRequired: true,
+      explicitDecisionOnly: true,
+      proposalMutationInvalidatesApproval: true,
+      surfaceMaySelfAuthorize: false,
+      chiefMaySelfAuthorize: false,
+      executionAuthorized: false,
+      receiptRequiredAfterExecution: true,
+    });
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,
@@ -93,6 +106,7 @@ test.describe('Chief capability-plan live runtime', () => {
       founderApprovalRequired: true,
       outcomeCanIncreaseAuthority: false,
       submittedOutcomeAuthenticated: false,
+      remoteFounderSurfacesMaySelfAuthorize: false,
     });
   });
 
