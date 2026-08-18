@@ -119,8 +119,34 @@ jobs:
             fi
             sleep 2
           done
+
           printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          curl --silent --show-error "$PROOFMODE_BASE_URL/version" || true
+          curl --silent --show-error \
+            --dump-header /tmp/proofmode-version-headers \
+            --output /tmp/proofmode-version-body \
+            "$PROOFMODE_BASE_URL/version" || true
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const headers = fs.existsSync('/tmp/proofmode-version-headers')
+            ? fs.readFileSync('/tmp/proofmode-version-headers', 'utf8').split(/\r?\n/)
+            : [];
+          const statusLine = headers.find((line) => line.startsWith('HTTP/')) || null;
+          const locationLine = headers.find((line) => /^location:/i.test(line));
+          let redirectOriginPath = null;
+          if (locationLine) {
+            const rawLocation = locationLine.slice(locationLine.indexOf(':') + 1).trim();
+            try {
+              const target = new URL(rawLocation);
+              redirectOriginPath = `${target.origin}${target.pathname}`;
+            } catch {
+              redirectOriginPath = 'unparseable';
+            }
+          }
+          console.log(JSON.stringify({ statusLine, redirectOriginPath }, null, 2));
+          NODE
+
+          cat /tmp/proofmode-version-body 2>/dev/null || true
           exit 1
 
       - name: Run live ProofMode MCP Playwright proof
