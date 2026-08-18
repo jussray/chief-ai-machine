@@ -12,7 +12,7 @@ export default [
       sourceType: 'module',
       globals: {
         document: 'readonly', window: 'readonly', navigator: 'readonly', localStorage: 'readonly',
-        fetch: 'readonly', console: 'readonly', URL: 'readonly', Blob: 'readonly', FileReader: 'readonly',
+        fetch: 'readonly', console: 'readonly', URL: 'readonly', Blob: 'readonly', FileReader: 'readonly', CustomEvent: 'readonly',
         TextEncoder: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', confirm: 'readonly', location: 'readonly',
       },
     },
