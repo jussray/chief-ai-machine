@@ -4,6 +4,7 @@ import {
   buildFounderContentStrategyLease,
 } from './founder-content-strategy.js';
 
+const HISTORY_DIGEST = 'a'.repeat(64);
 const base = {
   evaluated_at: '2026-08-19T06:40:00.000Z',
   audience: {
@@ -13,7 +14,7 @@ const base = {
   },
   own_history: {
     observed_at: '2026-08-19T06:35:00.000Z',
-    history_digest: 'a'.repeat(64),
+    history_digest: HISTORY_DIGEST,
     post_count: 18,
     last_published_at: '2026-08-19T05:30:00.000Z',
     recent_pattern_signatures: [
@@ -58,6 +59,11 @@ const proposal = {
       },
     ],
   },
+};
+
+const useContext = {
+  bound_at: '2026-08-19T06:45:00.000Z',
+  current_history_digest: HISTORY_DIGEST,
 };
 
 describe('founder content strategy lease', () => {
@@ -192,10 +198,11 @@ describe('founder content strategy lease', () => {
 
   it('binds every brag to the final canonical truth proposal without making strategy authoritative', () => {
     const lease = buildFounderContentStrategyLease(base);
-    const binding = bindStrategyLeaseToProposal(lease, proposal);
+    const binding = bindStrategyLeaseToProposal(lease, proposal, useContext);
 
     expect(binding.kind).toBe('chief-ai/founder-content-strategy-binding');
     expect(binding.proposal_hash).toBe(proposal.proposal_hash);
+    expect(binding.own_history_digest).toBe(HISTORY_DIGEST);
     expect(binding.brag_claim_ids).toEqual(['truth-decay-fix']);
     expect(binding.authority.advisory_only).toBe(true);
     expect(binding.authority.publish_authorized).toBe(false);
@@ -208,6 +215,22 @@ describe('founder content strategy lease', () => {
       public_payload: {
         public_claims: proposal.public_payload.public_claims.filter((claim) => claim.claim_id !== 'truth-decay-fix'),
       },
-    })).toThrow(/absent from the final verified public claim set/);
+    }, useContext)).toThrow(/absent from the final verified public claim set/);
+  });
+
+  it('invalidates strategy when a newer own-post history digest appears before proposal use', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    expect(() => bindStrategyLeaseToProposal(lease, proposal, {
+      ...useContext,
+      current_history_digest: 'd'.repeat(64),
+    })).toThrow(/own-post memory changed after lease creation/);
+  });
+
+  it('invalidates strategy when required current-feed context expires before proposal use', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    expect(() => bindStrategyLeaseToProposal(lease, proposal, {
+      ...useContext,
+      bound_at: '2026-08-20T06:20:00.000Z',
+    })).toThrow(/strategy lease expired before proposal use/);
   });
 });
