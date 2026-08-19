@@ -19,6 +19,7 @@ describe('merge intent gate', () => {
 
   it.each([
     ['DO NOT MERGE this PR', 'explicit-do-not-merge'],
+    ['KEEP DRAFT until exact-head proof completes', 'keep-draft'],
     ['## DOWNSTREAM / STALE CANDIDATE', 'stale-candidate'],
     ['[SUPERSEDED] old candidate', 'superseded'],
     ['## VERIFICATION ONLY', 'verification-only'],
@@ -33,6 +34,21 @@ describe('merge intent gate', () => {
 
     expect(decision.mergeIntentClear).toBe(false);
     expect(decision.reasons).toContain(reason);
+  });
+
+  it('blocks keep-draft intent even after provider metadata is flipped ready', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'test(governance): provider preflight',
+      body: 'KEEP DRAFT. Passing source checks do not authorize merge.',
+      isDraft: false,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: false,
+    });
+    expect(decision.reasons).toContain('keep-draft');
   });
 
   it('blocks the exact stale wording that was present on merged PR #113', () => {
