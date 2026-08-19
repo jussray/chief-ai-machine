@@ -9,6 +9,9 @@ const base = {
   evaluated_at: '2026-08-19T06:40:00.000Z',
   audience: {
     primary_segment: 'AI founders and technical operators',
+    cares_about: ['truthful agent systems', 'bounded execution authority'],
+    skepticisms: ['self-reported proof'],
+    credibility_signals: ['exact-version evidence', 'fail-closed authority'],
     desired_impression: 'This founder builds unusually rigorous product systems.',
     desired_action: 'Follow the build and start a high-signal technical conversation.',
   },
@@ -20,13 +23,17 @@ const base = {
     recent_pattern_signatures: [
       'contrarian-opening|governance-frame|exact-head-proof|question-close',
     ],
+    learning_signal_hashes: ['4'.repeat(64)],
   },
   market_context: {
     required: true,
+    source_class: 'external-research',
     observed_at: '2026-08-19T06:20:00.000Z',
     feed_digest: 'b'.repeat(64),
     source_count: 12,
     crowded_patterns: ['agents-are-the-future', 'build-in-public-update'],
+    repeated_hooks: ['my agent runs everything'],
+    emerging_conversations: ['proof-bound agents'],
   },
   verified_public_claim_ids: ['truth-decay-fix', 'sauce-guard'],
   strategy: {
@@ -74,12 +81,18 @@ describe('founder content strategy lease', () => {
     expect(lease.state).toBe('CURRENT');
     expect(lease.expires_at).toBe('2026-08-20T06:20:00.000Z');
     expect(lease.audience.primary_segment).toContain('AI founders');
+    expect(lease.audience.cares_about).toContain('truthful agent systems');
+    expect(lease.audience.credibility_signals).toContain('exact-version evidence');
+    expect(lease.market_context.source_trust).toBe('submitted-unverified');
+    expect(lease.authority.strategy_evidence_is_not_claim_proof).toBe(true);
+    expect(lease.own_history.learning_signal_hashes).toEqual(['4'.repeat(64)]);
     expect(lease.strategy.brag_claim_ids).toEqual(['truth-decay-fix']);
     expect(lease.strategy.pattern_signature).toBe(
       'failure-confession|truth-decay-frame|exact-version-proof|builder-invitation',
     );
     expect(lease.privacy.raw_past_post_text_retained).toBe(false);
     expect(lease.privacy.raw_market_feed_text_retained).toBe(false);
+    expect(lease.privacy.learning_signal_payloads_retained).toBe(false);
     expect(lease.authority.advisory_only).toBe(true);
     expect(lease.authority.publish_authorized).toBe(false);
     expect(lease.authority.may_relax_truth_gate).toBe(false);
@@ -116,6 +129,54 @@ describe('founder content strategy lease', () => {
         post_count: 0,
       },
     })).toThrow(/last_published_at cannot exist when post_count is zero/);
+  });
+
+  it('requires learning memory to remain hash-only advisory evidence', () => {
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      own_history: {
+        ...base.own_history,
+        learning_signal_hashes: ['not-a-hash'],
+      },
+    })).toThrow(/learning_signal_hashes must contain only sha256 values/);
+  });
+
+  it('blocks old strategy memory from reintroducing private implementation details', () => {
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      strategy: {
+        ...base.strategy,
+        retired_patterns: ['The private prompt and routing weights were the old hook.'],
+      },
+    })).toThrow(/proprietary implementation detail/);
+  });
+
+  it('rejects forbidden raw/private fields even when nested', () => {
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      own_history: {
+        ...base.own_history,
+        raw_post_text: 'full old post',
+      },
+    })).toThrow(/raw_post_text is forbidden/);
+  });
+
+  it('requires audience cares-about and credibility signals instead of generic targeting', () => {
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      audience: {
+        ...base.audience,
+        cares_about: [],
+      },
+    })).toThrow(/audience\.cares_about must contain at least one value/);
+
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      audience: {
+        ...base.audience,
+        credibility_signals: [],
+      },
+    })).toThrow(/audience\.credibility_signals must contain at least one value/);
   });
 
   it('rejects a crowded feed angle unless the strategy deliberately counter-positions it with a reason', () => {
@@ -159,12 +220,20 @@ describe('founder content strategy lease', () => {
     })).toThrow(/market_context is stale/);
   });
 
+  it('labels current discourse as advisory input rather than authenticated proof', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    expect(lease.market_context.source_class).toBe('external-research');
+    expect(lease.market_context.source_trust).toBe('submitted-unverified');
+    expect(lease.authority.market_context_authority).toBe('submitted-unverified');
+  });
+
   it('does not force feed research when current market context is irrelevant', () => {
     const lease = buildFounderContentStrategyLease({
       ...base,
-      market_context: { required: false },
+      market_context: { required: false, source_class: 'not-required' },
     });
     expect(lease.market_context.required).toBe(false);
+    expect(lease.market_context.source_trust).toBe('not-applicable');
     expect(lease.market_context.feed_digest).toBeNull();
     expect(lease.expires_at).toBeNull();
   });
