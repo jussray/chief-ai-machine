@@ -69,7 +69,7 @@ test('founder goal front door exposes Chief reasoning and carries the bounded pl
   );
   expect(noHorizontalOverflow).toBe(true);
 
-  await page.locator('[data-page="goals"]').first().click();
+  await page.locator('[data-page="goals"]:visible').click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: testInfo.outputPath(`founder-goals-${testInfo.project.name}.png`),
