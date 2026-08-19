@@ -1,4 +1,4 @@
-/* global document, localStorage */
+/* global document, localStorage, window */
 import { expect, test } from '@playwright/test';
 
 const GOAL = 'Ship the smallest verified founder-goal loop';
