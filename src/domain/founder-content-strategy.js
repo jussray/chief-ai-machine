@@ -118,18 +118,31 @@ function validateAudience(input) {
 
 function validateHistory(input) {
   const history = isRecord(input) ? input : {};
+  const usedAngles = stringList(history.used_angles, 'history.used_angles', { max: 20 });
+  const usedHookFamilies = stringList(history.used_hook_families, 'history.used_hook_families', { max: 20 });
+  const usedProofStyles = stringList(history.used_proof_styles, 'history.used_proof_styles', { max: 20 });
+  const usedCtaFamilies = stringList(history.used_cta_families, 'history.used_cta_families', { max: 20 });
   const learningSignalHashes = stringList(history.learning_signal_hashes, 'history.learning_signal_hashes', { max: 20, itemMax: 64 })
     .map((value) => value.toLowerCase());
   const errors = learningSignalHashes
     .filter((value) => !HASH.test(value))
     .map(() => 'history.learning_signal_hashes must contain SHA-256 values only');
+
+  for (const [field, values] of [
+    ['history.used_angles', usedAngles],
+    ['history.used_hook_families', usedHookFamilies],
+    ['history.used_proof_styles', usedProofStyles],
+    ['history.used_cta_families', usedCtaFamilies],
+  ]) {
+    for (const value of values) errors.push(...scanText(value, field));
+  }
   if (errors.length) fail(errors);
 
   return Object.freeze({
-    used_angles: stringList(history.used_angles, 'history.used_angles', { max: 20 }),
-    used_hook_families: stringList(history.used_hook_families, 'history.used_hook_families', { max: 20 }),
-    used_proof_styles: stringList(history.used_proof_styles, 'history.used_proof_styles', { max: 20 }),
-    used_cta_families: stringList(history.used_cta_families, 'history.used_cta_families', { max: 20 }),
+    used_angles: usedAngles,
+    used_hook_families: usedHookFamilies,
+    used_proof_styles: usedProofStyles,
+    used_cta_families: usedCtaFamilies,
     learning_signal_hashes: learningSignalHashes,
   });
 }
@@ -171,6 +184,7 @@ function validateDiscourse(input, evaluatedAt) {
   return Object.freeze({
     required,
     source_class: sourceClass,
+    source_trust: sourceClass === 'not-required' ? 'not-applicable' : 'submitted-unverified',
     observed_at: observedAt,
     crowded_angles: crowdedAngles,
     repeated_hooks: repeatedHooks,
@@ -206,6 +220,8 @@ function validateBragCandidates(input) {
       why_it_matters: whyItMatters,
       evidence_class: evidenceClass,
       evidence_hash: evidenceHash,
+      evidence_trust: 'submitted-unverified',
+      evidence_hash_role: 'advisory-reference-only',
       private_recipe_withheld: true,
     });
   });
@@ -287,6 +303,7 @@ export function buildFounderContentStrategy(input = {}) {
       can_mutate_content: false,
       can_renew_truth: false,
       can_upgrade_authority: false,
+      strategy_evidence_is_not_claim_proof: true,
       analytics_authority: 'observation-only',
       history_authority: 'advisory-only',
       discourse_authority: 'advisory-only',
