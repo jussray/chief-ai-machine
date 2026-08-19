@@ -5,11 +5,20 @@ on:
     branches:
       - main
     paths:
+      - "worker/index.js"
       - "worker/chief-capability-plan.js"
       - "worker/chief-capability-plan.test.js"
+      - "worker/chief-founder-content-proposal.js"
+      - "worker/chief-founder-content-proposal.test.js"
       - "src/domain/founder-control-surface.js"
       - "src/domain/founder-control-surface.test.js"
+      - "src/domain/founder-content-brain.js"
+      - "src/domain/founder-content-brain.test.js"
+      - "src/domain/founder-content-strategy.js"
+      - "src/domain/founder-content-strategy.test.js"
+      - "src/domain/founder-content-strategy.redteam.test.js"
       - "e2e/chief-capability-plan.pw.mjs"
+      - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
       - "config/operational-authority.json"
   workflow_dispatch:
@@ -204,7 +213,7 @@ jobs:
 
           export default defineConfig({
             testDir: './e2e',
-            testMatch: /chief-capability-plan\.pw\.mjs$/,
+            testMatch: /(?:chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,
