@@ -31,6 +31,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
+  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
 
 jobs:
   verify:
@@ -142,16 +144,47 @@ jobs:
       - name: Verify immutable preview serves exact head
         shell: bash
         run: |
+          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
+            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
+            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
+            exit 1
+          fi
+
+          access_headers=()
+          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
+            access_headers+=(
+              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"
+              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"
+            )
+          fi
+
+          headers="$RUNNER_TEMP/chief-version.headers"
+          body_file="$RUNNER_TEMP/chief-version.body"
+          status="000"
+
           for attempt in {1..10}; do
-            body="$(curl --fail --silent "$CHIEF_CAPABILITY_PLAN_BASE_URL/version" || true)"
-            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
+            status="$(curl --silent --show-error \
+              "${access_headers[@]}" \
+              --dump-header "$headers" \
+              --output "$body_file" \
+              --write-out '%{http_code}' \
+              "$CHIEF_CAPABILITY_PLAN_BASE_URL/version" || true)"
+            if grep -Fq "$EXPECTED_HEAD_SHA" "$body_file" 2>/dev/null; then
               printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
             sleep 2
           done
+
           printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          curl --silent --show-error "$CHIEF_CAPABILITY_PLAN_BASE_URL/version" || true
+          printf 'Observed HTTP status: %s\n' "$status" >&2
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
+          if [ -n "$location" ]; then
+            printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
+          fi
+          if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
+            printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
+          fi
           exit 1
 
       - name: Run live Chief capability-plan Playwright proof
@@ -161,6 +194,13 @@ jobs:
         run: |
           cat > playwright.chief-capability-plan.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
+
+          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
+            ? {
+                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+              }
+            : {};
 
           export default defineConfig({
             testDir: './e2e',
@@ -173,7 +213,7 @@ jobs:
               ['line'],
               ['html', { outputFolder: './playwright-report/chief-capability-plan', open: 'never' }],
             ],
-            use: { trace: 'retain-on-failure' },
+            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
           });
           EOF
           npx playwright test --config=playwright.chief-capability-plan.config.mjs
