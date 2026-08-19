@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "strict": false
   },
-  "include": ["src/data/**/*.js", "src/domain/**/*.js", "worker/**/*.js"]
+  "include": ["src/data/**/*.js", "src/domain/**/*.js", "src/domain/**/*.d.ts", "worker/**/*.js"]
 }
