@@ -116,7 +116,7 @@ function parseAuthentication(request, env, nowMs) {
   return { secret, keyId, issuedAt, signature };
 }
 
-export async function handleFounderContentLearning(request, env, options = {}) {
+export async function handleFounderContentLearning(request, env, nowMs = Date.now()) {
   const url = new URL(request.url);
   if (url.pathname !== FCR_LEARNING_ROUTE) {
     return errorResponse('not_found', 'Founder-content learning route not found.', 404);
@@ -125,8 +125,8 @@ export async function handleFounderContentLearning(request, env, options = {}) {
     return errorResponse('method_not_allowed', 'POST is required for authenticated learning.', 405);
   }
 
-  const nowMs = Number.isFinite(options.nowMs) ? options.nowMs : Date.now();
-  const authentication = parseAuthentication(request, env, nowMs);
+  const effectiveNowMs = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const authentication = parseAuthentication(request, env, effectiveNowMs);
   if (authentication.error) return authentication.error;
 
   const rawBody = await request.text();
@@ -166,7 +166,7 @@ export async function handleFounderContentLearning(request, env, options = {}) {
     );
   }
 
-  const receivedAt = new Date(nowMs).toISOString();
+  const receivedAt = new Date(effectiveNowMs).toISOString();
   const authenticatedSource = {
     version: 1,
     kind: 'chief-ai/founder-content-authenticated-source',
