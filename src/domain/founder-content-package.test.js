@@ -64,6 +64,9 @@ const strategyInput = {
   evaluated_at: '2026-08-19T06:40:00.000Z',
   audience: {
     primary_segment: 'AI founders and technical operators',
+    cares_about: ['truthful agent systems', 'verification before autonomy'],
+    skepticisms: ['self-reported proof'],
+    credibility_signals: ['exact-version evidence', 'bounded authority'],
     desired_impression: 'The product catches stale truth instead of recycling it.',
     desired_action: 'Start a technical conversation about verified agent systems.',
   },
@@ -75,14 +78,18 @@ const strategyInput = {
     recent_pattern_signatures: [
       'contrarian-opening|governance-frame|exact-head-proof|question-close',
     ],
+    learning_signal_hashes: ['4'.repeat(64)],
     recent_draft_fingerprints: [],
   },
   market_context: {
     required: true,
+    source_class: 'external-research',
     observed_at: '2026-08-19T06:20:00.000Z',
     feed_digest: 'b'.repeat(64),
     source_count: 12,
     crowded_patterns: ['agents-are-the-future'],
+    repeated_hooks: ['my agent runs everything'],
+    emerging_conversations: ['proof-bound agents'],
   },
   // Deliberately untrusted input. The package must derive this from the final
   // canonical truth proposal rather than believe the caller.
@@ -118,6 +125,8 @@ describe('strategy-aware founder content package', () => {
     expect(result.strategy_binding.draft_fingerprint).toBe(
       founderContentDraftFingerprint(proposalInput.draft_text),
     );
+    expect(result.strategy_lease.audience.cares_about).toContain('truthful agent systems');
+    expect(result.strategy_lease.market_context.source_trust).toBe('submitted-unverified');
     expect(result.strategy_lease.strategy.brag_claim_ids).toEqual(['truth-decay-fix']);
     expect(result.authority.canonical_publication_authority_object).toBe('proposal');
     expect(result.authority.strategy_sidecars_advisory_only).toBe(true);
@@ -171,5 +180,19 @@ describe('strategy-aware founder content package', () => {
       },
       use_context: useContext,
     })).toThrow(/must contain only sha256 fingerprints/);
+  });
+
+  it('rejects private raw strategy payloads before they can become advisory memory', () => {
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: {
+        ...strategyInput,
+        market_context: {
+          ...strategyInput.market_context,
+          raw_feed_text: 'private feed capture',
+        },
+      },
+      use_context: useContext,
+    })).toThrow(/raw_feed_text is forbidden/);
   });
 });
