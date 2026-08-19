@@ -22,6 +22,7 @@ authoritative product/repo truth
 → one deliberate improvement experiment
 → Strategy Lease
 → Truth + Sauce proposal
+→ revalidate Strategy Lease at use boundary
 → bind Strategy Lease to final proposal claims
 → Current You approval
 → provider execution
@@ -107,7 +108,7 @@ The lease must prove, without retaining raw feed/post text:
 - every brag claim points to a verified public claim candidate; and
 - one improvement experiment exists.
 
-After the canonical Chief truth proposal is built, call `bindStrategyLeaseToProposal(strategyLease, proposal)`. If a brag claim was removed, downgraded, or is absent from the final verified public claim set, discard that brag and rebuild the strategy/proposal. Do not treat a pre-draft strategy claim list as final truth.
+After the canonical Chief truth proposal is built, call `bindStrategyLeaseToProposal(strategyLease, proposal, useContext)` with a fresh `bound_at` and the **current own-history digest**. Binding must fail if a newer post changed the history digest, if required market context expired, or if a brag claim was removed/downgraded from the final verified public claim set. Rebuild the strategy/proposal instead of reusing an expired lease.
 
 The Strategy Lease and binding are **advisory only**. They may select the story. They may not renew truth, relax Sauce Guard, approve publication, authorize provider execution, or overrule Current You.
 
