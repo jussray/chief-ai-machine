@@ -28,6 +28,51 @@ function makeTextElement(tag, className, text) {
   return element;
 }
 
+function summarizeItems(items, emptyText) {
+  if (!Array.isArray(items) || items.length === 0) return emptyText;
+  const visible = items.slice(0, 2).join(' → ');
+  const remaining = items.length - 2;
+  return remaining > 0 ? `${visible} +${remaining}` : visible;
+}
+
+function makeTraceStep(label, value, muted = false) {
+  const step = document.createElement('div');
+  step.className = `goal-trace-step${muted ? ' is-muted' : ''}`;
+  step.appendChild(makeTextElement('span', 'goal-trace-label', label));
+  step.appendChild(makeTextElement('strong', 'goal-trace-value', value));
+  return step;
+}
+
+function makeDecisionTrace(goal) {
+  const trace = document.createElement('section');
+  trace.className = 'goal-trace';
+  trace.setAttribute('aria-label', 'Chief decision trace');
+
+  const evidence = summarizeItems(goal.evidence, 'Evidence not recorded yet');
+  const route = summarizeItems(goal.strategicLenses, 'No reasoning route recorded');
+  const capabilities = summarizeItems(goal.capabilities, 'No capabilities selected');
+  const judgment = goal.definitionOfDone || 'Definition of done not recorded';
+  const proof = summarizeItems(goal.proofRequirements, 'No proof requirement recorded');
+  const nextMove = goal.nextGate || 'Next gate not defined';
+
+  trace.append(
+    makeTraceStep('Reality', evidence, !goal.evidence?.length),
+    makeTraceStep('Reasoning route', route, !goal.strategicLenses?.length),
+    makeTraceStep('Capabilities', capabilities, !goal.capabilities?.length),
+    makeTraceStep('Judgment', judgment, !goal.definitionOfDone),
+    makeTraceStep('Proof', proof, !goal.proofRequirements?.length),
+    makeTraceStep('Next move', nextMove, !goal.nextGate),
+  );
+
+  const authority = document.createElement('div');
+  authority.className = 'goal-authority';
+  authority.appendChild(makeTextElement('span', 'goal-trace-label', 'Authority'));
+  authority.appendChild(makeTextElement('strong', '', 'Chief recommends. Founder approval remains the execution gate.'));
+  trace.appendChild(authority);
+
+  return trace;
+}
+
 export function initGoals() {
   const form = document.getElementById('goalForm');
   const list = document.getElementById('goalList');
@@ -64,14 +109,11 @@ export function initGoals() {
       meta.appendChild(makeTextElement('span', '', `${summary.capabilityCount} capabilities`));
       meta.appendChild(makeTextElement('span', '', `${summary.proofCount} proof gates`));
 
-      const gate = document.createElement('div');
-      gate.className = 'goal-gate';
-      gate.appendChild(makeTextElement('b', '', 'Next gate'));
-      gate.appendChild(document.createTextNode(goal.nextGate || 'Not defined'));
+      const trace = makeDecisionTrace(goal);
 
       const actions = document.createElement('div');
-      actions.className = 'row';
-      const openButton = makeTextElement('button', 'mini-btn', 'Use in Builder');
+      actions.className = 'row goal-actions';
+      const openButton = makeTextElement('button', 'mini-btn solid', 'Continue in Builder');
       openButton.type = 'button';
       openButton.dataset.goalOpen = String(index);
       const deleteButton = makeTextElement('button', 'mini-btn push', 'Remove');
@@ -79,7 +121,7 @@ export function initGoals() {
       deleteButton.dataset.goalDelete = String(index);
       actions.append(openButton, deleteButton);
 
-      item.append(headingRow, sub, meta, gate, actions);
+      item.append(headingRow, sub, meta, trace, actions);
       list.appendChild(item);
     });
 
