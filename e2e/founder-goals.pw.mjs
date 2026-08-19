@@ -72,6 +72,14 @@ test('founder goal front door exposes Chief reasoning and carries the bounded pl
   await page.locator('[data-page="goals"]:visible').click();
   await expect(goalsPage).toBeVisible();
   await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/);
+
+  if (testInfo.project.name === 'mobile-chromium') {
+    await goalCard.screenshot({
+      path: testInfo.outputPath('founder-goals-mobile-chromium-decision.png'),
+    });
+    return;
+  }
+
   await page.evaluate(() => {
     const root = document.documentElement;
     const priorScrollBehavior = root.style.scrollBehavior;
@@ -80,29 +88,6 @@ test('founder goal front door exposes Chief reasoning and carries the bounded pl
     root.style.scrollBehavior = priorScrollBehavior;
   });
   await page.waitForTimeout(50);
-
-  if (testInfo.project.name === 'mobile-chromium') {
-    await page.screenshot({
-      path: testInfo.outputPath('founder-goals-mobile-chromium-top.png'),
-    });
-    await page.evaluate(() => {
-      const root = document.documentElement;
-      const priorScrollBehavior = root.style.scrollBehavior;
-      const card = document.querySelector('.goal-item');
-      root.style.scrollBehavior = 'auto';
-      if (card) {
-        const target = card.getBoundingClientRect().top + window.scrollY - 130;
-        window.scrollTo(0, Math.max(0, target));
-      }
-      root.style.scrollBehavior = priorScrollBehavior;
-    });
-    await page.waitForTimeout(50);
-    await page.screenshot({
-      path: testInfo.outputPath('founder-goals-mobile-chromium-decision.png'),
-    });
-    return;
-  }
-
   await page.screenshot({
     path: testInfo.outputPath(`founder-goals-${testInfo.project.name}.png`),
     fullPage: true,
