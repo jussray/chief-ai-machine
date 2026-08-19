@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
+const UPSTREAM_RECEIPT = '11111111-1111-4111-8111-111111111111';
+
 function mcpRequest(body, headers = {}) {
   return new Request('https://proofmode.example/mcp', {
     method: 'POST',
@@ -40,7 +42,11 @@ function classifier(input) {
     ref: input.ref,
     headSha: input.headSha,
     readiness: 'repository_supported_runtime_unverified',
-    layers: [],
+    layers: [
+      { layer: 'implemented', state: 'supported' },
+      { layer: 'tested', state: 'supported' },
+      { layer: 'verified', state: 'not_proven' },
+    ],
     nextChecks: [],
     limitations: [],
   };
@@ -65,6 +71,7 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.protocolVersion).toBe('2025-06-18');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
+    expect(payload.result.instructions).toContain('juss-proof/v1');
   });
 
   it('lists only the read-only repository audit tool without credential inputs', async () => {
@@ -79,7 +86,7 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
   });
 
-  it('calls the audit tool without mutation capability', async () => {
+  it('calls the audit tool without mutation capability and emits a federated receipt', async () => {
     const evidence = evidenceFixture();
     const deps = {
       loadPublicRepositoryEvidence: async ({ owner, repo, ref, token }) => {
@@ -97,7 +104,10 @@ describe('ProofMode MCP transport', () => {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
-        params: { name: 'audit_repository', arguments: { owner: 'acme', repo: 'app' } },
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', acknowledges: [UPSTREAM_RECEIPT] },
+        },
       }),
       deps,
     );
@@ -105,6 +115,34 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent.repository).toBe('acme/app');
+    expect(payload.result.structuredContent.proofReceipt).toMatchObject({
+      schema: 'juss-proof/v1',
+      project: 'acme/app',
+      actor: 'proofmode-github-mcp',
+      authority: {
+        provider: 'github',
+        scope: 'repository',
+        target: 'acme/app',
+        mode: 'verify',
+      },
+      exactTarget: {
+        repository: 'acme/app',
+        branch: 'main',
+        sha: evidence.headSha,
+      },
+      operation: 'repository_evidence_audit',
+      state: 'inferred',
+      acknowledges: [UPSTREAM_RECEIPT],
+      dependsOn: [UPSTREAM_RECEIPT],
+      nextAuthority: 'runtime-provider-mcp',
+    });
+    expect(payload.result.structuredContent.proofReceipt.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'repository_snapshot', state: 'verified' }),
+        expect.objectContaining({ type: 'proofmode_layer', name: 'implemented: supported', state: 'verified' }),
+        expect.objectContaining({ type: 'proofmode_layer', name: 'verified: not_proven', state: 'unknown' }),
+      ]),
+    );
   });
 
   it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
