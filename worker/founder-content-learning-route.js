@@ -1,3 +1,4 @@
+/* global TextEncoder, crypto */
 import { buildFounderContentLearningSignal } from '../src/domain/founder-content-learning.js';
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 
