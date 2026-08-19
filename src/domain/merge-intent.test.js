@@ -21,10 +21,12 @@ describe('merge intent gate', () => {
     ['DO NOT MERGE this PR', 'explicit-do-not-merge'],
     ['KEEP DRAFT until exact-head proof completes', 'keep-draft'],
     ['## DOWNSTREAM / STALE CANDIDATE', 'stale-candidate'],
+    ['## STALE / PROVIDER-BLOCKED CANDIDATE', 'stale-candidate'],
     ['[SUPERSEDED] old candidate', 'superseded'],
+    ['This PR is superseded pending rebuild.', 'superseded'],
     ['## VERIFICATION ONLY', 'verification-only'],
     ['MERGE BLOCKED until provider proof', 'merge-blocked'],
-  ])('blocks explicit negative merge marker %s', (body, reason) => {
+  ])('blocks explicit negative merge directive %s', (body, reason) => {
     const decision = evaluateMergeIntent({
       baseRef: 'main',
       title: 'feat: candidate',
@@ -64,6 +66,50 @@ describe('merge intent gate', () => {
       'explicit-do-not-merge',
       'stale-candidate',
     ]));
+  });
+
+  it('does not let historical explanation text silently become merge authority', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'fix(governance): prevent stale merge incidents',
+      body: [
+        'This fixes the incident where a stale candidate was merged even though its body said `DO NOT MERGE`.',
+        '',
+        '- Historical marker: `KEEP DRAFT`',
+        '> DO NOT MERGE was the old quoted state.',
+        '',
+        '```text',
+        'MERGE BLOCKED',
+        '[SUPERSEDED]',
+        '```',
+        '',
+        'Exact-head proof and review are handled by independent gates.',
+      ].join('\n'),
+      isDraft: false,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: true,
+      reasons: [],
+    });
+  });
+
+  it('still blocks a real directive next to historical examples', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'fix(governance): candidate',
+      body: [
+        'Historical example: `DO NOT MERGE` was previously ignored.',
+        '',
+        '## CURRENT GATE',
+        'MERGE BLOCKED until independent review lands.',
+      ].join('\n'),
+      isDraft: false,
+    });
+
+    expect(decision.mergeIntentClear).toBe(false);
+    expect(decision.reasons).toContain('merge-blocked');
   });
 
   it('does not let a clean marker check impersonate merge approval', () => {
