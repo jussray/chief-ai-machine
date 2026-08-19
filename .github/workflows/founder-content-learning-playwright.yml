@@ -57,7 +57,7 @@ jobs:
         run: npm ci
 
       - name: Install isolated runtime proof tools
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.102.0
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.124.0
 
       - name: Start exact-head Worker runtime
         shell: bash
