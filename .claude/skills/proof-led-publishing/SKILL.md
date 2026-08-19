@@ -22,6 +22,7 @@ authoritative product/repo truth
 → one deliberate improvement experiment
 → Strategy Lease
 → Truth + Sauce proposal
+→ bind Strategy Lease to final proposal claims
 → Current You approval
 → provider execution
 → provider artifact/readback
@@ -103,10 +104,12 @@ The lease must prove, without retaining raw feed/post text:
 - one primary audience, intended impression, and desired action exist;
 - the selected angle is not an accidental crowded-feed echo;
 - the current hook/frame/proof/closing signature does not exactly repeat a recent signature;
-- every brag claim points to a verified public claim; and
+- every brag claim points to a verified public claim candidate; and
 - one improvement experiment exists.
 
-The Strategy Lease is **advisory only**. It may select the story. It may not renew truth, relax Sauce Guard, approve publication, authorize provider execution, or overrule Current You.
+After the canonical Chief truth proposal is built, call `bindStrategyLeaseToProposal(strategyLease, proposal)`. If a brag claim was removed, downgraded, or is absent from the final verified public claim set, discard that brag and rebuild the strategy/proposal. Do not treat a pre-draft strategy claim list as final truth.
+
+The Strategy Lease and binding are **advisory only**. They may select the story. They may not renew truth, relax Sauce Guard, approve publication, authorize provider execution, or overrule Current You.
 
 ## Mandatory truth gate
 
