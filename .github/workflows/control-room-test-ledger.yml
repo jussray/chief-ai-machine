@@ -16,6 +16,7 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CONTROL_ROOM_LEDGER_SELF_CHECK: Publish exact-head test ledger
   CONTROL_ROOM_TEST_LEDGER_PATH: artifacts/control-room-test-ledger.json
+  CONTROL_ROOM_LEDGER_POLICY_PATH: .control-room/test-ledger.manifest.json
 
 concurrency:
   group: control-room-test-ledger-${{ github.event.pull_request.number || github.ref }}
@@ -72,10 +73,10 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
-      - name: Observe every exact-head check lane
+      - name: Observe repository-authoritative exact-head checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/control-room-test-ledger.mjs
+        run: node scripts/control-room-test-ledger-v2.mjs
       - name: Build operator truth summary
         if: always()
         run: |
