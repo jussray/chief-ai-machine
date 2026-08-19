@@ -3,6 +3,7 @@ import {
   resolveCapabilities,
 } from '../src/domain/capability-registry.js';
 import { createCapabilityPlan } from '../src/domain/capability-plan.js';
+import { createConnectionHandoff } from '../src/domain/connection-requests.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
 import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
@@ -102,6 +103,7 @@ export async function handleChiefCapabilityPlan(request) {
     );
     const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
+    const connectionHandoff = createConnectionHandoff(input.connectionRequests);
     // Chief describes the remote founder-control handoff; it never resolves approval itself.
     const founderControl = founderControlHandoff(capabilityPlan);
 
@@ -109,6 +111,7 @@ export async function handleChiefCapabilityPlan(request) {
       data: {
         capabilityPlan,
         handoffReceipt,
+        connectionHandoff,
         outcomeFeedback,
         founderControl,
         governanceBoundary: {
@@ -120,8 +123,12 @@ export async function handleChiefCapabilityPlan(request) {
           outcomeCanIncreaseAuthority: false,
           submittedOutcomeAuthenticated: false,
           remoteFounderSurfacesMaySelfAuthorize: false,
+          connectionResolutionAuthority: 'founder-control-room',
+          rawCredentialsAccepted: false,
+          rawCredentialsReturned: false,
+          connectionResolver: '/mcp/vault/resolve',
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, and bind an explicit founder decision relayed from FCR, ChatGPT, Claude, or Perplexity before n8n or Zapier may execute the exact approved proposal.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, and bind an explicit founder decision relayed from FCR, ChatGPT, Claude, or Perplexity before n8n or Zapier may execute the exact approved proposal.',
         },
       },
       meta: meta(),
