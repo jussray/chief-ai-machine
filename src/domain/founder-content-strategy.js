@@ -52,6 +52,16 @@ function patternSignature(input = {}) {
   return parts.join('|');
 }
 
+function normalizePriorPatternSignatures(value) {
+  return list(value, 'own_history.recent_pattern_signatures', { max: 30 }).map((signature, index) => {
+    const parts = signature.split('|').map(pattern);
+    if (parts.length !== 4 || parts.some((part) => !part)) {
+      reject([`own_history.recent_pattern_signatures[${index}] must contain hook|frame|proof|closing`]);
+    }
+    return parts.join('|');
+  });
+}
+
 function validateAudience(input = {}) {
   const primarySegment = text(input.primary_segment, 160);
   const desiredImpression = text(input.desired_impression, 240);
@@ -74,11 +84,15 @@ function validateOwnHistory(input = {}, evaluated) {
   const postCount = Number(input.post_count);
   const lastPublishedRaw = text(input.last_published_at, 64);
   const lastPublished = lastPublishedRaw ? parseTime(lastPublishedRaw, 'own_history.last_published_at') : null;
-  const recentPatternSignatures = list(input.recent_pattern_signatures, 'own_history.recent_pattern_signatures', { max: 30 });
+  const recentPatternSignatures = normalizePriorPatternSignatures(input.recent_pattern_signatures);
   const errors = [];
 
   if (!HASH.test(digest)) errors.push('own_history.history_digest must be sha256');
   if (!Number.isInteger(postCount) || postCount < 0) errors.push('own_history.post_count must be a non-negative integer');
+  if (postCount === 0 && lastPublished) errors.push('own_history.last_published_at cannot exist when post_count is zero');
+  if (Number.isInteger(postCount) && postCount >= 0 && recentPatternSignatures.length > postCount) {
+    errors.push('own_history.recent_pattern_signatures cannot exceed post_count');
+  }
   if (observed.ms > evaluated.ms + MAX_CLOCK_SKEW_MS) errors.push('own_history.observed_at is future-dated');
   if (lastPublished && observed.ms < lastPublished.ms) {
     errors.push('own_history must be observed at or after the latest published post so the next post learns from it');
@@ -100,6 +114,7 @@ function validateMarketContext(input = {}, evaluated) {
     return {
       required: false,
       observed_at: null,
+      expires_at: null,
       feed_digest: null,
       source_count: 0,
       crowded_patterns: [],
@@ -125,6 +140,7 @@ function validateMarketContext(input = {}, evaluated) {
   return {
     required: true,
     observed_at: observed.raw,
+    expires_at: new Date(observed.ms + MAX_MARKET_CONTEXT_AGE_MS).toISOString(),
     feed_digest: digest,
     source_count: sourceCount,
     crowded_patterns: [...new Set(crowdedPatterns)],
@@ -142,6 +158,7 @@ export function buildFounderContentStrategyLease(input = {}) {
   const improvementExperiment = text(strategy.improvement_experiment, 240);
   const retiredPatterns = list(strategy.retired_patterns, 'strategy.retired_patterns', { max: 12 });
   const counterPosition = strategy.counter_position === true;
+  const counterPositionReason = text(strategy.counter_position_reason, 240);
   const verifiedClaimIds = new Set(list(input.verified_public_claim_ids, 'verified_public_claim_ids', { required: true, max: 12 })
     .map((value) => value.toLowerCase()));
   const bragClaimIds = list(strategy.brag_claim_ids, 'strategy.brag_claim_ids', { required: true, max: 4 })
@@ -150,6 +167,9 @@ export function buildFounderContentStrategyLease(input = {}) {
 
   if (!selectedAngle) errors.push('strategy.selected_angle is required');
   if (!improvementExperiment) errors.push('strategy.improvement_experiment is required so each post upgrades the next one');
+  if (counterPosition && !counterPositionReason) {
+    errors.push('strategy.counter_position_reason is required when counter_position is true');
+  }
   if (ownHistory.recent_pattern_signatures.includes(currentPatternSignature)) {
     errors.push('strategy repeats an exact recent hook/frame/proof/closing signature; choose a new pattern');
   }
@@ -169,6 +189,7 @@ export function buildFounderContentStrategyLease(input = {}) {
     kind: 'chief-ai/founder-content-strategy-lease',
     state: 'CURRENT',
     evaluated_at: evaluated.raw,
+    expires_at: marketContext.expires_at,
     audience,
     own_history: {
       observed_at: ownHistory.observed_at,
@@ -179,6 +200,7 @@ export function buildFounderContentStrategyLease(input = {}) {
     market_context: {
       required: marketContext.required,
       observed_at: marketContext.observed_at,
+      expires_at: marketContext.expires_at,
       feed_digest: marketContext.feed_digest,
       source_count: marketContext.source_count,
       crowded_pattern_count: marketContext.crowded_patterns.length,
@@ -187,6 +209,7 @@ export function buildFounderContentStrategyLease(input = {}) {
       selected_angle: selectedAngle,
       pattern_signature: currentPatternSignature,
       counter_position: counterPosition,
+      counter_position_reason: counterPositionReason || null,
       brag_claim_ids: bragClaimIds,
       retired_patterns: retiredPatterns,
       improvement_experiment: improvementExperiment,
@@ -218,6 +241,53 @@ export function buildFounderContentStrategyLease(input = {}) {
       retired_pattern_count: retiredPatterns.length,
       has_improvement_experiment: true,
       has_proof_backed_brag: bragClaimIds.length > 0,
+    },
+  });
+}
+
+export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}) {
+  const errors = [];
+  if (strategyLease.kind !== 'chief-ai/founder-content-strategy-lease' || strategyLease.state !== 'CURRENT') {
+    errors.push('strategy lease must be a CURRENT chief-ai/founder-content-strategy-lease');
+  }
+  if (strategyLease.authority?.advisory_only !== true || strategyLease.authority?.publish_authorized !== false) {
+    errors.push('strategy lease must remain advisory and non-authorizing');
+  }
+  if (proposal.kind !== 'chief-ai/founder-content-proposal') {
+    errors.push('proposal must be a canonical chief-ai/founder-content-proposal');
+  }
+  const proposalHash = text(proposal.proposal_hash, 64).toLowerCase();
+  if (!HASH.test(proposalHash)) errors.push('proposal.proposal_hash must be sha256');
+
+  const publicClaims = Array.isArray(proposal.public_payload?.public_claims)
+    ? proposal.public_payload.public_claims
+    : [];
+  const verifiedPublicClaimIds = new Set(publicClaims
+    .filter((claim) => claim?.truth_state === 'verified' && claim?.public_safe === true)
+    .map((claim) => text(claim?.claim_id, 120).toLowerCase())
+    .filter(Boolean));
+  const bragClaimIds = Array.isArray(strategyLease.strategy?.brag_claim_ids)
+    ? strategyLease.strategy.brag_claim_ids.map((value) => text(value, 120).toLowerCase()).filter(Boolean)
+    : [];
+
+  for (const claimId of bragClaimIds) {
+    if (!verifiedPublicClaimIds.has(claimId)) {
+      errors.push(`strategy brag claim ${claimId} is absent from the final verified public claim set`);
+    }
+  }
+  if (errors.length > 0) reject(errors);
+
+  return Object.freeze({
+    version: 1,
+    kind: 'chief-ai/founder-content-strategy-binding',
+    strategy_evaluated_at: text(strategyLease.evaluated_at, 64),
+    proposal_hash: proposalHash,
+    brag_claim_ids: bragClaimIds,
+    pattern_signature: text(strategyLease.strategy?.pattern_signature, 520),
+    authority: {
+      advisory_only: true,
+      truth_authority: false,
+      publish_authorized: false,
     },
   });
 }
