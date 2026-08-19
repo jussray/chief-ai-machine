@@ -18,13 +18,37 @@ export const FOUNDER_CONTENT_METRIC_KEYS = Object.freeze([
   'attributed_deals',
 ]);
 
-const FORBIDDEN_FIELDS = new Set([
-  'raw_post_text',
-  'dm_text',
-  'comment_text',
-  'provider_payload',
-  'customer_data',
-  'private_notes',
+const TOP_LEVEL_FIELDS = new Set([
+  'version',
+  'kind',
+  'content_id',
+  'authorization_hash',
+  'public_payload_hash',
+  'platform',
+  'provider',
+  'provider_state',
+  'provider_receipt_id',
+  'observed_at',
+  'metrics',
+  'metric_states',
+  'observation_hash',
+  'authority',
+  'privacy',
+]);
+const AUTHORITY_FIELDS = new Set([
+  'observation_only',
+  'learning_authority',
+  'can_authorize_publish',
+  'can_change_content',
+  'can_increase_authority',
+  'missing_metrics_are_unknown',
+]);
+const PRIVACY_FIELDS = new Set([
+  'raw_post_text_stored',
+  'private_messages_stored',
+  'raw_comments_stored',
+  'provider_payload_stored',
+  'customer_private_data_stored',
 ]);
 
 function text(value, max = 1000) {
@@ -42,10 +66,27 @@ function fail(errors) {
   });
 }
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function rejectUnknownKeys(value, allowed, path, errors) {
+  if (!isRecord(value)) return;
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) errors.push(`${path}.${key} is not allowed`);
+  }
+}
+
 function normalizeMetrics(input = {}) {
   const metrics = {};
   const metricStates = {};
   const errors = [];
+  const allowedMetricKeys = new Set(FOUNDER_CONTENT_METRIC_KEYS);
+
+  if (!isRecord(input.metrics)) errors.push('metrics must be an object');
+  if (!isRecord(input.metric_states)) errors.push('metric_states must be an object');
+  rejectUnknownKeys(input.metrics, allowedMetricKeys, 'metrics', errors);
+  rejectUnknownKeys(input.metric_states, allowedMetricKeys, 'metric_states', errors);
 
   for (const key of FOUNDER_CONTENT_METRIC_KEYS) {
     const value = input.metrics?.[key];
@@ -76,15 +117,9 @@ function normalizeMetrics(input = {}) {
 
 export function validateFounderContentOutcomeObservation(input) {
   const errors = [];
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    fail(['observation must be an object']);
-  }
+  if (!isRecord(input)) fail(['observation must be an object']);
 
-  for (const field of FORBIDDEN_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(input, field)) {
-      errors.push(`${field} is forbidden in Chief learning input`);
-    }
-  }
+  rejectUnknownKeys(input, TOP_LEVEL_FIELDS, 'observation', errors);
 
   const contentId = text(input.content_id, 64);
   const authorizationHash = text(input.authorization_hash, 64).toLowerCase();
@@ -112,13 +147,22 @@ export function validateFounderContentOutcomeObservation(input) {
   const normalizedMetrics = normalizeMetrics(input);
   errors.push(...normalizedMetrics.errors);
 
-  const authority = input.authority && typeof input.authority === 'object' ? input.authority : {};
+  const authority = isRecord(input.authority) ? input.authority : {};
+  if (!isRecord(input.authority)) errors.push('authority must be an object');
+  rejectUnknownKeys(authority, AUTHORITY_FIELDS, 'authority', errors);
   if (authority.observation_only !== true) errors.push('authority.observation_only must be true');
   if (authority.learning_authority !== 'advisory_only') errors.push('authority.learning_authority must be advisory_only');
   if (authority.can_authorize_publish !== false) errors.push('authority.can_authorize_publish must be false');
   if (authority.can_change_content !== false) errors.push('authority.can_change_content must be false');
   if (authority.can_increase_authority !== false) errors.push('authority.can_increase_authority must be false');
   if (authority.missing_metrics_are_unknown !== true) errors.push('authority.missing_metrics_are_unknown must be true');
+
+  const privacy = isRecord(input.privacy) ? input.privacy : {};
+  if (!isRecord(input.privacy)) errors.push('privacy must be an object');
+  rejectUnknownKeys(privacy, PRIVACY_FIELDS, 'privacy', errors);
+  for (const field of PRIVACY_FIELDS) {
+    if (privacy[field] !== false) errors.push(`privacy.${field} must be false`);
+  }
 
   const identity = {
     version: 1,
