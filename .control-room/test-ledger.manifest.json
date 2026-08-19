@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "repository": "jussray/chief-ai-machine",
   "controlRoom": {
     "scope": "repository-local",
@@ -24,7 +24,16 @@
     "pending": "block",
     "unknown": "block",
     "skippedOrNeutral": "warning",
-    "requiredCheckAuthority": "repository-native-ruleset",
+    "requiredCheckAuthority": "repository-policy",
+    "requiredChecks": [
+      "Typecheck",
+      "Lint",
+      "Unit Tests",
+      "Verify Chief AI control room contracts",
+      "Verify operational authority",
+      "Verify test-ledger contract"
+    ],
+    "unlistedDiscoveredChecks": "advisory-visible-non-authoritative",
     "productionMutation": false,
     "secretMaterialAllowed": false,
     "promptContentAllowed": false
