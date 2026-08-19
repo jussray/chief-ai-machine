@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildStrategyAwareFounderContentPackage } from './founder-content-package.js';
+import {
+  buildStrategyAwareFounderContentPackage,
+  founderContentDraftFingerprint,
+} from './founder-content-package.js';
 
 const SHA = 'e'.repeat(40);
 const EVIDENCE_REF = `github:chief-ai-machine@${SHA}#strategy-package`;
@@ -72,6 +75,7 @@ const strategyInput = {
     recent_pattern_signatures: [
       'contrarian-opening|governance-frame|exact-head-proof|question-close',
     ],
+    recent_draft_fingerprints: [],
   },
   market_context: {
     required: true,
@@ -111,6 +115,9 @@ describe('strategy-aware founder content package', () => {
     expect(result.kind).toBe('chief-ai/founder-content-strategy-aware-package');
     expect(result.proposal.kind).toBe('chief-ai/founder-content-proposal');
     expect(result.strategy_binding.proposal_hash).toBe(result.proposal.proposal_hash);
+    expect(result.strategy_binding.draft_fingerprint).toBe(
+      founderContentDraftFingerprint(proposalInput.draft_text),
+    );
     expect(result.strategy_lease.strategy.brag_claim_ids).toEqual(['truth-decay-fix']);
     expect(result.authority.canonical_publication_authority_object).toBe('proposal');
     expect(result.authority.strategy_sidecars_advisory_only).toBe(true);
@@ -131,5 +138,38 @@ describe('strategy-aware founder content package', () => {
       },
       use_context: useContext,
     })).toThrow(/not backed by a verified public claim/);
+  });
+
+  it('blocks an exact or trivially reformatted repeat of a recent canonical public draft', () => {
+    const fingerprint = founderContentDraftFingerprint(proposalInput.draft_text);
+    expect(fingerprint).toBe(
+      founderContentDraftFingerprint(`  ${proposalInput.draft_text.toUpperCase()}   `),
+    );
+
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: {
+        ...strategyInput,
+        own_history: {
+          ...strategyInput.own_history,
+          recent_draft_fingerprints: [fingerprint],
+        },
+      },
+      use_context: useContext,
+    })).toThrow(/repeats a recent normalized draft/);
+  });
+
+  it('rejects malformed draft-fingerprint memory instead of silently skipping it', () => {
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: {
+        ...strategyInput,
+        own_history: {
+          ...strategyInput.own_history,
+          recent_draft_fingerprints: ['not-a-hash'],
+        },
+      },
+      use_context: useContext,
+    })).toThrow(/must contain only sha256 fingerprints/);
   });
 });
