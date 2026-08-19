@@ -7,7 +7,10 @@ const BLOCKING_MARKERS = Object.freeze([
     code: 'stale-candidate',
     pattern: /^(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?(?:downstream\s*\/\s*)?stale(?:\s*\/[^\n]{1,40})?\s+(?:candidate|pr|pull\s+request)\b/i,
   },
-  { code: 'superseded', pattern: /^(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?\[?superseded\]?\b/i },
+  {
+    code: 'superseded',
+    pattern: /^(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?(?:\[superseded\]|superseded\b)/i,
+  },
   { code: 'verification-only', pattern: /^verification\s+only\b/i },
   { code: 'merge-blocked', pattern: /^merge\s+blocked\b/i },
 ]);
