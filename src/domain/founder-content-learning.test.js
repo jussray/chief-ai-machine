@@ -67,11 +67,14 @@ function observation(overrides = {}) {
 }
 
 describe('FCR founder-content learning adapter', () => {
-  it('turns an exact FCR outcome observation into advisory-only Chief learning evidence', () => {
+  it('turns a structurally exact submitted FCR outcome into advisory-only learning without claiming authenticated provenance', () => {
     const signal = buildFounderContentLearningSignal(observation());
 
     expect(signal.kind).toBe('chief-ai/founder-content-learning-signal');
-    expect(signal.source_system).toBe('founder-control-room');
+    expect(signal.declared_source_system).toBe('founder-control-room');
+    expect(signal.source_trust).toBe('submitted-unverified');
+    expect(signal.source_authentication_verified).toBe(false);
+    expect(signal).not.toHaveProperty('source_system');
     expect(signal.provider_state).toBe('published');
     expect(signal.observed_metrics).toContainEqual({ name: 'qualified_conversations', value: 3 });
     expect(signal.unknown_metrics).toEqual(['attributed_deals']);
@@ -83,6 +86,7 @@ describe('FCR founder-content learning adapter', () => {
       publish_authorized: false,
       content_mutation_authorized: false,
       may_increase_authority: false,
+      authenticated_source_required_for_canonical_learning: true,
       founder_approval_required_for_external_action: true,
     });
   });
@@ -155,5 +159,18 @@ describe('FCR founder-content learning adapter', () => {
     expect(() => buildFounderContentLearningSignal(input)).toThrow(
       /privacy.provider_payload_stored must be false/,
     );
+  });
+
+  it('keeps a caller-synthesized valid hash advisory and explicitly unverified', () => {
+    const signal = buildFounderContentLearningSignal(observation({
+      identity: {
+        provider_receipt_id: 'caller-can-synthesize-this-shape',
+      },
+    }));
+
+    expect(signal.source_trust).toBe('submitted-unverified');
+    expect(signal.source_authentication_verified).toBe(false);
+    expect(signal.authority.authenticated_source_required_for_canonical_learning).toBe(true);
+    expect(signal.authority.may_increase_authority).toBe(false);
   });
 });
