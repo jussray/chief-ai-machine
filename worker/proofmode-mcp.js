@@ -1,5 +1,6 @@
 import { classifyRepositoryEvidence } from '../plugins/proofmode/src/audit.js';
 import { loadPublicRepositoryEvidence } from '../plugins/proofmode/src/github.js';
+import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
@@ -9,13 +10,23 @@ const TOOL = {
   name: 'audit_repository',
   title: 'Audit repository evidence',
   description:
-    'Read public GitHub repository evidence and classify what is claimed, implemented, tested, deployed, and independently verified. Read-only.',
+    'Read public GitHub repository evidence and classify what is claimed, implemented, tested, deployed, and independently verified. Emits a juss-proof/v1 receipt and remains read-only.',
   inputSchema: {
     type: 'object',
     properties: {
       owner: { type: 'string', minLength: 1, description: 'GitHub repository owner.' },
       repo: { type: 'string', minLength: 1, description: 'GitHub repository name.' },
       ref: { type: 'string', minLength: 1, description: 'Optional branch, tag, or commit SHA.' },
+      acknowledges: {
+        type: 'array',
+        maxItems: 50,
+        uniqueItems: true,
+        description: 'Optional upstream juss-proof/v1 receipt IDs this audit explicitly acknowledges.',
+        items: {
+          type: 'string',
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+        },
+      },
     },
     required: ['owner', 'repo'],
     additionalProperties: false,
@@ -60,10 +71,11 @@ function validateProtocolHeader(request) {
   return !version || SUPPORTED_PROTOCOLS.has(version);
 }
 
-function toolResult(report) {
+function toolResult(report, proofReceipt) {
+  const structuredContent = { ...report, proofReceipt };
   return {
-    content: [{ type: 'text', text: JSON.stringify(report, null, 2) }],
-    structuredContent: report,
+    content: [{ type: 'text', text: JSON.stringify(structuredContent, null, 2) }],
+    structuredContent,
     isError: false,
   };
 }
@@ -101,7 +113,7 @@ async function dispatch(message, deps, env) {
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
       instructions:
-        'ProofMode is read-only. It audits public GitHub repository evidence and never promotes repository evidence into live runtime verification.',
+        'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
     });
   }
 
@@ -120,6 +132,9 @@ async function dispatch(message, deps, env) {
     if (typeof args.owner !== 'string' || !args.owner.trim() || typeof args.repo !== 'string' || !args.repo.trim()) {
       return jsonRpcError(id, -32602, 'audit_repository requires non-empty owner and repo strings.');
     }
+    if (args.acknowledges !== undefined && !Array.isArray(args.acknowledges)) {
+      return jsonRpcError(id, -32602, 'audit_repository acknowledges must be an array of receipt IDs.');
+    }
 
     try {
       const evidence = await deps.loadPublicRepositoryEvidence({
@@ -130,7 +145,9 @@ async function dispatch(message, deps, env) {
           ? env.PROOFMODE_GITHUB_TOKEN
           : undefined,
       });
-      return jsonRpc(id, toolResult(deps.classifyRepositoryEvidence(evidence)));
+      const report = deps.classifyRepositoryEvidence(evidence);
+      const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
+      return jsonRpc(id, toolResult(report, proofReceipt));
     } catch (error) {
       return jsonRpc(id, toolError(error));
     }
