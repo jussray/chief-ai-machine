@@ -1,3 +1,4 @@
+/* global TextEncoder, crypto */
 import { describe, expect, it } from 'vitest';
 import {
   FCR_LEARNING_ROUTE,
