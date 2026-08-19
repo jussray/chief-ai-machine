@@ -197,7 +197,9 @@ export function buildFounderContentLearningSignal(input) {
   const signalIdentity = {
     version: 1,
     kind: CHIEF_FOUNDER_CONTENT_LEARNING_KIND,
-    source_system: 'founder-control-room',
+    declared_source_system: 'founder-control-room',
+    source_trust: 'submitted-unverified',
+    source_authentication_verified: false,
     source_kind: FCR_FOUNDER_CONTENT_OUTCOME_KIND,
     source_observation_hash: observation.observation_hash,
     content_id: observation.content_id,
@@ -220,6 +222,7 @@ export function buildFounderContentLearningSignal(input) {
       publish_authorized: false,
       content_mutation_authorized: false,
       may_increase_authority: false,
+      authenticated_source_required_for_canonical_learning: true,
       founder_approval_required_for_external_action: true,
     }),
   });
