@@ -136,11 +136,24 @@ describe('FCR founder-content learning adapter', () => {
     expect(signal.unknown_metrics).toContain('qualified_conversations');
   });
 
-  it('rejects raw private/publication payload fields at the Chief learning boundary', () => {
-    const input = observation({ root: { raw_post_text: 'private post copy' } });
+  it('fails closed on unknown top-level or nested payload fields', () => {
+    expect(() => buildFounderContentLearningSignal(
+      observation({ root: { raw_post_text: 'private post copy' } }),
+    )).toThrow(/observation.raw_post_text is not allowed/);
+
+    const nested = observation();
+    nested.metrics.private_notes = 'do not ingest me';
+    expect(() => buildFounderContentLearningSignal(nested)).toThrow(
+      /metrics.private_notes is not allowed/,
+    );
+  });
+
+  it('rejects privacy claims that say sensitive payloads were stored', () => {
+    const input = observation();
+    input.privacy.provider_payload_stored = true;
 
     expect(() => buildFounderContentLearningSignal(input)).toThrow(
-      /raw_post_text is forbidden in Chief learning input/,
+      /privacy.provider_payload_stored must be false/,
     );
   });
 });
