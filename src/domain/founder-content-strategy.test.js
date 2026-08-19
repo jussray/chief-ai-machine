@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildFounderContentStrategyLease } from './founder-content-strategy.js';
+import {
+  bindStrategyLeaseToProposal,
+  buildFounderContentStrategyLease,
+} from './founder-content-strategy.js';
 
 const base = {
   evaluated_at: '2026-08-19T06:40:00.000Z',
@@ -38,12 +41,32 @@ const base = {
   },
 };
 
+const proposal = {
+  kind: 'chief-ai/founder-content-proposal',
+  proposal_hash: 'c'.repeat(64),
+  public_payload: {
+    public_claims: [
+      {
+        claim_id: 'truth-decay-fix',
+        truth_state: 'verified',
+        public_safe: true,
+      },
+      {
+        claim_id: 'sauce-guard',
+        truth_state: 'verified',
+        public_safe: true,
+      },
+    ],
+  },
+};
+
 describe('founder content strategy lease', () => {
   it('creates a current advisory-only strategy receipt without raw post or feed text', () => {
     const lease = buildFounderContentStrategyLease(base);
 
     expect(lease.kind).toBe('chief-ai/founder-content-strategy-lease');
     expect(lease.state).toBe('CURRENT');
+    expect(lease.expires_at).toBe('2026-08-20T06:20:00.000Z');
     expect(lease.audience.primary_segment).toContain('AI founders');
     expect(lease.strategy.brag_claim_ids).toEqual(['truth-decay-fix']);
     expect(lease.strategy.pattern_signature).toBe(
@@ -67,19 +90,29 @@ describe('founder content strategy lease', () => {
     })).toThrow(/observed at or after the latest published post/);
   });
 
-  it('rejects an exact recent strategy-pattern repeat', () => {
+  it('normalizes prior signatures so casing and punctuation cannot hide an exact repeat', () => {
     expect(() => buildFounderContentStrategyLease({
       ...base,
       own_history: {
         ...base.own_history,
         recent_pattern_signatures: [
-          'failure-confession|truth-decay-frame|exact-version-proof|builder-invitation',
+          'Failure Confession | Truth Decay Frame | Exact Version Proof | Builder Invitation',
         ],
       },
     })).toThrow(/repeats an exact recent/);
   });
 
-  it('rejects a crowded feed angle unless the strategy deliberately counter-positions it', () => {
+  it('rejects malformed own-history shape that could fake post memory', () => {
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      own_history: {
+        ...base.own_history,
+        post_count: 0,
+      },
+    })).toThrow(/last_published_at cannot exist when post_count is zero/);
+  });
+
+  it('rejects a crowded feed angle unless the strategy deliberately counter-positions it with a reason', () => {
     expect(() => buildFounderContentStrategyLease({
       ...base,
       strategy: {
@@ -88,15 +121,26 @@ describe('founder content strategy lease', () => {
       },
     })).toThrow(/currently crowded/);
 
-    const counter = buildFounderContentStrategyLease({
+    expect(() => buildFounderContentStrategyLease({
       ...base,
       strategy: {
         ...base.strategy,
         selected_angle: 'agents are the future',
         counter_position: true,
       },
+    })).toThrow(/counter_position_reason is required/);
+
+    const counter = buildFounderContentStrategyLease({
+      ...base,
+      strategy: {
+        ...base.strategy,
+        selected_angle: 'agents are the future',
+        counter_position: true,
+        counter_position_reason: 'Challenge the category by showing that verification, not more autonomy, is the bottleneck.',
+      },
     });
     expect(counter.strategy.counter_position).toBe(true);
+    expect(counter.strategy.counter_position_reason).toContain('verification');
   });
 
   it('requires current market observation when current context is part of the strategy', () => {
@@ -116,6 +160,7 @@ describe('founder content strategy lease', () => {
     });
     expect(lease.market_context.required).toBe(false);
     expect(lease.market_context.feed_digest).toBeNull();
+    expect(lease.expires_at).toBeNull();
   });
 
   it('requires an explicit target audience, intended impression, and desired action', () => {
@@ -125,7 +170,7 @@ describe('founder content strategy lease', () => {
     })).toThrow(/primary_segment is required/);
   });
 
-  it('requires every strategic brag to point at a verified public claim', () => {
+  it('requires every strategic brag to point at a verified public claim candidate', () => {
     expect(() => buildFounderContentStrategyLease({
       ...base,
       strategy: {
@@ -143,5 +188,26 @@ describe('founder content strategy lease', () => {
         improvement_experiment: '',
       },
     })).toThrow(/each post upgrades the next one/);
+  });
+
+  it('binds every brag to the final canonical truth proposal without making strategy authoritative', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    const binding = bindStrategyLeaseToProposal(lease, proposal);
+
+    expect(binding.kind).toBe('chief-ai/founder-content-strategy-binding');
+    expect(binding.proposal_hash).toBe(proposal.proposal_hash);
+    expect(binding.brag_claim_ids).toEqual(['truth-decay-fix']);
+    expect(binding.authority.advisory_only).toBe(true);
+    expect(binding.authority.publish_authorized).toBe(false);
+  });
+
+  it('rejects a brag that disappears before the final truth proposal is built', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    expect(() => bindStrategyLeaseToProposal(lease, {
+      ...proposal,
+      public_payload: {
+        public_claims: proposal.public_payload.public_claims.filter((claim) => claim.claim_id !== 'truth-decay-fix'),
+      },
+    })).toThrow(/absent from the final verified public claim set/);
   });
 });
