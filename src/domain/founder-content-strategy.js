@@ -245,7 +245,7 @@ export function buildFounderContentStrategyLease(input = {}) {
   });
 }
 
-export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}) {
+export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}, useContext = {}) {
   const errors = [];
   if (strategyLease.kind !== 'chief-ai/founder-content-strategy-lease' || strategyLease.state !== 'CURRENT') {
     errors.push('strategy lease must be a CURRENT chief-ai/founder-content-strategy-lease');
@@ -253,6 +253,21 @@ export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}) {
   if (strategyLease.authority?.advisory_only !== true || strategyLease.authority?.publish_authorized !== false) {
     errors.push('strategy lease must remain advisory and non-authorizing');
   }
+
+  const boundAt = parseTime(useContext.bound_at, 'use_context.bound_at');
+  const currentHistoryDigest = text(useContext.current_history_digest, 64).toLowerCase();
+  if (!HASH.test(currentHistoryDigest)) errors.push('use_context.current_history_digest must be sha256');
+  if (currentHistoryDigest !== text(strategyLease.own_history?.history_digest, 64).toLowerCase()) {
+    errors.push('strategy own-post memory changed after lease creation; rebuild strategy from the latest published history');
+  }
+  const expiresRaw = text(strategyLease.expires_at, 64);
+  if (expiresRaw) {
+    const expires = parseTime(expiresRaw, 'strategy_lease.expires_at');
+    if (boundAt.ms >= expires.ms) {
+      errors.push('strategy lease expired before proposal use; refresh current market context');
+    }
+  }
+
   if (proposal.kind !== 'chief-ai/founder-content-proposal') {
     errors.push('proposal must be a canonical chief-ai/founder-content-proposal');
   }
@@ -281,6 +296,8 @@ export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}) {
     version: 1,
     kind: 'chief-ai/founder-content-strategy-binding',
     strategy_evaluated_at: text(strategyLease.evaluated_at, 64),
+    bound_at: boundAt.raw,
+    own_history_digest: currentHistoryDigest,
     proposal_hash: proposalHash,
     brag_claim_ids: bragClaimIds,
     pattern_signature: text(strategyLease.strategy?.pattern_signature, 520),
