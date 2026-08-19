@@ -2,6 +2,7 @@
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
   "main": "worker/index.js",
+  "preview_urls": true,
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
