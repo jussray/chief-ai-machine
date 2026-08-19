@@ -55,11 +55,13 @@ function buildHandoff(strategy, proposal) {
     authority: Object.freeze({
       strategy_advisory_only: true,
       strategy_evidence_is_not_claim_proof: true,
+      submitted_current_you_trust: 'submitted-unverified',
       proposal_only: true,
       execution_authorized: false,
       publish_authorized: false,
       copy_mutation_authorized: false,
       truth_renewal_authorized: false,
+      founder_control_room_must_authenticate_current_you: true,
       founder_control_room_must_verify_evidence: true,
       founder_control_room_must_authorize_exact_copy: true,
       provider_readback_required_for_publication_truth: true,
@@ -85,8 +87,9 @@ function validatePair(strategy, proposal) {
  * Runtime bridge for founder-content reasoning.
  *
  * Chief may bind an advisory audience/history/discourse strategy to an exact-copy
- * proposal. It cannot authenticate evidence, approve publication, or execute the
- * post. FCR remains the evidence and publication-authority boundary.
+ * proposal. It cannot authenticate Current You or evidence, approve publication,
+ * or execute the post. FCR remains the authenticated founder, evidence, and
+ * publication-authority boundary.
  */
 export async function handleChiefFounderContentProposal(request) {
   const url = new URL(request.url);
@@ -134,12 +137,15 @@ export async function handleChiefFounderContentProposal(request) {
           strategyAdvisoryOnly: true,
           strategyEvidenceCanProveClaims: false,
           submittedEvidenceAuthenticated: false,
+          submittedCurrentYouAuthenticated: false,
+          submittedCurrentYouTrust: 'submitted-unverified',
           currentYouPublicationApprovalResolvedByChief: false,
+          founderControlRoomMustAuthenticateCurrentYou: true,
           founderControlRoomVerificationRequired: true,
           founderControlRoomExactCopyApprovalRequired: true,
           providerReadbackRequiredForPublishedTruth: true,
           nextGate:
-            'Founder Control Room must authenticate the proposal evidence, re-check temporal truth at the execution boundary, issue or resolve authoritative founder approval for the exact public payload, and require provider readback before any published claim is true.',
+            'Founder Control Room must authenticate Current You, authenticate the proposal evidence, re-check temporal truth at the execution boundary, issue or resolve authoritative founder approval for the exact public payload, and require provider readback before any published claim is true.',
         },
       },
       meta: meta(),
