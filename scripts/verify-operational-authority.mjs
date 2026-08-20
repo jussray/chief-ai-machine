@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const FULL_SHA_ACTION = /^[^@\s]+@[0-9a-f]{40}$/i;
 const TRACKING_REF = /^#\d+$/;
+const WORKFLOW_PATH = /^\.github\/workflows\/[^*\s]+\.ya?ml$/i;
+const VERIFY_COMMAND = /^node\s+scripts\/verify-[a-zA-Z0-9._/-]+(?:\s+.*)?$/;
 const REQUIRED_RULES = [
   'auditExactMainBeforeEdits',
   'auditExactMainBeforeMerge',
@@ -12,6 +14,7 @@ const REQUIRED_RULES = [
   'disablePersistedCheckoutCredentials',
   'cancelSupersededPullRequestRuns',
   'singleFullCoverageExecutionPerWorkflow',
+  'singleOwnerPerVerificationResponsibility',
   'providerBuildSuccessIsNotRuntimeProof',
   'providerPreviewIsNotProductionAuthority',
   'uiAndRuntimeClaimsRequirePlaywright',
@@ -28,6 +31,7 @@ const REQUIRED_TEMPORAL_AUTHORITY = Object.freeze({
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 const waiverKey = (workflow, reference) => `${clean(workflow)}\u0000${clean(reference)}`;
+const mirrorKey = (command, mirror) => `${clean(command)}\u0000${clean(mirror)}`;
 
 export function auditActionReference(reference) {
   const value = clean(reference).replace(/^['"]|['"]$/g, '');
@@ -124,6 +128,186 @@ export function scanWorkflowBudget(text, workflow = 'unknown') {
     workflow,
     fullCoverageExecutions: fullCoverageLines.length,
     lines: fullCoverageLines,
+    violations,
+  };
+}
+
+export function extractRunCommands(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const commands = [];
+  const blockMarkers = new Set(['|', '>', '|-', '>-', '|+', '>+']);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const match = line.match(/^\s*-?\s*run:\s*(.*)$/);
+    if (!match) continue;
+
+    const inline = clean(match[1]);
+    if (inline && !blockMarkers.has(inline)) {
+      commands.push({ line: index + 1, command: inline });
+      continue;
+    }
+
+    const runIndent = indentation(line);
+    const block = [];
+    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+      const candidate = lines[cursor];
+      if (candidate.trim() && indentation(candidate) <= runIndent) break;
+      if (!candidate.trim()) continue;
+      block.push(candidate.trim());
+    }
+    if (block.length > 0) commands.push({ line: index + 1, command: block.join('\n') });
+  }
+
+  return commands;
+}
+
+function normalizeShellCommand(command) {
+  return clean(command).replace(/\s+/g, ' ');
+}
+
+export function canonicalizeVerificationCommand(command, packageScripts = {}) {
+  const value = normalizeShellCommand(command);
+  if (!value || value.startsWith('#')) return null;
+
+  const npmRun = value.match(/^npm\s+run\s+([a-zA-Z0-9:_-]+)$/);
+  const resolved = npmRun ? normalizeShellCommand(packageScripts?.[npmRun[1]]) : value;
+  if (!resolved || !VERIFY_COMMAND.test(resolved)) return null;
+  return resolved;
+}
+
+function workflowVerificationOccurrences(text, workflow, packageScripts) {
+  const occurrences = [];
+  for (const run of extractRunCommands(text)) {
+    const commandLines = run.command.split(/\r?\n/);
+    commandLines.forEach((commandLine, offset) => {
+      const canonical = canonicalizeVerificationCommand(commandLine, packageScripts);
+      if (!canonical) return;
+      occurrences.push({
+        command: canonical,
+        workflow,
+        line: run.line + offset,
+      });
+    });
+  }
+  return occurrences;
+}
+
+export function validateWorkflowResponsibilityMirrors(mirrors) {
+  const list = Array.isArray(mirrors) ? mirrors : [];
+  const invalid = [];
+  const seen = new Set();
+
+  for (const entry of list) {
+    const command = normalizeShellCommand(entry?.command);
+    const owner = clean(entry?.owner);
+    const mirror = clean(entry?.mirror);
+    const tracking = clean(entry?.tracking);
+    const rationale = clean(entry?.rationale);
+    const removalGate = clean(entry?.removalGate);
+    const key = mirrorKey(command, mirror);
+    const reasons = [];
+
+    if (!VERIFY_COMMAND.test(command)) reasons.push('command must be one exact node scripts/verify-* command');
+    if (!WORKFLOW_PATH.test(owner)) reasons.push('owner must be one exact .github/workflows YAML path');
+    if (!WORKFLOW_PATH.test(mirror)) reasons.push('mirror must be one exact .github/workflows YAML path');
+    if ([command, owner, mirror, tracking, rationale, removalGate].some((value) => value.includes('*'))) {
+      reasons.push('wildcards are forbidden');
+    }
+    if (owner && mirror && owner === mirror) reasons.push('owner and mirror must be different workflows');
+    if (!TRACKING_REF.test(tracking)) reasons.push('tracking must be an exact #number');
+    if (!rationale) reasons.push('rationale is required');
+    if (!removalGate) reasons.push('removalGate is required');
+    if (seen.has(key)) reasons.push('duplicate command/mirror disposition');
+    seen.add(key);
+
+    if (reasons.length > 0) {
+      invalid.push({
+        classification: 'invalid-workflow-responsibility-mirror',
+        command,
+        owner,
+        mirror,
+        tracking,
+        reasons,
+      });
+    }
+  }
+
+  return invalid;
+}
+
+export function auditWorkflowResponsibilities({ workflows, packageScripts = {}, mirrors = [] } = {}) {
+  const workflowList = Array.isArray(workflows) ? workflows : [];
+  const mirrorList = Array.isArray(mirrors) ? mirrors : [];
+  const occurrences = workflowList.flatMap(({ workflow, text }) => (
+    workflowVerificationOccurrences(text, workflow, packageScripts)
+  ));
+  const byCommand = new Map();
+  for (const occurrence of occurrences) {
+    if (!byCommand.has(occurrence.command)) byCommand.set(occurrence.command, []);
+    byCommand.get(occurrence.command).push(occurrence);
+  }
+
+  const violations = [];
+  const intentionalMirrors = [];
+  const usedMirrorKeys = new Set();
+  const duplicates = [];
+
+  for (const [command, commandOccurrences] of byCommand) {
+    const actualWorkflows = [...new Set(commandOccurrences.map((item) => item.workflow))].sort();
+    if (actualWorkflows.length <= 1) continue;
+
+    duplicates.push({ command, workflows: actualWorkflows });
+    const dispositions = mirrorList.filter((entry) => normalizeShellCommand(entry?.command) === command);
+    const owners = [...new Set(dispositions.map((entry) => clean(entry?.owner)).filter(Boolean))];
+    const owner = owners.length === 1 ? owners[0] : null;
+    const allowed = new Set(owner ? [owner] : []);
+    for (const entry of dispositions) allowed.add(clean(entry?.mirror));
+    const undisposed = actualWorkflows.filter((workflow) => !allowed.has(workflow));
+
+    if (!owner || !actualWorkflows.includes(owner) || undisposed.length > 0) {
+      violations.push({
+        classification: 'duplicate-workflow-verification-responsibility',
+        command,
+        workflows: actualWorkflows,
+        owner,
+        undisposedWorkflows: undisposed,
+        reason: 'one verification responsibility may span workflows only with an exact owner and tracked mirror disposition',
+      });
+      continue;
+    }
+
+    for (const entry of dispositions) {
+      const mirror = clean(entry?.mirror);
+      if (!actualWorkflows.includes(mirror)) continue;
+      usedMirrorKeys.add(mirrorKey(command, mirror));
+      intentionalMirrors.push({
+        command,
+        owner,
+        mirror,
+        tracking: clean(entry?.tracking),
+        rationale: clean(entry?.rationale),
+        removalGate: clean(entry?.removalGate),
+      });
+    }
+  }
+
+  const unusedMirrors = mirrorList
+    .filter((entry) => !usedMirrorKeys.has(mirrorKey(normalizeShellCommand(entry?.command), entry?.mirror)))
+    .map((entry) => ({
+      classification: 'unused-workflow-responsibility-mirror',
+      command: normalizeShellCommand(entry?.command),
+      owner: clean(entry?.owner),
+      mirror: clean(entry?.mirror),
+      tracking: clean(entry?.tracking),
+      reason: 'registered mirror no longer matches a duplicated verification responsibility and must be removed',
+    }));
+
+  return {
+    occurrences,
+    duplicates,
+    intentionalMirrors,
+    unusedMirrors,
     violations,
   };
 }
@@ -248,20 +432,36 @@ function workflowFiles(rootDir) {
 
 export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
   const configPath = path.join(rootDir, 'config', 'operational-authority.json');
+  const packagePath = path.join(rootDir, 'package.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const packageConfig = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   const ruleViolations = REQUIRED_RULES
     .filter((rule) => config?.workflowRules?.[rule] !== true)
     .map((rule) => ({ classification: 'missing-required-rule', rule }));
   const temporalAuthorityViolations = validateTemporalAuthority(config?.temporalAuthority);
 
   const files = workflowFiles(rootDir);
-  const rawFindings = files.flatMap((file) => (
-    scanWorkflowText(fs.readFileSync(file, 'utf8'), path.relative(rootDir, file))
+  const workflowTexts = files.map((file) => ({
+    workflow: path.relative(rootDir, file),
+    text: fs.readFileSync(file, 'utf8'),
+  }));
+  const rawFindings = workflowTexts.flatMap(({ workflow, text }) => (
+    scanWorkflowText(text, workflow)
   ));
-  const workflowBudget = files.map((file) => (
-    scanWorkflowBudget(fs.readFileSync(file, 'utf8'), path.relative(rootDir, file))
+  const workflowBudget = workflowTexts.map(({ workflow, text }) => (
+    scanWorkflowBudget(text, workflow)
   ));
   const workflowBudgetViolations = workflowBudget.flatMap((item) => item.violations);
+
+  const responsibilityMirrors = Array.isArray(config?.workflowResponsibilityMirrors)
+    ? config.workflowResponsibilityMirrors
+    : [];
+  const invalidResponsibilityMirrors = validateWorkflowResponsibilityMirrors(responsibilityMirrors);
+  const responsibilityAudit = auditWorkflowResponsibilities({
+    workflows: workflowTexts,
+    packageScripts: packageConfig?.scripts || {},
+    mirrors: responsibilityMirrors,
+  });
 
   const waivers = Array.isArray(config?.workflowAuthorityWaivers)
     ? config.workflowAuthorityWaivers
@@ -273,6 +473,9 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     ...ruleViolations,
     ...temporalAuthorityViolations,
     ...workflowBudgetViolations,
+    ...invalidResponsibilityMirrors,
+    ...responsibilityAudit.violations,
+    ...responsibilityAudit.unusedMirrors,
     ...invalidWaivers,
     ...waiverResult.unusedWaivers,
     ...actionViolations,
@@ -294,7 +497,12 @@ export function verifyOperationalAuthority({ rootDir = process.cwd() } = {}) {
     workflowBudget: {
       fullCoverageExecutions: workflowBudget.reduce((sum, item) => sum + item.fullCoverageExecutions, 0),
       duplicateFullCoverageViolations: workflowBudgetViolations.length,
+      duplicatedVerificationResponsibilities: responsibilityAudit.duplicates.length,
+      undisposedVerificationDuplicates: responsibilityAudit.violations.length,
+      intentionalVerificationMirrors: responsibilityAudit.intentionalMirrors,
     },
+    invalidResponsibilityMirrors,
+    unusedResponsibilityMirrors: responsibilityAudit.unusedMirrors,
     waiversApplied: waiverResult.waiversApplied,
     invalidWaivers,
     unusedWaivers: waiverResult.unusedWaivers,
