@@ -166,14 +166,30 @@ function normalizeShellCommand(command) {
   return clean(command).replace(/\s+/g, ' ');
 }
 
+function stripShellEnvironmentPrefix(command) {
+  let value = normalizeShellCommand(command);
+  if (value.startsWith('env ')) value = value.slice(4).trim();
+
+  const assignment = /^[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s]+)\s+/;
+  while (assignment.test(value)) value = value.replace(assignment, '');
+  return value;
+}
+
+function canonicalNodeVerificationCommand(command) {
+  const value = stripShellEnvironmentPrefix(command);
+  const match = value.match(/^node\s+(scripts\/verify-[a-zA-Z0-9._/-]+)(?:\s+.*)?$/);
+  return match ? `node ${match[1]}` : null;
+}
+
 export function canonicalizeVerificationCommand(command, packageScripts = {}) {
-  const value = normalizeShellCommand(command);
+  const value = stripShellEnvironmentPrefix(command);
   if (!value || value.startsWith('#')) return null;
 
-  const npmRun = value.match(/^npm\s+run\s+([a-zA-Z0-9:_-]+)$/);
-  const resolved = npmRun ? normalizeShellCommand(packageScripts?.[npmRun[1]]) : value;
-  if (!resolved || !VERIFY_COMMAND.test(resolved)) return null;
-  return resolved;
+  const npmRun = value.match(/^npm(?:\s+--silent)?\s+run\s+([a-zA-Z0-9:_-]+)(?:\s+--(?:\s+.*)?)?$/);
+  if (npmRun) {
+    return canonicalNodeVerificationCommand(packageScripts?.[npmRun[1]]);
+  }
+  return canonicalNodeVerificationCommand(value);
 }
 
 function workflowVerificationOccurrences(text, workflow, packageScripts) {
