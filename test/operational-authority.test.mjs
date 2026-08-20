@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   applyWorkflowAuthorityWaivers,
   auditActionReference,
+  auditWorkflowResponsibilities,
+  canonicalizeVerificationCommand,
+  extractRunCommands,
   scanWorkflowBudget,
   scanWorkflowText,
   validateTemporalAuthority,
   validateWorkflowAuthorityWaivers,
+  validateWorkflowResponsibilityMirrors,
 } from '../scripts/verify-operational-authority.mjs';
 
 describe('operational authority contract', () => {
@@ -104,6 +108,125 @@ describe('operational authority contract', () => {
     );
     expect(reused.fullCoverageExecutions).toBe(1);
     expect(reused.violations).toHaveLength(0);
+  });
+
+  it('extracts inline and multiline run commands without treating path declarations as execution', () => {
+    const commands = extractRunCommands(
+      'paths:\n  - scripts/verify-cookie-contract.mjs\nsteps:\n  - run: npm run verify:cookies\n  - run: |\n      set -euo pipefail\n      node scripts/verify-founder-chief-pair.mjs\n',
+    );
+    expect(commands).toEqual([
+      { line: 4, command: 'npm run verify:cookies' },
+      { line: 5, command: 'set -euo pipefail\nnode scripts/verify-founder-chief-pair.mjs' },
+    ]);
+  });
+
+  it('canonicalizes npm verification scripts to the command they actually execute', () => {
+    const scripts = {
+      'verify:cookies': 'node scripts/verify-cookie-contract.mjs',
+    };
+    expect(canonicalizeVerificationCommand('npm run verify:cookies', scripts))
+      .toBe('node scripts/verify-cookie-contract.mjs');
+    expect(canonicalizeVerificationCommand('npm ci', scripts)).toBeNull();
+  });
+
+  it('blocks a duplicated verification responsibility without an exact mirror disposition', () => {
+    const result = auditWorkflowResponsibilities({
+      workflows: [
+        { workflow: '.github/workflows/owner.yml', text: 'steps:\n  - run: npm run verify:cookies\n' },
+        { workflow: '.github/workflows/mirror.yml', text: 'steps:\n  - run: node scripts/verify-cookie-contract.mjs\n' },
+      ],
+      packageScripts: { 'verify:cookies': 'node scripts/verify-cookie-contract.mjs' },
+      mirrors: [],
+    });
+    expect(result.violations).toEqual([
+      expect.objectContaining({
+        classification: 'duplicate-workflow-verification-responsibility',
+        command: 'node scripts/verify-cookie-contract.mjs',
+      }),
+    ]);
+  });
+
+  it('allows only the exact tracked verification mirror and rejects a third workflow', () => {
+    const mirror = {
+      command: 'node scripts/verify-cookie-contract.mjs',
+      owner: '.github/workflows/owner.yml',
+      mirror: '.github/workflows/mirror.yml',
+      tracking: '#96',
+      rationale: 'Preserve provider check identity until ruleset readback is available.',
+      removalGate: 'Remove after provider readback proves the mirror is not required.',
+    };
+    const baseWorkflows = [
+      { workflow: '.github/workflows/owner.yml', text: 'steps:\n  - run: npm run verify:cookies\n' },
+      { workflow: '.github/workflows/mirror.yml', text: 'steps:\n  - run: node scripts/verify-cookie-contract.mjs\n' },
+    ];
+    const allowed = auditWorkflowResponsibilities({
+      workflows: baseWorkflows,
+      packageScripts: { 'verify:cookies': 'node scripts/verify-cookie-contract.mjs' },
+      mirrors: [mirror],
+    });
+    expect(allowed.violations).toHaveLength(0);
+    expect(allowed.unusedMirrors).toHaveLength(0);
+    expect(allowed.intentionalMirrors).toEqual([expect.objectContaining({ tracking: '#96' })]);
+
+    const widened = auditWorkflowResponsibilities({
+      workflows: [
+        ...baseWorkflows,
+        { workflow: '.github/workflows/third.yml', text: 'steps:\n  - run: node scripts/verify-cookie-contract.mjs\n' },
+      ],
+      packageScripts: { 'verify:cookies': 'node scripts/verify-cookie-contract.mjs' },
+      mirrors: [mirror],
+    });
+    expect(widened.violations).toEqual([
+      expect.objectContaining({
+        classification: 'duplicate-workflow-verification-responsibility',
+        undisposedWorkflows: ['.github/workflows/third.yml'],
+      }),
+    ]);
+  });
+
+  it('makes an intentional verification mirror self-expire when the duplicate disappears', () => {
+    const mirror = {
+      command: 'node scripts/verify-cookie-contract.mjs',
+      owner: '.github/workflows/owner.yml',
+      mirror: '.github/workflows/mirror.yml',
+      tracking: '#96',
+      rationale: 'Temporary mirror.',
+      removalGate: 'Remove after provider readback.',
+    };
+    const result = auditWorkflowResponsibilities({
+      workflows: [
+        { workflow: '.github/workflows/owner.yml', text: 'steps:\n  - run: node scripts/verify-cookie-contract.mjs\n' },
+      ],
+      mirrors: [mirror],
+    });
+    expect(result.unusedMirrors).toEqual([
+      expect.objectContaining({
+        classification: 'unused-workflow-responsibility-mirror',
+        tracking: '#96',
+      }),
+    ]);
+  });
+
+  it('rejects wildcard, untracked, and self-owned verification mirror definitions', () => {
+    const invalid = validateWorkflowResponsibilityMirrors([
+      {
+        command: 'node scripts/verify-cookie-contract.mjs',
+        owner: '.github/workflows/*.yml',
+        mirror: '.github/workflows/cookie.yml',
+        tracking: '#96',
+        rationale: 'bad',
+        removalGate: 'later',
+      },
+      {
+        command: 'node scripts/verify-cookie-contract.mjs',
+        owner: '.github/workflows/cookie.yml',
+        mirror: '.github/workflows/cookie.yml',
+        tracking: '',
+        rationale: '',
+        removalGate: '',
+      },
+    ]);
+    expect(invalid).toHaveLength(2);
   });
 
   it('keeps Current You authoritative while FutureYou remains advisory', () => {
