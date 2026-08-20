@@ -6,7 +6,7 @@ on:
       - "src/domain/decision-cycle.js"
       - "src/domain/decision-cycle.test.js"
       - "src/domain/recursive-decision-hardening.js"
-      - "src/domain/recursive-decision-hardening.test.js"
+      - "test/recursive-decision-hardening.test.js"
       - "test/v10-decision-cycle.conformance.test.js"
       - "test/v10-recursive-hardening.conformance.test.js"
       - "testdata/v10-decision-cycle-conformance.json"
@@ -18,7 +18,7 @@ on:
       - "src/domain/decision-cycle.js"
       - "src/domain/decision-cycle.test.js"
       - "src/domain/recursive-decision-hardening.js"
-      - "src/domain/recursive-decision-hardening.test.js"
+      - "test/recursive-decision-hardening.test.js"
       - "test/v10-decision-cycle.conformance.test.js"
       - "test/v10-recursive-hardening.conformance.test.js"
       - "testdata/v10-decision-cycle-conformance.json"
@@ -66,6 +66,6 @@ jobs:
         run: >-
           npx vitest run
           src/domain/decision-cycle.test.js
-          src/domain/recursive-decision-hardening.test.js
+          test/recursive-decision-hardening.test.js
           test/v10-decision-cycle.conformance.test.js
           test/v10-recursive-hardening.conformance.test.js
