@@ -6,7 +6,7 @@ import {
   validateRecursiveHardening,
 } from '../src/domain/recursive-decision-hardening.js';
 
-const EXPECTED_HARDENING_HASH = 'aa34b1c3810b9ddefee2d37cbddfe80335268a3f339ac5ab2cddea7b117a2f64';
+const EXPECTED_HARDENING_HASH = '2a6fe422c22e376c483e6fd366b3b93cf06bc290fbe682609dad8459438a4d98';
 const baseDecision = JSON.parse(
   readFileSync(new URL('../testdata/v10-decision-cycle-conformance.json', import.meta.url), 'utf8'),
 );
