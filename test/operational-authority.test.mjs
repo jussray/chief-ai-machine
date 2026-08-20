@@ -123,8 +123,13 @@ describe('operational authority contract', () => {
   it('canonicalizes npm verification scripts to the command they actually execute', () => {
     const scripts = {
       'verify:cookies': 'node scripts/verify-cookie-contract.mjs',
+      'verify:pair': 'PAIR_MODE=cross-repo node scripts/verify-founder-chief-pair.mjs --strict',
     };
     expect(canonicalizeVerificationCommand('npm run verify:cookies', scripts))
+      .toBe('node scripts/verify-cookie-contract.mjs');
+    expect(canonicalizeVerificationCommand('PAIR_CROSS_REPO_REQUIRED=true npm --silent run verify:pair -- --provider', scripts))
+      .toBe('node scripts/verify-founder-chief-pair.mjs');
+    expect(canonicalizeVerificationCommand('env MODE=strict node scripts/verify-cookie-contract.mjs --provider', scripts))
       .toBe('node scripts/verify-cookie-contract.mjs');
     expect(canonicalizeVerificationCommand('npm ci', scripts)).toBeNull();
   });
@@ -136,6 +141,23 @@ describe('operational authority contract', () => {
         { workflow: '.github/workflows/mirror.yml', text: 'steps:\n  - run: node scripts/verify-cookie-contract.mjs\n' },
       ],
       packageScripts: { 'verify:cookies': 'node scripts/verify-cookie-contract.mjs' },
+      mirrors: [],
+    });
+    expect(result.violations).toEqual([
+      expect.objectContaining({
+        classification: 'duplicate-workflow-verification-responsibility',
+        command: 'node scripts/verify-cookie-contract.mjs',
+      }),
+    ]);
+  });
+
+  it('does not let env prefixes or verifier arguments hide a duplicate responsibility', () => {
+    const result = auditWorkflowResponsibilities({
+      workflows: [
+        { workflow: '.github/workflows/owner.yml', text: 'steps:\n  - run: MODE=strict npm run verify:cookies -- --provider\n' },
+        { workflow: '.github/workflows/mirror.yml', text: 'steps:\n  - run: env MODE=mirror node scripts/verify-cookie-contract.mjs --provider\n' },
+      ],
+      packageScripts: { 'verify:cookies': 'node scripts/verify-cookie-contract.mjs --default' },
       mirrors: [],
     });
     expect(result.violations).toEqual([
