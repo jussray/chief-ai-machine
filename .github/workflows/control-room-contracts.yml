@@ -3,36 +3,8 @@ name: Chief AI Control Room Contracts
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "CHATGPT.md"
-      - "control-room.manifest.json"
-      - ".control-room/repository.manifest.json"
-      - "scripts/verify-control-room-tests.mjs"
-      - "scripts/verify-mcp-config.mjs"
-      - "scripts/verify-cookie-contract.mjs"
-      - "scripts/verify-founder-chief-pair.mjs"
-      - "scripts/bake-worker-release-sha.mjs"
-      - "package.json"
-      - "wrangler.jsonc"
-      - "worker/**"
-      - "test/worker-version.test.js"
-      - ".github/workflows/control-room-contracts.yml"
   push:
     branches: [main]
-    paths:
-      - "CHATGPT.md"
-      - "control-room.manifest.json"
-      - ".control-room/repository.manifest.json"
-      - "scripts/verify-control-room-tests.mjs"
-      - "scripts/verify-mcp-config.mjs"
-      - "scripts/verify-cookie-contract.mjs"
-      - "scripts/verify-founder-chief-pair.mjs"
-      - "scripts/bake-worker-release-sha.mjs"
-      - "package.json"
-      - "wrangler.jsonc"
-      - "worker/**"
-      - "test/worker-version.test.js"
-      - ".github/workflows/control-room-contracts.yml"
   workflow_dispatch:
 
 permissions:
