@@ -5,10 +5,11 @@ import { describe, expect, it } from 'vitest';
 const workflow = await readFile('.github/workflows/merge-intent-gate.yml', 'utf8');
 
 describe('merge intent workflow authority', () => {
-  it('evaluates stale pull requests using the current trusted base branch tip', () => {
+  it('evaluates stale pull requests using the exact event evaluator snapshot', () => {
     expect(workflow).toContain("pull_request_target:");
-    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.ref }}");
+    expect(workflow).toContain("ref: ${{ github.sha }}");
     expect(workflow).not.toContain("ref: ${{ github.event.pull_request.base.sha }}");
+    expect(workflow).not.toContain("ref: ${{ github.event.pull_request.base.ref }}");
     expect(workflow).toContain('test -f src/domain/merge-intent.js');
   });
 
