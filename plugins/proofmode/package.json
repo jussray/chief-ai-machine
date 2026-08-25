@@ -1,6 +1,6 @@
 {
   "name": "proofmode-plugin",
-  "version": "0.1.0-core",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Read-only evidence analysis for software repository claims, implementation, tests, deployment evidence, and runtime verification gaps.",
@@ -8,7 +8,17 @@
     "node": ">=18"
   },
   "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "node --test test/*.test.js",
-    "check": "node --check src/github.js && node --check src/audit.js"
+    "check": "node --check worker.js && node --check src/github.js && node --check src/audit.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "agents": "^0.20.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }
