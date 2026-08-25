@@ -17,6 +17,38 @@ async function postMcp(request, message) {
   });
 }
 
+async function postModernMcp(request, message) {
+  return request.post(`${baseURL}/mcp`, {
+    headers: {
+      Accept: 'application/json, text/event-stream',
+      'Content-Type': 'application/json',
+      'MCP-Protocol-Version': '2026-07-28',
+      'Mcp-Method': message.method,
+      ...(message.method === 'tools/call' ? { 'Mcp-Name': message.params.name } : {}),
+    },
+    data: message,
+  });
+}
+
+function modernMessage(id, method, params = {}) {
+  return {
+    jsonrpc: '2.0',
+    id,
+    method,
+    params: {
+      ...params,
+      _meta: {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientCapabilities': {},
+        'io.modelcontextprotocol/clientInfo': {
+          name: 'chief-ai-playwright-proof',
+          version: '1.0.0',
+        },
+      },
+    },
+  };
+}
+
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
@@ -56,6 +88,20 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.tools).toHaveLength(1);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+  });
+
+  test('serves the modern stateless MCP discovery contract', async ({ request }) => {
+    const response = await postModernMcp(
+      request,
+      modernMessage(20, 'server/discover'),
+    );
+
+    expect(response.status()).toBe(200);
+    const payload = await response.json();
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.supportedVersions).toContain('2026-07-28');
+    expect(payload.result.capabilities).toEqual({ tools: {} });
+    expect(payload.result.cacheScope).toBe('public');
   });
 
   test('audits the exact public repository head without mutation capability', async ({ request }) => {
