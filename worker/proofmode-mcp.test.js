@@ -15,6 +15,28 @@ function mcpRequest(body, headers = {}) {
   });
 }
 
+function modernMcpRequest(method, params = {}, headers = {}, id = 100) {
+  const body = {
+    jsonrpc: '2.0',
+    id,
+    method,
+    params: {
+      ...params,
+      _meta: {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientCapabilities': {},
+        'io.modelcontextprotocol/clientInfo': { name: 'proofmode-test', version: '1.0.0' },
+      },
+    },
+  };
+  return mcpRequest(body, {
+    'MCP-Protocol-Version': '2026-07-28',
+    'Mcp-Method': method,
+    ...(method === 'tools/call' ? { 'Mcp-Name': params.name } : {}),
+    ...headers,
+  });
+}
+
 async function json(response) {
   return response.json();
 }
@@ -84,6 +106,43 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
     expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
+    expect(payload.result.tools[0].annotations).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+    });
+  });
+
+  it('supports modern stateless discovery and cacheable tool listing', async () => {
+    const discovered = await handleProofModeMcp(modernMcpRequest('server/discover'));
+    const listed = await handleProofModeMcp(modernMcpRequest('tools/list'));
+
+    expect(discovered.status).toBe(200);
+    await expect(json(discovered)).resolves.toMatchObject({
+      result: {
+        resultType: 'complete',
+        supportedVersions: expect.arrayContaining(['2026-07-28', '2025-11-25']),
+        capabilities: { tools: {} },
+        ttlMs: 300000,
+        cacheScope: 'public',
+      },
+    });
+    await expect(json(listed)).resolves.toMatchObject({
+      result: {
+        resultType: 'complete',
+        ttlMs: 300000,
+        cacheScope: 'public',
+        tools: [{ name: 'audit_repository' }],
+      },
+    });
+  });
+
+  it('rejects modern header/body routing mismatches', async () => {
+    const response = await handleProofModeMcp(
+      modernMcpRequest('tools/list', {}, { 'Mcp-Method': 'tools/call' }),
+    );
+    expect(response.status).toBe(400);
+    expect((await json(response)).error.code).toBe(-32020);
   });
 
   it('calls the audit tool without mutation capability and emits a federated receipt', async () => {
@@ -171,6 +230,24 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent.repository).toBe('acme/app');
+  });
+
+  it('rejects credential-shaped or otherwise unexpected arguments', async () => {
+    const response = await handleProofModeMcp(mcpRequest({
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: {
+        name: 'audit_repository',
+        arguments: { owner: 'acme', repo: 'app', token: 'must-never-cross' },
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    expect((await json(response)).error).toMatchObject({
+      code: -32602,
+      data: ['token'],
+    });
   });
 
   it('rejects browser cross-origin requests', async () => {
