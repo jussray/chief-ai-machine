@@ -19,6 +19,9 @@ function hardenedRulesets() {
       id: 20818149,
       name: 'Chief AI main exact-head gate',
       enforcement: 'active',
+      target: 'branch',
+      includedRefs: ['refs/heads/main'],
+      excludedRefs: [],
       pullRequestRequired: true,
       requiredApprovals: 0,
       dismissStaleReviews: false,
@@ -32,6 +35,9 @@ function hardenedRulesets() {
       id: 21261587,
       name: 'governance boundary',
       enforcement: 'active',
+      target: 'branch',
+      includedRefs: ['~DEFAULT_BRANCH'],
+      excludedRefs: [],
       pullRequestRequired: true,
       requiredApprovals: 1,
       dismissStaleReviews: true,
@@ -56,9 +62,35 @@ function receiptInput(overrides = {}) {
   };
 }
 
+function assessmentContext(overrides = {}) {
+  return {
+    expectedRepository: 'jussray/chief-ai-machine',
+    expectedBranch: 'main',
+    expectedSourceSha: SHA,
+    maxAgeMs: 60 * 60 * 1000,
+    now: new Date('2026-08-24T23:44:00Z'),
+    ...overrides,
+  };
+}
+
 describe('GitHub authority receipt', () => {
-  it('combines multiple active rulesets into one effective authority fingerprint', () => {
-    const effective = evaluateEffectiveGithubAuthority(hardenedRulesets());
+  it('combines only active rulesets that apply to the receipt branch', () => {
+    const unrelated = [
+      {
+        ...hardenedRulesets()[0],
+        id: 999,
+        target: 'tag',
+        includedRefs: ['~ALL'],
+        requiredChecks: ['Unrelated Tag Check'],
+      },
+      {
+        ...hardenedRulesets()[1],
+        id: 1000,
+        includedRefs: ['refs/heads/feature-only'],
+        requiredApprovals: 99,
+      },
+    ];
+    const effective = evaluateEffectiveGithubAuthority([...hardenedRulesets(), ...unrelated], 'main');
 
     expect(effective.activeRulesetIds).toEqual(['20818149', '21261587']);
     expect(effective.requiredApprovals).toBe(1);
@@ -80,23 +112,32 @@ describe('GitHub authority receipt', () => {
     expect(receipt.authority.permitsRulesetMutation).toBe(false);
   });
 
+  it('authorizes only when exact identity, freshness, branch authority, checks, and no bypass all hold', () => {
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    const assessment = assessGithubMainAuthority(receipt, assessmentContext());
+
+    expect(assessment.valid).toBe(true);
+    expect(assessment.authorized).toBe(true);
+    expect(assessment.missing).toEqual([]);
+  });
+
   it('fails closed when review freshness is missing even if checks are present', () => {
     const rulesets = hardenedRulesets();
     rulesets[1] = { ...rulesets[1], requireLastPushApproval: false };
 
     const receipt = createGithubAuthorityReceipt(receiptInput({ rulesets }));
-    const assessment = assessGithubMainAuthority(receipt);
+    const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
     expect(assessment.missing).toContain('last-push-approval');
   });
 
-  it('fails closed when any active ruleset exposes a bypass actor', () => {
+  it('fails closed when any applicable active ruleset exposes a bypass actor', () => {
     const rulesets = hardenedRulesets();
     rulesets[0] = { ...rulesets[0], bypassActors: ['repository-admin'] };
 
     const receipt = createGithubAuthorityReceipt(receiptInput({ rulesets }));
-    const assessment = assessGithubMainAuthority(receipt);
+    const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
     expect(assessment.missing).toContain('no-bypass-actors');
@@ -105,11 +146,61 @@ describe('GitHub authority receipt', () => {
   it('does not treat inactive rulesets as effective authority', () => {
     const rulesets = hardenedRulesets().map((ruleset) => ({ ...ruleset, enforcement: 'disabled' }));
     const receipt = createGithubAuthorityReceipt(receiptInput({ rulesets }));
-    const assessment = assessGithubMainAuthority(receipt);
+    const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
     expect(assessment.effective.activeRulesetIds).toEqual([]);
     expect(assessment.missing).toContain('pull-request-required');
+  });
+
+  it('requires at least one named required status check', () => {
+    const rulesets = hardenedRulesets().map((ruleset) => ({ ...ruleset, requiredChecks: [] }));
+    const receipt = createGithubAuthorityReceipt(receiptInput({ rulesets }));
+    const assessment = assessGithubMainAuthority(receipt, assessmentContext());
+
+    expect(assessment.authorized).toBe(false);
+    expect(assessment.missing).toContain('named-required-status-check');
+  });
+
+  it('rejects stale or mismatched authority context before authorizing', () => {
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+
+    expect(assessGithubMainAuthority(receipt, assessmentContext({
+      expectedRepository: 'jussray/other-repo',
+    })).missing).toContain('repository-mismatch');
+    expect(assessGithubMainAuthority(receipt, assessmentContext({
+      expectedBranch: 'release',
+    })).missing).toContain('branch-mismatch');
+    expect(assessGithubMainAuthority(receipt, assessmentContext({
+      expectedSourceSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    })).missing).toContain('source-sha-mismatch');
+    expect(assessGithubMainAuthority(receipt, assessmentContext({
+      now: new Date('2026-08-25T02:00:00Z'),
+    })).missing).toContain('stale-observation');
+  });
+
+  it('requires explicit current-context inputs for an authority assessment', () => {
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    const assessment = assessGithubMainAuthority(receipt);
+
+    expect(assessment.valid).toBe(false);
+    expect(assessment.authorized).toBe(false);
+    expect(assessment.errors).toContain('Expected repository is required');
+    expect(assessment.errors).toContain('Expected branch is required');
+    expect(assessment.errors).toContain('Expected source SHA must be a full commit SHA');
+    expect(assessment.errors).toContain('Freshness bound is required');
+  });
+
+  it('rejects malformed or unattributable provider rulesets', () => {
+    expect(() => createGithubAuthorityReceipt(receiptInput({ rulesets: [null] })))
+      .toThrow(/Ruleset 1 must be an object/);
+
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.rulesets = [{ ...receipt.rulesets[0], id: '', includedRefs: [] }];
+    const validation = validateGithubAuthorityReceipt(receipt);
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toContain('Ruleset 1 requires a stable id');
   });
 
   it('rejects receipts without exact source identity or provider references', () => {
