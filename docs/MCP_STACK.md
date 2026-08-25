@@ -1,8 +1,21 @@
 # Chief AI Prompt Machine MCP stack
 
-Last reviewed: 2026-07-14
+Last reviewed: 2026-08-25
 
-Chief AI Prompt Machine is currently a public prototype SPA with browser-local prompt state. Its default MCP stack supports repository inspection, current documentation, and isolated browser verification without pretending a private backend already exists.
+Chief AI Prompt Machine is a public prototype SPA with browser-local prompt state and a Cloudflare Worker runtime. Its default MCP stack supports repository inspection, current documentation, isolated browser verification, and a public ProofMode remote MCP without pretending a private prompt backend already exists.
+
+## Public ProofMode remote MCP
+
+The Worker serves `POST /mcp` as a stateless, read-only repository evidence server:
+
+- MCP `2026-07-28`: per-request `_meta`, `MCP-Protocol-Version`, `Mcp-Method`/`Mcp-Name` header validation, `server/discover`, result types, deterministic tools, and cache hints;
+- compatibility: initialization-based `2025-11-25`, `2025-06-18`, and `2025-03-26` clients;
+- tool: `audit_repository` only;
+- input: public GitHub owner/repo/ref plus optional receipt acknowledgements; caller-supplied credentials and unknown arguments are rejected;
+- output: layered repository evidence and a `juss-proof/v1` receipt; repository evidence never becomes live runtime verification;
+- privacy/authority: no cookies, device fingerprinting, private prompt data, provider mutation, repository write, approval, merge, deploy, migrate, send, or delete authority.
+
+Founder Control Room is the canonical private paired connector for ChatGPT and Claude. It exposes Chief under the namespaced `chief_*` tools, binds OAuth identity/project scope, and persists redacted evidence. Chief continues to own reasoning/proposal composition; FCR owns auth, policy, exact-head/evidence binding, and execution gates.
 
 ## Connected servers
 
@@ -15,7 +28,7 @@ Chief AI Prompt Machine is currently a public prototype SPA with browser-local p
 ## Deliberately excluded
 
 - Supabase, DBHub, and generic database MCP servers until a private server-side prompt store is selected and implemented.
-- Cloudflare Builds and Observability until this repository owns a deployed runtime that needs operational evidence.
+- Cloudflare provider mutation and private operational logs as MCP tools. The Worker runtime exists, but ProofMode exposes only public repository evidence.
 - Netdata until persistent owned hosts exist.
 - Figma/Canva as standing MCP defaults; add a design connector only for a named source-design implementation workflow.
 - GitHub Insiders, Docker GitHub MCP, unpinned packages, and committed credentials.
@@ -46,5 +59,7 @@ npm run typecheck
 npm run lint
 npm test
 ```
+
+Live proof additionally runs `e2e/proofmode-mcp.pw.mjs` against the deployed exact head and exercises both the modern stateless discovery path and legacy initialization path.
 
 Add backend, database, deployment, or monitoring capabilities only in the same reviewed change that introduces the corresponding real architecture.
