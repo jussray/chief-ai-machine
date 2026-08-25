@@ -35,6 +35,7 @@ function validStringList(values, maxItems = 100, maxLength = 300) {
 
 function validGithubSourceRefs(values) {
   return validStringList(values, 20, 500)
+    && values.length > 0
     && values.every((value) => value.trim().startsWith('github:'));
 }
 
@@ -88,19 +89,69 @@ function validateRuleset(ruleset, index) {
   return errors;
 }
 
+function escapeRegex(text) {
+  return text.replace(/[\\^$+.()|{}]/g, '\\$&');
+}
+
+function githubRefPatternToRegex(pattern) {
+  let source = '^';
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    const next = pattern[index + 1];
+
+    if (character === '*' && next === '*') {
+      source += '.*';
+      index += 1;
+      continue;
+    }
+    if (character === '*') {
+      source += '[^/]*';
+      continue;
+    }
+    if (character === '?') {
+      source += '[^/]';
+      continue;
+    }
+    if (character === '[') {
+      const end = pattern.indexOf(']', index + 1);
+      if (end === -1) return null;
+      let body = pattern.slice(index + 1, end);
+      if (!body) return null;
+      if (body.startsWith('!')) body = `^${body.slice(1)}`;
+      source += `[${body.replace(/\\/g, '\\\\')}]`;
+      index = end;
+      continue;
+    }
+    if (character === '\\' && next !== undefined) {
+      source += escapeRegex(next);
+      index += 1;
+      continue;
+    }
+    source += escapeRegex(character);
+  }
+  source += '$';
+  try {
+    return new RegExp(source);
+  } catch {
+    return null;
+  }
+}
+
+function refConditionMatches(condition, branchRef, defaultBranchMatches) {
+  if (condition === '~ALL') return true;
+  if (condition === '~DEFAULT_BRANCH') return defaultBranchMatches;
+  if (condition.startsWith('~')) return false;
+  const matcher = githubRefPatternToRegex(condition);
+  return matcher ? matcher.test(branchRef) : false;
+}
+
 function rulesetAppliesToBranch(ruleset, branch, defaultBranch) {
   if (ruleset.target !== 'branch') return false;
   const branchRef = `refs/heads/${branch}`;
-  const included = ruleset.includedRefs;
-  const excluded = ruleset.excludedRefs;
   const defaultBranchMatches = branch === defaultBranch;
-  const explicitlyIncluded = included.includes(branchRef)
-    || included.includes('~ALL')
-    || (included.includes('~DEFAULT_BRANCH') && defaultBranchMatches);
-  const explicitlyExcluded = excluded.includes(branchRef)
-    || excluded.includes('~ALL')
-    || (excluded.includes('~DEFAULT_BRANCH') && defaultBranchMatches);
-  return explicitlyIncluded && !explicitlyExcluded;
+  const included = ruleset.includedRefs.some((condition) => refConditionMatches(condition, branchRef, defaultBranchMatches));
+  const excluded = ruleset.excludedRefs.some((condition) => refConditionMatches(condition, branchRef, defaultBranchMatches));
+  return included && !excluded;
 }
 
 function evidenceOnlyAuthority() {
@@ -152,7 +203,6 @@ export function createGithubAuthorityReceipt(input, now = new Date()) {
   if (!/^[0-9a-f]{40}$/i.test(sourceSha)) throw new Error('GitHub authority receipt source SHA must be a full commit SHA');
   if (!observedAt) throw new Error('GitHub authority receipt observed timestamp must be valid');
   if (!validGithubSourceRefs(input?.sourceRefs)) throw new Error('GitHub authority receipt requires valid GitHub provider source references');
-  if (sourceRefs.length === 0) throw new Error('GitHub authority receipt requires provider source references');
   if (rawRulesets.length === 0) throw new Error('GitHub authority receipt requires at least one ruleset');
   if (ruleErrors.length > 0) throw new Error(`GitHub authority receipt rulesets are invalid: ${ruleErrors.join('; ')}`);
 
@@ -196,6 +246,14 @@ export function validateGithubAuthorityReceipt(receipt) {
   } else {
     errors.push(...receipt.rulesets.flatMap((ruleset, index) => validateRuleset(ruleset, index)));
   }
+
+  if (errors.length === 0) {
+    const recomputedEffective = evaluateEffectiveGithubAuthority(receipt.rulesets, receipt.branch, receipt.defaultBranch);
+    if (!receipt.effective || JSON.stringify(receipt.effective) !== JSON.stringify(recomputedEffective)) {
+      errors.push('Effective authority fingerprint does not match provider rulesets');
+    }
+  }
+
   if (!receipt.authority || JSON.stringify(receipt.authority) !== JSON.stringify(GITHUB_AUTHORITY_RECEIPT_AUTHORITY)) {
     errors.push('Receipt authority must remain evidence-only');
   }
