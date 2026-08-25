@@ -33,6 +33,11 @@ function validStringList(values, maxItems = 100, maxLength = 300) {
     && values.every((value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength);
 }
 
+function validGithubSourceRefs(values) {
+  return validStringList(values, 20, 500)
+    && values.every((value) => value.trim().startsWith('github:'));
+}
+
 function normalizeRuleset(input = {}) {
   return {
     id: cleanText(String(input.id ?? ''), 80),
@@ -83,17 +88,18 @@ function validateRuleset(ruleset, index) {
   return errors;
 }
 
-function rulesetAppliesToBranch(ruleset, branch) {
+function rulesetAppliesToBranch(ruleset, branch, defaultBranch) {
   if (ruleset.target !== 'branch') return false;
   const branchRef = `refs/heads/${branch}`;
   const included = ruleset.includedRefs;
   const excluded = ruleset.excludedRefs;
+  const defaultBranchMatches = branch === defaultBranch;
   const explicitlyIncluded = included.includes(branchRef)
     || included.includes('~ALL')
-    || included.includes('~DEFAULT_BRANCH');
+    || (included.includes('~DEFAULT_BRANCH') && defaultBranchMatches);
   const explicitlyExcluded = excluded.includes(branchRef)
     || excluded.includes('~ALL')
-    || excluded.includes('~DEFAULT_BRANCH');
+    || (excluded.includes('~DEFAULT_BRANCH') && defaultBranchMatches);
   return explicitlyIncluded && !explicitlyExcluded;
 }
 
@@ -101,18 +107,22 @@ function evidenceOnlyAuthority() {
   return { ...GITHUB_AUTHORITY_RECEIPT_AUTHORITY };
 }
 
-export function evaluateEffectiveGithubAuthority(rulesets = [], branch = '') {
+export function evaluateEffectiveGithubAuthority(rulesets = [], branch = '', defaultBranch = '') {
   const normalizedBranch = cleanText(branch, 180);
+  const normalizedDefaultBranch = cleanText(defaultBranch, 180);
   const active = rulesets
     .map(normalizeRuleset)
     .filter((ruleset) => ruleset.enforcement === 'active')
-    .filter((ruleset) => normalizedBranch && rulesetAppliesToBranch(ruleset, normalizedBranch));
+    .filter((ruleset) => normalizedBranch
+      && normalizedDefaultBranch
+      && rulesetAppliesToBranch(ruleset, normalizedBranch, normalizedDefaultBranch));
 
   const requiredChecks = [...new Set(active.flatMap((ruleset) => ruleset.requiredChecks))].sort();
   const bypassActors = [...new Set(active.flatMap((ruleset) => ruleset.bypassActors))].sort();
 
   return {
     branch: normalizedBranch,
+    defaultBranch: normalizedDefaultBranch,
     activeRulesetIds: active.map((ruleset) => ruleset.id).filter(Boolean),
     pullRequestRequired: active.some((ruleset) => ruleset.pullRequestRequired),
     requiredApprovals: active.reduce((maximum, ruleset) => Math.max(maximum, ruleset.requiredApprovals), 0),
@@ -129,6 +139,7 @@ export function evaluateEffectiveGithubAuthority(rulesets = [], branch = '') {
 export function createGithubAuthorityReceipt(input, now = new Date()) {
   const repository = cleanText(input?.repository, 180);
   const branch = cleanText(input?.branch, 180);
+  const defaultBranch = cleanText(input?.defaultBranch, 180);
   const sourceSha = cleanText(input?.sourceSha, 64);
   const observedAt = cleanIsoTimestamp(input?.observedAt);
   const sourceRefs = cleanStringList(input?.sourceRefs, 20, 500);
@@ -137,19 +148,22 @@ export function createGithubAuthorityReceipt(input, now = new Date()) {
 
   if (!repository) throw new Error('GitHub authority receipt repository is required');
   if (!branch) throw new Error('GitHub authority receipt branch is required');
+  if (!defaultBranch) throw new Error('GitHub authority receipt default branch is required');
   if (!/^[0-9a-f]{40}$/i.test(sourceSha)) throw new Error('GitHub authority receipt source SHA must be a full commit SHA');
   if (!observedAt) throw new Error('GitHub authority receipt observed timestamp must be valid');
+  if (!validGithubSourceRefs(input?.sourceRefs)) throw new Error('GitHub authority receipt requires valid GitHub provider source references');
   if (sourceRefs.length === 0) throw new Error('GitHub authority receipt requires provider source references');
   if (rawRulesets.length === 0) throw new Error('GitHub authority receipt requires at least one ruleset');
   if (ruleErrors.length > 0) throw new Error(`GitHub authority receipt rulesets are invalid: ${ruleErrors.join('; ')}`);
 
   const rulesets = rawRulesets.map(normalizeRuleset);
-  const effective = evaluateEffectiveGithubAuthority(rulesets, branch);
+  const effective = evaluateEffectiveGithubAuthority(rulesets, branch, defaultBranch);
 
   return {
     schemaVersion: GITHUB_AUTHORITY_RECEIPT_SCHEMA_VERSION,
     repository,
     branch,
+    defaultBranch,
     sourceSha,
     observedAt,
     recordedAt: now.toISOString(),
@@ -171,11 +185,12 @@ export function validateGithubAuthorityReceipt(receipt) {
   if (receipt.schemaVersion !== GITHUB_AUTHORITY_RECEIPT_SCHEMA_VERSION) errors.push('Unsupported schema version');
   if (!cleanText(receipt.repository, 180)) errors.push('Missing repository');
   if (!cleanText(receipt.branch, 180)) errors.push('Missing branch');
+  if (!cleanText(receipt.defaultBranch, 180)) errors.push('Missing default branch');
   if (!/^[0-9a-f]{40}$/i.test(cleanText(receipt.sourceSha, 64))) errors.push('Invalid source SHA');
   if (!cleanIsoTimestamp(receipt.observedAt)) errors.push('Invalid observed timestamp');
   if (!cleanIsoTimestamp(receipt.recordedAt)) errors.push('Invalid recorded timestamp');
   if (receipt.sourceSystem !== 'github-provider-readback') errors.push('Unsupported source system');
-  if (!Array.isArray(receipt.sourceRefs) || receipt.sourceRefs.length === 0) errors.push('Missing provider source references');
+  if (!validGithubSourceRefs(receipt.sourceRefs)) errors.push('Invalid provider source references');
   if (!Array.isArray(receipt.rulesets) || receipt.rulesets.length === 0) {
     errors.push('Missing rulesets');
   } else {
@@ -194,6 +209,7 @@ export function assessGithubMainAuthority(receipt, context = {}) {
 
   const expectedRepository = cleanText(context.expectedRepository, 180);
   const expectedBranch = cleanText(context.expectedBranch, 180);
+  const expectedDefaultBranch = cleanText(context.expectedDefaultBranch, 180);
   const expectedSourceSha = cleanText(context.expectedSourceSha, 64);
   const maxAgeMs = Number.isFinite(context.maxAgeMs) && context.maxAgeMs >= 0 ? context.maxAgeMs : null;
   const now = context.now instanceof Date ? context.now : new Date(context.now ?? Date.now());
@@ -201,18 +217,20 @@ export function assessGithubMainAuthority(receipt, context = {}) {
 
   if (!expectedRepository) contextErrors.push('Expected repository is required');
   if (!expectedBranch) contextErrors.push('Expected branch is required');
+  if (!expectedDefaultBranch) contextErrors.push('Expected default branch is required');
   if (!/^[0-9a-f]{40}$/i.test(expectedSourceSha)) contextErrors.push('Expected source SHA must be a full commit SHA');
   if (maxAgeMs === null) contextErrors.push('Freshness bound is required');
   if (Number.isNaN(now.getTime())) contextErrors.push('Assessment timestamp is invalid');
   if (contextErrors.length > 0) return { valid: false, authorized: false, errors: contextErrors };
 
-  const effective = evaluateEffectiveGithubAuthority(receipt.rulesets, receipt.branch);
+  const effective = evaluateEffectiveGithubAuthority(receipt.rulesets, receipt.branch, receipt.defaultBranch);
   const missing = [];
   const observedAtMs = Date.parse(receipt.observedAt);
   const ageMs = now.getTime() - observedAtMs;
 
   if (receipt.repository !== expectedRepository) missing.push('repository-mismatch');
   if (receipt.branch !== expectedBranch) missing.push('branch-mismatch');
+  if (receipt.defaultBranch !== expectedDefaultBranch) missing.push('default-branch-mismatch');
   if (receipt.sourceSha !== expectedSourceSha) missing.push('source-sha-mismatch');
   if (ageMs < 0) missing.push('observation-from-future');
   if (ageMs > maxAgeMs) missing.push('stale-observation');
