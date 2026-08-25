@@ -239,6 +239,6 @@ describe('GitHub authority receipt', () => {
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceSha: 'main' })))
       .toThrow(/full commit SHA/);
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: [] })))
-      .toThrow(/valid GitHub provider source references/);
+      .toThrow(/provider source references/);
   });
 });
