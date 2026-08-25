@@ -112,6 +112,19 @@ describe('GitHub authority receipt', () => {
     expect(effective.requireLastPushApproval).toBe(false);
   });
 
+  it('honors GitHub-style wildcard branch exclusions before aggregating authority', () => {
+    const rulesets = hardenedRulesets();
+    rulesets[0] = {
+      ...rulesets[0],
+      includedRefs: ['~ALL'],
+      excludedRefs: ['refs/heads/m*'],
+    };
+
+    const effective = evaluateEffectiveGithubAuthority(rulesets, 'main', 'main');
+    expect(effective.activeRulesetIds).toEqual(['21261587']);
+    expect(effective.requiredChecks).toEqual([]);
+  });
+
   it('creates a provider-readback receipt that has evidence authority only', () => {
     const receipt = createGithubAuthorityReceipt(receiptInput(), new Date('2026-08-24T23:44:00Z'));
 
@@ -235,10 +248,32 @@ describe('GitHub authority receipt', () => {
     expect(validation.errors).toContain('Missing default branch');
   });
 
+  it('rejects empty provider provenance after serialization or external loading', () => {
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.sourceRefs = [];
+
+    const validation = validateGithubAuthorityReceipt(receipt);
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toContain('Invalid provider source references');
+  });
+
+  it('rejects a stored effective fingerprint that does not match provider rulesets', () => {
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.effective = {
+      ...receipt.effective,
+      requiredApprovals: 99,
+    };
+
+    const validation = validateGithubAuthorityReceipt(receipt);
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toContain('Effective authority fingerprint does not match provider rulesets');
+    expect(assessGithubMainAuthority(receipt, assessmentContext()).authorized).toBe(false);
+  });
+
   it('rejects receipts without exact source identity or provider references', () => {
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceSha: 'main' })))
       .toThrow(/full commit SHA/);
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: [] })))
-      .toThrow(/provider source references/);
+      .toThrow(/valid GitHub provider source references/);
   });
 });
