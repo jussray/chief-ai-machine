@@ -54,6 +54,7 @@ function receiptInput(overrides = {}) {
   return {
     repository: 'jussray/chief-ai-machine',
     branch: 'main',
+    defaultBranch: 'main',
     sourceSha: SHA,
     observedAt: OBSERVED_AT,
     sourceRefs: ['github:ruleset-readback:20818149,21261587'],
@@ -66,6 +67,7 @@ function assessmentContext(overrides = {}) {
   return {
     expectedRepository: 'jussray/chief-ai-machine',
     expectedBranch: 'main',
+    expectedDefaultBranch: 'main',
     expectedSourceSha: SHA,
     maxAgeMs: 60 * 60 * 1000,
     now: new Date('2026-08-24T23:44:00Z'),
@@ -90,7 +92,7 @@ describe('GitHub authority receipt', () => {
         requiredApprovals: 99,
       },
     ];
-    const effective = evaluateEffectiveGithubAuthority([...hardenedRulesets(), ...unrelated], 'main');
+    const effective = evaluateEffectiveGithubAuthority([...hardenedRulesets(), ...unrelated], 'main', 'main');
 
     expect(effective.activeRulesetIds).toEqual(['20818149', '21261587']);
     expect(effective.requiredApprovals).toBe(1);
@@ -100,6 +102,14 @@ describe('GitHub authority receipt', () => {
     expect(effective.requireConversationResolution).toBe(true);
     expect(effective.strictRequiredStatusChecks).toBe(true);
     expect(effective.noBypassActors).toBe(true);
+  });
+
+  it('resolves ~DEFAULT_BRANCH only against provider default-branch metadata', () => {
+    const effective = evaluateEffectiveGithubAuthority(hardenedRulesets(), 'main', 'develop');
+
+    expect(effective.activeRulesetIds).toEqual(['20818149']);
+    expect(effective.requiredApprovals).toBe(0);
+    expect(effective.requireLastPushApproval).toBe(false);
   });
 
   it('creates a provider-readback receipt that has evidence authority only', () => {
@@ -172,6 +182,9 @@ describe('GitHub authority receipt', () => {
       expectedBranch: 'release',
     })).missing).toContain('branch-mismatch');
     expect(assessGithubMainAuthority(receipt, assessmentContext({
+      expectedDefaultBranch: 'develop',
+    })).missing).toContain('default-branch-mismatch');
+    expect(assessGithubMainAuthority(receipt, assessmentContext({
       expectedSourceSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     })).missing).toContain('source-sha-mismatch');
     expect(assessGithubMainAuthority(receipt, assessmentContext({
@@ -187,6 +200,7 @@ describe('GitHub authority receipt', () => {
     expect(assessment.authorized).toBe(false);
     expect(assessment.errors).toContain('Expected repository is required');
     expect(assessment.errors).toContain('Expected branch is required');
+    expect(assessment.errors).toContain('Expected default branch is required');
     expect(assessment.errors).toContain('Expected source SHA must be a full commit SHA');
     expect(assessment.errors).toContain('Freshness bound is required');
   });
@@ -203,10 +217,28 @@ describe('GitHub authority receipt', () => {
     expect(validation.errors).toContain('Ruleset 1 requires a stable id');
   });
 
+  it('rejects malformed provider source references and missing default branch', () => {
+    expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: [null] })))
+      .toThrow(/valid GitHub provider source references/);
+    expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: ['email:ruleset-claim'] })))
+      .toThrow(/valid GitHub provider source references/);
+    expect(() => createGithubAuthorityReceipt(receiptInput({ defaultBranch: '' })))
+      .toThrow(/default branch is required/);
+
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.sourceRefs = [null];
+    receipt.defaultBranch = '';
+    const validation = validateGithubAuthorityReceipt(receipt);
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toContain('Invalid provider source references');
+    expect(validation.errors).toContain('Missing default branch');
+  });
+
   it('rejects receipts without exact source identity or provider references', () => {
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceSha: 'main' })))
       .toThrow(/full commit SHA/);
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: [] })))
-      .toThrow(/provider source references/);
+      .toThrow(/valid GitHub provider source references/);
   });
 });
