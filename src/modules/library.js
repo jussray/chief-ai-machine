@@ -1,8 +1,30 @@
+import { normalizeCustomPrompts } from '../domain/intelligence.js';
+
 function makeTextElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
   element.textContent = String(text ?? '');
   return element;
+}
+
+function readCustomPromptStorage() {
+  let raw;
+  try {
+    raw = localStorage.getItem('chief-custom');
+  } catch {
+    return { state: 'unavailable', prompts: [] };
+  }
+  if (raw === null) return { state: 'ready', prompts: [] };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return { state: 'corrupt', prompts: [] };
+    const prompts = normalizeCustomPrompts(parsed);
+    if (prompts.length !== parsed.length) return { state: 'corrupt', prompts: [] };
+    return { state: 'ready', prompts };
+  } catch {
+    return { state: 'corrupt', prompts: [] };
+  }
 }
 
 export function initLibrary(PROMPTS, modal) {
@@ -19,7 +41,8 @@ export function initLibrary(PROMPTS, modal) {
   const repoBtns = document.querySelectorAll('[data-repo]');
 
   let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
-  let custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
+  const customRead = readCustomPromptStorage();
+  let custom = customRead.prompts;
   let allPrompts = [...PROMPTS, ...custom.map((c, i) => ({ ...c, id: 'c' + i, cat: c.cat || 'custom' }))];
   let activeFilter = null;
   let activeRepo = null;
@@ -74,7 +97,10 @@ export function initLibrary(PROMPTS, modal) {
     navCount.textContent = count;
     statTotal.textContent = allPrompts.length;
     statStar.textContent = stars.length;
-    statCustom.textContent = custom.length;
+    statCustom.textContent = customRead.state === 'ready' ? String(custom.length) : '?';
+    statCustom.title = customRead.state === 'ready'
+      ? ''
+      : 'Saved custom prompt state is UNKNOWN and has not been treated as empty.';
     statPlatforms.textContent = PLATFORMS.length;
   }
 
