@@ -1,0 +1,130 @@
+name: Founder Content Learning Playwright
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "worker/founder-content-learning-route.js"
+      - "worker/founder-content-learning-route.test.js"
+      - "worker/index.js"
+      - "src/domain/founder-content-learning.js"
+      - "src/domain/founder-content-learning.test.js"
+      - "e2e/founder-content-learning.pw.mjs"
+      - "wrangler.jsonc"
+      - ".github/workflows/founder-content-learning-playwright.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: founder-content-learning-playwright-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  FOUNDER_CONTENT_LEARNING_BASE_URL: http://127.0.0.1:8788
+  FCR_LEARNING_TEST_SECRET: exact-head-local-runtime-fixture-only
+  FCR_LEARNING_TEST_KEY_ID: founder-content-learning-playwright-v1
+
+jobs:
+  verify:
+    name: Verify authenticated learning in exact-head workerd
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact requested head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated runtime proof tools
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.124.0
+
+      - name: Start exact-head Worker runtime
+        shell: bash
+        run: |
+          cat > .dev.vars <<EOF
+          FCR_LEARNING_HMAC_SECRET="$FCR_LEARNING_TEST_SECRET"
+          FCR_LEARNING_HMAC_KEY_ID="$FCR_LEARNING_TEST_KEY_ID"
+          EOF
+
+          RELEASE_SHA="$EXPECTED_HEAD_SHA" \
+            npx wrangler dev --local --ip 127.0.0.1 --port 8788 --show-interactive-dev-session=false \
+            > "$RUNNER_TEMP/founder-content-learning-wrangler.log" 2>&1 &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/founder-content-learning-wrangler.pid"
+
+          for attempt in {1..30}; do
+            body="$(curl --silent --show-error "$FOUNDER_CONTENT_LEARNING_BASE_URL/version" || true)"
+            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
+              printf 'Exact-head local Worker is ready at %s\n' "$FOUNDER_CONTENT_LEARNING_BASE_URL"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat "$RUNNER_TEMP/founder-content-learning-wrangler.log" >&2 || true
+          printf 'Local Worker failed to serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          exit 1
+
+      - name: Run authenticated learning Playwright proof
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        shell: bash
+        run: |
+          cat > playwright.founder-content-learning.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './e2e',
+            testMatch: /founder-content-learning\.pw\.mjs$/,
+            fullyParallel: false,
+            retries: 0,
+            workers: 1,
+            outputDir: './test-results/founder-content-learning',
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: './playwright-report/founder-content-learning', open: 'never' }],
+            ],
+            use: { trace: 'retain-on-failure' },
+          });
+          EOF
+          npx playwright test --config=playwright.founder-content-learning.config.mjs
+
+      - name: Retain runtime proof
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: founder-content-learning-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            playwright-report/founder-content-learning
+            test-results/founder-content-learning
+            ${{ runner.temp }}/founder-content-learning-wrangler.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop local Worker runtime
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/founder-content-learning-wrangler.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/founder-content-learning-wrangler.pid")" 2>/dev/null || true
+          fi
