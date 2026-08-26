@@ -27,6 +27,14 @@ function cleanText(value, maxLength = 10000) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
+function cleanPromptBody(value, maxLength = 50000) {
+  return typeof value === 'string' ? value.slice(0, maxLength) : '';
+}
+
+function hasPromptBody(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function cleanTags(tags) {
   if (!Array.isArray(tags)) return [];
   return [...new Set(tags.map((tag) => cleanText(tag, 60).toLowerCase()).filter(Boolean))].slice(0, 20);
@@ -47,8 +55,8 @@ function cleanVersions(versions) {
   const entries = [];
   for (const [rawPlatform, rawBody] of Object.entries(versions)) {
     const platform = cleanPlatform(rawPlatform);
-    const body = cleanText(rawBody, 50000);
-    if (!platform || !body || entries.some(([existing]) => existing === platform)) continue;
+    const body = cleanPromptBody(rawBody);
+    if (!platform || !hasPromptBody(body) || entries.some(([existing]) => existing === platform)) continue;
     entries.push([platform, body]);
     if (entries.length >= 12) break;
   }
@@ -67,6 +75,8 @@ export function normalizeCustomPrompt(prompt, index = 0) {
   if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt)) return null;
 
   const versions = cleanVersions(prompt.versions);
+  if (Object.keys(versions).length === 0) return null;
+
   const explicitPlatforms = Array.isArray(prompt.platforms)
     ? prompt.platforms.map(cleanPlatform).filter(Boolean)
     : [];
@@ -219,7 +229,6 @@ export function parsePortableSnapshot(input, now = new Date()) {
   const customPrompts = normalizeCustomPrompts(input.custom);
   return {
     assets: customPrompts
-      .filter((prompt) => Object.values(prompt.versions).some(Boolean))
       .map((prompt, index) => migrateLegacyPrompt(prompt, new Date(now.getTime() + index))),
     customPrompts,
     stars: cleanStars(input.stars),
