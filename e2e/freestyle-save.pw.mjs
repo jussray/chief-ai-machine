@@ -97,3 +97,35 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   });
   expect(savedAfterReload).toEqual(savedImmediately);
 });
+
+test('stored custom prompt metadata renders as inert text in Library and My Prompts', async ({ page }) => {
+  const maliciousTitle = '<img id="chief-xss" src="x" onerror="globalThis.__chiefInjected=(globalThis.__chiefInjected||0)+1">';
+  const maliciousSub = '<svg id="chief-xss-svg" onload="globalThis.__chiefInjected=(globalThis.__chiefInjected||0)+1"></svg>';
+
+  await page.evaluate(({ title, sub }) => {
+    localStorage.setItem('chief-custom', JSON.stringify([{
+      id: 'stored-xss-regression',
+      title,
+      sub,
+      cat: '<img id="chief-xss-cat" src="x" onerror="globalThis.__chiefInjected=(globalThis.__chiefInjected||0)+1">',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Prompt body stays text.' },
+      notes: '<img id="chief-xss-note" src="x" onerror="globalThis.__chiefInjected=(globalThis.__chiefInjected||0)+1">',
+      emoji: '🛡️',
+    }]));
+  }, { title: maliciousTitle, sub: maliciousSub });
+  await page.reload();
+
+  const libraryCard = page.locator('#grid .pcard').filter({ hasText: maliciousTitle }).first();
+  await expect(libraryCard).toBeVisible();
+  await expect(libraryCard).toContainText(maliciousSub);
+  await expect(page.locator('#chief-xss, #chief-xss-svg, #chief-xss-cat, #chief-xss-note')).toHaveCount(0);
+  expect(await page.evaluate(() => globalThis.__chiefInjected || 0)).toBe(0);
+
+  await openPage(page, 'custom');
+  const customItem = page.locator('#customList .citem').filter({ hasText: maliciousTitle }).first();
+  await expect(customItem).toBeVisible();
+  await expect(customItem).toContainText(maliciousSub);
+  await expect(page.locator('#chief-xss, #chief-xss-svg, #chief-xss-cat, #chief-xss-note')).toHaveCount(0);
+  expect(await page.evaluate(() => globalThis.__chiefInjected || 0)).toBe(0);
+});
