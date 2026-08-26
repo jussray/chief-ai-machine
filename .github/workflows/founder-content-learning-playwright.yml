@@ -1,3 +1,4 @@
+# Exact-head proof only; historical receipts never transfer across candidate fingerprints.
 name: Founder Content Learning Playwright
 
 on:
