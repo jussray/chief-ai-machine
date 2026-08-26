@@ -1,13 +1,25 @@
+import { normalizeCustomPrompts } from '../domain/intelligence.js';
 import { showToast } from './ui.js';
 
 const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 
-function readCustomPrompts() {
+function readCustomPromptStorage() {
+  let raw;
   try {
-    const value = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    return Array.isArray(value) ? value : [];
+    raw = localStorage.getItem('chief-custom');
   } catch {
-    return [];
+    return { state: 'unavailable', prompts: [] };
+  }
+  if (raw === null) return { state: 'ready', prompts: [] };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return { state: 'corrupt', prompts: [] };
+    const prompts = normalizeCustomPrompts(parsed);
+    if (prompts.length !== parsed.length) return { state: 'corrupt', prompts: [] };
+    return { state: 'ready', prompts };
+  } catch {
+    return { state: 'corrupt', prompts: [] };
   }
 }
 
@@ -18,6 +30,20 @@ function makeTextElement(tag, className, text) {
   return element;
 }
 
+function unknownStorageMessage(state) {
+  return state === 'corrupt'
+    ? 'Saved custom prompt state is unreadable. Current custom prompt count is UNKNOWN. Nothing has been overwritten.'
+    : 'Custom prompt storage is unavailable. Current custom prompt count is UNKNOWN. Nothing has been overwritten.';
+}
+
+function setCustomFormWritable(writable) {
+  const save = document.getElementById('saveCustom');
+  if (!save) return;
+  save.disabled = !writable;
+  save.setAttribute('aria-disabled', writable ? 'false' : 'true');
+  save.title = writable ? '' : 'Custom prompt storage must be readable before saving.';
+}
+
 export function initCustom(PROMPTS, modal) {
   const titleEl = document.getElementById('cTitle');
   const subEl = document.getElementById('cSub');
@@ -25,18 +51,33 @@ export function initCustom(PROMPTS, modal) {
   const platformsEl = document.getElementById('cPlatforms');
   const bodyEl = document.getElementById('cBody');
   const list = document.getElementById('customList');
-  let custom = readCustomPrompts();
+  let custom = [];
 
   function render() {
-    custom = readCustomPrompts();
+    const read = readCustomPromptStorage();
+    custom = read.prompts;
     list.replaceChildren();
+    const navCustom = document.getElementById('navCustom');
+
+    if (read.state !== 'ready') {
+      setCustomFormWritable(false);
+      if (navCustom) navCustom.textContent = '?';
+      const unknown = makeTextElement('div', 'empty', unknownStorageMessage(read.state));
+      unknown.dataset.customStorageTruth = 'unknown';
+      unknown.setAttribute('role', 'alert');
+      unknown.setAttribute('aria-live', 'assertive');
+      list.appendChild(unknown);
+      return;
+    }
+
+    setCustomFormWritable(true);
+    if (navCustom) navCustom.textContent = String(custom.length);
     if (!custom.length) {
       const empty = makeTextElement('div', 'empty', 'No custom prompts yet.');
+      empty.dataset.customStorageTruth = 'verified-empty';
       empty.style.border = 'none';
       empty.style.padding = '16px 0';
       list.appendChild(empty);
-      const nc = document.getElementById('navCustom');
-      if (nc) nc.textContent = '0';
       return;
     }
 
@@ -65,28 +106,53 @@ export function initCustom(PROMPTS, modal) {
       item.append(row, subtitle);
       deleteButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        custom.splice(i, 1);
-        localStorage.setItem('chief-custom', JSON.stringify(custom));
+        const current = readCustomPromptStorage();
+        if (current.state !== 'ready') {
+          showToast('Custom prompt state is UNKNOWN. Nothing was deleted.');
+          render();
+          return;
+        }
+        current.prompts.splice(i, 1);
+        localStorage.setItem('chief-custom', JSON.stringify(current.prompts));
         render();
         showToast('Deleted.');
       });
       item.addEventListener('click', () => modal.open(p));
       list.appendChild(item);
     });
-
-    const nc = document.getElementById('navCustom');
-    if (nc) nc.textContent = String(custom.length);
   }
 
   document.getElementById('saveCustom')?.addEventListener('click', () => {
-    const title = titleEl?.value?.trim(); const body = bodyEl?.value?.trim();
+    const current = readCustomPromptStorage();
+    if (current.state !== 'ready') {
+      showToast('Custom prompt state is UNKNOWN. Repair or reset local state before saving.');
+      render();
+      return;
+    }
+
+    const title = titleEl?.value?.trim();
+    const body = bodyEl?.value?.trim();
     if (!title || !body) { showToast('Title and body required.'); return; }
     const platforms = (platformsEl?.value || 'chatgpt').split(',').map(s => s.trim()).filter(Boolean);
     const versions = {}; platforms.forEach(p => { versions[p] = body; });
-    custom = readCustomPrompts();
-    custom.push({ id: 'custom-' + Date.now(), title, sub: subEl?.value?.trim() || '', cat: catEl?.value || 'custom', platforms, versions, emoji: '✨' });
-    localStorage.setItem('chief-custom', JSON.stringify(custom));
-    render(); showToast('Saved!');
+    const nextPrompt = normalizeCustomPrompts([{
+      id: 'custom-' + Date.now(),
+      title,
+      sub: subEl?.value?.trim() || '',
+      cat: catEl?.value || 'custom',
+      platforms,
+      versions,
+      emoji: '✨',
+    }])[0];
+    if (!nextPrompt) {
+      showToast('Custom prompt could not be normalized safely.');
+      return;
+    }
+
+    current.prompts.push(nextPrompt);
+    localStorage.setItem('chief-custom', JSON.stringify(current.prompts));
+    render();
+    showToast('Saved!');
     [titleEl, subEl, platformsEl, bodyEl].forEach(el => { if (el) el.value = ''; });
   });
 
