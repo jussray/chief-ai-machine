@@ -98,6 +98,7 @@ describe('founder intelligence assets', () => {
   });
 
   it('normalizes imported prompt object shape without treating prompt prose as markup', () => {
+    const promptBody = '  <script>this is prompt text, not executable UI</script>\n';
     const prompt = normalizeCustomPrompt({
       id: ' imported-1 ',
       title: '<img src=x onerror="globalThis.compromised=true">',
@@ -105,7 +106,7 @@ describe('founder intelligence assets', () => {
       cat: ' Research ',
       platforms: ['ChatGPT', '__proto__', 'BAD PLATFORM'],
       versions: {
-        chatgpt: '<script>this is prompt text, not executable UI</script>',
+        chatgpt: promptBody,
         '__proto__': 'drop me',
         'bad platform': 'drop me too',
       },
@@ -119,12 +120,26 @@ describe('founder intelligence assets', () => {
       sub: '<svg onload="globalThis.compromised=true"></svg>',
       cat: 'research',
       platforms: ['chatgpt'],
-      versions: { chatgpt: '<script>this is prompt text, not executable UI</script>' },
+      versions: { chatgpt: promptBody },
       emoji: '✨',
       notes: '',
       repos: ['chief-ai-machine'],
     });
+    expect(prompt.versions.chatgpt).toBe(promptBody);
     expect(prompt).not.toHaveProperty('dangerous');
+  });
+
+  it('rejects imported custom prompts without a usable provider version', () => {
+    expect(normalizeCustomPrompt({
+      title: 'Versionless prompt',
+      platforms: ['chatgpt'],
+      versions: {},
+    })).toBeNull();
+
+    expect(normalizeCustomPrompt({
+      title: 'Whitespace-only prompt',
+      versions: { chatgpt: '   \n\t ' },
+    })).toBeNull();
   });
 
   it('bounds compatibility arrays and drops non-primitive star references', () => {
