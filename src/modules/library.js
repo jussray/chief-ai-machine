@@ -1,3 +1,10 @@
+function makeTextElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  element.textContent = String(text ?? '');
+  return element;
+}
+
 export function initLibrary(PROMPTS, modal) {
   const grid = document.getElementById('grid');
   const chips = document.getElementById('chips');
@@ -22,22 +29,21 @@ export function initLibrary(PROMPTS, modal) {
   const PLATFORMS = [...new Set(allPrompts.flatMap(p => p.platforms || []))];
 
   function buildChips() {
-    chips.innerHTML = '';
-    const all = document.createElement('button');
-    all.className = 'chip' + (!activeFilter ? ' active' : '');
-    all.textContent = 'All';
+    chips.replaceChildren();
+    const all = makeTextElement('button', 'chip' + (!activeFilter ? ' active' : ''), 'All');
     all.addEventListener('click', () => { activeFilter = null; render(); buildChips(); });
     chips.appendChild(all);
-    const starChip = document.createElement('button');
-    starChip.className = 'chip c-star' + (activeFilter === '__star' ? ' active' : '');
-    starChip.textContent = '★ Starred';
+
+    const starChip = makeTextElement('button', 'chip c-star' + (activeFilter === '__star' ? ' active' : ''), '★ Starred');
     starChip.addEventListener('click', () => { activeFilter = activeFilter === '__star' ? null : '__star'; render(); buildChips(); });
     chips.appendChild(starChip);
-    const sep = document.createElement('div'); sep.className = 'chip-sep'; chips.appendChild(sep);
+
+    const sep = document.createElement('div');
+    sep.className = 'chip-sep';
+    chips.appendChild(sep);
+
     CATS.forEach(cat => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (activeFilter === cat ? ' active' : '');
-      btn.textContent = cat;
+      const btn = makeTextElement('button', 'chip' + (activeFilter === cat ? ' active' : ''), cat);
       btn.addEventListener('click', () => { activeFilter = activeFilter === cat ? null : cat; render(); buildChips(); });
       chips.appendChild(btn);
     });
@@ -57,9 +63,9 @@ export function initLibrary(PROMPTS, modal) {
 
   function render() {
     const list = filtered();
-    grid.innerHTML = '';
+    grid.replaceChildren();
     if (!list.length) {
-      grid.innerHTML = '<div class="empty">No prompts match. Try a different filter.</div>';
+      grid.appendChild(makeTextElement('div', 'empty', 'No prompts match. Try a different filter.'));
     } else {
       list.forEach(p => grid.appendChild(makeCard(p)));
     }
@@ -75,26 +81,51 @@ export function initLibrary(PROMPTS, modal) {
   function makeCard(p) {
     const card = document.createElement('div');
     card.className = 'pcard';
-    const platforms = (p.platforms || []).map(pl => `<span class="badge">${pl}</span>`).join('');
     const starred = stars.includes(p.id);
     const vcount = Object.keys(p.versions || {}).length;
-    card.innerHTML = `
-      <div class="top">
-        <span class="emoji">${p.emoji || '💬'}</span>
-        <div style="min-width:0;flex:1"><h3>${p.title}</h3><div class="sub">${p.sub || ''}</div></div>
-        <button class="star-btn ${starred ? 'on' : ''}" data-id="${p.id}">${starred ? '★' : '☆'}</button>
-      </div>
-      <div class="badges"><span class="badge cat">${p.cat}</span>${platforms}</div>
-      ${p.notes ? `<div class="snippet">${p.notes}</div>` : ''}
-      <div class="foot"><span class="kind">${vcount} version${vcount !== 1 ? 's' : ''}</span><button class="mini-btn push">Open →</button></div>`;
-    card.querySelector('.star-btn').addEventListener('click', (e) => {
+
+    const top = document.createElement('div');
+    top.className = 'top';
+    top.appendChild(makeTextElement('span', 'emoji', p.emoji || '💬'));
+
+    const heading = document.createElement('div');
+    heading.style.minWidth = '0';
+    heading.style.flex = '1';
+    heading.append(
+      makeTextElement('h3', '', p.title || 'Untitled'),
+      makeTextElement('div', 'sub', p.sub || ''),
+    );
+    top.appendChild(heading);
+
+    const starButton = makeTextElement('button', `star-btn${starred ? ' on' : ''}`, starred ? '★' : '☆');
+    starButton.dataset.id = String(p.id ?? '');
+    top.appendChild(starButton);
+
+    const badges = document.createElement('div');
+    badges.className = 'badges';
+    badges.appendChild(makeTextElement('span', 'badge cat', p.cat || 'custom'));
+    (p.platforms || []).forEach((platform) => {
+      badges.appendChild(makeTextElement('span', 'badge', platform));
+    });
+
+    card.append(top, badges);
+    if (p.notes) card.appendChild(makeTextElement('div', 'snippet', p.notes));
+
+    const foot = document.createElement('div');
+    foot.className = 'foot';
+    foot.appendChild(makeTextElement('span', 'kind', `${vcount} version${vcount !== 1 ? 's' : ''}`));
+    const openButton = makeTextElement('button', 'mini-btn push', 'Open →');
+    foot.appendChild(openButton);
+    card.appendChild(foot);
+
+    starButton.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = stars.indexOf(p.id);
       if (idx === -1) stars.push(p.id); else stars.splice(idx, 1);
       localStorage.setItem('chief-stars', JSON.stringify(stars));
       render();
     });
-    card.querySelector('.mini-btn').addEventListener('click', (e) => { e.stopPropagation(); modal.open(p); });
+    openButton.addEventListener('click', (e) => { e.stopPropagation(); modal.open(p); });
     card.addEventListener('click', () => modal.open(p));
     return card;
   }
