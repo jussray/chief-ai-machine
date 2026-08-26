@@ -129,3 +129,20 @@ test('stored custom prompt metadata renders as inert text in Library and My Prom
   await expect(page.locator('#chief-xss, #chief-xss-svg, #chief-xss-cat, #chief-xss-note')).toHaveCount(0);
   expect(await page.evaluate(() => globalThis.__chiefInjected || 0)).toBe(0);
 });
+
+test('corrupt custom prompt storage stays UNKNOWN and is not overwritten', async ({ page }) => {
+  const corruptPayload = '{"broken":';
+  await page.evaluate((payload) => localStorage.setItem('chief-custom', payload), corruptPayload);
+  await page.reload();
+
+  await expect(page.locator('#statCustom')).toHaveText('?');
+  await openPage(page, 'custom');
+  await expect(page.locator('#navCustom')).toHaveText('?');
+  await expect(page.locator('[data-custom-storage-truth="unknown"]')).toContainText('Current custom prompt count is UNKNOWN.');
+  await expect(page.locator('[data-custom-storage-truth="unknown"]')).toContainText('Nothing has been overwritten.');
+  await expect(page.getByText('No custom prompts yet.', { exact: true })).toHaveCount(0);
+  await expect(page.locator('#saveCustom')).toBeDisabled();
+
+  const preserved = await page.evaluate(() => localStorage.getItem('chief-custom'));
+  expect(preserved).toBe(corruptPayload);
+});
