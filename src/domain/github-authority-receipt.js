@@ -33,10 +33,20 @@ function validStringList(values, maxItems = 100, maxLength = 300) {
     && values.every((value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength);
 }
 
-function validGithubSourceRefs(values) {
-  return validStringList(values, 20, 500)
-    && values.length > 0
-    && values.every((value) => value.trim().startsWith('github:'));
+function expectedGithubSourceRefs(repository, rulesets) {
+  return rulesets
+    .map((ruleset) => `github:repository:${repository}:ruleset:${ruleset.id}`)
+    .sort();
+}
+
+function validGithubSourceRefs(values, repository, rulesets) {
+  if (!validStringList(values, 20, 500) || values.length === 0) return false;
+  if (!repository || !Array.isArray(rulesets) || rulesets.length === 0) return false;
+
+  const expected = expectedGithubSourceRefs(repository, rulesets);
+  const actual = values.map((value) => value.trim()).sort();
+  return actual.length === expected.length
+    && actual.every((value, index) => value === expected[index]);
 }
 
 function normalizeRuleset(input = {}) {
@@ -100,8 +110,14 @@ function githubRefPatternToRegex(pattern) {
     const next = pattern[index + 1];
 
     if (character === '*' && next === '*') {
-      source += '.*';
-      index += 1;
+      const afterRecursive = pattern[index + 2];
+      if (afterRecursive === '/') {
+        source += '(?:.*/)?';
+        index += 2;
+      } else {
+        source += '.*';
+        index += 1;
+      }
       continue;
     }
     if (character === '*') {
@@ -193,7 +209,6 @@ export function createGithubAuthorityReceipt(input, now = new Date()) {
   const defaultBranch = cleanText(input?.defaultBranch, 180);
   const sourceSha = cleanText(input?.sourceSha, 64);
   const observedAt = cleanIsoTimestamp(input?.observedAt);
-  const sourceRefs = cleanStringList(input?.sourceRefs, 20, 500);
   const rawRulesets = Array.isArray(input?.rulesets) ? input.rulesets : [];
   const ruleErrors = rawRulesets.flatMap((ruleset, index) => validateRuleset(ruleset, index));
 
@@ -202,11 +217,14 @@ export function createGithubAuthorityReceipt(input, now = new Date()) {
   if (!defaultBranch) throw new Error('GitHub authority receipt default branch is required');
   if (!/^[0-9a-f]{40}$/i.test(sourceSha)) throw new Error('GitHub authority receipt source SHA must be a full commit SHA');
   if (!observedAt) throw new Error('GitHub authority receipt observed timestamp must be valid');
-  if (!validGithubSourceRefs(input?.sourceRefs)) throw new Error('GitHub authority receipt requires valid GitHub provider source references');
   if (rawRulesets.length === 0) throw new Error('GitHub authority receipt requires at least one ruleset');
   if (ruleErrors.length > 0) throw new Error(`GitHub authority receipt rulesets are invalid: ${ruleErrors.join('; ')}`);
 
   const rulesets = rawRulesets.map(normalizeRuleset);
+  if (!validGithubSourceRefs(input?.sourceRefs, repository, rulesets)) {
+    throw new Error('GitHub authority receipt requires GitHub provider source references bound to the exact repository and complete ruleset ids');
+  }
+  const sourceRefs = cleanStringList(input?.sourceRefs, 20, 500);
   const effective = evaluateEffectiveGithubAuthority(rulesets, branch, defaultBranch);
 
   return {
@@ -232,19 +250,27 @@ export function validateGithubAuthorityReceipt(receipt) {
     return { valid: false, errors: ['GitHub authority receipt must be an object'] };
   }
 
+  const repository = cleanText(receipt.repository, 180);
   if (receipt.schemaVersion !== GITHUB_AUTHORITY_RECEIPT_SCHEMA_VERSION) errors.push('Unsupported schema version');
-  if (!cleanText(receipt.repository, 180)) errors.push('Missing repository');
+  if (!repository) errors.push('Missing repository');
   if (!cleanText(receipt.branch, 180)) errors.push('Missing branch');
   if (!cleanText(receipt.defaultBranch, 180)) errors.push('Missing default branch');
   if (!/^[0-9a-f]{40}$/i.test(cleanText(receipt.sourceSha, 64))) errors.push('Invalid source SHA');
   if (!cleanIsoTimestamp(receipt.observedAt)) errors.push('Invalid observed timestamp');
   if (!cleanIsoTimestamp(receipt.recordedAt)) errors.push('Invalid recorded timestamp');
   if (receipt.sourceSystem !== 'github-provider-readback') errors.push('Unsupported source system');
-  if (!validGithubSourceRefs(receipt.sourceRefs)) errors.push('Invalid provider source references');
+
+  let normalizedRulesets = [];
   if (!Array.isArray(receipt.rulesets) || receipt.rulesets.length === 0) {
     errors.push('Missing rulesets');
   } else {
-    errors.push(...receipt.rulesets.flatMap((ruleset, index) => validateRuleset(ruleset, index)));
+    const ruleErrors = receipt.rulesets.flatMap((ruleset, index) => validateRuleset(ruleset, index));
+    errors.push(...ruleErrors);
+    if (ruleErrors.length === 0) normalizedRulesets = receipt.rulesets.map(normalizeRuleset);
+  }
+
+  if (!validGithubSourceRefs(receipt.sourceRefs, repository, normalizedRulesets)) {
+    errors.push('Invalid provider source references');
   }
 
   if (errors.length === 0) {
