@@ -12,6 +12,7 @@ import {
 
 const SHA = '2fd4fda0cab12e52ab5096e723884d98bcfe7d10';
 const OBSERVED_AT = '2026-08-24T23:43:00.000Z';
+const REPOSITORY = 'jussray/chief-ai-machine';
 
 function hardenedRulesets() {
   return [
@@ -50,14 +51,18 @@ function hardenedRulesets() {
   ];
 }
 
+function sourceRefs(repository = REPOSITORY, ids = ['20818149', '21261587']) {
+  return ids.map((id) => `github:repository:${repository}:ruleset:${id}`);
+}
+
 function receiptInput(overrides = {}) {
   return {
-    repository: 'jussray/chief-ai-machine',
+    repository: REPOSITORY,
     branch: 'main',
     defaultBranch: 'main',
     sourceSha: SHA,
     observedAt: OBSERVED_AT,
-    sourceRefs: ['github:ruleset-readback:20818149,21261587'],
+    sourceRefs: sourceRefs(),
     rulesets: hardenedRulesets(),
     ...overrides,
   };
@@ -65,7 +70,7 @@ function receiptInput(overrides = {}) {
 
 function assessmentContext(overrides = {}) {
   return {
-    expectedRepository: 'jussray/chief-ai-machine',
+    expectedRepository: REPOSITORY,
     expectedBranch: 'main',
     expectedDefaultBranch: 'main',
     expectedSourceSha: SHA,
@@ -123,6 +128,22 @@ describe('GitHub authority receipt', () => {
     const effective = evaluateEffectiveGithubAuthority(rulesets, 'main', 'main');
     expect(effective.activeRulesetIds).toEqual(['21261587']);
     expect(effective.requiredChecks).toEqual([]);
+  });
+
+  it('treats recursive **/ patterns as matching zero or more directory levels', () => {
+    const recursive = {
+      ...hardenedRulesets()[0],
+      id: 3001,
+      includedRefs: ['refs/heads/**/release'],
+      excludedRefs: [],
+    };
+
+    expect(evaluateEffectiveGithubAuthority([recursive], 'release', 'main').activeRulesetIds)
+      .toEqual(['3001']);
+    expect(evaluateEffectiveGithubAuthority([recursive], 'team/release', 'main').activeRulesetIds)
+      .toEqual(['3001']);
+    expect(evaluateEffectiveGithubAuthority([recursive], 'team/deep/release', 'main').activeRulesetIds)
+      .toEqual(['3001']);
   });
 
   it('creates a provider-readback receipt that has evidence authority only', () => {
@@ -232,9 +253,11 @@ describe('GitHub authority receipt', () => {
 
   it('rejects malformed provider source references and missing default branch', () => {
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: [null] })))
-      .toThrow(/valid GitHub provider source references/);
+      .toThrow(/source references bound to the exact repository/);
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: ['email:ruleset-claim'] })))
-      .toThrow(/valid GitHub provider source references/);
+      .toThrow(/source references bound to the exact repository/);
+    expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: ['github:ruleset-readback:20818149,21261587'] })))
+      .toThrow(/source references bound to the exact repository/);
     expect(() => createGithubAuthorityReceipt(receiptInput({ defaultBranch: '' })))
       .toThrow(/default branch is required/);
 
@@ -246,6 +269,28 @@ describe('GitHub authority receipt', () => {
     expect(validation.valid).toBe(false);
     expect(validation.errors).toContain('Invalid provider source references');
     expect(validation.errors).toContain('Missing default branch');
+  });
+
+  it('binds provider source references to the exact repository and complete ruleset id set', () => {
+    expect(() => createGithubAuthorityReceipt(receiptInput({
+      sourceRefs: sourceRefs('jussray/other-repo'),
+    }))).toThrow(/source references bound to the exact repository/);
+
+    expect(() => createGithubAuthorityReceipt(receiptInput({
+      sourceRefs: sourceRefs(REPOSITORY, ['20818149']),
+    }))).toThrow(/source references bound to the exact repository/);
+
+    expect(() => createGithubAuthorityReceipt(receiptInput({
+      sourceRefs: sourceRefs(REPOSITORY, ['20818149', '21261587', '99999999']),
+    }))).toThrow(/source references bound to the exact repository/);
+
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.repository = 'jussray/other-repo';
+    expect(validateGithubAuthorityReceipt(receipt).errors).toContain('Invalid provider source references');
+
+    const changedRuleset = createGithubAuthorityReceipt(receiptInput());
+    changedRuleset.rulesets[1] = { ...changedRuleset.rulesets[1], id: '99999999' };
+    expect(validateGithubAuthorityReceipt(changedRuleset).errors).toContain('Invalid provider source references');
   });
 
   it('rejects empty provider provenance after serialization or external loading', () => {
@@ -274,6 +319,6 @@ describe('GitHub authority receipt', () => {
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceSha: 'main' })))
       .toThrow(/full commit SHA/);
     expect(() => createGithubAuthorityReceipt(receiptInput({ sourceRefs: [] })))
-      .toThrow(/valid GitHub provider source references/);
+      .toThrow(/source references bound to the exact repository/);
   });
 });
