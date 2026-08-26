@@ -11,6 +11,13 @@ function readCustomPrompts() {
   }
 }
 
+function makeTextElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  element.textContent = String(text ?? '');
+  return element;
+}
+
 export function initCustom(PROMPTS, modal) {
   const titleEl = document.getElementById('cTitle');
   const subEl = document.getElementById('cSub');
@@ -22,18 +29,41 @@ export function initCustom(PROMPTS, modal) {
 
   function render() {
     custom = readCustomPrompts();
-    list.innerHTML = '';
+    list.replaceChildren();
     if (!custom.length) {
-      list.innerHTML = '<div class="empty" style="border:none;padding:16px 0">No custom prompts yet.</div>';
+      const empty = makeTextElement('div', 'empty', 'No custom prompts yet.');
+      empty.style.border = 'none';
+      empty.style.padding = '16px 0';
+      list.appendChild(empty);
       const nc = document.getElementById('navCustom');
       if (nc) nc.textContent = '0';
       return;
     }
 
     custom.forEach((p, i) => {
-      const item = document.createElement('div'); item.className = 'citem';
-      item.innerHTML = `<div class="row"><strong>${p.title || 'Untitled'}</strong><span class="badge cat" style="margin-left:auto">${p.cat || 'custom'}</span><button class="mini-btn" data-del="${i}" style="margin-left:8px">Delete</button></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">${p.sub || ''}</div>`;
-      item.querySelector('[data-del]').addEventListener('click', (e) => {
+      const item = document.createElement('div');
+      item.className = 'citem';
+
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.appendChild(makeTextElement('strong', '', p.title || 'Untitled'));
+
+      const category = makeTextElement('span', 'badge cat', p.cat || 'custom');
+      category.style.marginLeft = 'auto';
+      row.appendChild(category);
+
+      const deleteButton = makeTextElement('button', 'mini-btn', 'Delete');
+      deleteButton.dataset.del = String(i);
+      deleteButton.style.marginLeft = '8px';
+      row.appendChild(deleteButton);
+
+      const subtitle = makeTextElement('div', '', p.sub || '');
+      subtitle.style.fontSize = '12px';
+      subtitle.style.color = 'var(--text-muted)';
+      subtitle.style.marginTop = '4px';
+
+      item.append(row, subtitle);
+      deleteButton.addEventListener('click', (e) => {
         e.stopPropagation();
         custom.splice(i, 1);
         localStorage.setItem('chief-custom', JSON.stringify(custom));
