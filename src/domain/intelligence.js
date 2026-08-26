@@ -21,6 +21,7 @@ export const ASSET_STATUSES = Object.freeze([
 
 const KIND_SET = new Set(ASSET_KINDS);
 const STATUS_SET = new Set(ASSET_STATUSES);
+const CUSTOM_PROMPT_PLATFORM = /^[a-z0-9][a-z0-9._-]{0,39}$/;
 
 function cleanText(value, maxLength = 10000) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
@@ -29,6 +30,68 @@ function cleanText(value, maxLength = 10000) {
 function cleanTags(tags) {
   if (!Array.isArray(tags)) return [];
   return [...new Set(tags.map((tag) => cleanText(tag, 60).toLowerCase()).filter(Boolean))].slice(0, 20);
+}
+
+function cleanStringList(values, maxItems, maxLength) {
+  if (!Array.isArray(values)) return [];
+  return [...new Set(values.map((value) => cleanText(value, maxLength)).filter(Boolean))].slice(0, maxItems);
+}
+
+function cleanPlatform(value) {
+  const platform = cleanText(value, 40).toLowerCase();
+  return CUSTOM_PROMPT_PLATFORM.test(platform) ? platform : '';
+}
+
+function cleanVersions(versions) {
+  if (!versions || typeof versions !== 'object' || Array.isArray(versions)) return {};
+  const entries = [];
+  for (const [rawPlatform, rawBody] of Object.entries(versions)) {
+    const platform = cleanPlatform(rawPlatform);
+    const body = cleanText(rawBody, 50000);
+    if (!platform || !body || entries.some(([existing]) => existing === platform)) continue;
+    entries.push([platform, body]);
+    if (entries.length >= 12) break;
+  }
+  return Object.fromEntries(entries);
+}
+
+function cleanStars(stars) {
+  if (!Array.isArray(stars)) return [];
+  return [...new Set(stars.filter((value) => (
+    (typeof value === 'number' && Number.isSafeInteger(value))
+    || (typeof value === 'string' && value.length > 0 && value.length <= 180)
+  )))].slice(0, 500);
+}
+
+export function normalizeCustomPrompt(prompt, index = 0) {
+  if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt)) return null;
+
+  const versions = cleanVersions(prompt.versions);
+  const explicitPlatforms = Array.isArray(prompt.platforms)
+    ? prompt.platforms.map(cleanPlatform).filter(Boolean)
+    : [];
+  const platforms = [...new Set([...explicitPlatforms, ...Object.keys(versions)])].slice(0, 12);
+  const safeIndex = Number.isSafeInteger(index) && index >= 0 ? index : 0;
+
+  return {
+    id: cleanText(prompt.id, 180) || `imported-custom-${safeIndex}`,
+    title: cleanText(prompt.title, 160) || 'Imported prompt',
+    sub: cleanText(prompt.sub, 500),
+    cat: cleanText(prompt.cat, 60).toLowerCase() || 'custom',
+    platforms,
+    versions,
+    emoji: cleanText(prompt.emoji, 16) || '✨',
+    notes: cleanText(prompt.notes, 2000),
+    repos: cleanStringList(prompt.repos, 20, 120),
+  };
+}
+
+export function normalizeCustomPrompts(prompts) {
+  if (!Array.isArray(prompts)) return [];
+  return prompts
+    .slice(0, 500)
+    .map((prompt, index) => normalizeCustomPrompt(prompt, index))
+    .filter(Boolean);
 }
 
 function assetId(now, seed = '') {
@@ -131,8 +194,8 @@ export function createPortableSnapshot({ assets = [], customPrompts = [], stars 
     exportedAt,
     assets: safeAssets,
     compatibility: {
-      customPrompts: Array.isArray(customPrompts) ? customPrompts : [],
-      stars: Array.isArray(stars) ? stars : [],
+      customPrompts: normalizeCustomPrompts(customPrompts),
+      stars: cleanStars(stars),
     },
   };
 }
@@ -147,16 +210,18 @@ export function parsePortableSnapshot(input, now = new Date()) {
     if (invalid) throw new Error('Snapshot contains an invalid intelligence asset');
     return {
       assets,
-      customPrompts: input.compatibility?.customPrompts || [],
-      stars: input.compatibility?.stars || [],
+      customPrompts: normalizeCustomPrompts(input.compatibility?.customPrompts),
+      stars: cleanStars(input.compatibility?.stars),
     };
   }
 
   // Backward compatibility with the original { custom, stars } export.
-  const customPrompts = Array.isArray(input.custom) ? input.custom : [];
+  const customPrompts = normalizeCustomPrompts(input.custom);
   return {
-    assets: customPrompts.map((prompt, index) => migrateLegacyPrompt(prompt, new Date(now.getTime() + index))),
+    assets: customPrompts
+      .filter((prompt) => Object.values(prompt.versions).some(Boolean))
+      .map((prompt, index) => migrateLegacyPrompt(prompt, new Date(now.getTime() + index))),
     customPrompts,
-    stars: Array.isArray(input.stars) ? input.stars : [],
+    stars: cleanStars(input.stars),
   };
 }
