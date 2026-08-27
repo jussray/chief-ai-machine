@@ -186,8 +186,9 @@ export function createExecutionHandoffReceipt(capabilityPlan) {
     expectedHeadSha: capabilityPlan.expectedHeadSha,
     registryHash: capabilityPlan.registryHash,
     requestedAuthority: capabilityPlan.requestedAuthority,
-    capabilityIds: capabilityPlan.capabilities.map((capability) => capability.id),
-    proofRequirements: [...capabilityPlan.proofRequirements],
+    capabilityIds: Object.freeze(capabilityPlan.capabilities.map((capability) => capability.id)),
+    proofRequirements: Object.freeze([...capabilityPlan.proofRequirements]),
+    outcomeSignals: Object.freeze([...capabilityPlan.outcomeSignals]),
     rollback: capabilityPlan.rollback,
     capabilityPlanHash: capabilityPlan.planHash,
   });
