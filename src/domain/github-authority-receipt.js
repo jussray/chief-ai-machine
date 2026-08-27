@@ -2,6 +2,12 @@
 
 export const GITHUB_AUTHORITY_RECEIPT_SCHEMA_VERSION = 1;
 
+const CHIEF_AI_REPOSITORY = 'jussray/chief-ai-machine';
+const CHIEF_AI_REQUIRED_STATUS_CHECKS = Object.freeze([
+  'Control Room Test Ledger',
+  'Quality Gate',
+]);
+
 export const GITHUB_AUTHORITY_RECEIPT_AUTHORITY = Object.freeze({
   scope: 'evidence-only',
   permitsRepositoryWrite: false,
@@ -33,6 +39,12 @@ function validStringList(values, maxItems = 100, maxLength = 300) {
     && values.every((value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength);
 }
 
+function rulesetIdsAreUnique(rulesets) {
+  if (!Array.isArray(rulesets)) return false;
+  const ids = rulesets.map((ruleset) => cleanText(String(ruleset?.id ?? ''), 80));
+  return ids.every(Boolean) && new Set(ids).size === ids.length;
+}
+
 function expectedGithubSourceRefs(repository, rulesets) {
   return rulesets
     .map((ruleset) => `github:repository:${repository}:ruleset:${ruleset.id}`)
@@ -41,10 +53,14 @@ function expectedGithubSourceRefs(repository, rulesets) {
 
 function validGithubSourceRefs(values, repository, rulesets) {
   if (!validStringList(values, 20, 500) || values.length === 0) return false;
-  if (!repository || !Array.isArray(rulesets) || rulesets.length === 0) return false;
+  if (repository !== CHIEF_AI_REPOSITORY || !Array.isArray(rulesets) || rulesets.length === 0) return false;
+  if (!rulesetIdsAreUnique(rulesets)) return false;
+
+  const actual = values.map((value) => value.trim());
+  if (new Set(actual).size !== actual.length) return false;
 
   const expected = expectedGithubSourceRefs(repository, rulesets);
-  const actual = values.map((value) => value.trim()).sort();
+  actual.sort();
   return actual.length === expected.length
     && actual.every((value, index) => value === expected[index]);
 }
@@ -110,8 +126,10 @@ function githubRefPatternToRegex(pattern) {
     const next = pattern[index + 1];
 
     if (character === '*' && next === '*') {
+      const beforeRecursive = pattern[index - 1];
       const afterRecursive = pattern[index + 2];
-      if (afterRecursive === '/') {
+      const standaloneRecursiveSegment = afterRecursive === '/' && (index === 0 || beforeRecursive === '/');
+      if (standaloneRecursiveSegment) {
         source += '(?:.*/)?';
         index += 2;
       } else {
@@ -209,20 +227,31 @@ export function createGithubAuthorityReceipt(input, now = new Date()) {
   const defaultBranch = cleanText(input?.defaultBranch, 180);
   const sourceSha = cleanText(input?.sourceSha, 64);
   const observedAt = cleanIsoTimestamp(input?.observedAt);
+  const recordedAt = now instanceof Date && !Number.isNaN(now.getTime()) ? now.toISOString() : '';
   const rawRulesets = Array.isArray(input?.rulesets) ? input.rulesets : [];
   const ruleErrors = rawRulesets.flatMap((ruleset, index) => validateRuleset(ruleset, index));
 
   if (!repository) throw new Error('GitHub authority receipt repository is required');
+  if (repository !== CHIEF_AI_REPOSITORY) {
+    throw new Error(`GitHub authority receipt repository must be ${CHIEF_AI_REPOSITORY}`);
+  }
   if (!branch) throw new Error('GitHub authority receipt branch is required');
   if (!defaultBranch) throw new Error('GitHub authority receipt default branch is required');
   if (!/^[0-9a-f]{40}$/i.test(sourceSha)) throw new Error('GitHub authority receipt source SHA must be a full commit SHA');
   if (!observedAt) throw new Error('GitHub authority receipt observed timestamp must be valid');
+  if (!recordedAt) throw new Error('GitHub authority receipt recorded timestamp must be valid');
+  if (Date.parse(observedAt) > Date.parse(recordedAt)) {
+    throw new Error('GitHub authority receipt observation cannot be later than recorded time');
+  }
   if (rawRulesets.length === 0) throw new Error('GitHub authority receipt requires at least one ruleset');
   if (ruleErrors.length > 0) throw new Error(`GitHub authority receipt rulesets are invalid: ${ruleErrors.join('; ')}`);
 
   const rulesets = rawRulesets.map(normalizeRuleset);
+  if (!rulesetIdsAreUnique(rulesets)) {
+    throw new Error('GitHub authority receipt ruleset ids must be unique');
+  }
   if (!validGithubSourceRefs(input?.sourceRefs, repository, rulesets)) {
-    throw new Error('GitHub authority receipt requires GitHub provider source references bound to the exact repository and complete ruleset ids');
+    throw new Error('GitHub authority receipt requires GitHub provider source references bound to the exact repository and complete unique ruleset ids');
   }
   const sourceRefs = cleanStringList(input?.sourceRefs, 20, 500);
   const effective = evaluateEffectiveGithubAuthority(rulesets, branch, defaultBranch);
@@ -234,7 +263,7 @@ export function createGithubAuthorityReceipt(input, now = new Date()) {
     defaultBranch,
     sourceSha,
     observedAt,
-    recordedAt: now.toISOString(),
+    recordedAt,
     sourceSystem: 'github-provider-readback',
     sourceRefs,
     rulesets,
@@ -251,13 +280,19 @@ export function validateGithubAuthorityReceipt(receipt) {
   }
 
   const repository = cleanText(receipt.repository, 180);
+  const observedAt = cleanIsoTimestamp(receipt.observedAt);
+  const recordedAt = cleanIsoTimestamp(receipt.recordedAt);
   if (receipt.schemaVersion !== GITHUB_AUTHORITY_RECEIPT_SCHEMA_VERSION) errors.push('Unsupported schema version');
   if (!repository) errors.push('Missing repository');
+  else if (repository !== CHIEF_AI_REPOSITORY) errors.push(`Repository must be ${CHIEF_AI_REPOSITORY}`);
   if (!cleanText(receipt.branch, 180)) errors.push('Missing branch');
   if (!cleanText(receipt.defaultBranch, 180)) errors.push('Missing default branch');
   if (!/^[0-9a-f]{40}$/i.test(cleanText(receipt.sourceSha, 64))) errors.push('Invalid source SHA');
-  if (!cleanIsoTimestamp(receipt.observedAt)) errors.push('Invalid observed timestamp');
-  if (!cleanIsoTimestamp(receipt.recordedAt)) errors.push('Invalid recorded timestamp');
+  if (!observedAt) errors.push('Invalid observed timestamp');
+  if (!recordedAt) errors.push('Invalid recorded timestamp');
+  if (observedAt && recordedAt && Date.parse(observedAt) > Date.parse(recordedAt)) {
+    errors.push('Observation timestamp cannot be later than recorded timestamp');
+  }
   if (receipt.sourceSystem !== 'github-provider-readback') errors.push('Unsupported source system');
 
   let normalizedRulesets = [];
@@ -266,7 +301,10 @@ export function validateGithubAuthorityReceipt(receipt) {
   } else {
     const ruleErrors = receipt.rulesets.flatMap((ruleset, index) => validateRuleset(ruleset, index));
     errors.push(...ruleErrors);
-    if (ruleErrors.length === 0) normalizedRulesets = receipt.rulesets.map(normalizeRuleset);
+    if (ruleErrors.length === 0) {
+      normalizedRulesets = receipt.rulesets.map(normalizeRuleset);
+      if (!rulesetIdsAreUnique(normalizedRulesets)) errors.push('Ruleset ids must be unique');
+    }
   }
 
   if (!validGithubSourceRefs(receipt.sourceRefs, repository, normalizedRulesets)) {
@@ -289,7 +327,14 @@ export function validateGithubAuthorityReceipt(receipt) {
 
 export function assessGithubMainAuthority(receipt, context = {}) {
   const validation = validateGithubAuthorityReceipt(receipt);
-  if (!validation.valid) return { valid: false, authorized: false, errors: validation.errors };
+  if (!validation.valid) {
+    return {
+      valid: false,
+      authorized: false,
+      policySatisfied: false,
+      errors: validation.errors,
+    };
+  }
 
   const expectedRepository = cleanText(context.expectedRepository, 180);
   const expectedBranch = cleanText(context.expectedBranch, 180);
@@ -305,7 +350,14 @@ export function assessGithubMainAuthority(receipt, context = {}) {
   if (!/^[0-9a-f]{40}$/i.test(expectedSourceSha)) contextErrors.push('Expected source SHA must be a full commit SHA');
   if (maxAgeMs === null) contextErrors.push('Freshness bound is required');
   if (Number.isNaN(now.getTime())) contextErrors.push('Assessment timestamp is invalid');
-  if (contextErrors.length > 0) return { valid: false, authorized: false, errors: contextErrors };
+  if (contextErrors.length > 0) {
+    return {
+      valid: false,
+      authorized: false,
+      policySatisfied: false,
+      errors: contextErrors,
+    };
+  }
 
   const effective = evaluateEffectiveGithubAuthority(receipt.rulesets, receipt.branch, receipt.defaultBranch);
   const missing = [];
@@ -325,11 +377,19 @@ export function assessGithubMainAuthority(receipt, context = {}) {
   if (!effective.requireConversationResolution) missing.push('conversation-resolution');
   if (!effective.strictRequiredStatusChecks) missing.push('strict-required-status-checks');
   if (effective.requiredChecks.length === 0) missing.push('named-required-status-check');
+  for (const requiredCheck of CHIEF_AI_REQUIRED_STATUS_CHECKS) {
+    if (!effective.requiredChecks.includes(requiredCheck)) {
+      missing.push(`required-status-check:${requiredCheck}`);
+    }
+  }
   if (!effective.noBypassActors) missing.push('no-bypass-actors');
 
+  const policySatisfied = missing.length === 0;
   return {
     valid: true,
-    authorized: missing.length === 0,
+    authorized: false,
+    policySatisfied,
+    authorizationStatus: 'not-proven-by-policy-receipt',
     missing,
     effective,
     freshness: {

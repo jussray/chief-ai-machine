@@ -130,7 +130,7 @@ describe('GitHub authority receipt', () => {
     expect(effective.requiredChecks).toEqual([]);
   });
 
-  it('treats recursive **/ patterns as matching zero or more directory levels', () => {
+  it('treats standalone recursive **/ patterns as matching zero or more directory levels', () => {
     const recursive = {
       ...hardenedRulesets()[0],
       id: 3001,
@@ -146,6 +146,18 @@ describe('GitHub authority receipt', () => {
       .toEqual(['3001']);
   });
 
+  it('keeps the slash mandatory when ** is embedded in a ref path component', () => {
+    const embedded = {
+      ...hardenedRulesets()[0],
+      id: 3002,
+      includedRefs: ['refs/heads/re**/main'],
+      excludedRefs: [],
+    };
+
+    expect(evaluateEffectiveGithubAuthority([embedded], 'remain', 'main').activeRulesetIds)
+      .toEqual([]);
+  });
+
   it('creates a provider-readback receipt that has evidence authority only', () => {
     const receipt = createGithubAuthorityReceipt(receiptInput(), new Date('2026-08-24T23:44:00Z'));
 
@@ -156,12 +168,14 @@ describe('GitHub authority receipt', () => {
     expect(receipt.authority.permitsRulesetMutation).toBe(false);
   });
 
-  it('authorizes only when exact identity, freshness, branch authority, checks, and no bypass all hold', () => {
+  it('reports policy satisfaction without minting current authorization', () => {
     const receipt = createGithubAuthorityReceipt(receiptInput());
     const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.valid).toBe(true);
-    expect(assessment.authorized).toBe(true);
+    expect(assessment.policySatisfied).toBe(true);
+    expect(assessment.authorized).toBe(false);
+    expect(assessment.authorizationStatus).toBe('not-proven-by-policy-receipt');
     expect(assessment.missing).toEqual([]);
   });
 
@@ -173,6 +187,7 @@ describe('GitHub authority receipt', () => {
     const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
+    expect(assessment.policySatisfied).toBe(false);
     expect(assessment.missing).toContain('last-push-approval');
   });
 
@@ -184,6 +199,7 @@ describe('GitHub authority receipt', () => {
     const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
+    expect(assessment.policySatisfied).toBe(false);
     expect(assessment.missing).toContain('no-bypass-actors');
   });
 
@@ -193,6 +209,7 @@ describe('GitHub authority receipt', () => {
     const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
+    expect(assessment.policySatisfied).toBe(false);
     expect(assessment.effective.activeRulesetIds).toEqual([]);
     expect(assessment.missing).toContain('pull-request-required');
   });
@@ -203,10 +220,23 @@ describe('GitHub authority receipt', () => {
     const assessment = assessGithubMainAuthority(receipt, assessmentContext());
 
     expect(assessment.authorized).toBe(false);
+    expect(assessment.policySatisfied).toBe(false);
     expect(assessment.missing).toContain('named-required-status-check');
   });
 
-  it('rejects stale or mismatched authority context before authorizing', () => {
+  it('requires Chief authoritative status checks by name', () => {
+    const rulesets = hardenedRulesets();
+    rulesets[0] = { ...rulesets[0], requiredChecks: ['noop'] };
+
+    const receipt = createGithubAuthorityReceipt(receiptInput({ rulesets }));
+    const assessment = assessGithubMainAuthority(receipt, assessmentContext());
+
+    expect(assessment.policySatisfied).toBe(false);
+    expect(assessment.missing).toContain('required-status-check:Quality Gate');
+    expect(assessment.missing).toContain('required-status-check:Control Room Test Ledger');
+  });
+
+  it('rejects stale or mismatched authority context before policy satisfaction', () => {
     const receipt = createGithubAuthorityReceipt(receiptInput());
 
     expect(assessGithubMainAuthority(receipt, assessmentContext({
@@ -232,6 +262,7 @@ describe('GitHub authority receipt', () => {
 
     expect(assessment.valid).toBe(false);
     expect(assessment.authorized).toBe(false);
+    expect(assessment.policySatisfied).toBe(false);
     expect(assessment.errors).toContain('Expected repository is required');
     expect(assessment.errors).toContain('Expected branch is required');
     expect(assessment.errors).toContain('Expected default branch is required');
@@ -249,6 +280,21 @@ describe('GitHub authority receipt', () => {
 
     expect(validation.valid).toBe(false);
     expect(validation.errors).toContain('Ruleset 1 requires a stable id');
+  });
+
+  it('pins provider receipts to the Chief AI repository', () => {
+    expect(() => createGithubAuthorityReceipt(receiptInput({
+      repository: 'jussray/other-repo',
+      sourceRefs: sourceRefs('jussray/other-repo'),
+    }))).toThrow(/repository must be jussray\/chief-ai-machine/);
+
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.repository = 'jussray/other-repo';
+    receipt.sourceRefs = sourceRefs('jussray/other-repo');
+
+    const validation = validateGithubAuthorityReceipt(receipt);
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toContain('Repository must be jussray/chief-ai-machine');
   });
 
   it('rejects malformed provider source references and missing default branch', () => {
@@ -293,6 +339,29 @@ describe('GitHub authority receipt', () => {
     expect(validateGithubAuthorityReceipt(changedRuleset).errors).toContain('Invalid provider source references');
   });
 
+  it('rejects duplicate ruleset ids and duplicate provider source references', () => {
+    const duplicateRulesets = [
+      ...hardenedRulesets(),
+      { ...hardenedRulesets()[0], requiredChecks: [] },
+    ];
+
+    expect(() => createGithubAuthorityReceipt(receiptInput({
+      rulesets: duplicateRulesets,
+      sourceRefs: [...sourceRefs(), sourceRefs()[0]],
+    }))).toThrow(/ruleset ids must be unique/);
+
+    const receipt = createGithubAuthorityReceipt(receiptInput());
+    receipt.sourceRefs = [...receipt.sourceRefs, receipt.sourceRefs[0]];
+    expect(validateGithubAuthorityReceipt(receipt).errors).toContain('Invalid provider source references');
+
+    const duplicateLoaded = createGithubAuthorityReceipt(receiptInput());
+    duplicateLoaded.rulesets.push({ ...duplicateLoaded.rulesets[0] });
+    duplicateLoaded.sourceRefs.push(duplicateLoaded.sourceRefs[0]);
+    const validation = validateGithubAuthorityReceipt(duplicateLoaded);
+    expect(validation.errors).toContain('Ruleset ids must be unique');
+    expect(validation.errors).toContain('Invalid provider source references');
+  });
+
   it('rejects empty provider provenance after serialization or external loading', () => {
     const receipt = createGithubAuthorityReceipt(receiptInput());
     receipt.sourceRefs = [];
@@ -300,6 +369,23 @@ describe('GitHub authority receipt', () => {
     const validation = validateGithubAuthorityReceipt(receipt);
     expect(validation.valid).toBe(false);
     expect(validation.errors).toContain('Invalid provider source references');
+  });
+
+  it('rejects impossible observation and recording chronology', () => {
+    expect(() => createGithubAuthorityReceipt(
+      receiptInput({ observedAt: '2026-08-24T23:45:00.000Z' }),
+      new Date('2026-08-24T23:44:00.000Z'),
+    )).toThrow(/observation cannot be later than recorded time/);
+
+    const receipt = createGithubAuthorityReceipt(
+      receiptInput(),
+      new Date('2026-08-24T23:44:00.000Z'),
+    );
+    receipt.observedAt = '2026-08-24T23:45:00.000Z';
+
+    const validation = validateGithubAuthorityReceipt(receipt);
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toContain('Observation timestamp cannot be later than recorded timestamp');
   });
 
   it('rejects a stored effective fingerprint that does not match provider rulesets', () => {
