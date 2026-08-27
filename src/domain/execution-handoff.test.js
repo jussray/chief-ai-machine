@@ -100,8 +100,10 @@ describe('execution handoff receipt', () => {
     expect(Object.isFrozen(receipt.proofRequirements)).toBe(true);
     expect(Object.isFrozen(receipt.outcomeSignals)).toBe(true);
 
-    expect(() => receipt.proofRequirements.push('forged gate')).toThrow(TypeError);
-    expect(() => receipt.outcomeSignals.push('forged outcome')).toThrow(TypeError);
+    expect(() => Reflect.apply(Array.prototype.push, receipt.proofRequirements, ['forged gate']))
+      .toThrow(TypeError);
+    expect(() => Reflect.apply(Array.prototype.push, receipt.outcomeSignals, ['forged outcome']))
+      .toThrow(TypeError);
   });
 
   it('binds state-sensitive proposal fields through the capability-plan hash', () => {
