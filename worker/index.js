@@ -1,51 +1,24 @@
-import { BUILD_RELEASE_SHA } from './release-sha.js';
-import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
-import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleProofModeMcp } from './proofmode-mcp.js';
+import { WorkerEntrypoint } from 'cloudflare:workers';
+import {
+  createFounderControlRoomCapabilityPlan,
+  getFounderControlRoomServiceVersion,
+} from './fcr-service.js';
+import httpWorker from './http-worker.js';
 
-function getReleaseSha(env) {
-  const candidates = [
-    env?.RELEASE_SHA,
-    env?.GITHUB_SHA,
-    env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
-  ];
-  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
-  return value?.trim() || 'unknown';
+export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
+  async version() {
+    return getFounderControlRoomServiceVersion(this.env);
+  }
+
+  async createCapabilityPlan(input) {
+    return createFounderControlRoomCapabilityPlan(this.env, input);
+  }
 }
 
-// Chief AI Worker entry point.
+// Chief AI Worker composition root.
 //
-// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
-// Runtime-first routes are declared in wrangler.jsonc so they cannot silently
-// fall through to SPA assets.
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-
-    if (url.pathname === '/version') {
-      return Response.json(
-        { ok: true, sha: getReleaseSha(env) },
-        { headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
-
-    if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request, env);
-    }
-
-    if (url.pathname === '/api/chief/capability-plan') {
-      return handleChiefCapabilityPlan(request);
-    }
-
-    if (url.pathname === '/api/chief/founder-content-proposal') {
-      return handleChiefFounderContentProposal(request);
-    }
-
-    if (url.pathname.startsWith('/api/')) {
-      return new Response('Not implemented', { status: 501 });
-    }
-
-    return env.ASSETS.fetch(request);
-  },
-};
+// HTTP routing lives in a runtime-neutral module so Node/Vitest can verify the
+// /version and request-routing contract without loading Cloudflare's RPC-only
+// virtual module. Named WorkerEntrypoint exports remain here for the FCR
+// Cloudflare Service Binding.
+export default httpWorker;
