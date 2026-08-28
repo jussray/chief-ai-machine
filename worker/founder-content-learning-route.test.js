@@ -1,4 +1,4 @@
-/* global TextEncoder, crypto */
+/* global TextEncoder, ReadableStream, crypto */
 import { describe, expect, it } from 'vitest';
 import {
   FCR_LEARNING_ROUTE,
@@ -144,6 +144,25 @@ describe('authenticated FCR founder-content learning route', () => {
     });
   });
 
+  it('binds the authenticated receipt to the same runtime release identity order as /version', async () => {
+    const input = await observation();
+    const releaseSha = '1'.repeat(40);
+    const response = await handleFounderContentLearning(
+      await signedRequest(input),
+      {
+        ...env,
+        RELEASE_SHA: releaseSha,
+        GITHUB_SHA: '2'.repeat(40),
+        WORKERS_CI_COMMIT_SHA: '3'.repeat(40),
+      },
+      NOW_MS,
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.authenticatedSource.chief_release_sha).toBe(releaseSha);
+  });
+
   it('rejects a body changed after FCR signed it', async () => {
     const input = await observation();
     const request = await signedRequest(input);
@@ -157,6 +176,38 @@ describe('authenticated FCR founder-content learning route', () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
       error: { code: 'fcr_learning_authentication_failed' },
+    });
+  });
+
+  it('cancels an oversized request stream before buffering beyond 64 KiB', async () => {
+    let cancelled = false;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('x'.repeat(32 * 1024)));
+        controller.enqueue(encoder.encode('y'.repeat((32 * 1024) + 1)));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    const request = new Request(`https://chief-ai.internal${FCR_LEARNING_ROUTE}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-FCR-Learning-Key-Id': KEY_ID,
+        'X-FCR-Learning-Issued-At': '2026-08-19T22:00:00.000Z',
+        'X-FCR-Learning-Signature': '0'.repeat(64),
+      },
+      body: stream,
+      duplex: 'half',
+    });
+
+    const response = await handleFounderContentLearning(request, env, NOW_MS);
+    expect(response.status).toBe(413);
+    expect(cancelled).toBe(true);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'founder_content_learning_payload_too_large' },
     });
   });
 
