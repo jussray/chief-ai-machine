@@ -1,4 +1,4 @@
-/* global TextEncoder, ReadableStream, crypto */
+/* global TextEncoder, ReadableStream, Headers, crypto */
 import { describe, expect, it } from 'vitest';
 import {
   FCR_LEARNING_ROUTE,
