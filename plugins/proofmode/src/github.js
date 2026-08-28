@@ -84,7 +84,10 @@ function decodeReadme(payload) {
 
 export async function loadPublicRepositoryEvidence({ owner, repo, ref, token }) {
   const repoPath = `/repos/${encode(owner)}/${encode(repo)}`;
-  const metadata = await githubJson(repoPath, token);
+
+  // Establish the public-repository boundary without credentials first. A server token
+  // must never expand v0.1 discovery into private repository metadata.
+  const metadata = await githubJson(repoPath);
   rejectNonPublicRepository(metadata);
 
   const resolvedRef = ref?.trim() || metadata.default_branch;
