@@ -1,4 +1,4 @@
-/* global TextEncoder, crypto */
+/* global TextEncoder, TextDecoder, crypto */
 import { buildFounderContentLearningSignal } from '../src/domain/founder-content-learning.js';
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 
@@ -12,6 +12,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_AGE_MS = 5 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 60 * 1000;
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 function text(value, max = 1000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -48,7 +49,8 @@ function hexToBytes(value) {
 }
 
 async function sha256Hex(value) {
-  return bytesToHex(await crypto.subtle.digest('SHA-256', encoder.encode(value)));
+  const bytes = typeof value === 'string' ? encoder.encode(value) : value;
+  return bytesToHex(await crypto.subtle.digest('SHA-256', bytes));
 }
 
 function signingInput(keyId, issuedAt, bodyHash) {
@@ -66,6 +68,65 @@ async function verifyHmac(secret, input, signatureHex) {
     ['verify'],
   );
   return crypto.subtle.verify('HMAC', key, signature, encoder.encode(input));
+}
+
+function getReleaseSha(env) {
+  const candidates = [
+    env?.RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.WORKERS_CI_COMMIT_SHA,
+    BUILD_RELEASE_SHA,
+  ];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
+}
+
+async function readBodyWithLimit(request) {
+  const declaredLength = Number.parseInt(request.headers.get('content-length') || '', 10);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return { error: errorResponse(
+      'founder_content_learning_payload_too_large',
+      'Learning payload exceeds 64 KiB.',
+      413,
+    ) };
+  }
+
+  if (!request.body) {
+    const bodyBytes = new Uint8Array(0);
+    return { bodyBytes, rawBody: '' };
+  }
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return { error: errorResponse(
+          'founder_content_learning_payload_too_large',
+          'Learning payload exceeds 64 KiB.',
+          413,
+        ) };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bodyBytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { bodyBytes, rawBody: decoder.decode(bodyBytes) };
 }
 
 function parseAuthentication(request, env, nowMs) {
@@ -130,12 +191,11 @@ export async function handleFounderContentLearning(request, env, nowMs = Date.no
   const authentication = parseAuthentication(request, env, effectiveNowMs);
   if (authentication.error) return authentication.error;
 
-  const rawBody = await request.text();
-  if (encoder.encode(rawBody).byteLength > MAX_BODY_BYTES) {
-    return errorResponse('founder_content_learning_payload_too_large', 'Learning payload exceeds 64 KiB.', 413);
-  }
+  const requestBody = await readBodyWithLimit(request);
+  if (requestBody.error) return requestBody.error;
+  const { bodyBytes, rawBody } = requestBody;
 
-  const bodyHash = await sha256Hex(rawBody);
+  const bodyHash = await sha256Hex(bodyBytes);
   const validSignature = await verifyHmac(
     authentication.secret,
     signingInput(authentication.keyId, authentication.issuedAt, bodyHash),
@@ -183,7 +243,7 @@ export async function handleFounderContentLearning(request, env, nowMs = Date.no
     source_observation_hash: advisorySignal.source_observation_hash,
     advisory_learning_hash: advisorySignal.learning_hash,
     dedupe_key: advisorySignal.source_observation_hash,
-    chief_release_sha: BUILD_RELEASE_SHA,
+    chief_release_sha: getReleaseSha(env),
   };
 
   return json({
