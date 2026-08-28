@@ -1,13 +1,15 @@
 import { test, expect } from "vitest";
 import { classifyRepositoryEvidence } from "../src/audit.js";
 
+const HEAD_SHA = "0123456789abcdef0123456789abcdef01234567";
+
 function fixture(overrides = {}) {
   return {
     owner: "acme",
     repo: "app",
     repositoryUrl: "https://github.com/acme/app",
     ref: "main",
-    headSha: "0123456789abcdef0123456789abcdef01234567",
+    headSha: HEAD_SHA,
     readme: "# App\nProduction deployment is live and verified.\n",
     paths: [
       "package.json",
@@ -24,6 +26,8 @@ function fixture(overrides = {}) {
       {
         name: "CI tests",
         conclusion: "success",
+        event: "push",
+        headSha: HEAD_SHA,
         url: "https://github.com/acme/app/actions/runs/1",
       },
     ],
@@ -48,9 +52,48 @@ test("supports tested only when test assets and exact-head workflow evidence are
 });
 
 test("downgrades testing when exact-head workflow success is absent", () => {
-  const report = classifyRepositoryEvidence(fixture({ workflows: [{ name: "CI tests", conclusion: "failure", url: "https://github.com/acme/app/actions/runs/2" }] }));
+  const report = classifyRepositoryEvidence(fixture({
+    workflows: [{
+      name: "CI tests",
+      conclusion: "failure",
+      event: "push",
+      headSha: HEAD_SHA,
+      url: "https://github.com/acme/app/actions/runs/2",
+    }],
+  }));
   const tested = report.layers.find((item) => item.layer === "tested");
   expect(tested.state).toBe("partial");
+});
+
+test("does not treat pull_request_target base-context success as exact-head test proof", () => {
+  const report = classifyRepositoryEvidence(fixture({
+    workflows: [{
+      name: "Quality Gate",
+      conclusion: "success",
+      event: "pull_request_target",
+      headSha: HEAD_SHA,
+      url: "https://github.com/acme/app/actions/runs/3",
+    }],
+  }));
+  const tested = report.layers.find((item) => item.layer === "tested");
+  expect(tested.state).toBe("partial");
+  expect(tested.evidence.some((item) => item.url?.endsWith("/3"))).toBe(false);
+});
+
+test("does not count test files as implementation source", () => {
+  const report = classifyRepositoryEvidence(fixture({
+    paths: [
+      "package.json",
+      "test/a.test.js",
+      "test/b.test.js",
+      "test/c.test.js",
+      ".github/workflows/ci.yml",
+    ],
+    deployments: [],
+  }));
+  const implemented = report.layers.find((item) => item.layer === "implemented");
+  expect(implemented.state).toBe("partial");
+  expect(implemented.summary).not.toMatch(/3 non-test code artifacts/i);
 });
 
 test("distinguishes a documented claim from proof of the claim", () => {
