@@ -3,6 +3,7 @@ import { loadPublicRepositoryEvidence, ProofModeGitHubError } from './github.js'
 
 const HEAD_SHA = '0123456789abcdef0123456789abcdef01234567';
 const TREE_SHA = '89abcdef0123456789abcdef0123456789abcdef';
+const README_BASE64 = 'IyBBcHAK';
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
@@ -45,7 +46,7 @@ function installPublicRepoFixture({ workflowEvent = 'pull_request_target' } = {}
     if (path === '/repos/acme/app/readme?ref=main') {
       return jsonResponse({
         encoding: 'base64',
-        content: Buffer.from('# App\n').toString('base64'),
+        content: README_BASE64,
       });
     }
     if (path === `/repos/acme/app/actions/runs?head_sha=${HEAD_SHA}&per_page=20`) {
