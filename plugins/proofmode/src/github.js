@@ -115,7 +115,14 @@ export async function loadPublicRepositoryEvidence({ owner, repo, ref, token }) 
     readme: decodeReadme(readme),
     paths: Array.isArray(tree.tree) ? tree.tree.filter((item) => item.type === "blob").map((item) => item.path) : [],
     treeTruncated: Boolean(tree.truncated),
-    workflows: Array.isArray(workflowRuns.workflow_runs) ? workflowRuns.workflow_runs.map((run) => ({ name: run.name || "Unnamed workflow", conclusion: run.conclusion || "unknown", url: run.html_url })) : [],
+    workflows: Array.isArray(workflowRuns.workflow_runs) ? workflowRuns.workflow_runs.map((run) => ({
+      name: run.name || "Unnamed workflow",
+      conclusion: run.conclusion || "unknown",
+      event: run.event || "unknown",
+      headSha: run.head_sha || "",
+      headBranch: run.head_branch || "",
+      url: run.html_url,
+    })) : [],
     deployments: deploymentEvidence,
   };
 }
