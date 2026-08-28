@@ -5,9 +5,12 @@ on:
     branches:
       - main
     paths:
-      - "worker/proofmode-mcp.js"
+      - "plugins/proofmode/**"
+      - "worker/proofmode-mcp*.js"
       - "worker/index.js"
       - "wrangler.jsonc"
+      - "package.json"
+      - "package-lock.json"
       - "e2e/proofmode-mcp.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
@@ -106,6 +109,9 @@ jobs:
 
       - name: Install locked application dependencies
         run: npm ci
+
+      - name: Run ProofMode served MCP contract
+        run: npm run verify:proofmode
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
