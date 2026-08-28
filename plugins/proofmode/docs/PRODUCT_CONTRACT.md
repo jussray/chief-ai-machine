@@ -63,15 +63,16 @@ These are evidence states, not universal quality scores.
 1. Read-only by default.
 2. No repository mutation in v0.1.
 3. No API keys, passwords, MFA codes, or access tokens in tool inputs or outputs.
-4. No private-repository access without server-side user authentication and authorization.
-5. Repository claims are not evidence of their own truth.
-6. CI success is not deployment proof.
-7. Base-context `pull_request_target` success is not exact-head PR test proof.
-8. Test artifacts are not implementation-source artifacts.
-9. Deployment configuration is not runtime proof.
-10. A repository-hosted release marker is not a live release marker.
-11. Missing evidence stays missing.
-12. Model narration may explain evidence; deterministic code owns the layer state.
+4. Public visibility must be established without credentials before a server-held GitHub credential may be used for subsequent evidence reads.
+5. Private-repository metadata or contents are outside the v0.1 evidence boundary.
+6. Repository claims are not evidence of their own truth.
+7. CI success is not deployment proof.
+8. Base-context `pull_request_target` success is not exact-head PR test proof.
+9. Test artifacts are not implementation-source artifacts.
+10. Deployment configuration is not runtime proof.
+11. A repository-hosted release marker is not a live release marker.
+12. Missing evidence stays missing.
+13. Model narration may explain evidence; deterministic code owns the layer state.
 
 ## Served MCP boundary
 
@@ -83,7 +84,7 @@ Repository implementation of `/mcp` is not evidence that a live production deplo
 
 ## Verification contract
 
-`npm run verify:proofmode` is the named repository contract for the deterministic classifier, proof receipt, served MCP tool surface, error mapping, and read-only authority metadata.
+`npm run verify:proofmode` is the named repository contract for the deterministic classifier, provider boundary, proof receipt, served MCP tool surface, error mapping, and read-only authority metadata.
 
 Changes under `plugins/proofmode/**` or the served ProofMode Worker surface must also trigger the live immutable-preview MCP workflow before they are treated as deployment evidence.
 
