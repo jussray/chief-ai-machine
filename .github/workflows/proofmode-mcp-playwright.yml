@@ -158,7 +158,11 @@ jobs:
             printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
+            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Verify that the token is enabled and unexpired and that the Access application has a Service Auth policy including this service token.\n' >&2
+            else
+              printf 'Cloudflare Access intercepted the immutable preview and no complete service-token pair is configured. Configure both credentials and a matching Service Auth policy.\n' >&2
+            fi
           fi
           exit 1
 
