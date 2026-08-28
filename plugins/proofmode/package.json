@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
-    "check": "node --check src/github.js && node --check src/audit.js"
+    "test": "npm --prefix ../.. run verify:proofmode",
+    "check": "node --check src/github.js && node --check src/audit.js && node --check src/proof-receipt.js"
   }
 }
