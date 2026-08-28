@@ -26,13 +26,22 @@ function jsonResponse(body, status = 200, headers = {}) {
   };
 }
 
-test('uses only the server-provided token to authenticate GitHub evidence requests', async () => {
+function publicMetadata() {
+  return {
+    html_url: 'https://github.com/acme/app',
+    default_branch: 'main',
+    private: false,
+    visibility: 'public',
+  };
+}
+
+test('establishes public visibility without credentials, then uses only the server token for follow-up evidence', async () => {
   const requests = [];
   globalThis.fetch = vi.fn(async (url, options = {}) => {
     requests.push({ url: String(url), headers: options.headers || {} });
 
     if (String(url).endsWith('/repos/acme/app')) {
-      return jsonResponse({ html_url: 'https://github.com/acme/app', default_branch: 'main' });
+      return jsonResponse(publicMetadata());
     }
     if (String(url).includes('/commits/')) {
       return jsonResponse({
@@ -63,8 +72,9 @@ test('uses only the server-provided token to authenticate GitHub evidence reques
   });
 
   expect(evidence.headSha).toBe('0123456789abcdef0123456789abcdef01234567');
-  expect(requests.length).toBeGreaterThan(0);
-  for (const request of requests) {
+  expect(requests.length).toBeGreaterThan(1);
+  expect(requests[0].headers.Authorization).toBeUndefined();
+  for (const request of requests.slice(1)) {
     expect(request.headers.Authorization).toBe('Bearer server-token');
   }
 });
@@ -74,7 +84,7 @@ test('keeps unauthenticated public-repository support when no server token is co
     expect(options.headers.Authorization).toBeUndefined();
 
     if (String(url).endsWith('/repos/acme/app')) {
-      return jsonResponse({ html_url: 'https://github.com/acme/app', default_branch: 'main' });
+      return jsonResponse(publicMetadata());
     }
     if (String(url).includes('/commits/')) {
       return jsonResponse({
@@ -95,8 +105,15 @@ test('keeps unauthenticated public-repository support when no server token is co
   expect(evidence.repositoryUrl).toBe('https://github.com/acme/app');
 });
 
-test('reports an invalid server credential separately from rate limiting', async () => {
-  globalThis.fetch = vi.fn(async () => jsonResponse({}, 401));
+test('reports an invalid server credential separately from public discovery', async () => {
+  globalThis.fetch = vi.fn(async (url, options = {}) => {
+    if (String(url).endsWith('/repos/acme/app')) {
+      expect(options.headers.Authorization).toBeUndefined();
+      return jsonResponse(publicMetadata());
+    }
+    expect(options.headers.Authorization).toBe('Bearer bad-token');
+    return jsonResponse({}, 401);
+  });
 
   await expect(loadPublicRepositoryEvidence({
     owner: 'acme',
@@ -105,10 +122,15 @@ test('reports an invalid server credential separately from rate limiting', async
   })).rejects.toMatchObject({ code: 'source_auth_failed' });
 });
 
-test('reports a permission refusal when GitHub returns 403 without rate-limit evidence', async () => {
-  globalThis.fetch = vi.fn(async () => jsonResponse({}, 403, {
-    'x-ratelimit-remaining': '42',
-  }));
+test('reports a permission refusal on authenticated follow-up evidence', async () => {
+  globalThis.fetch = vi.fn(async (url, options = {}) => {
+    if (String(url).endsWith('/repos/acme/app')) {
+      expect(options.headers.Authorization).toBeUndefined();
+      return jsonResponse(publicMetadata());
+    }
+    expect(options.headers.Authorization).toBe('Bearer server-token');
+    return jsonResponse({}, 403, { 'x-ratelimit-remaining': '42' });
+  });
 
   await expect(loadPublicRepositoryEvidence({
     owner: 'acme',
@@ -117,10 +139,15 @@ test('reports a permission refusal when GitHub returns 403 without rate-limit ev
   })).rejects.toMatchObject({ code: 'source_forbidden' });
 });
 
-test('reports provider rate limiting only when GitHub supplies rate-limit evidence', async () => {
-  globalThis.fetch = vi.fn(async () => jsonResponse({}, 403, {
-    'x-ratelimit-remaining': '0',
-  }));
+test('reports provider rate limiting when authenticated follow-up evidence supplies rate-limit evidence', async () => {
+  globalThis.fetch = vi.fn(async (url, options = {}) => {
+    if (String(url).endsWith('/repos/acme/app')) {
+      expect(options.headers.Authorization).toBeUndefined();
+      return jsonResponse(publicMetadata());
+    }
+    expect(options.headers.Authorization).toBe('Bearer server-token');
+    return jsonResponse({}, 403, { 'x-ratelimit-remaining': '0' });
+  });
 
   await expect(loadPublicRepositoryEvidence({
     owner: 'acme',
@@ -132,7 +159,7 @@ test('reports provider rate limiting only when GitHub supplies rate-limit eviden
 test.each([
   ['private', { private: true, visibility: 'private' }],
   ['internal', { private: false, visibility: 'internal' }],
-])('rejects %s repositories before collecting follow-up evidence', async (_kind, metadata) => {
+])('rejects %s repositories before collecting follow-up evidence or exposing credentials', async (_kind, metadata) => {
   const requests = [];
   globalThis.fetch = vi.fn(async (url, options = {}) => {
     requests.push({ url: String(url), headers: options.headers || {} });
@@ -154,5 +181,5 @@ test.each([
 
   expect(requests).toHaveLength(1);
   expect(requests[0].url).toBe('https://api.github.com/repos/acme/hidden-app');
-  expect(requests[0].headers.Authorization).toBe('Bearer server-token');
+  expect(requests[0].headers.Authorization).toBeUndefined();
 });
