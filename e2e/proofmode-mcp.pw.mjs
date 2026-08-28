@@ -56,6 +56,19 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.tools).toHaveLength(1);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
+    expect(payload.result.tools[0].annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  test('rejects GET while advertising only POST for the legacy transport', async ({ request }) => {
+    const response = await request.get(`${baseURL}/mcp`);
+    expect(response.status()).toBe(405);
+    expect(response.headers().allow).toBe('POST');
   });
 
   test('audits the exact public repository head without mutation capability', async ({ request }) => {
