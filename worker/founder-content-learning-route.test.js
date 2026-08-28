@@ -191,17 +191,17 @@ describe('authenticated FCR founder-content learning route', () => {
       },
     });
 
-    const request = new Request(`https://chief-ai.internal${FCR_LEARNING_ROUTE}`, {
+    const request = {
+      url: `https://chief-ai.internal${FCR_LEARNING_ROUTE}`,
       method: 'POST',
-      headers: {
+      headers: new Headers({
         'Content-Type': 'application/json; charset=utf-8',
         'X-FCR-Learning-Key-Id': KEY_ID,
         'X-FCR-Learning-Issued-At': '2026-08-19T22:00:00.000Z',
         'X-FCR-Learning-Signature': '0'.repeat(64),
-      },
+      }),
       body: stream,
-      duplex: 'half',
-    });
+    };
 
     const response = await handleFounderContentLearning(request, env, NOW_MS);
     expect(response.status).toBe(413);
