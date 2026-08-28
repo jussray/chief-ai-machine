@@ -85,7 +85,24 @@ describe('ProofMode GitHub evidence loader', () => {
     }]);
   });
 
-  it('rejects a non-public repository before reading its commit or tree', async () => {
+  it('establishes public visibility before sending a server credential', async () => {
+    installPublicRepoFixture({ workflowEvent: 'push' });
+
+    await loadPublicRepositoryEvidence({
+      owner: 'acme',
+      repo: 'app',
+      token: 'server-secret',
+    });
+
+    const calls = globalThis.fetch.mock.calls;
+    expect(calls.length).toBeGreaterThan(1);
+    expect(calls[0][1].headers).not.toHaveProperty('Authorization');
+    for (const [, init] of calls.slice(1)) {
+      expect(init.headers.Authorization).toBe('Bearer server-secret');
+    }
+  });
+
+  it('rejects a non-public repository before reading its commit or exposing credentials', async () => {
     globalThis.fetch = vi.fn(async () => jsonResponse({
       html_url: 'https://github.com/acme/private-app',
       default_branch: 'main',
@@ -93,9 +110,14 @@ describe('ProofMode GitHub evidence loader', () => {
       visibility: 'private',
     }));
 
-    await expect(loadPublicRepositoryEvidence({ owner: 'acme', repo: 'private-app' }))
-      .rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
+    await expect(loadPublicRepositoryEvidence({
+      owner: 'acme',
+      repo: 'private-app',
+      token: 'server-secret',
+    })).rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
+
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
   });
 
   it('distinguishes provider rate limiting from generic forbidden evidence', async () => {
