@@ -31,6 +31,12 @@ const TOOL = {
     required: ['owner', 'repo'],
     additionalProperties: false,
   },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
 };
 
 function jsonRpc(id, result) {
@@ -167,12 +173,8 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return jsonResponse(jsonRpcError(null, -32600, 'Unsupported MCP-Protocol-Version.'), 400);
   }
 
-  if (request.method === 'GET') {
-    return new Response(null, { status: 405, headers: { Allow: 'POST, GET' } });
-  }
-
   if (request.method !== 'POST') {
-    return new Response(null, { status: 405, headers: { Allow: 'POST, GET' } });
+    return new Response(null, { status: 405, headers: { Allow: 'POST' } });
   }
 
   let message;
