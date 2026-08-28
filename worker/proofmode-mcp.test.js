@@ -30,7 +30,13 @@ function evidenceFixture() {
     readme: '# App',
     paths: ['package.json', 'src/index.js', 'src/api.js', 'src/ui.js', 'test/app.test.js'],
     treeTruncated: false,
-    workflows: [{ name: 'CI tests', conclusion: 'success', url: 'https://github.com/acme/app/actions/runs/1' }],
+    workflows: [{
+      name: 'CI tests',
+      conclusion: 'success',
+      event: 'push',
+      headSha: '0123456789abcdef0123456789abcdef01234567',
+      url: 'https://github.com/acme/app/actions/runs/1',
+    }],
     deployments: [],
   };
 }
@@ -84,6 +90,21 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
     expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
+    expect(payload.result.tools[0].annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  it('advertises only POST when rejecting GET', async () => {
+    const response = await handleProofModeMcp(
+      new Request('https://proofmode.example/mcp', { method: 'GET' }),
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get('Allow')).toBe('POST');
   });
 
   it('calls the audit tool without mutation capability and emits a federated receipt', async () => {
