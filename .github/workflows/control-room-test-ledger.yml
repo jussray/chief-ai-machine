@@ -17,6 +17,7 @@ env:
   CONTROL_ROOM_LEDGER_SELF_CHECK: Publish exact-head test ledger
   CONTROL_ROOM_TEST_LEDGER_PATH: artifacts/control-room-test-ledger.json
   CONTROL_ROOM_LEDGER_POLICY_PATH: .control-room/test-ledger.manifest.json
+  CONTROL_ROOM_LEDGER_TIMEOUT_MS: ${{ github.event_name == 'pull_request' && '600000' || '1200000' }}
 
 concurrency:
   group: control-room-test-ledger-${{ github.event.pull_request.number || github.ref }}
@@ -48,7 +49,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Run ledger and operator contracts
-        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs
+        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs test/control-room-test-ledger-workflow.contract.test.mjs
 
   publish-ledger:
     name: Publish exact-head test ledger
