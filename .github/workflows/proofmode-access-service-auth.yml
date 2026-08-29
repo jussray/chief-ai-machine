@@ -1,0 +1,50 @@
+name: ProofMode Access Service Auth Admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Check or repair the specific ProofMode CI Service Auth policy"
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+          - repair
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofmode-access-service-auth-admin
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  access-policy:
+    name: Verify or repair ProofMode Access Service Auth
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    environment: proofmode-access-admin
+    steps:
+      - name: Check out requested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+
+      - name: Check or repair exact Service Auth policy
+        shell: bash
+        env:
+          PROOFMODE_ACCESS_MODE: ${{ inputs.mode }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}
+          CLOUDFLARE_ACCESS_APP_ID: ${{ secrets.CLOUDFLARE_ACCESS_APP_ID }}
+          CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID: ${{ secrets.CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID }}
+        run: node scripts/proofmode-access-policy.mjs
