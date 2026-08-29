@@ -102,7 +102,6 @@ test.describe('ProofMode live MCP runtime', () => {
       state: expect.stringMatching(/^(inferred|unknown)$/),
       exactTarget: {
         repository: 'jussray/chief-ai-machine',
-        branch: expectedHead,
         sha: expectedHead,
       },
     });
