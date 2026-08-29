@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "contractId": "juss/browser-reality@v1",
+  "capabilityName": "browser-reality-inspector",
+  "repository": "jussray/chief-ai-machine",
+  "authority": "read-only",
+  "sourcePolicy": {
+    "requiredSource": "live-rendered-page",
+    "followNormalRedirects": true,
+    "captureFinalUrl": true,
+    "searchSnippetsAreProof": false,
+    "hiddenContentMayBeInferred": false
+  },
+  "truthStates": [
+    "VERIFIED",
+    "INFERRED",
+    "UNKNOWN",
+    "BLOCKED"
+  ],
+  "stopBoundaries": [
+    "login-required-without-an-existing-authenticated-session",
+    "authentication-step",
+    "captcha",
+    "permission-prompt",
+    "provider-boundary",
+    "mutation-required",
+    "scope-expansion-required"
+  ],
+  "mutationPolicy": {
+    "allowed": [],
+    "prohibited": [
+      "like",
+      "comment",
+      "message",
+      "follow",
+      "purchase",
+      "save",
+      "share",
+      "account-settings-change",
+      "credential-submission",
+      "captcha-solution"
+    ]
+  },
+  "evidencePolicy": {
+    "required": [
+      "final-url",
+      "rendered-page-state"
+    ],
+    "captureWhenVisible": [
+      "screenshots",
+      "rendered-page-text",
+      "content-type",
+      "account-or-page-name",
+      "media-description",
+      "date-or-time",
+      "price-or-location",
+      "engagement-counts",
+      "external-links"
+    ],
+    "externalClaims": {
+      "researchSeparately": true,
+      "claimLabel": "PLATFORM CLAIM",
+      "verificationLabel": "EXTERNAL VERIFICATION"
+    }
+  },
+  "evidenceFingerprint": {
+    "contract": "juss-browser-reality-canonical-json-v1",
+    "algorithm": "sha256",
+    "encoding": "lowercase-hex",
+    "canonicalization": "recursively-sorted-object-keys-utf8-json-with-normalized-deduplicated-truth-ordered-observations",
+    "fields": [
+      "contractId",
+      "authorizedInputUrl",
+      "finalUrl",
+      "observedAt",
+      "scope",
+      "observations",
+      "screenshotSha256"
+    ],
+    "excluded": [
+      "cookies",
+      "credentials",
+      "tokens",
+      "device-or-browser-entropy",
+      "unrelated-private-data"
+    ],
+    "purpose": "evidence-binding-not-person-or-device-identity",
+    "identityUse": "forbidden",
+    "crossSiteCorrelation": false,
+    "conformanceSha256": "b638320661652bab6398f45e2b35bc343ac963bb0eb8b926462db6aea8cb1ab4",
+    "failClosed": true
+  },
+  "continuityPolicy": {
+    "cookies": {
+      "policy": "browser-held-first-party-session-only",
+      "reuseWhenAppropriate": true,
+      "inspectContents": false,
+      "extractContents": false,
+      "exportContents": false,
+      "copyContents": false,
+      "logContents": false,
+      "alterContents": false,
+      "synthesizeContents": false,
+      "crossSiteTracking": false,
+      "repositoryManifest": ".security/cookies.json",
+      "repositoryCookieWritersMustRemainDeclared": true
+    },
+    "pseudonymousId": {
+      "createByDefault": false,
+      "allowedOnlyWhen": "an-existing-reviewed-first-party-app-seam-requires-continuity",
+      "generation": "cryptographically-random",
+      "deviceDerived": false,
+      "crossSiteCorrelation": false,
+      "requiredProperties": [
+        "cryptographically-random",
+        "first-party",
+        "purpose-limited",
+        "resettable",
+        "disclosed",
+        "consent-aware"
+      ]
+    },
+    "deviceFingerprinting": {
+      "allowed": false,
+      "alterationAllowed": false,
+      "crossSiteTrackingAllowed": false,
+      "prohibitedEntropySources": [
+        "canvas",
+        "webgl",
+        "audio",
+        "fonts",
+        "user-agent",
+        "hardware-signal-aggregation"
+      ]
+    },
+    "repositoryFingerprintMeaning": "deterministic-provenance-or-history-identity-only"
+  },
+  "outputSections": [
+    "REALITY",
+    "TARGET",
+    "CONTENT",
+    "PROOF",
+    "RED TEAM",
+    "BLOCKERS",
+    "NEXT GATE"
+  ],
+  "nextGatePolicy": "return-the-single-most-useful-authorized-next-action",
+  "rollbackPolicy": "disable capability invocation and routing, then use an authorized git revert of the exact change or a focused forward-fix; no cookie, identifier, authentication, or session migration is required"
+}

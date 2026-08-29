@@ -69,8 +69,8 @@ function createPage() {
     </div>
     <div class="promptos-stats" aria-label="PromptOS catalog summary">
       <div class="stat"><div class="n" id="promptosTotal">5,000</div><div class="l">Selected recipes</div></div>
-      <div class="stat"><div class="n" id="promptosCandidateTotal">5,400</div><div class="l">Valid candidates</div></div>
-      <div class="stat"><div class="n">8</div><div class="l">Canonical families</div></div>
+      <div class="stat"><div class="n" id="promptosCandidateTotal">5,940</div><div class="l">Valid candidates</div></div>
+      <div class="stat"><div class="n">9</div><div class="l">Canonical families</div></div>
       <div class="stat"><div class="n">On demand</div><div class="l">Prompt compilation</div></div>
     </div>
     <div class="promptos-toolbar" aria-label="PromptOS filters">

@@ -71,6 +71,33 @@ describe('compilePrompt', () => {
     expect(result.ok).toBe(false);
     expect(result.errors[0]).toMatch(/shopify is not valid/);
   });
+
+  it('compiles the canonical read-only browser reality contract', () => {
+    const browserFamily = canonicalFamilies['browser.reality.inspector'];
+    const browserRecipe = baseRecipeFor('browser.reality.inspector', {
+      platform: 'chatgpt',
+      stage: 'audit',
+      modes: ['redteam'],
+      riskLens: 'security',
+    });
+    const result = compilePrompt(browserRecipe, {
+      targetUrl: 'https://example.com/share/123',
+      goal: 'Resolve the link and report only what the live page renders',
+    });
+
+    expect(browserFamily.requiredInputs).toEqual(['targetUrl', 'goal']);
+    expect(result.ok).toBe(true);
+    expect(result.readyToCopy).toBe(true);
+    expect(result.prompt).toContain('juss/browser-reality@v1');
+    expect(result.prompt).toContain('approved live browser');
+    expect(result.prompt).toContain('final browser URL');
+    expect(result.prompt).toContain('CAPTCHA/human verification');
+    expect(result.prompt).toContain('browser-held first-party cookies');
+    expect(result.prompt).toContain('canvas, WebGL, audio, fonts, user-agent entropy');
+    for (const heading of ['REALITY', 'TARGET', 'CONTENT', 'PROOF', 'RED TEAM', 'BLOCKERS', 'NEXT GATE']) {
+      expect(result.prompt).toContain(heading);
+    }
+  });
 });
 
 describe('catalog construction', () => {
