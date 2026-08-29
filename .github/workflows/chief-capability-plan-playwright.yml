@@ -40,8 +40,6 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
 
 jobs:
   verify:
@@ -75,8 +73,28 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
+          validate_target() {
+            node -e '
+              const raw = process.argv[1];
+              try {
+                const url = new URL(raw);
+                const host = url.hostname.toLowerCase();
+                const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
+                const production = host === "chief-ai.mcgill-raylene.workers.dev";
+                if (url.protocol !== "https:" || url.username || url.password || (!immutable && !production)) process.exit(1);
+                process.stdout.write(url.origin);
+              } catch {
+                process.exit(1);
+              }
+            ' "$1"
+          }
+
           if [ -n "$MANUAL_BASE_URL" ]; then
-            printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
+            preview="$(validate_target "$MANUAL_BASE_URL")" || {
+              printf 'Manual Chief base URL is not an approved chief-ai workers.dev target.\n' >&2
+              exit 1
+            }
+            printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
             exit 0
           fi
 
@@ -88,7 +106,7 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$api" || true)"
 
-            preview="$(printf '%s' "$checks" | node -e '
+            candidate="$(printf '%s' "$checks" | node -e '
               let input = "";
               process.stdin.setEncoding("utf8");
               process.stdin.on("data", (chunk) => { input += chunk; });
@@ -97,6 +115,7 @@ jobs:
                 const data = JSON.parse(input);
                 const run = data.check_runs?.find((item) =>
                   item.name === "Workers Builds: chief-ai"
+                  && item.app?.slug === "cloudflare-workers-and-pages"
                   && item.status === "completed"
                   && item.conclusion === "success"
                 );
@@ -105,15 +124,23 @@ jobs:
               });
             ')"
 
-            if [ -n "$preview" ]; then
-              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
+            if [ -n "$candidate" ]; then
+              preview="$(validate_target "$candidate")" || {
+                printf 'Rejected Cloudflare check output with an unexpected preview target.\n' >&2
+                exit 1
+              }
+              if ! printf '%s' "$preview" | grep -Eq '^https://[0-9a-fA-F]{8}-chief-ai\.mcgill-raylene\.workers\.dev$'; then
+                printf 'Automatic Chief proof requires an immutable Cloudflare version preview.\n' >&2
+                exit 1
+              fi
+              printf 'Resolved trusted immutable Cloudflare preview: %s\n' "$preview"
               printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
               exit 0
             fi
             sleep 2
           done
 
-          printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'No successful trusted Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
           exit 1
 
       - name: Report sanitized Cloudflare check state
@@ -136,6 +163,7 @@ jobs:
             .filter((item) => item.name === 'Workers Builds: chief-ai')
             .map((item) => ({
               name: item.name,
+              app: item.app?.slug || null,
               status: item.status,
               conclusion: item.conclusion,
               outputTitle: item.output?.title || null,
@@ -152,6 +180,9 @@ jobs:
 
       - name: Verify immutable preview serves exact head
         shell: bash
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
           if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
             || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
@@ -192,13 +223,19 @@ jobs:
             printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
+            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Verify that the token is enabled and unexpired and that the Access application has a Service Auth policy including this service token.\n' >&2
+            else
+              printf 'Cloudflare Access intercepted the immutable preview and no complete service-token pair is configured. Configure both credentials and a matching Service Auth policy.\n' >&2
+            fi
           fi
           exit 1
 
       - name: Run live Chief capability-plan Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           cat > playwright.chief-capability-plan.config.mjs <<'EOF'
