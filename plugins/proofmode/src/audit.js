@@ -48,7 +48,7 @@ function readmeClaims(input) {
 function isExactHeadTestWorkflow(run, headSha) {
   const event = typeof run?.event === "string" ? run.event.toLowerCase() : "unknown";
   if (event === "pull_request_target") return false;
-  if (run?.headSha && run.headSha !== headSha) return false;
+  if (typeof run?.headSha !== "string" || !run.headSha || run.headSha !== headSha) return false;
   return run?.conclusion === "success" && TEST_WORKFLOW.test(run?.name || "");
 }
 
@@ -123,14 +123,14 @@ export function classifyRepositoryEvidence(input) {
       ? layer(
           "tested",
           "supported",
-          "Test artifacts exist and at least one eligible test/verification-style GitHub Actions workflow succeeded for the exact audited commit. pull_request_target runs are excluded because they execute in base-branch context and can misattribute unrelated PR evidence to the audited SHA.",
+          "Test artifacts exist and at least one eligible test/verification-style GitHub Actions workflow succeeded for the exact audited commit. Eligible workflow evidence must carry an exact matching head SHA, and pull_request_target runs are excluded because they execute in base-branch context and can misattribute unrelated PR evidence to the audited SHA.",
           testedItems
         )
       : testPaths.length > 0 || successfulWorkflows.length > 0 || workflowPaths.length > 0
         ? layer(
             "tested",
             "partial",
-            "Testing machinery exists, but ProofMode could not pair test artifacts with an eligible successful verification-style workflow on the exact audited commit.",
+            "Testing machinery exists, but ProofMode could not pair test artifacts with an eligible successful verification-style workflow carrying exact matching head provenance for the audited commit.",
             testedItems.length
               ? testedItems
               : workflowPaths.slice(0, 6).map((path) => evidence("workflow", path, githubFileUrl(input, path)))
@@ -185,7 +185,7 @@ export function classifyRepositoryEvidence(input) {
 
   const nextChecks = [];
   if (tested.state !== "supported") {
-    nextChecks.push("Record a successful eligible test/verification workflow for the exact commit being evaluated.");
+    nextChecks.push("Record a successful eligible test/verification workflow with exact matching head provenance for the commit being evaluated.");
   }
   if (deployed.state === "not_proven") {
     nextChecks.push("Provide deployment evidence tied to the exact audited commit.");
@@ -208,6 +208,7 @@ export function classifyRepositoryEvidence(input) {
     limitations: [
       "Public GitHub repository evidence only in v0.1.",
       "No live runtime probing is performed in v0.1.",
+      "Workflow evidence without an exact matching head SHA is not accepted as exact-head test proof.",
       "pull_request_target workflows are not accepted as exact-head test proof because their head SHA represents base-branch context.",
       "A supported layer means the stated evidence threshold was met; it is not a universal production-readiness certification.",
     ],
