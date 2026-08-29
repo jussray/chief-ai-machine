@@ -194,10 +194,66 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.structuredContent.repository).toBe('acme/app');
   });
 
+  it('rejects unsupported caller arguments before any provider access', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', token: 'caller-secret' },
+        },
+      }),
+      deps,
+    );
+
+    const payload = await json(response);
+    expect(payload.error).toMatchObject({ code: -32602 });
+    expect(providerCalls).toBe(0);
+  });
+
+  it('rejects malformed acknowledgements before any provider access', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', acknowledges: ['not-a-receipt-id'] },
+        },
+      }),
+      deps,
+    );
+
+    const payload = await json(response);
+    expect(payload.error).toMatchObject({ code: -32602 });
+    expect(providerCalls).toBe(0);
+  });
+
   it('rejects browser cross-origin requests', async () => {
     const response = await handleProofModeMcp(
       mcpRequest(
-        { jsonrpc: '2.0', id: 5, method: 'tools/list' },
+        { jsonrpc: '2.0', id: 7, method: 'tools/list' },
         { Origin: 'https://attacker.example' },
       ),
     );
