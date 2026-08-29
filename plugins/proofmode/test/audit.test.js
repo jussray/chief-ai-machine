@@ -94,6 +94,21 @@ test("does not treat workflow success without head provenance as exact-head test
   expect(tested.evidence.some((item) => item.url?.endsWith("/4"))).toBe(false);
 });
 
+test("does not treat a generic quality gate as proof that tests ran", () => {
+  const report = classifyRepositoryEvidence(fixture({
+    workflows: [{
+      name: "Quality Gate",
+      conclusion: "success",
+      event: "push",
+      headSha: HEAD_SHA,
+      url: "https://github.com/acme/app/actions/runs/5",
+    }],
+  }));
+  const tested = report.layers.find((item) => item.layer === "tested");
+  expect(tested.state).toBe("partial");
+  expect(tested.evidence.some((item) => item.url?.endsWith("/5"))).toBe(false);
+});
+
 test("does not count test files as implementation source", () => {
   const report = classifyRepositoryEvidence(fixture({
     paths: [
