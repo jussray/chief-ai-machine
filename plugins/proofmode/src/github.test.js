@@ -19,7 +19,8 @@ function jsonResponse(body, status = 200, headers = {}) {
 }
 
 function installPublicRepoFixture({ workflowEvent = 'pull_request_target' } = {}) {
-  globalThis.fetch = vi.fn(async (input) => {
+  globalThis.fetch = vi.fn(async (input, init = {}) => {
+    expect(init.headers.Authorization).toBeUndefined();
     const url = new URL(String(input));
     const path = `${url.pathname}${url.search}`;
 
@@ -44,10 +45,7 @@ function installPublicRepoFixture({ workflowEvent = 'pull_request_target' } = {}
       });
     }
     if (path === '/repos/acme/app/readme?ref=main') {
-      return jsonResponse({
-        encoding: 'base64',
-        content: README_BASE64,
-      });
+      return jsonResponse({ encoding: 'base64', content: README_BASE64 });
     }
     if (path === `/repos/acme/app/actions/runs?head_sha=${HEAD_SHA}&per_page=20`) {
       return jsonResponse({
@@ -61,10 +59,7 @@ function installPublicRepoFixture({ workflowEvent = 'pull_request_target' } = {}
         }],
       });
     }
-    if (path === `/repos/acme/app/deployments?sha=${HEAD_SHA}&per_page=10`) {
-      return jsonResponse([]);
-    }
-
+    if (path === `/repos/acme/app/deployments?sha=${HEAD_SHA}&per_page=10`) return jsonResponse([]);
     throw new Error(`Unexpected GitHub test request: ${path}`);
   });
 }
@@ -72,9 +67,7 @@ function installPublicRepoFixture({ workflowEvent = 'pull_request_target' } = {}
 describe('ProofMode GitHub evidence loader', () => {
   it('preserves workflow event and head provenance for classifier eligibility', async () => {
     installPublicRepoFixture();
-
     const evidence = await loadPublicRepositoryEvidence({ owner: 'acme', repo: 'app' });
-
     expect(evidence.headSha).toBe(HEAD_SHA);
     expect(evidence.workflows).toEqual([{
       name: 'Quality Gate',
@@ -86,56 +79,65 @@ describe('ProofMode GitHub evidence loader', () => {
     }]);
   });
 
-  it('establishes public visibility before sending a server credential', async () => {
+  it('keeps every public repository evidence read credential-free', async () => {
     installPublicRepoFixture({ workflowEvent: 'push' });
-
-    await loadPublicRepositoryEvidence({
-      owner: 'acme',
-      repo: 'app',
-      token: 'server-secret',
-    });
-
-    const calls = globalThis.fetch.mock.calls;
-    expect(calls.length).toBeGreaterThan(1);
-    expect(calls[0][1].headers).not.toHaveProperty('Authorization');
-    for (const [, init] of calls.slice(1)) {
-      expect(init.headers.Authorization).toBe('Bearer server-secret');
+    await loadPublicRepositoryEvidence({ owner: 'acme', repo: 'app' });
+    expect(globalThis.fetch.mock.calls.length).toBeGreaterThan(1);
+    for (const [, init] of globalThis.fetch.mock.calls) {
+      expect(init.headers.Authorization).toBeUndefined();
     }
   });
 
-  it('rejects a non-public repository before reading its commit or exposing credentials', async () => {
-    globalThis.fetch = vi.fn(async () => jsonResponse({
-      html_url: 'https://github.com/acme/private-app',
-      default_branch: 'main',
-      private: true,
-      visibility: 'private',
-    }));
+  it('fails closed if a repository becomes private after public metadata discovery', async () => {
+    let calls = 0;
+    globalThis.fetch = vi.fn(async (_input, init = {}) => {
+      expect(init.headers.Authorization).toBeUndefined();
+      calls += 1;
+      if (calls === 1) {
+        return jsonResponse({
+          html_url: 'https://github.com/acme/app',
+          default_branch: 'main',
+          private: false,
+          visibility: 'public',
+        });
+      }
+      return jsonResponse({ message: 'Not Found' }, 404);
+    });
 
-    await expect(loadPublicRepositoryEvidence({
-      owner: 'acme',
-      repo: 'private-app',
-      token: 'server-secret',
-    })).rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
-
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    expect(globalThis.fetch.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
+    await expect(loadPublicRepositoryEvidence({ owner: 'acme', repo: 'app' }))
+      .rejects.toMatchObject({ code: 'repository_unavailable' });
+    expect(calls).toBe(2);
   });
 
-  it('rejects ambiguous visibility before reading follow-up evidence or exposing credentials', async () => {
-    globalThis.fetch = vi.fn(async () => jsonResponse({
-      html_url: 'https://github.com/acme/ambiguous-app',
-      default_branch: 'main',
-      private: false,
-    }));
+  it('rejects a non-public repository before reading its commit', async () => {
+    globalThis.fetch = vi.fn(async (_input, init = {}) => {
+      expect(init.headers.Authorization).toBeUndefined();
+      return jsonResponse({
+        html_url: 'https://github.com/acme/private-app',
+        default_branch: 'main',
+        private: true,
+        visibility: 'private',
+      });
+    });
 
-    await expect(loadPublicRepositoryEvidence({
-      owner: 'acme',
-      repo: 'ambiguous-app',
-      token: 'server-secret',
-    })).rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
-
+    await expect(loadPublicRepositoryEvidence({ owner: 'acme', repo: 'private-app' }))
+      .rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    expect(globalThis.fetch.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
+  });
+
+  it('rejects ambiguous visibility before reading follow-up evidence', async () => {
+    globalThis.fetch = vi.fn(async (_input, init = {}) => {
+      expect(init.headers.Authorization).toBeUndefined();
+      return jsonResponse({
+        html_url: 'https://github.com/acme/ambiguous-app',
+        default_branch: 'main',
+        private: false,
+      });
+    });
+
+    await expect(loadPublicRepositoryEvidence({ owner: 'acme', repo: 'ambiguous-app' }))
+      .rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('distinguishes provider rate limiting from generic forbidden evidence', async () => {
@@ -151,7 +153,6 @@ describe('ProofMode GitHub evidence loader', () => {
     } catch (error) {
       failure = error;
     }
-
     expect(failure).toBeInstanceOf(ProofModeGitHubError);
     expect(failure).toMatchObject({ code: 'source_rate_limited' });
   });
