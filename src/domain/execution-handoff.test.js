@@ -5,8 +5,11 @@ import {
   sha256Hex,
 } from './capability-plan.js';
 import {
+  CONTINUITY_COOKIE_CONTRACT,
   createExecutionHandoffReceipt,
   EXECUTION_HANDOFF_CONTRACT,
+  executionContinuityFingerprint,
+  executionSlotKey,
 } from './capability-registry.js';
 
 function plan() {
@@ -49,7 +52,10 @@ describe('execution handoff receipt', () => {
       'actionAuthority',
       'capabilityIds',
       'capabilityPlanHash',
+      'continuityCookie',
+      'continuityFingerprint',
       'contract',
+      'executionSlotKey',
       'expectedHeadSha',
       'goal',
       'outcomeSignals',
@@ -92,13 +98,14 @@ describe('execution handoff receipt', () => {
     expect(receipt.capabilityPlanHash).toBe(deserializedPlan.planHash);
   });
 
-  it('keeps projected capability, proof, and outcome arrays immutable in process', () => {
+  it('keeps projected capability, proof, outcome, and continuity state immutable in process', () => {
     const receipt = createExecutionHandoffReceipt(plan());
 
     expect(Object.isFrozen(receipt)).toBe(true);
     expect(Object.isFrozen(receipt.capabilityIds)).toBe(true);
     expect(Object.isFrozen(receipt.proofRequirements)).toBe(true);
     expect(Object.isFrozen(receipt.outcomeSignals)).toBe(true);
+    expect(Object.isFrozen(receipt.continuityCookie)).toBe(true);
 
     expect(() => Reflect.apply(Array.prototype.push, receipt.proofRequirements, ['forged gate']))
       .toThrow(TypeError);
@@ -122,5 +129,63 @@ describe('execution handoff receipt', () => {
     expect(changedReceipt.capabilityPlanHash).not.toBe(originalReceipt.capabilityPlanHash);
     expect(changedReceipt.expectedHeadSha).not.toBe(originalReceipt.expectedHeadSha);
     expect(changedReceipt.outcomeSignals).toContain('runtime matches changed head');
+  });
+
+  it('emits a deterministic bounded continuity fingerprint and non-browser cookie', () => {
+    const capabilityPlan = plan();
+    const first = createExecutionHandoffReceipt(capabilityPlan);
+    const second = createExecutionHandoffReceipt(capabilityPlan);
+
+    expect(first.continuityFingerprint).toBe(executionContinuityFingerprint(capabilityPlan));
+    expect(second.continuityFingerprint).toBe(first.continuityFingerprint);
+    expect(first.continuityCookie).toEqual(second.continuityCookie);
+    expect(first.continuityCookie.contract).toBe(CONTINUITY_COOKIE_CONTRACT);
+    expect(first.continuityCookie.value).toBe(`chief-continuity-v1.${first.continuityFingerprint}`);
+    expect(first.continuityCookie.browserCookie).toBe(false);
+    expect(first.continuityCookie.actionAuthority).toBe(false);
+    expect(first.continuityCookie.boundedToExactHead).toBe(capabilityPlan.expectedHeadSha);
+    expect(first.continuityCookie.invalidatesOnPlanChange).toBe(true);
+    expect(first.continuityCookie.invalidatesOnHeadChange).toBe(true);
+  });
+
+  it('invalidates continuity when exact head, proof, or rollback changes', () => {
+    const original = plan();
+    const variants = [
+      { ...original, expectedHeadSha: 'd'.repeat(40) },
+      { ...original, proofRequirements: [...original.proofRequirements, 'playwright exact-head green'] },
+      { ...original, rollback: 'revert the focused continuity commit' },
+    ].map((variant) => {
+      const withHash = { ...variant, planHash: '' };
+      withHash.planHash = capabilityPlanHash(withHash);
+      return withHash;
+    });
+
+    const baseline = createExecutionHandoffReceipt(original);
+    for (const variant of variants) {
+      const changed = createExecutionHandoffReceipt(variant);
+      expect(changed.continuityFingerprint).not.toBe(baseline.continuityFingerprint);
+      expect(changed.continuityCookie.value).not.toBe(baseline.continuityCookie.value);
+    }
+  });
+
+  it('derives one project-plus-head execution slot for downstream in-flight exclusion', () => {
+    const original = plan();
+    const sameProjectHeadDifferentGoal = {
+      ...original,
+      goal: 'Verify another focused change',
+      planHash: '',
+    };
+    sameProjectHeadDifferentGoal.planHash = capabilityPlanHash(sameProjectHeadDifferentGoal);
+
+    const nextHead = {
+      ...original,
+      expectedHeadSha: 'e'.repeat(40),
+      planHash: '',
+    };
+    nextHead.planHash = capabilityPlanHash(nextHead);
+
+    expect(executionSlotKey(sameProjectHeadDifferentGoal)).toBe(executionSlotKey(original));
+    expect(executionSlotKey(nextHead)).not.toBe(executionSlotKey(original));
+    expect(createExecutionHandoffReceipt(original).executionSlotKey).toBe(executionSlotKey(original));
   });
 });
