@@ -7,10 +7,13 @@ const SERVICE = 'service-token-1';
 const ADMIN = 'admin-token';
 
 function response(result, status = 200) {
-  return new Response(JSON.stringify({ success: status >= 200 && status < 300, result, errors: [] }), {
+  return {
     status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+    ok: status >= 200 && status < 300,
+    async json() {
+      return { success: status >= 200 && status < 300, result, errors: [] };
+    },
+  };
 }
 
 const args = {
