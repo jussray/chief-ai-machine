@@ -11,12 +11,14 @@ on:
       - "wrangler.jsonc"
       - "package.json"
       - "package-lock.json"
+      - "scripts/proofmode-access-policy.mjs"
+      - "scripts/proofmode-access-policy.test.js"
       - "e2e/proofmode-mcp.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Cloudflare Worker base URL to verify"
+        description: "Cloudflare Worker base URL to verify; append #repair-access to explicitly repair the ProofMode CI Service Auth policy first"
         required: true
         type: string
 
@@ -81,10 +83,23 @@ jobs:
           }
 
           if [ -n "$MANUAL_BASE_URL" ]; then
+            admin_mode="$(node -e '
+              try {
+                const url = new URL(process.argv[1]);
+                if (url.hash && url.hash !== "#repair-access") process.exit(1);
+                process.stdout.write(url.hash === "#repair-access" ? "repair" : "check");
+              } catch {
+                process.exit(1);
+              }
+            ' "$MANUAL_BASE_URL")" || {
+              printf 'Manual ProofMode URL may use only the explicit #repair-access fragment.\n' >&2
+              exit 1
+            }
             preview="$(validate_target "$MANUAL_BASE_URL")" || {
               printf 'Manual ProofMode base URL is not an approved chief-ai workers.dev target.\n' >&2
               exit 1
             }
+            printf 'PROOFMODE_ACCESS_ADMIN_MODE=%s\n' "$admin_mode" >> "$GITHUB_ENV"
             printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
             exit 0
           fi
@@ -125,6 +140,7 @@ jobs:
                 exit 1
               fi
               printf 'Resolved trusted immutable Cloudflare preview: %s\n' "$preview"
+              printf 'PROOFMODE_ACCESS_ADMIN_MODE=skip\n' >> "$GITHUB_ENV"
               printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
               exit 0
             fi
@@ -139,6 +155,17 @@ jobs:
 
       - name: Run ProofMode served MCP contract
         run: npm run verify:proofmode
+
+      - name: Check or explicitly repair Cloudflare Access Service Auth
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          PROOFMODE_ACCESS_MODE: ${{ env.PROOFMODE_ACCESS_ADMIN_MODE }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}
+          CLOUDFLARE_ACCESS_APP_ID: ${{ secrets.CLOUDFLARE_ACCESS_APP_ID }}
+          CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID: ${{ secrets.CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID }}
+        run: node scripts/proofmode-access-policy.mjs
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
