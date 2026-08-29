@@ -95,30 +95,65 @@ jobs:
 
       - name: Wait for production runtime to serve exact head
         shell: bash
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
+          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
+            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
+            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
+            exit 1
+          fi
+
+          access_headers=()
+          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
+            access_headers+=(
+              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"
+              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"
+            )
+          fi
+
+          headers="$RUNNER_TEMP/proofmode-production-version.headers"
+          body_file="$RUNNER_TEMP/proofmode-production-version.body"
+          status="000"
+
           for attempt in {1..90}; do
-            body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
-            actual="$(printf '%s' "$body" | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                try {
-                  console.log(JSON.parse(raw).sha || "");
-                } catch {
-                  console.log("");
-                }
-              });
-            ')"
+            status="$(curl --silent --show-error \
+              "${access_headers[@]}" \
+              --dump-header "$headers" \
+              --output "$body_file" \
+              --write-out '%{http_code}' \
+              "$PROOFMODE_BASE_URL/version" || true)"
+            actual="$(node -e '
+              const fs = require("node:fs");
+              try {
+                const raw = fs.readFileSync(process.argv[1], "utf8");
+                console.log(JSON.parse(raw).sha || "");
+              } catch {
+                console.log("");
+              }
+            ' "$body_file")"
             if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
               printf 'Production runtime is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
-            if [ "$attempt" -eq 90 ]; then
-              printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
-              exit 1
-            fi
             sleep 2
           done
+
+          printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
+          printf 'Observed HTTP status: %s\n' "$status" >&2
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
+          if [ -n "$location" ]; then
+            printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
+          fi
+          if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
+            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Verify that the token is enabled and unexpired and that the effective production Access application includes this service token in a Service Auth policy.\n' >&2
+            else
+              printf 'Cloudflare Access intercepted production and no complete service-token pair is configured. Configure both credentials and a matching Service Auth policy.\n' >&2
+            fi
+          fi
+          exit 1
 
       - name: Install locked application dependencies
         run: npm ci
@@ -132,10 +167,19 @@ jobs:
       - name: Run production ProofMode MCP Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           cat > playwright.proofmode-production.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
+
+          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
+            ? {
+                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+              }
+            : {};
 
           export default defineConfig({
             testDir: './e2e',
@@ -148,7 +192,7 @@ jobs:
               ['line'],
               ['html', { outputFolder: './playwright-report/proofmode-production', open: 'never' }],
             ],
-            use: { trace: 'retain-on-failure' },
+            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
           });
           EOF
           npx playwright test --config=playwright.proofmode-production.config.mjs
@@ -161,5 +205,5 @@ jobs:
           path: |
             playwright-report/proofmode-production
             test-results/proofmode-production
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
