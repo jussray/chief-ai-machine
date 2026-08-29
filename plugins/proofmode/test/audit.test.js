@@ -80,6 +80,20 @@ test("does not treat pull_request_target base-context success as exact-head test
   expect(tested.evidence.some((item) => item.url?.endsWith("/3"))).toBe(false);
 });
 
+test("does not treat workflow success without head provenance as exact-head test proof", () => {
+  const report = classifyRepositoryEvidence(fixture({
+    workflows: [{
+      name: "CI tests",
+      conclusion: "success",
+      event: "push",
+      url: "https://github.com/acme/app/actions/runs/4",
+    }],
+  }));
+  const tested = report.layers.find((item) => item.layer === "tested");
+  expect(tested.state).toBe("partial");
+  expect(tested.evidence.some((item) => item.url?.endsWith("/4"))).toBe(false);
+});
+
 test("does not count test files as implementation source", () => {
   const report = classifyRepositoryEvidence(fixture({
     paths: [
