@@ -1,0 +1,12 @@
+import { readFile } from 'node:fs/promises';
+import { describe, expect, it } from 'vitest';
+
+const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
+
+describe('Control Room Test Ledger workflow contract', () => {
+  it('materializes the ruleset-required ledger check on pull requests', () => {
+    expect(workflow).toContain('pull_request:');
+    expect(workflow).toContain('name: Publish exact-head test ledger');
+    expect(workflow).not.toContain("if: github.event_name != 'pull_request'");
+  });
+});
