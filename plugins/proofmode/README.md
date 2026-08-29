@@ -17,15 +17,18 @@ The core invariant is strict: **repository evidence is not runtime verification*
 - Public GitHub repository evidence only.
 - Read-only; no repository mutation capability.
 - No caller-supplied access tokens.
-- Public visibility is established without credentials before any optional server-held GitHub token is used for subsequent public evidence reads.
+- All GitHub repository evidence reads are anonymous in v0.1; server-held GitHub credentials are not used to collect evidence.
+- Public visibility must be positively established as `private: false` and `visibility: public`.
+- If a repository becomes private during an audit, anonymous follow-up reads fail closed instead of crossing the public-only boundary with privileged credentials.
 - Deterministic evidence classification.
 - No live runtime witness tool yet, so `Verified` remains unproven by `audit_repository`.
 - `pull_request_target` runs are excluded from exact-head test proof because they execute in base-branch context.
+- Exact-head test support requires an explicitly test-oriented successful workflow carrying the exact audited head SHA; generic green lint/build/quality/CI evidence is partial only.
 - Test files do not count as implementation source.
 
 ## Current repository implementation
 
-- `src/github.js` — bounded public-repository evidence loader with workflow provenance and public-before-auth enforcement.
+- `src/github.js` — bounded anonymous public-repository evidence loader with positive visibility and workflow provenance enforcement.
 - `src/audit.js` — deterministic five-layer classifier.
 - `src/proof-receipt.js` — `juss-proof/v1` repository-evidence receipt producer.
 - `test/audit.test.js` — evidence-boundary regression tests.
