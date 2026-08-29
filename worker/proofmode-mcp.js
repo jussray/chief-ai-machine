@@ -9,7 +9,6 @@ const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
 const SAFE_TOOL_ERROR_CODES = new Set([
   'repository_unavailable',
-  'source_auth_failed',
   'source_rate_limited',
   'source_forbidden',
   'source_error',
@@ -161,17 +160,16 @@ function toolError(error) {
   };
 }
 
-function resolveContext(envOrDeps, maybeDeps) {
+function resolveDeps(envOrDeps, maybeDeps) {
   const looksLikeDeps =
     envOrDeps
     && typeof envOrDeps.loadPublicRepositoryEvidence === 'function'
     && typeof envOrDeps.classifyRepositoryEvidence === 'function';
 
-  if (looksLikeDeps) return { env: {}, deps: envOrDeps };
-  return { env: envOrDeps || {}, deps: maybeDeps || DEFAULT_DEPS };
+  return looksLikeDeps ? envOrDeps : (maybeDeps || DEFAULT_DEPS);
 }
 
-async function dispatch(message, deps, env) {
+async function dispatch(message, deps) {
   const { id, method, params } = message;
 
   if (method === 'initialize') {
@@ -182,7 +180,7 @@ async function dispatch(message, deps, env) {
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
       instructions:
-        'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
+        'ProofMode is read-only. It audits public GitHub repository evidence anonymously, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
     });
   }
 
@@ -206,9 +204,6 @@ async function dispatch(message, deps, env) {
         owner: args.owner,
         repo: args.repo,
         ref: args.ref,
-        token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
-          ? env.PROOFMODE_GITHUB_TOKEN
-          : undefined,
       });
       const report = deps.classifyRepositoryEvidence(evidence);
       const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
@@ -222,7 +217,7 @@ async function dispatch(message, deps, env) {
 }
 
 export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
-  const { env, deps } = resolveContext(envOrDeps, maybeDeps);
+  const deps = resolveDeps(envOrDeps, maybeDeps);
 
   if (!validateOrigin(request)) {
     return jsonResponse(jsonRpcError(null, -32000, 'Origin not allowed.'), 403);
@@ -254,5 +249,5 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return new Response(null, { status: 202 });
   }
 
-  return jsonResponse(await dispatch(message, deps, env));
+  return jsonResponse(await dispatch(message, deps));
 }
