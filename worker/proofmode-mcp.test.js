@@ -78,6 +78,7 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.protocolVersion).toBe('2025-06-18');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
     expect(payload.result.instructions).toContain('juss-proof/v1');
+    expect(payload.result.instructions).toContain('anonymously');
   });
 
   it('lists only the read-only repository audit tool without credential inputs', async () => {
@@ -166,13 +167,13 @@ describe('ProofMode MCP transport', () => {
     );
   });
 
-  it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
+  it('does not forward Worker GitHub credentials into public repository evidence reads', async () => {
     const evidence = evidenceFixture();
     const deps = {
-      loadPublicRepositoryEvidence: async ({ owner, repo, token }) => {
-        expect(owner).toBe('acme');
-        expect(repo).toBe('app');
-        expect(token).toBe('server-secret');
+      loadPublicRepositoryEvidence: async (args) => {
+        expect(args.owner).toBe('acme');
+        expect(args.repo).toBe('app');
+        expect(args).not.toHaveProperty('token');
         return evidence;
       },
       classifyRepositoryEvidence: classifier,
