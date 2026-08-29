@@ -5,6 +5,8 @@ import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.j
 const PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
+const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
 
 const TOOL = {
   name: 'audit_repository',
@@ -77,6 +79,58 @@ function validateProtocolHeader(request) {
   return !version || SUPPORTED_PROTOCOLS.has(version);
 }
 
+function validateToolArguments(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { error: 'audit_repository arguments must be an object.' };
+  }
+
+  if (Object.keys(value).some((key) => !TOOL_ARGUMENT_KEYS.has(key))) {
+    return { error: 'audit_repository received unsupported arguments.' };
+  }
+
+  const owner = typeof value.owner === 'string' ? value.owner.trim() : '';
+  const repo = typeof value.repo === 'string' ? value.repo.trim() : '';
+  if (!owner || !repo) {
+    return { error: 'audit_repository requires non-empty owner and repo strings.' };
+  }
+
+  let ref;
+  if (Object.prototype.hasOwnProperty.call(value, 'ref')) {
+    ref = typeof value.ref === 'string' ? value.ref.trim() : '';
+    if (!ref) return { error: 'audit_repository ref must be a non-empty string when provided.' };
+  }
+
+  let acknowledges;
+  if (Object.prototype.hasOwnProperty.call(value, 'acknowledges')) {
+    if (!Array.isArray(value.acknowledges) || value.acknowledges.length > 50) {
+      return { error: 'audit_repository acknowledges must be an array of at most 50 receipt IDs.' };
+    }
+
+    const seen = new Set();
+    acknowledges = [];
+    for (const receiptId of value.acknowledges) {
+      if (typeof receiptId !== 'string' || !RECEIPT_ID.test(receiptId)) {
+        return { error: 'audit_repository acknowledges contains an invalid receipt ID.' };
+      }
+      const canonical = receiptId.toLowerCase();
+      if (seen.has(canonical)) {
+        return { error: 'audit_repository acknowledges must not contain duplicate receipt IDs.' };
+      }
+      seen.add(canonical);
+      acknowledges.push(canonical);
+    }
+  }
+
+  return {
+    args: {
+      owner,
+      repo,
+      ...(ref ? { ref } : {}),
+      ...(acknowledges ? { acknowledges } : {}),
+    },
+  };
+}
+
 function toolResult(report, proofReceipt) {
   const structuredContent = { ...report, proofReceipt };
   return {
@@ -134,19 +188,15 @@ async function dispatch(message, deps, env) {
       return jsonRpcError(id, -32602, `Unknown tool: ${params?.name || 'missing'}`);
     }
 
-    const args = params?.arguments || {};
-    if (typeof args.owner !== 'string' || !args.owner.trim() || typeof args.repo !== 'string' || !args.repo.trim()) {
-      return jsonRpcError(id, -32602, 'audit_repository requires non-empty owner and repo strings.');
-    }
-    if (args.acknowledges !== undefined && !Array.isArray(args.acknowledges)) {
-      return jsonRpcError(id, -32602, 'audit_repository acknowledges must be an array of receipt IDs.');
-    }
+    const validation = validateToolArguments(params?.arguments ?? {});
+    if (validation.error) return jsonRpcError(id, -32602, validation.error);
+    const args = validation.args;
 
     try {
       const evidence = await deps.loadPublicRepositoryEvidence({
-        owner: args.owner.trim(),
-        repo: args.repo.trim(),
-        ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
+        owner: args.owner,
+        repo: args.repo,
+        ref: args.ref,
         token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
           ? env.PROOFMODE_GITHUB_TOKEN
           : undefined,
