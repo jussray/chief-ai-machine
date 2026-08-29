@@ -7,6 +7,13 @@ const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
+const SAFE_TOOL_ERROR_CODES = new Set([
+  'repository_unavailable',
+  'source_auth_failed',
+  'source_rate_limited',
+  'source_forbidden',
+  'source_error',
+]);
 
 const TOOL = {
   name: 'audit_repository',
@@ -141,10 +148,12 @@ function toolResult(report, proofReceipt) {
 }
 
 function toolError(error) {
-  const message = error instanceof Error ? error.message : 'ProofMode audit failed.';
-  const errorCode = typeof error?.code === 'string' && error.code
-    ? error.code
-    : 'audit_failed';
+  const suppliedCode = typeof error?.code === 'string' ? error.code : '';
+  const safeProviderError = SAFE_TOOL_ERROR_CODES.has(suppliedCode);
+  const errorCode = safeProviderError ? suppliedCode : 'audit_failed';
+  const message = safeProviderError && error instanceof Error
+    ? error.message
+    : 'ProofMode audit failed without exposing internal details.';
   return {
     content: [{ type: 'text', text: message }],
     structuredContent: { errorCode, message },
