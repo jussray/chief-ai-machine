@@ -121,6 +121,23 @@ describe('ProofMode GitHub evidence loader', () => {
     expect(globalThis.fetch.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
   });
 
+  it('rejects ambiguous visibility before reading follow-up evidence or exposing credentials', async () => {
+    globalThis.fetch = vi.fn(async () => jsonResponse({
+      html_url: 'https://github.com/acme/ambiguous-app',
+      default_branch: 'main',
+      private: false,
+    }));
+
+    await expect(loadPublicRepositoryEvidence({
+      owner: 'acme',
+      repo: 'ambiguous-app',
+      token: 'server-secret',
+    })).rejects.toMatchObject({ name: 'ProofModeGitHubError', code: 'repository_unavailable' });
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
+  });
+
   it('distinguishes provider rate limiting from generic forbidden evidence', async () => {
     globalThis.fetch = vi.fn(async () => jsonResponse(
       { message: 'API rate limit exceeded' },
