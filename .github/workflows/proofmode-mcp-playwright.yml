@@ -327,7 +327,7 @@ jobs:
                 nested: { api_key: 'must-never-cross' },
               };
               const response = await modernPost(app, secretRequest);
-              expect(response.status).toBe(403);
+              expect(response.status).toBe(400);
               expect(invokeReadTool).not.toHaveBeenCalled();
             });
           });
