@@ -2,105 +2,288 @@ import { describe, expect, it, vi } from 'vitest';
 import { ensureProofModeAccessPolicy } from './proofmode-access-policy.mjs';
 
 const ACCOUNT = 'account-1';
-const APP = 'app-1';
-const SERVICE = 'service-token-1';
 const ADMIN = 'admin-token';
+const CLIENT_ID = 'client-id.access';
+const SERVICE_ID = 'service-token-1';
+const APP_NAME = 'chief-ai - Cloudflare Workers';
+const TARGET = 'https://5a188322-chief-ai.mcgill-raylene.workers.dev';
+const HOST = '5a188322-chief-ai.mcgill-raylene.workers.dev';
 
 function response(result, status = 200) {
   return {
     status,
     ok: status >= 200 && status < 300,
     async json() {
-      return { success: status >= 200 && status < 300, result, errors: [] };
+      return {
+        success: status >= 200 && status < 300,
+        result,
+        errors: [],
+        result_info: { page: 1, per_page: 100, total_pages: 1 },
+      };
     },
   };
 }
 
-const args = {
+function routeFetch({ serviceTokens, apps, policiesByApp = {}, createByApp = {} }) {
+  return vi.fn(async (url, init = {}) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/access/service_tokens')) return response(serviceTokens);
+    if (parsed.pathname.endsWith('/access/apps')) return response(apps);
+    const policyMatch = parsed.pathname.match(/\/access\/apps\/([^/]+)\/policies$/);
+    if (policyMatch) {
+      const appId = decodeURIComponent(policyMatch[1]);
+      if (!init.method) return response(policiesByApp[appId] || []);
+      if (init.method === 'POST') {
+        const body = JSON.parse(init.body);
+        const created = createByApp[appId] || { id: 'policy-new', ...body };
+        return response(created);
+      }
+    }
+    throw new Error(`Unexpected Cloudflare test request: ${url}`);
+  });
+}
+
+const baseArgs = {
   mode: 'check',
   accountId: ACCOUNT,
   apiToken: ADMIN,
-  accessAppId: APP,
-  serviceTokenId: SERVICE,
+  targetUrl: TARGET,
+  serviceClientId: CLIENT_ID,
+  applicationName: APP_NAME,
+  nowMs: Date.parse('2026-08-30T00:00:00Z'),
+};
+
+const activeToken = {
+  id: SERVICE_ID,
+  client_id: CLIENT_ID,
+  enabled: true,
+  expires_at: '2027-08-30T00:00:00Z',
+};
+
+const exactPublicApp = {
+  id: 'app-exact-public',
+  name: 'ProofMode exact immutable preview',
+  destinations: [{ type: 'public', uri: `${HOST}/*` }],
+};
+
+const workerApp = {
+  id: 'app-worker',
+  name: APP_NAME,
+  destinations: [{ type: 'worker', worker_id: 'worker-1' }],
+};
+
+const previewWorkerApp = {
+  id: 'app-preview-worker',
+  name: APP_NAME,
+  destinations: [{ type: 'preview_worker', worker_id: 'worker-1' }],
 };
 
 describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
-  it('accepts an existing specific Service Auth policy without mutation', async () => {
-    const fetchImpl = vi.fn(async () => response([{
-      id: 'policy-1',
-      name: 'Existing CI policy',
-      decision: 'non_identity',
-      include: [{ service_token: { token_id: SERVICE } }],
-    }]));
+  it('derives the service-token ID and accepts an existing exact-host Service Auth policy', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp, exactPublicApp],
+      policiesByApp: {
+        [exactPublicApp.id]: [{
+          id: 'policy-1',
+          name: 'Existing CI policy',
+          decision: 'non_identity',
+          include: [{ service_token: { token_id: SERVICE_ID } }],
+        }],
+      },
+    });
 
-    await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).resolves.toEqual({
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl })).resolves.toEqual({
       state: 'configured',
       changed: false,
+      appId: exactPublicApp.id,
       policyId: 'policy-1',
+      scope: 'public_exact_host',
+      serviceTokenId: SERVICE_ID,
     });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
-  it('fails closed in check mode when the specific service token is not authorized', async () => {
-    const fetchImpl = vi.fn(async () => response([]));
+  it('fails closed when the configured service token is disabled or expired', async () => {
+    const disabledFetch = routeFetch({
+      serviceTokens: [{ ...activeToken, enabled: false }],
+      apps: [exactPublicApp],
+    });
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl: disabledFetch })).rejects.toThrow('disabled');
+    expect(disabledFetch).toHaveBeenCalledTimes(1);
 
-    await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
-      'No matching Cloudflare Access Service Auth policy exists',
-    );
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const expiredFetch = routeFetch({
+      serviceTokens: [{ ...activeToken, expires_at: '2026-08-29T23:59:59Z' }],
+      apps: [exactPublicApp],
+    });
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl: expiredFetch })).rejects.toThrow('expired');
+    expect(expiredFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('creates only a specific non-identity Service Auth policy in repair mode', async () => {
-    const fetchImpl = vi.fn(async (_url, init = {}) => {
-      if (!init.method) return response([]);
-      const body = JSON.parse(init.body);
-      expect(init.method).toBe('POST');
-      expect(body).toEqual({
-        name: 'ProofMode CI service auth',
-        decision: 'non_identity',
-        include: [{ service_token: { token_id: SERVICE } }],
-      });
-      expect(body.decision).not.toBe('bypass');
-      expect(body.include[0]).not.toHaveProperty('any_valid_service_token');
-      return response({ id: 'policy-new', ...body });
+  it('resolves preview_worker ahead of worker and refuses broad automatic repair', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp, previewWorkerApp],
+      policiesByApp: { [previewWorkerApp.id]: [] },
     });
 
-    await expect(ensureProofModeAccessPolicy({ ...args, mode: 'repair', fetchImpl })).resolves.toEqual({
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      mode: 'repair',
+      fetchImpl,
+    })).rejects.toThrow('Effective Access scope preview_worker');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('fails closed on a broader matching public destination instead of mutating worker policy', async () => {
+    const broadPublicApp = {
+      id: 'app-broad-public',
+      name: 'Broad preview protection',
+      destinations: [{ type: 'public', uri: '*.mcgill-raylene.workers.dev/*' }],
+    };
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp, broadPublicApp],
+      policiesByApp: { [broadPublicApp.id]: [] },
+    });
+
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      mode: 'repair',
+      fetchImpl,
+    })).rejects.toThrow('public_path_or_wildcard');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('creates only a specific non-identity policy on the exact immutable host app', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp, exactPublicApp],
+      policiesByApp: { [exactPublicApp.id]: [] },
+    });
+
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      mode: 'repair',
+      fetchImpl,
+    })).resolves.toEqual({
       state: 'configured',
       changed: true,
+      appId: exactPublicApp.id,
       policyId: 'policy-new',
+      scope: 'public_exact_host',
+      serviceTokenId: SERVICE_ID,
     });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    const createCall = fetchImpl.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(createCall).toBeTruthy();
+    const body = JSON.parse(createCall[1].body);
+    expect(body).toEqual({
+      name: 'ProofMode CI service auth',
+      decision: 'non_identity',
+      include: [{ service_token: { token_id: SERVICE_ID } }],
+    });
+    expect(body.decision).not.toBe('bypass');
+    expect(body.include[0]).not.toHaveProperty('any_valid_service_token');
   });
 
   it('refuses to overwrite a conflicting named policy', async () => {
-    const fetchImpl = vi.fn(async () => response([{
-      id: 'policy-wrong',
-      name: 'ProofMode CI service auth',
-      decision: 'allow',
-      include: [{ email: { email: 'someone@example.com' } }],
-    }]));
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [exactPublicApp],
+      policiesByApp: {
+        [exactPublicApp.id]: [{
+          id: 'policy-wrong',
+          name: 'ProofMode CI service auth',
+          decision: 'allow',
+          include: [{ everyone: {} }],
+        }],
+      },
+    });
 
-    await expect(ensureProofModeAccessPolicy({ ...args, mode: 'repair', fetchImpl })).rejects.toThrow(
-      'Refusing to overwrite it automatically',
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      mode: 'repair',
+      fetchImpl,
+    })).rejects.toThrow('Refusing to overwrite it automatically');
+  });
+
+  it('fails closed when duplicate public apps make precedence ambiguous', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [
+        exactPublicApp,
+        { ...exactPublicApp, id: 'app-exact-public-2' },
+      ],
+    });
+
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl })).rejects.toThrow(
+      'Multiple public Access applications match',
     );
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the existing pre-merge explicit-ID path but validates it against live precedence', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp, exactPublicApp],
+      policiesByApp: {
+        [exactPublicApp.id]: [{
+          id: 'policy-1',
+          decision: 'non_identity',
+          include: [{ service_token: { token_id: SERVICE_ID } }],
+        }],
+      },
+    });
+
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      serviceClientId: undefined,
+      serviceTokenId: SERVICE_ID,
+      accessAppId: exactPublicApp.id,
+      fetchImpl,
+    })).resolves.toMatchObject({
+      appId: exactPublicApp.id,
+      serviceTokenId: SERVICE_ID,
+      scope: 'public_exact_host',
+      changed: false,
+    });
+
+    const mismatchFetch = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp, previewWorkerApp],
+    });
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      serviceClientId: undefined,
+      serviceTokenId: SERVICE_ID,
+      accessAppId: workerApp.id,
+      fetchImpl: mismatchFetch,
+    })).rejects.toThrow('is not effective for this immutable preview');
   });
 
   it('does not leak the admin token into request URLs or bodies', async () => {
     const calls = [];
     const fetchImpl = vi.fn(async (url, init = {}) => {
       calls.push({ url: String(url), init });
-      return response([{
-        id: 'policy-1',
-        decision: 'non_identity',
-        include: [{ service_token: { token_id: SERVICE } }],
-      }]);
+      const parsed = new URL(url);
+      if (parsed.pathname.endsWith('/access/service_tokens')) return response([activeToken]);
+      if (parsed.pathname.endsWith('/access/apps')) return response([exactPublicApp]);
+      if (parsed.pathname.includes('/policies')) {
+        return response([{
+          id: 'policy-1',
+          decision: 'non_identity',
+          include: [{ service_token: { token_id: SERVICE_ID } }],
+        }]);
+      }
+      throw new Error(`Unexpected request ${url}`);
     });
 
-    await ensureProofModeAccessPolicy({ ...args, fetchImpl });
-    expect(calls[0].url).not.toContain(ADMIN);
-    expect(calls[0].init.body || '').not.toContain(ADMIN);
-    expect(calls[0].init.headers.Authorization).toBe(`Bearer ${ADMIN}`);
+    await ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl });
+    for (const call of calls) {
+      expect(call.url).not.toContain(ADMIN);
+      expect(call.init.body || '').not.toContain(ADMIN);
+      expect(call.init.headers.Authorization).toBe(`Bearer ${ADMIN}`);
+    }
   });
 });
