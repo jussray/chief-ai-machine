@@ -140,13 +140,14 @@ function resolveEffectiveApplication(apps, hostname, applicationName) {
       throw new Error('Multiple public Access applications match the ProofMode preview paths; refusing to guess effective policy precedence.');
     }
     const selected = publicMatches[0].app;
-    const hostWide = publicMatches.some(
-      ({ app, destination }) => app?.id === selected.id && isExactHostWidePublicUri(destination.uri, hostname),
-    );
+    const destinations = Array.isArray(selected?.destinations) ? selected.destinations : [];
+    const exactHostOnly = destinations.length === 1
+      && destinations[0]?.type === 'public'
+      && isExactHostWidePublicUri(destinations[0].uri, hostname);
     return {
       app: selected,
-      scope: hostWide ? 'public_exact_host' : 'public_path_or_wildcard',
-      repairEligible: hostWide,
+      scope: exactHostOnly ? 'public_exact_host' : 'public_path_or_multi_destination',
+      repairEligible: exactHostOnly,
     };
   }
 

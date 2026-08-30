@@ -151,8 +151,30 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
       ...baseArgs,
       mode: 'repair',
       fetchImpl,
-    })).rejects.toThrow('public_path_or_wildcard');
+    })).rejects.toThrow('public_path_or_multi_destination');
     expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('refuses repair when an otherwise exact-host application contains any extra destination', async () => {
+    const mixedApp = {
+      id: 'app-mixed-public',
+      name: 'Mixed scope',
+      destinations: [
+        { type: 'public', uri: `${HOST}/*` },
+        { type: 'public', uri: 'other.example.com/*' },
+      ],
+    };
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [mixedApp],
+      policiesByApp: { [mixedApp.id]: [] },
+    });
+
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      mode: 'repair',
+      fetchImpl,
+    })).rejects.toThrow('public_path_or_multi_destination');
   });
 
   it('creates only a specific non-identity policy on the exact immutable host app', async () => {
