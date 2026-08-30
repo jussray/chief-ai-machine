@@ -21,6 +21,25 @@
     "continuityIsDescriptiveOnly": true,
     "continuityMayAuthorizeActions": false
   },
+  "trustBoundary": {
+    "modelIsSecurityBoundary": false,
+    "deterministicPreActionAdmissionRequired": true,
+    "executorMaySelfVerify": false,
+    "executorGeneratedEvidenceCeiling": "ATTESTED",
+    "independentWitnessRequiredForVerified": true,
+    "delegatedAuthorityMustMonotonicallyNarrow": true,
+    "capabilityManifestBoundToAuthority": true,
+    "capabilityMovementExpiresDependentAuthority": true,
+    "selfReportedToolIdentityIsAuthenticatedIdentity": false,
+    "providerAcceptanceIsTerminalOutcomeProof": false,
+    "evidenceMustBind": [
+      "source",
+      "artifact",
+      "execution-environment",
+      "deployment",
+      "runtime"
+    ]
+  },
   "truthVocabulary": [
     "VERIFIED",
     "INFERRED",
