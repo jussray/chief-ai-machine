@@ -9,6 +9,7 @@ on:
       - "worker/index.js"
       - "wrangler.jsonc"
       - "e2e/proofmode-mcp.pw.mjs"
+      - "config/founder-control-room-runtime-pair.fixture.json"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
@@ -29,14 +30,325 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  FCR_PAIR_REPOSITORY: jussray/founder-control-room
+  FCR_PAIR_HEAD_SHA: 6770298489150e0a5b94272b1ada9e69805f5ccb
 
 jobs:
-  verify:
-    name: Verify live ProofMode MCP with Playwright
+  pair-runtime:
+    name: Verify Chief FCR runtime pair
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    steps:
+      - name: Check out exact Chief head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact Chief head
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'chief_expected=%s\nchief_actual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked Chief dependencies
+        run: npm ci
+
+      - name: Validate Chief pair fixture
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const fixture = JSON.parse(fs.readFileSync('config/founder-control-room-runtime-pair.fixture.json', 'utf8'));
+          const requiredNegativeCases = [
+            'missing_authentication',
+            'invalid_authentication',
+            'project_scope_mismatch',
+            'modern_header_tamper',
+            'secret_bearing_arguments',
+          ];
+          if (fixture.schema !== 'juss/chief-fcr-runtime-pair-fixture@v1') throw new Error('pair fixture schema drifted');
+          if (fixture.chief?.repository !== 'jussray/chief-ai-machine') throw new Error('Chief repository binding drifted');
+          if (fixture.fcr?.repository !== process.env.FCR_PAIR_REPOSITORY) throw new Error('FCR repository binding drifted');
+          if (fixture.fcr?.headSha !== process.env.FCR_PAIR_HEAD_SHA) throw new Error('FCR exact-head binding drifted');
+          if (fixture.fcr?.protocolVersion !== '2026-07-28') throw new Error('MCP protocol binding drifted');
+          if (fixture.request?.params?.name !== 'chief_audit_repository') throw new Error('Chief pair tool binding drifted');
+          if (JSON.stringify(fixture.requiredNegativeCases) !== JSON.stringify(requiredNegativeCases)) {
+            throw new Error('required negative pair cases drifted');
+          }
+          NODE
+
+      - name: Check out exact FCR pair head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ env.FCR_PAIR_REPOSITORY }}
+          ref: ${{ env.FCR_PAIR_HEAD_SHA }}
+          path: fcr-pair
+          persist-credentials: false
+
+      - name: Verify exact FCR pair head
+        shell: bash
+        run: |
+          actual="$(git -C fcr-pair rev-parse HEAD)"
+          printf 'fcr_expected=%s\nfcr_actual=%s\n' "$FCR_PAIR_HEAD_SHA" "$actual"
+          test "$actual" = "$FCR_PAIR_HEAD_SHA"
+
+      - name: Install locked FCR dependencies
+        working-directory: fcr-pair
+        run: npm ci
+
+      - name: Materialize Chief-owned FCR pair test
+        shell: bash
+        run: |
+          cat > fcr-pair/src/http/routes/__tests__/chiefRuntimePair.generated.test.ts <<'EOF'
+          import { readFile } from 'node:fs/promises';
+          import express from 'express';
+          import request from 'supertest';
+          import { describe, expect, it, vi } from 'vitest';
+
+          const { mockGetUser, mockFrom } = vi.hoisted(() => ({
+            mockGetUser: vi.fn(),
+            mockFrom: vi.fn(),
+          }));
+
+          vi.mock('../../../lib/supabaseAuthClient.js', () => ({
+            supabaseAuth: { auth: { getUser: mockGetUser } },
+          }));
+          vi.mock('../../../lib/supabaseClient.js', () => ({
+            supabase: { from: mockFrom },
+          }));
+          vi.mock('../../../mcp/hub.js', () => ({
+            McpHub: class {},
+          }));
+          vi.mock('../../../mcp/vaultHub.js', () => ({
+            hubForMcpProject: vi.fn(),
+          }));
+
+          import {
+            createRemoteReadMcpHandler,
+            type RemoteReadMcpDependencies,
+          } from '../remoteReadMcp.js';
+
+          type PairFixture = {
+            schema: string;
+            chief: {
+              repository: string;
+              tool: string;
+              arguments: Record<string, unknown>;
+            };
+            fcr: {
+              repository: string;
+              headSha: string;
+              endpoint: string;
+              protocolVersion: string;
+            };
+            request: Record<string, any>;
+            headers: Record<string, string>;
+            expectedInvocation: {
+              serverId: string;
+              projectId: string;
+              toolName: string;
+              arguments: Record<string, unknown>;
+            };
+            requiredNegativeCases: string[];
+          };
+
+          const fixturePath = process.env.CHIEF_PAIR_FIXTURE;
+          if (!fixturePath) throw new Error('CHIEF_PAIR_FIXTURE is required');
+          const fixture = JSON.parse(await readFile(fixturePath, 'utf8')) as PairFixture;
+          const VALID_TOKEN = 'chief-fcr-pair-valid-token';
+
+          function receipt(toolName = 'chief_audit_repository', projectSlug = 'chief-ai-machine') {
+            return {
+              contract: 'founder-control-room/external-mcp-receipt@v1' as const,
+              id: 'chief-fcr-pair-evidence-1',
+              projectSlug,
+              toolName: toolName as never,
+              requestHash: 'a'.repeat(64),
+              resultHash: 'b'.repeat(64),
+              createdAt: '2026-08-30T00:00:00.000Z',
+              privacy: {
+                cookiesUsed: false as const,
+                fingerprintsUsed: false as const,
+                rawArgumentsStored: false as const,
+                rawResultStored: false as const,
+              },
+            };
+          }
+
+          function buildApp(projectIds = ['chief-ai-machine']) {
+            const invokeReadTool = vi.fn(async () => ({
+              policy: { decision: 'allow', risk: 'read' },
+              evidenceId: 'chief-fcr-pair-proofmode-evidence',
+              result: { repository: fixture.chief.repository },
+            }));
+            const recordEvidence = vi.fn(async (input: any) => receipt(input.toolName, input.projectSlug));
+            const authenticateOauth = vi.fn(async (token: string) => {
+              if (token !== VALID_TOKEN) throw new Error('OAuth access token is invalid');
+              return {
+                userId: 'chief-fcr-pair-founder',
+                email: 'founder@example.com',
+                clientId: 'chief-ai-runtime-pair-proof',
+                projectIds,
+                authMode: 'oauth' as const,
+              };
+            });
+
+            const dependencies: RemoteReadMcpDependencies = {
+              authMode: 'oauth',
+              env: {
+                NODE_ENV: 'test',
+                SUPABASE_URL: 'https://example.supabase.co',
+                FCR_REMOTE_MCP_RESOURCE: 'https://api.foundercontrolroom.org/mcp',
+                FCR_REMOTE_MCP_READ_PROJECTS: 'chief-ai-machine,founder-control-room',
+                FCR_REMOTE_MCP_OAUTH_AUDIENCE: 'https://api.foundercontrolroom.org/mcp',
+                FCR_REMOTE_MCP_OAUTH_CLIENT_IDS: 'chief-ai-runtime-pair-proof',
+                FCR_REMOTE_MCP_OAUTH_REQUIRED_SCOPE: 'mcp:read',
+              },
+              authenticateOauth,
+              invokeReadTool,
+              listProjects: vi.fn(async () => [{ slug: 'chief-ai-machine' }]),
+              listCapabilities: vi.fn(async () => ({ project: 'chief-ai-machine', capabilities: [] })),
+              getCurrentTruth: vi.fn(async (projectId) => ({ projectId, exactTarget: null })),
+              previewCapabilityPlan: vi.fn(async () => ({ data: { executionAuthorized: false } })),
+              previewSkillRoute: vi.fn(() => ({
+                contract: 'juss/fcr-skill-router@v1',
+                status: 'ready_for_runtime_discovery',
+                executionAllowed: false,
+              })),
+              recordEvidence,
+            };
+
+            const app = express();
+            app.use(express.json({ limit: '100kb' }));
+            app.post(fixture.fcr.endpoint, createRemoteReadMcpHandler(dependencies));
+            return { app, invokeReadTool, recordEvidence, authenticateOauth };
+          }
+
+          function modernPost(
+            app: express.Express,
+            body = fixture.request,
+            token: string | null = VALID_TOKEN,
+            headerOverrides: Record<string, string> = {},
+          ) {
+            let operation = request(app)
+              .post(fixture.fcr.endpoint)
+              .set('Accept', fixture.headers.Accept)
+              .set('MCP-Protocol-Version', fixture.headers['MCP-Protocol-Version'])
+              .set('Mcp-Method', fixture.headers['Mcp-Method'])
+              .set('Mcp-Name', fixture.headers['Mcp-Name']);
+
+            if (token) operation = operation.set('Authorization', `Bearer ${token}`);
+            for (const [name, value] of Object.entries(headerOverrides)) {
+              operation = operation.set(name, value);
+            }
+            return operation.send(body);
+          }
+
+          describe('Chief AI -> Founder Control Room exact runtime pair', () => {
+            it('routes the Chief request through the real FCR handler and emits a bounded receipt', async () => {
+              const { app, invokeReadTool, recordEvidence } = buildApp();
+              const response = await modernPost(app);
+
+              expect(response.status).toBe(200);
+              expect(invokeReadTool).toHaveBeenCalledWith(fixture.expectedInvocation);
+              expect(recordEvidence).toHaveBeenCalledTimes(1);
+              expect(response.body.result.structuredContent.receipt).toMatchObject({
+                contract: 'founder-control-room/external-mcp-receipt@v1',
+                projectSlug: 'chief-ai-machine',
+                toolName: 'chief_audit_repository',
+                privacy: {
+                  cookiesUsed: false,
+                  fingerprintsUsed: false,
+                  rawArgumentsStored: false,
+                  rawResultStored: false,
+                },
+              });
+              expect(response.body.result.structuredContent.governanceBoundary).toMatchObject({
+                readOrPreviewOnly: true,
+                executionAllowed: false,
+                founderApprovalGranted: false,
+              });
+            });
+
+            it('rejects missing authentication before any Chief tool executes', async () => {
+              const { app, invokeReadTool } = buildApp();
+              const response = await modernPost(app, fixture.request, null);
+              expect(response.status).toBe(401);
+              expect(invokeReadTool).not.toHaveBeenCalled();
+            });
+
+            it('rejects invalid authentication before any Chief tool executes', async () => {
+              const { app, invokeReadTool } = buildApp();
+              const response = await modernPost(app, fixture.request, 'wrong-token');
+              expect(response.status).toBe(401);
+              expect(invokeReadTool).not.toHaveBeenCalled();
+            });
+
+            it('rejects a project outside the authenticated project grant', async () => {
+              const { app, invokeReadTool } = buildApp(['chief-ai-machine']);
+              const scopedRequest = structuredClone(fixture.request);
+              scopedRequest.params.name = 'fcr_get_current_truth';
+              scopedRequest.params.arguments = { projectId: 'founder-control-room' };
+              const response = await modernPost(
+                app,
+                scopedRequest,
+                VALID_TOKEN,
+                { 'Mcp-Name': 'fcr_get_current_truth' },
+              );
+              expect(response.status).toBe(403);
+              expect(invokeReadTool).not.toHaveBeenCalled();
+            });
+
+            it('rejects modern header tampering before any Chief tool executes', async () => {
+              const { app, invokeReadTool } = buildApp();
+              const response = await modernPost(
+                app,
+                fixture.request,
+                VALID_TOKEN,
+                { 'Mcp-Name': 'fcr_list_projects' },
+              );
+              expect(response.status).toBe(400);
+              expect(invokeReadTool).not.toHaveBeenCalled();
+            });
+
+            it('rejects secret-bearing arguments before any Chief tool executes', async () => {
+              const { app, invokeReadTool } = buildApp();
+              const secretRequest = structuredClone(fixture.request);
+              secretRequest.params.arguments = {
+                ...secretRequest.params.arguments,
+                nested: { api_key: 'must-never-cross' },
+              };
+              const response = await modernPost(app, secretRequest);
+              expect(response.status).toBe(403);
+              expect(invokeReadTool).not.toHaveBeenCalled();
+            });
+          });
+          EOF
+
+      - name: Execute pinned FCR auth and Chief pair contract
+        shell: bash
+        env:
+          CHIEF_PAIR_FIXTURE: ${{ github.workspace }}/config/founder-control-room-runtime-pair.fixture.json
+        run: |
+          cd fcr-pair
+          npx vitest run \
+            src/http/routes/__tests__/remoteReadMcp.test.ts \
+            src/http/routes/__tests__/chiefRuntimePair.generated.test.ts
+
+  verify:
+    name: Verify live ProofMode MCP with Playwright
+    needs: pair-runtime
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    environment: proofmode-access-admin
     steps:
       - name: Check out exact requested head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -63,8 +375,36 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
+          validate_target() {
+            node -e '
+              const raw = process.argv[1];
+              try {
+                const url = new URL(raw);
+                const host = url.hostname.toLowerCase();
+                const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
+                const production = host === "chief-ai.mcgill-raylene.workers.dev";
+                if (
+                  url.protocol !== "https:"
+                  || url.username
+                  || url.password
+                  || url.search
+                  || url.hash
+                  || url.pathname !== "/"
+                  || (!immutable && !production)
+                ) process.exit(1);
+                process.stdout.write(url.origin);
+              } catch {
+                process.exit(1);
+              }
+            ' "$1"
+          }
+
           if [ -n "$MANUAL_BASE_URL" ]; then
-            printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
+            preview="$(validate_target "$MANUAL_BASE_URL")" || {
+              printf 'Manual ProofMode base URL must be an approved chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
+              exit 1
+            }
+            printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
             exit 0
           fi
 
@@ -76,7 +416,7 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$api" || true)"
 
-            preview="$(printf '%s' "$checks" | node -e '
+            candidate="$(printf '%s' "$checks" | node -e '
               let input = "";
               process.stdin.setEncoding("utf8");
               process.stdin.on("data", (chunk) => { input += chunk; });
@@ -85,6 +425,7 @@ jobs:
                 const data = JSON.parse(input);
                 const run = data.check_runs?.find((item) =>
                   item.name === "Workers Builds: chief-ai"
+                  && item.app?.slug === "cloudflare-workers-and-pages"
                   && item.status === "completed"
                   && item.conclusion === "success"
                 );
@@ -93,18 +434,46 @@ jobs:
               });
             ')"
 
-            if [ -n "$preview" ]; then
-              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
+            if [ -n "$candidate" ]; then
+              preview="$(validate_target "$candidate")" || {
+                printf 'Rejected Cloudflare check output with an unexpected preview target.\n' >&2
+                exit 1
+              }
+              if ! printf '%s' "$preview" | grep -Eq '^https://[0-9a-fA-F]{8}-chief-ai\.mcgill-raylene\.workers\.dev$'; then
+                printf 'Automatic ProofMode proof requires an immutable Cloudflare version preview.\n' >&2
+                exit 1
+              fi
+              printf 'Resolved trusted immutable Cloudflare preview: %s\n' "$preview"
               printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
               exit 0
             fi
             sleep 2
           done
 
-          printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'No successful trusted Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
           exit 1
 
       - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Check out trusted base runtime proof source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          persist-credentials: false
+
+      - name: Record trusted runtime proof source
+        shell: bash
+        env:
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          trusted="$(git rev-parse HEAD)"
+          printf 'trusted_runtime_proof_source=%s\n' "$trusted"
+          if [ -n "$TRUSTED_BASE_SHA" ]; then
+            test "$trusted" = "$TRUSTED_BASE_SHA"
+          fi
+
+      - name: Install trusted runtime proof dependencies
         run: npm ci
 
       - name: Install isolated Playwright runner
@@ -112,6 +481,9 @@ jobs:
 
       - name: Verify immutable preview serves exact head
         shell: bash
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
           if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
             || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
@@ -152,13 +524,19 @@ jobs:
             printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
+            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it.\n' >&2
+            else
+              printf 'Cloudflare Access intercepted the immutable preview and no complete service-token pair is configured.\n' >&2
+            fi
           fi
           exit 1
 
       - name: Run live ProofMode MCP Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           cat > playwright.proofmode-mcp.config.mjs <<'EOF'
