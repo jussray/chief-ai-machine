@@ -143,7 +143,7 @@ function decodeHeaderValue(value) {
   if (!value.startsWith('=?base64?') || !value.endsWith('?=')) return value;
   try {
     const bytes = Uint8Array.from(atob(value.slice('=?base64?'.length, -2)), (char) => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
+    return new globalThis.TextDecoder().decode(bytes);
   } catch {
     return null;
   }
@@ -208,13 +208,11 @@ function toolError(error, modern = false, fallback = 'ProofMode tool failed.') {
 }
 
 function safeError(message, code) {
-  const error = new Error(message);
-  error.code = code;
-  return error;
+  return Object.assign(new Error(message), { code });
 }
 
 async function sha256Hex(value) {
-  const bytes = new TextEncoder().encode(value);
+  const bytes = new globalThis.TextEncoder().encode(value);
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -287,14 +285,14 @@ async function queryContext7Documentation({ libraryId, query, apiKey }) {
           },
         },
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: globalThis.AbortSignal.timeout(30_000),
     });
   } catch {
     throw safeError('Context7 documentation lookup was unavailable.', 'context7_unavailable');
   }
 
   const raw = await response.text();
-  const responseBytes = new TextEncoder().encode(raw).byteLength;
+  const responseBytes = new globalThis.TextEncoder().encode(raw).byteLength;
   if (responseBytes > MAX_CONTEXT7_RESPONSE_BYTES) {
     throw safeError('Context7 documentation response exceeded the bounded evidence limit.', 'context7_response_too_large');
   }
@@ -312,12 +310,12 @@ async function queryContext7Documentation({ libraryId, query, apiKey }) {
   }
 
   const documentation = context7Text(payload);
-  const encoded = new TextEncoder().encode(documentation);
+  const encoded = new globalThis.TextEncoder().encode(documentation);
   if (encoded.byteLength <= MAX_DOCUMENTATION_BYTES) {
     return { documentation, truncated: false };
   }
 
-  const bounded = new TextDecoder().decode(encoded.slice(0, MAX_DOCUMENTATION_BYTES));
+  const bounded = new globalThis.TextDecoder().decode(encoded.slice(0, MAX_DOCUMENTATION_BYTES));
   return { documentation: bounded, truncated: true };
 }
 
