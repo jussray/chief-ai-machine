@@ -1,0 +1,62 @@
+{
+  "contract": "juss/founder-execution-kernel-consumer@v1",
+  "kernelContract": "juss/founder-execution-kernel@v1",
+  "canonicalSource": {
+    "repository": "jussray/founder-control-room",
+    "path": "docs/FOUNDER_ADAPTIVE_KERNEL_V0.md",
+    "role": "canonical-governance-source"
+  },
+  "consumer": {
+    "repository": "jussray/chief-ai-machine",
+    "role": "reason-plan-propose",
+    "mayGrantFounderAuthority": false,
+    "mayGrantActionAuthority": false,
+    "mayMerge": false,
+    "mayDeploy": false,
+    "mayPublish": false
+  },
+  "fingerprintLaw": {
+    "evidenceBoundToExactFingerprint": true,
+    "headOrScopeMovementExpiresDependentProof": true,
+    "continuityIsDescriptiveOnly": true,
+    "continuityMayAuthorizeActions": false
+  },
+  "truthVocabulary": [
+    "VERIFIED",
+    "INFERRED",
+    "UNKNOWN",
+    "BLOCKED",
+    "STALE"
+  ],
+  "adaptiveSignals": [
+    "STRONGER_THAN_EXPECTED",
+    "AS_EXPECTED",
+    "WEAKER_THAN_EXPECTED",
+    "UNEXPECTED_DIRECTION",
+    "UNKNOWN"
+  ],
+  "adaptiveActions": [
+    "ACCELERATE",
+    "CONTINUE",
+    "REPAIR",
+    "REORIENT",
+    "HOLD",
+    "STOP"
+  ],
+  "portableMirror": {
+    "kind": "github-gist",
+    "distributionOnly": true,
+    "authority": false,
+    "mayPersistRuntimeState": false,
+    "mayCarryFounderApproval": false
+  },
+  "report": [
+    "REALITY",
+    "FIX",
+    "PROOF",
+    "RISK",
+    "ROLLBACK",
+    "ADAPTIVE SIGNAL",
+    "NEXT GATE"
+  ]
+}
