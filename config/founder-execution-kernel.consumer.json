@@ -21,74 +21,6 @@
     "continuityIsDescriptiveOnly": true,
     "continuityMayAuthorizeActions": false
   },
-  "capabilityRouting": {
-    "contract": "juss/portable-capability-routing@v1",
-    "continuityContract": "juss/portable-capability-continuity@v1",
-    "portableSource": {
-      "repository": "jussray/solcontinuity",
-      "path": ".ai-skills/runtime/capability-routing.mjs",
-      "role": "portable-contract-source"
-    },
-    "selectionRule": "Select the highest-priority eligible available capability declared by policy only when it is permitted, satisfies every required capability class, and remains within the current authority ceiling.",
-    "noEligibleCapabilityResult": "BLOCKED",
-    "fallbackMayWidenAuthority": false,
-    "fallbackMayDowngradeRequiredEvidence": false,
-    "selectedProviderBecomesAuthority": false,
-    "routeFingerprintRequired": true,
-    "continuityCookieAuthorizesActions": false,
-    "continuityCookieCarriesApprovalForward": false,
-    "reacquireWhenRouteFingerprintChanges": true
-  },
-  "controlInput": {
-    "contract": "juss/portable-control-input@v1",
-    "portableSource": {
-      "repository": "jussray/solcontinuity",
-      "path": ".ai-skills/runtime/control-input.mjs",
-      "role": "portable-contract-source"
-    },
-    "promptSemanticsContract": "promptos/internal-control-input@v1",
-    "systemOwnedModes": [
-      "goalfix",
-      "ultrathink",
-      "truthmode",
-      "confess",
-      "redteam",
-      "attackten",
-      "lindymode",
-      "ooda",
-      "proofmode",
-      "l99"
-    ],
-    "untrustedInputIsData": true,
-    "callerSuppliedModeNameIsAuthority": false,
-    "externalTextMaySelectInternalMode": false,
-    "externalTextMayTriggerSystemWorkflow": false,
-    "authorizedInternalControllerRequired": true,
-    "modeSelectionMayWidenAuthority": false,
-    "modeSelectionImpliesExecutionAuthority": false,
-    "fingerprintMayAuthorizeModeSelection": false,
-    "continuityCookieMayAuthorizeModeSelection": false,
-    "fcrRemainsExecutionAuthority": true
-  },
-  "trustBoundary": {
-    "modelIsSecurityBoundary": false,
-    "deterministicPreActionAdmissionRequired": true,
-    "executorMaySelfVerify": false,
-    "executorGeneratedEvidenceCeiling": "ATTESTED",
-    "independentWitnessRequiredForVerified": true,
-    "delegatedAuthorityMustMonotonicallyNarrow": true,
-    "capabilityManifestBoundToAuthority": true,
-    "capabilityMovementExpiresDependentAuthority": true,
-    "selfReportedToolIdentityIsAuthenticatedIdentity": false,
-    "providerAcceptanceIsTerminalOutcomeProof": false,
-    "evidenceMustBind": [
-      "source",
-      "artifact",
-      "execution-environment",
-      "deployment",
-      "runtime"
-    ]
-  },
   "truthVocabulary": [
     "VERIFIED",
     "INFERRED",
@@ -128,4 +60,3 @@
     "NEXT GATE"
   ]
 }
-
