@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Cloudflare Worker base URL to verify; append #repair-access to explicitly repair the ProofMode CI Service Auth policy first"
+        description: "Exact Chief workers.dev runtime origin to verify"
         required: true
         type: string
 
@@ -40,6 +40,7 @@ jobs:
     name: Verify live ProofMode MCP with Playwright
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    environment: proofmode-access-admin
     steps:
       - name: Check out exact requested head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -74,7 +75,15 @@ jobs:
                 const host = url.hostname.toLowerCase();
                 const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
                 const production = host === "chief-ai.mcgill-raylene.workers.dev";
-                if (url.protocol !== "https:" || url.username || url.password || (!immutable && !production)) process.exit(1);
+                if (
+                  url.protocol !== "https:"
+                  || url.username
+                  || url.password
+                  || url.search
+                  || url.hash
+                  || url.pathname !== "/"
+                  || (!immutable && !production)
+                ) process.exit(1);
                 process.stdout.write(url.origin);
               } catch {
                 process.exit(1);
@@ -83,27 +92,10 @@ jobs:
           }
 
           if [ -n "$MANUAL_BASE_URL" ]; then
-            admin_mode="$(node -e '
-              try {
-                const url = new URL(process.argv[1]);
-                if (url.hash && url.hash !== "#repair-access") process.exit(1);
-                process.stdout.write(url.hash === "#repair-access" ? "repair" : "check");
-              } catch {
-                process.exit(1);
-              }
-            ' "$MANUAL_BASE_URL")" || {
-              printf 'Manual ProofMode URL may use only the explicit #repair-access fragment.\n' >&2
-              exit 1
-            }
             preview="$(validate_target "$MANUAL_BASE_URL")" || {
-              printf 'Manual ProofMode base URL is not an approved chief-ai workers.dev target.\n' >&2
+              printf 'Manual ProofMode base URL must be an approved chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
               exit 1
             }
-            if [ "$admin_mode" = "repair" ] && ! printf '%s' "$preview" | grep -Eq '^https://[0-9a-fA-F]{8}-chief-ai\.mcgill-raylene\.workers\.dev$'; then
-              printf 'Cloudflare Access repair requires an immutable Chief preview URL, not production or another target.\n' >&2
-              exit 1
-            fi
-            printf 'PROOFMODE_ACCESS_ADMIN_MODE=%s\n' "$admin_mode" >> "$GITHUB_ENV"
             printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
             exit 0
           fi
@@ -144,7 +136,6 @@ jobs:
                 exit 1
               fi
               printf 'Resolved trusted immutable Cloudflare preview: %s\n' "$preview"
-              printf 'PROOFMODE_ACCESS_ADMIN_MODE=skip\n' >> "$GITHUB_ENV"
               printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
               exit 0
             fi
@@ -160,51 +151,25 @@ jobs:
       - name: Run ProofMode served MCP contract
         run: npm run verify:proofmode
 
-      - name: Revalidate manual dispatch branch freshness before provider mutation
-        if: github.event_name == 'workflow_dispatch'
+      - name: Check out trusted base runtime proof source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          persist-credentials: false
+
+      - name: Record trusted runtime proof source
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
-          if [ "$GITHUB_REF_TYPE" != "branch" ]; then
-            printf 'Manual ProofMode provider repair must be dispatched from a branch ref.\n' >&2
-            exit 1
+          trusted="$(git rev-parse HEAD)"
+          printf 'trusted_runtime_proof_source=%s\n' "$trusted"
+          if [ -n "$TRUSTED_BASE_SHA" ]; then
+            test "$trusted" = "$TRUSTED_BASE_SHA"
           fi
 
-          encoded_ref="$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$GITHUB_REF_NAME")"
-          branch_json="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/branches/${encoded_ref}")"
-          live_sha="$(printf '%s' "$branch_json" | node -e '
-            let raw = "";
-            process.stdin.setEncoding("utf8");
-            process.stdin.on("data", (chunk) => { raw += chunk; });
-            process.stdin.on("end", () => {
-              try { process.stdout.write(JSON.parse(raw)?.commit?.sha || ""); } catch {}
-            });
-          ')"
-
-          printf 'dispatch_sha=%s\nlive_branch_sha=%s\n' "$EXPECTED_HEAD_SHA" "$live_sha"
-          if [ -z "$live_sha" ] || [ "$live_sha" != "$EXPECTED_HEAD_SHA" ]; then
-            printf 'Manual ProofMode dispatch is stale; branch moved after dispatch. Refusing Cloudflare provider mutation.\n' >&2
-            exit 1
-          fi
-
-      - name: Check or explicitly repair Cloudflare Access Service Auth
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        env:
-          PROOFMODE_ACCESS_MODE: ${{ env.PROOFMODE_ACCESS_ADMIN_MODE }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}
-          CLOUDFLARE_ACCESS_APP_ID: ${{ secrets.CLOUDFLARE_ACCESS_APP_ID }}
-          CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID: ${{ secrets.CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID }}
-        run: node scripts/proofmode-access-policy.mjs
+      - name: Install trusted runtime proof dependencies
+        run: npm ci
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0

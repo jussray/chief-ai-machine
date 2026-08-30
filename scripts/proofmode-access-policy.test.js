@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { ensureProofModeAccessPolicy } from './proofmode-access-policy.mjs';
 
@@ -307,5 +308,45 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
       expect(call.init.body || '').not.toContain(ADMIN);
       expect(call.init.headers.Authorization).toBe(`Bearer ${ADMIN}`);
     }
+  });
+});
+
+describe('ProofMode workflow credential boundaries', () => {
+  const proofWorkflow = readFileSync(
+    new URL('../.github/workflows/proofmode-mcp-playwright.yml', import.meta.url),
+    'utf8',
+  );
+  const chiefWorkflow = readFileSync(
+    new URL('../.github/workflows/chief-capability-plan-playwright.yml', import.meta.url),
+    'utf8',
+  );
+  const adminWorkflow = readFileSync(
+    new URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
+    'utf8',
+  );
+
+  it('keeps Cloudflare admin mutation only in the protected admin workflow', () => {
+    expect(proofWorkflow).not.toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN');
+    expect(proofWorkflow).not.toContain('#repair-access');
+    expect(adminWorkflow).toContain('environment: proofmode-access-admin');
+    expect(adminWorkflow).toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN');
+  });
+
+  it.each([
+    ['ProofMode MCP', proofWorkflow, 'Run live ProofMode MCP Playwright proof'],
+    ['Chief capability plan', chiefWorkflow, 'Run live Chief capability-plan Playwright proof'],
+  ])('keeps %s Access secrets behind the protected trusted-base runtime proof', (_name, workflow, liveStepName) => {
+    expect(workflow).toContain('environment: proofmode-access-admin');
+    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha || 'main' }}");
+
+    const headCheckout = workflow.indexOf('name: Check out exact requested head');
+    const trustedCheckout = workflow.indexOf('name: Check out trusted base runtime proof source');
+    const firstAccessSecret = workflow.indexOf('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    const liveStep = workflow.indexOf(`name: ${liveStepName}`);
+
+    expect(headCheckout).toBeGreaterThanOrEqual(0);
+    expect(trustedCheckout).toBeGreaterThan(headCheckout);
+    expect(firstAccessSecret).toBeGreaterThan(trustedCheckout);
+    expect(liveStep).toBeGreaterThan(trustedCheckout);
   });
 });

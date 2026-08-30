@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Cloudflare Worker base URL to verify"
+        description: "Exact Chief workers.dev runtime origin to verify"
         required: true
         type: string
 
@@ -46,6 +46,7 @@ jobs:
     name: Verify live Chief capability plan with Playwright
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    environment: proofmode-access-admin
     steps:
       - name: Check out exact requested head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -81,7 +82,15 @@ jobs:
                 const host = url.hostname.toLowerCase();
                 const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
                 const production = host === "chief-ai.mcgill-raylene.workers.dev";
-                if (url.protocol !== "https:" || url.username || url.password || (!immutable && !production)) process.exit(1);
+                if (
+                  url.protocol !== "https:"
+                  || url.username
+                  || url.password
+                  || url.search
+                  || url.hash
+                  || url.pathname !== "/"
+                  || (!immutable && !production)
+                ) process.exit(1);
                 process.stdout.write(url.origin);
               } catch {
                 process.exit(1);
@@ -91,7 +100,7 @@ jobs:
 
           if [ -n "$MANUAL_BASE_URL" ]; then
             preview="$(validate_target "$MANUAL_BASE_URL")" || {
-              printf 'Manual Chief base URL is not an approved chief-ai workers.dev target.\n' >&2
+              printf 'Manual Chief base URL must be an approved chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
               exit 1
             }
             printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
@@ -172,7 +181,24 @@ jobs:
           console.log(JSON.stringify({ expectedHeadSha: process.env.EXPECTED_HEAD_SHA, cloudflareChecks: checks }, null, 2));
           NODE
 
-      - name: Install locked application dependencies
+      - name: Check out trusted base runtime proof source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          persist-credentials: false
+
+      - name: Record trusted runtime proof source
+        shell: bash
+        env:
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          trusted="$(git rev-parse HEAD)"
+          printf 'trusted_runtime_proof_source=%s\n' "$trusted"
+          if [ -n "$TRUSTED_BASE_SHA" ]; then
+            test "$trusted" = "$TRUSTED_BASE_SHA"
+          fi
+
+      - name: Install trusted runtime proof dependencies
         run: npm ci
 
       - name: Install isolated Playwright runner
