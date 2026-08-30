@@ -46,6 +46,34 @@ describe('Founder Execution Kernel consumer contract', () => {
     ]);
   });
 
+  it('keeps security and verification outside the model/executor boundary', () => {
+    expect(contract.trustBoundary).toEqual({
+      modelIsSecurityBoundary: false,
+      deterministicPreActionAdmissionRequired: true,
+      executorMaySelfVerify: false,
+      executorGeneratedEvidenceCeiling: 'ATTESTED',
+      independentWitnessRequiredForVerified: true,
+      delegatedAuthorityMustMonotonicallyNarrow: true,
+      capabilityManifestBoundToAuthority: true,
+      capabilityMovementExpiresDependentAuthority: true,
+      selfReportedToolIdentityIsAuthenticatedIdentity: false,
+      providerAcceptanceIsTerminalOutcomeProof: false,
+      evidenceMustBind: [
+        'source',
+        'artifact',
+        'execution-environment',
+        'deployment',
+        'runtime',
+      ],
+    });
+
+    expect(contract.trustBoundary.executorMaySelfVerify).toBe(false);
+    expect(contract.trustBoundary.executorGeneratedEvidenceCeiling).not.toBe('VERIFIED');
+    expect(contract.trustBoundary.independentWitnessRequiredForVerified).toBe(true);
+    expect(contract.trustBoundary.delegatedAuthorityMustMonotonicallyNarrow).toBe(true);
+    expect(contract.trustBoundary.capabilityMovementExpiresDependentAuthority).toBe(true);
+  });
+
   it('keeps any Gist mirror distribution-only', () => {
     expect(contract.portableMirror.kind).toBe('github-gist');
     expect(contract.portableMirror.distributionOnly).toBe(true);
