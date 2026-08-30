@@ -1,0 +1,59 @@
+{
+  "schema": "juss/chief-fcr-runtime-pair-fixture@v1",
+  "chief": {
+    "repository": "jussray/chief-ai-machine",
+    "tool": "chief_audit_repository",
+    "arguments": {
+      "owner": "jussray",
+      "repo": "chief-ai-machine"
+    }
+  },
+  "fcr": {
+    "repository": "jussray/founder-control-room",
+    "headSha": "6770298489150e0a5b94272b1ada9e69805f5ccb",
+    "endpoint": "/mcp",
+    "protocolVersion": "2026-07-28"
+  },
+  "request": {
+    "jsonrpc": "2.0",
+    "id": "chief-fcr-pair-1",
+    "method": "tools/call",
+    "params": {
+      "name": "chief_audit_repository",
+      "arguments": {
+        "owner": "jussray",
+        "repo": "chief-ai-machine"
+      },
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+        "io.modelcontextprotocol/clientInfo": {
+          "name": "chief-ai-runtime-pair-proof",
+          "version": "1.0.0"
+        }
+      }
+    }
+  },
+  "headers": {
+    "Accept": "application/json, text/event-stream",
+    "MCP-Protocol-Version": "2026-07-28",
+    "Mcp-Method": "tools/call",
+    "Mcp-Name": "chief_audit_repository"
+  },
+  "expectedInvocation": {
+    "serverId": "proofmode",
+    "projectId": "chief-ai-machine",
+    "toolName": "audit_repository",
+    "arguments": {
+      "owner": "jussray",
+      "repo": "chief-ai-machine"
+    }
+  },
+  "requiredNegativeCases": [
+    "missing_authentication",
+    "invalid_authentication",
+    "project_scope_mismatch",
+    "modern_header_tamper",
+    "secret_bearing_arguments"
+  ]
+}
