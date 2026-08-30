@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "founder-control-room": {
+      "type": "http",
+      "url": "https://api.foundercontrolroom.org/mcp"
+    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
