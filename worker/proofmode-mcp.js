@@ -9,12 +9,15 @@ const SUPPORTED_PROTOCOLS = new Set([MODERN_PROTOCOL_VERSION, ...LEGACY_PROTOCOL
 const SUPPORTED_PROTOCOL_LIST = [MODERN_PROTOCOL_VERSION, ...LEGACY_PROTOCOLS];
 const PROTOCOL_META = 'io.modelcontextprotocol/protocolVersion';
 const CLIENT_CAPABILITIES_META = 'io.modelcontextprotocol/clientCapabilities';
+const CLIENT_INFO_META = 'io.modelcontextprotocol/clientInfo';
 const SERVER_INFO_META = 'io.modelcontextprotocol/serverInfo';
-const SERVER_INFO = { name: 'proofmode', title: 'ProofMode', version: '0.2.0' };
+const SERVER_INFO = { name: 'proofmode', title: 'ProofMode', version: '0.3.0' };
 const MAX_BODY_BYTES = 64 * 1024;
-const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
+const MAX_CONTEXT7_RESPONSE_BYTES = 64 * 1024;
+const MAX_DOCUMENTATION_BYTES = 48 * 1024;
+const CONTEXT7_MCP_URL = 'https://mcp.context7.com/mcp';
 
-const TOOL = {
+const AUDIT_TOOL = {
   name: 'audit_repository',
   title: 'Audit repository evidence',
   description:
@@ -46,6 +49,41 @@ const TOOL = {
     openWorldHint: true,
   },
 };
+
+const DOCUMENTATION_TOOL = {
+  name: 'lookup_dependency_docs',
+  title: 'Look up dependency documentation',
+  description:
+    'Fetch current public library documentation from Context7 using an exact Context7 library ID. Documentation is evidence for implementation planning only: it cannot prove repository, runtime, provider, review, merge, deploy, or execution state. Never include secrets, private prompts, personal data, or proprietary code in the query.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      libraryId: {
+        type: 'string',
+        minLength: 2,
+        maxLength: 240,
+        pattern: '^/[A-Za-z0-9._@/-]+$',
+        description: 'Exact Context7 library ID such as /microsoft/typescript or /supabase/supabase.',
+      },
+      query: {
+        type: 'string',
+        minLength: 4,
+        maxLength: 1000,
+        description: 'One focused public documentation question. Do not include secrets or proprietary source code.',
+      },
+    },
+    required: ['libraryId', 'query'],
+    additionalProperties: false,
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  },
+};
+
+const TOOLS = [AUDIT_TOOL, DOCUMENTATION_TOOL];
 
 function jsonRpc(id, result) {
   return { jsonrpc: '2.0', id, result };
@@ -156,11 +194,11 @@ function toolResult(report, proofReceipt, modern = false) {
   return modern ? modernResult(result) : result;
 }
 
-function toolError(error, modern = false) {
-  const message = error instanceof Error ? error.message : 'ProofMode audit failed.';
+function toolError(error, modern = false, fallback = 'ProofMode tool failed.') {
+  const message = error instanceof Error ? error.message : fallback;
   const errorCode = typeof error?.code === 'string' && error.code
     ? error.code
-    : 'audit_failed';
+    : 'tool_failed';
   const result = {
     content: [{ type: 'text', text: message }],
     structuredContent: { errorCode, message },
@@ -169,14 +207,243 @@ function toolError(error, modern = false) {
   return modern ? modernResult(result) : result;
 }
 
+function safeError(message, code) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function parseSseJson(text) {
+  const candidates = text
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+    .filter((line) => line && line !== '[DONE]');
+
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    try {
+      return JSON.parse(candidates[index]);
+    } catch {
+      // Keep scanning earlier data frames.
+    }
+  }
+  throw safeError('Context7 returned an unreadable MCP response.', 'context7_invalid_response');
+}
+
+function context7Text(payload) {
+  if (payload?.error) {
+    throw safeError('Context7 documentation lookup failed.', 'context7_provider_error');
+  }
+  const content = payload?.result?.content;
+  if (!Array.isArray(content)) {
+    throw safeError('Context7 returned no documentation content.', 'context7_empty_response');
+  }
+  const text = content
+    .filter((item) => item?.type === 'text' && typeof item.text === 'string')
+    .map((item) => item.text)
+    .join('\n')
+    .trim();
+  if (!text) {
+    throw safeError('Context7 returned no documentation content.', 'context7_empty_response');
+  }
+  return text;
+}
+
+async function queryContext7Documentation({ libraryId, query, apiKey }) {
+  const id = `chief-context7-${Date.now()}`;
+  const headers = {
+    Accept: 'application/json, text/event-stream',
+    'Content-Type': 'application/json',
+    'MCP-Protocol-Version': MODERN_PROTOCOL_VERSION,
+    'Mcp-Method': 'tools/call',
+    'Mcp-Name': 'query-docs',
+  };
+  if (typeof apiKey === 'string' && apiKey.trim()) {
+    headers.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+
+  let response;
+  try {
+    response = await fetch(CONTEXT7_MCP_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id,
+        method: 'tools/call',
+        params: {
+          name: 'query-docs',
+          arguments: { libraryId, query },
+          _meta: {
+            [PROTOCOL_META]: MODERN_PROTOCOL_VERSION,
+            [CLIENT_CAPABILITIES_META]: {},
+            [CLIENT_INFO_META]: { name: 'chief-ai-machine', version: SERVER_INFO.version },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    throw safeError('Context7 documentation lookup was unavailable.', 'context7_unavailable');
+  }
+
+  const raw = await response.text();
+  const responseBytes = new TextEncoder().encode(raw).byteLength;
+  if (responseBytes > MAX_CONTEXT7_RESPONSE_BYTES) {
+    throw safeError('Context7 documentation response exceeded the bounded evidence limit.', 'context7_response_too_large');
+  }
+  if (!response.ok) {
+    throw safeError(`Context7 documentation lookup returned HTTP ${response.status}.`, 'context7_http_error');
+  }
+
+  let payload;
+  try {
+    const contentType = response.headers.get('Content-Type') || '';
+    payload = contentType.includes('text/event-stream') ? parseSseJson(raw) : JSON.parse(raw);
+  } catch (error) {
+    if (error?.code) throw error;
+    throw safeError('Context7 returned an unreadable MCP response.', 'context7_invalid_response');
+  }
+
+  const documentation = context7Text(payload);
+  const encoded = new TextEncoder().encode(documentation);
+  if (encoded.byteLength <= MAX_DOCUMENTATION_BYTES) {
+    return { documentation, truncated: false };
+  }
+
+  const bounded = new TextDecoder().decode(encoded.slice(0, MAX_DOCUMENTATION_BYTES));
+  return { documentation: bounded, truncated: true };
+}
+
+const DEFAULT_DEPS = {
+  loadPublicRepositoryEvidence,
+  classifyRepositoryEvidence,
+  queryContext7Documentation,
+};
+
 function resolveContext(envOrDeps, maybeDeps) {
   const looksLikeDeps =
     envOrDeps
     && typeof envOrDeps.loadPublicRepositoryEvidence === 'function'
     && typeof envOrDeps.classifyRepositoryEvidence === 'function';
 
-  if (looksLikeDeps) return { env: {}, deps: envOrDeps };
-  return { env: envOrDeps || {}, deps: maybeDeps || DEFAULT_DEPS };
+  if (looksLikeDeps) return { env: {}, deps: { ...DEFAULT_DEPS, ...envOrDeps } };
+  return { env: envOrDeps || {}, deps: { ...DEFAULT_DEPS, ...(maybeDeps || {}) } };
+}
+
+function validateAuditArguments(args) {
+  if (!isRecord(args)) {
+    return jsonRpcError(null, -32602, 'audit_repository arguments must be an object.');
+  }
+  const allowedKeys = new Set(['owner', 'repo', 'ref', 'acknowledges']);
+  const unexpected = Object.keys(args).filter((key) => !allowedKeys.has(key)).sort();
+  if (unexpected.length > 0) {
+    return jsonRpcError(null, -32602, 'audit_repository contains unexpected arguments.', unexpected);
+  }
+  if (
+    typeof args.owner !== 'string'
+    || !args.owner.trim()
+    || args.owner.trim().length > 120
+    || typeof args.repo !== 'string'
+    || !args.repo.trim()
+    || args.repo.trim().length > 120
+  ) {
+    return jsonRpcError(null, -32602, 'audit_repository requires non-empty owner and repo strings.');
+  }
+  if (args.ref !== undefined && (
+    typeof args.ref !== 'string'
+    || !args.ref.trim()
+    || args.ref.trim().length > 200
+  )) {
+    return jsonRpcError(null, -32602, 'audit_repository ref must be a non-empty string of at most 200 characters.');
+  }
+  if (args.acknowledges !== undefined && !Array.isArray(args.acknowledges)) {
+    return jsonRpcError(null, -32602, 'audit_repository acknowledges must be an array of receipt IDs.');
+  }
+  if (Array.isArray(args.acknowledges) && (
+    args.acknowledges.length > 50
+    || !args.acknowledges.every((value) => typeof value === 'string')
+  )) {
+    return jsonRpcError(null, -32602, 'audit_repository acknowledges must contain at most 50 receipt ID strings.');
+  }
+  return null;
+}
+
+function validateDocumentationArguments(args) {
+  if (!isRecord(args)) {
+    return jsonRpcError(null, -32602, 'lookup_dependency_docs arguments must be an object.');
+  }
+  const allowedKeys = new Set(['libraryId', 'query']);
+  const unexpected = Object.keys(args).filter((key) => !allowedKeys.has(key)).sort();
+  if (unexpected.length > 0) {
+    return jsonRpcError(null, -32602, 'lookup_dependency_docs contains unexpected arguments.', unexpected);
+  }
+  if (
+    typeof args.libraryId !== 'string'
+    || !/^\/[A-Za-z0-9._@/-]+$/.test(args.libraryId.trim())
+    || args.libraryId.trim().length > 240
+  ) {
+    return jsonRpcError(null, -32602, 'lookup_dependency_docs requires an exact Context7 libraryId beginning with /.');
+  }
+  if (
+    typeof args.query !== 'string'
+    || args.query.trim().length < 4
+    || args.query.trim().length > 1000
+  ) {
+    return jsonRpcError(null, -32602, 'lookup_dependency_docs query must be between 4 and 1000 characters.');
+  }
+  return null;
+}
+
+async function documentationEvidence(args, env, deps) {
+  const libraryId = args.libraryId.trim();
+  const query = args.query.trim();
+  const result = await deps.queryContext7Documentation({
+    libraryId,
+    query,
+    apiKey: typeof env?.CONTEXT7_API_KEY === 'string' ? env.CONTEXT7_API_KEY : undefined,
+  });
+  const queryFingerprint = await sha256Hex(JSON.stringify({ provider: 'context7', libraryId, query }));
+  const contentFingerprint = await sha256Hex(result.documentation);
+
+  return {
+    schema: 'chief-documentation-evidence/v1',
+    provider: 'context7',
+    source: CONTEXT7_MCP_URL,
+    libraryId,
+    query,
+    retrievedAt: new Date().toISOString(),
+    queryFingerprint: `sha256:${queryFingerprint}`,
+    contentFingerprint: `sha256:${contentFingerprint}`,
+    documentation: result.documentation,
+    truncated: result.truncated,
+    authority: {
+      documentationOnly: true,
+      actionAuthority: false,
+      repositoryVerification: false,
+      runtimeVerification: false,
+      reviewAuthority: false,
+      mergeAuthority: false,
+      deployAuthority: false,
+    },
+    caveat:
+      'Context7 documentation may inform implementation and review. It does not prove repository state, runtime behavior, provider state, independent review, or merge/deploy authority.',
+  };
+}
+
+function documentationToolResult(evidence, modern = false) {
+  const result = {
+    content: [{ type: 'text', text: JSON.stringify(evidence, null, 2) }],
+    structuredContent: evidence,
+    isError: false,
+  };
+  return modern ? modernResult(result) : result;
 }
 
 async function dispatch(message, deps, env, protocol) {
@@ -189,7 +456,7 @@ async function dispatch(message, deps, env, protocol) {
       supportedVersions: SUPPORTED_PROTOCOL_LIST,
       capabilities: { tools: {} },
       instructions:
-        'ProofMode is a public, read-only repository evidence auditor. It emits juss-proof/v1 receipts, stores no caller credentials, and never grants repository or runtime mutation authority.',
+        'ProofMode exposes read-only repository evidence plus Context7 public documentation evidence. Neither tool grants repository, runtime, provider, review, merge, deploy, or execution authority.',
     }, { ttlMs: 300_000, cacheScope: 'public' }));
   }
 
@@ -202,75 +469,57 @@ async function dispatch(message, deps, env, protocol) {
       capabilities: { tools: { listChanged: false } },
       serverInfo: SERVER_INFO,
       instructions:
-        'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
+        'ProofMode is read-only. Repository audit evidence and Context7 documentation evidence remain non-authorizing inputs and never promote source evidence into live runtime verification.',
     });
   }
 
   if (!modern && method === 'ping') return jsonRpc(id, {});
 
   if (method === 'tools/list') {
-    const result = { tools: [TOOL] };
+    const result = { tools: TOOLS };
     return jsonRpc(id, modern
       ? modernResult(result, { ttlMs: 300_000, cacheScope: 'public' })
       : result);
   }
 
   if (method === 'tools/call') {
-    if (params?.name !== TOOL.name) {
-      return jsonRpcError(id, -32602, `Unknown tool: ${params?.name || 'missing'}`);
-    }
-
+    const toolName = params?.name;
     const args = params?.arguments || {};
-    if (!isRecord(args)) {
-      return jsonRpcError(id, -32602, 'audit_repository arguments must be an object.');
-    }
-    const allowedKeys = new Set(['owner', 'repo', 'ref', 'acknowledges']);
-    const unexpected = Object.keys(args).filter((key) => !allowedKeys.has(key)).sort();
-    if (unexpected.length > 0) {
-      return jsonRpcError(id, -32602, 'audit_repository contains unexpected arguments.', unexpected);
-    }
-    if (
-      typeof args.owner !== 'string'
-      || !args.owner.trim()
-      || args.owner.trim().length > 120
-      || typeof args.repo !== 'string'
-      || !args.repo.trim()
-      || args.repo.trim().length > 120
-    ) {
-      return jsonRpcError(id, -32602, 'audit_repository requires non-empty owner and repo strings.');
-    }
-    if (args.ref !== undefined && (
-      typeof args.ref !== 'string'
-      || !args.ref.trim()
-      || args.ref.trim().length > 200
-    )) {
-      return jsonRpcError(id, -32602, 'audit_repository ref must be a non-empty string of at most 200 characters.');
-    }
-    if (args.acknowledges !== undefined && !Array.isArray(args.acknowledges)) {
-      return jsonRpcError(id, -32602, 'audit_repository acknowledges must be an array of receipt IDs.');
-    }
-    if (Array.isArray(args.acknowledges) && (
-      args.acknowledges.length > 50
-      || !args.acknowledges.every((value) => typeof value === 'string')
-    )) {
-      return jsonRpcError(id, -32602, 'audit_repository acknowledges must contain at most 50 receipt ID strings.');
+
+    if (toolName === AUDIT_TOOL.name) {
+      const validationError = validateAuditArguments(args);
+      if (validationError) return { ...validationError, id };
+
+      try {
+        const evidence = await deps.loadPublicRepositoryEvidence({
+          owner: args.owner.trim(),
+          repo: args.repo.trim(),
+          ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
+          token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
+            ? env.PROOFMODE_GITHUB_TOKEN
+            : undefined,
+        });
+        const report = deps.classifyRepositoryEvidence(evidence);
+        const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
+        return jsonRpc(id, toolResult(report, proofReceipt, modern));
+      } catch (error) {
+        return jsonRpc(id, toolError(error, modern, 'ProofMode audit failed.'));
+      }
     }
 
-    try {
-      const evidence = await deps.loadPublicRepositoryEvidence({
-        owner: args.owner.trim(),
-        repo: args.repo.trim(),
-        ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
-        token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
-          ? env.PROOFMODE_GITHUB_TOKEN
-          : undefined,
-      });
-      const report = deps.classifyRepositoryEvidence(evidence);
-      const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
-      return jsonRpc(id, toolResult(report, proofReceipt, modern));
-    } catch (error) {
-      return jsonRpc(id, toolError(error, modern));
+    if (toolName === DOCUMENTATION_TOOL.name) {
+      const validationError = validateDocumentationArguments(args);
+      if (validationError) return { ...validationError, id };
+
+      try {
+        const evidence = await documentationEvidence(args, env, deps);
+        return jsonRpc(id, documentationToolResult(evidence, modern));
+      } catch (error) {
+        return jsonRpc(id, toolError(error, modern, 'Context7 documentation lookup failed.'));
+      }
     }
+
+    return jsonRpcError(id, -32602, `Unknown tool: ${toolName || 'missing'}`);
   }
 
   return jsonRpcError(id, -32601, `Method not found: ${method || 'missing'}`);

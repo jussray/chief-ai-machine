@@ -75,7 +75,7 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
   });
 
-  test('lists only the read-only audit_repository tool', async ({ request }) => {
+  test('lists only read-only evidence tools', async ({ request }) => {
     const response = await postMcp(request, {
       jsonrpc: '2.0',
       id: 2,
@@ -85,9 +85,15 @@ test.describe('ProofMode live MCP runtime', () => {
 
     expect(response.status()).toBe(200);
     const payload = await response.json();
-    expect(payload.result.tools).toHaveLength(1);
-    expect(payload.result.tools[0].name).toBe('audit_repository');
-    expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    expect(payload.result.tools).toHaveLength(2);
+    expect(payload.result.tools.map((tool) => tool.name)).toEqual([
+      'audit_repository',
+      'lookup_dependency_docs',
+    ]);
+    for (const tool of payload.result.tools) {
+      expect(tool.annotations.readOnlyHint).toBe(true);
+      expect(tool.annotations.destructiveHint).toBe(false);
+    }
   });
 
   test('serves the modern stateless MCP discovery contract', async ({ request }) => {
@@ -125,5 +131,40 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.structuredContent.repository).toBe('jussray/chief-ai-machine');
     expect(payload.result.structuredContent.headSha).toBe(expectedHead);
     expect(payload.result.structuredContent.layers.find((layer) => layer.layer === 'verified').state).toBe('not_proven');
+  });
+
+  test('looks up a real current TypeScript dependency through Context7 as non-authorizing evidence', async ({ request }) => {
+    const response = await postModernMcp(
+      request,
+      modernMessage(21, 'tools/call', {
+        name: 'lookup_dependency_docs',
+        arguments: {
+          libraryId: '/microsoft/typescript',
+          query: 'For TypeScript compiler configuration, what does noEmit do while type checking?',
+        },
+      }),
+    );
+
+    expect(response.status()).toBe(200);
+    const payload = await response.json();
+    expect(payload.result.isError).toBe(false);
+    expect(payload.result.structuredContent).toMatchObject({
+      schema: 'chief-documentation-evidence/v1',
+      provider: 'context7',
+      source: 'https://mcp.context7.com/mcp',
+      libraryId: '/microsoft/typescript',
+      authority: {
+        documentationOnly: true,
+        actionAuthority: false,
+        repositoryVerification: false,
+        runtimeVerification: false,
+        reviewAuthority: false,
+        mergeAuthority: false,
+        deployAuthority: false,
+      },
+    });
+    expect(payload.result.structuredContent.queryFingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(payload.result.structuredContent.contentFingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(payload.result.structuredContent.documentation.length).toBeGreaterThan(40);
   });
 });
