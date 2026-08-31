@@ -41,6 +41,14 @@ function normalizeUuid(value, errorCode) {
   return normalized;
 }
 
+function canonicalReceiptAttemptId(receipt) {
+  try {
+    return normalizeUuid(receipt?.attemptId, 'invalid_attempt_id');
+  } catch {
+    return null;
+  }
+}
+
 function normalizeDigest(value, errorCode) {
   const normalized = text(value).toLowerCase();
   if (!SHA256.test(normalized)) throw new Error(errorCode);
@@ -269,6 +277,7 @@ export function verifyEffectorLedgerV1({ lease, receipts = [], signingKey }) {
 
 export function evaluateExecutionAttemptV1({ lease, request, receipts = [], signingKey, now }) {
   const reasons = [...leaseErrors(lease)];
+  const ledger = Array.isArray(receipts) ? receipts : [];
   let normalizedRequest = null;
   let evaluatedAt = null;
   try { normalizedRequest = normalizeRequest(request); } catch (error) { reasons.push(error.message); }
@@ -278,10 +287,12 @@ export function evaluateExecutionAttemptV1({ lease, request, receipts = [], sign
   if (normalizedRequest && lease) {
     if (normalizedRequest.subject !== lease.subject) reasons.push('subject_mismatch');
     if (!lease.allowedActions?.includes(normalizedRequest.action)) reasons.push('action_not_allowed');
-    if (receipts.some((receipt) => receipt?.attemptId === normalizedRequest.attemptId)) reasons.push('duplicate_attempt');
-    const succeededEffects = receipts.filter((receipt) => receipt?.outcome === 'effect_succeeded').length;
+    if (ledger.some((receipt) => canonicalReceiptAttemptId(receipt) === normalizedRequest.attemptId)) {
+      reasons.push('duplicate_attempt');
+    }
+    const succeededEffects = ledger.filter((receipt) => receipt?.outcome === 'effect_succeeded').length;
     if (succeededEffects >= lease.maxEffects) reasons.push('max_effects_reached');
-    const successfulActions = receipts
+    const successfulActions = ledger
       .filter((receipt) => receipt?.outcome === 'effect_succeeded')
       .map((receipt) => receipt.action);
     for (const invariant of lease.temporalInvariants ?? []) {
@@ -298,7 +309,7 @@ export function evaluateExecutionAttemptV1({ lease, request, receipts = [], sign
   }
 
   const uniqueReasons = [...new Set(reasons)].sort((left, right) => left.localeCompare(right));
-  const priorReceiptHashes = receipts.map((receipt) => receipt?.receiptHash).filter(Boolean);
+  const priorReceiptHashes = ledger.map((receipt) => receipt?.receiptHash).filter(Boolean);
   return {
     allowed: uniqueReasons.length === 0,
     reasons: uniqueReasons,
