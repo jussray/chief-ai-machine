@@ -16,9 +16,7 @@ export class PerplexityRouterError extends Error {
 }
 
 function resolveApiKey(env) {
-  const workerKey = env?.PERPLEXITY_API_KEY;
-  const processKey = typeof process !== 'undefined' ? process.env?.PERPLEXITY_API_KEY : undefined;
-  const apiKey = workerKey || processKey;
+  const apiKey = env?.PERPLEXITY_API_KEY;
   if (typeof apiKey !== 'string' || !apiKey.trim()) {
     throw new PerplexityRouterError(
       'PERPLEXITY_API_KEY is required for Perplexity Router requests.',
@@ -55,7 +53,7 @@ function fallbackRetryDelayMs(attempt) {
 }
 
 function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
 function classifyStatus(status) {
