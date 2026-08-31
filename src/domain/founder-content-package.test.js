@@ -11,7 +11,7 @@ const HISTORY_DIGEST = 'a'.repeat(64);
 const V4_SUBJECT_HASH = '2'.repeat(64);
 const V4_OBSERVATION_HASH = '3'.repeat(64);
 const V4_LEARNING_HASH = createHash('sha256')
-  .update(`ultrathink/v4-advisory-handoff@v0\n${V4_SUBJECT_HASH}\n${V4_OBSERVATION_HASH}\nATTESTED`, 'utf8')
+  .update(`ultrathink/v4-advisory-handoff@v0\n${V4_SUBJECT_HASH}\n${V4_OBSERVATION_HASH}\nATTESTED`)
   .digest('hex');
 const V4_HANDOFF = Object.freeze({
   schema: 'ultrathink/v4-advisory-handoff@v0',
