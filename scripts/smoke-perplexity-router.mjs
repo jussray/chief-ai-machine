@@ -4,7 +4,7 @@ if (!process.env.PERPLEXITY_API_KEY) {
   console.error('PERPLEXITY_API_KEY is missing. Create a key in the Perplexity API Console and export it in your own terminal.');
   process.exitCode = 2;
 } else {
-  const router = createPerplexityRouter();
+  const router = createPerplexityRouter({ env: process.env });
   const models = await router.listModels();
   const model = models
     .filter((entry) => Number.isFinite(entry?.pricing?.input) && Number.isFinite(entry?.pricing?.output))
