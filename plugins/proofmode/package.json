@@ -3,12 +3,12 @@
   "version": "0.1.0-core",
   "private": true,
   "type": "module",
-  "description": "Read-only evidence analysis for software repository claims, implementation, tests, deployment evidence, and runtime verification gaps.",
+  "description": "Read-only evidence analysis for software repository claims, implementation, tests, deployment evidence, runtime verification gaps, and bounded execution proof.",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "test": "npm --prefix ../.. run verify:proofmode",
-    "check": "node --check src/github.js && node --check src/audit.js && node --check src/proof-receipt.js"
+    "check": "node --check src/github.js && node --check src/audit.js && node --check src/proof-receipt.js && node --check src/execution-authority.js"
   }
 }
