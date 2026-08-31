@@ -5,7 +5,7 @@ const SHA256 = /^[a-f0-9]{64}$/;
 const EXACT_FIELDS = ['evidenceLevel', 'learningHash', 'observationHash', 'schema', 'subjectHash'];
 
 function sha256(value) {
-  return createHash('sha256').update(value, 'utf8').digest('hex');
+  return createHash('sha256').update(value).digest('hex');
 }
 
 function record(value) {
