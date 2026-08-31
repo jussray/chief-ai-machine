@@ -47,6 +47,26 @@ describe('Chief operator continuity v2 mirror', () => {
     })).toBe(operatorContinuityFingerprintV2(baseInput));
   });
 
+  it('binds provenance metadata separately from the stable state fingerprint', () => {
+    const receipt = createOperatorContinuityReceiptV2(baseInput);
+    expect(receipt.provenanceDigest).toMatch(/^[0-9a-f]{64}$/);
+
+    const mutations = [
+      { evidenceRefs: ['github:forged-evidence'] },
+      { observedAt: '2026-08-31T16:21:00.000Z' },
+      { expiresAt: '2026-08-31T16:41:00.000Z' },
+      { predecessorFingerprint: '7'.repeat(64) },
+    ];
+
+    for (const mutation of mutations) {
+      const forged = { ...receipt, ...mutation };
+      expect(forged.fingerprint).toBe(receipt.fingerprint);
+      expect(validateOperatorContinuityReceiptV2(forged)).toContain(
+        'operator continuity v2 provenance digest does not match bound receipt metadata',
+      );
+    }
+  });
+
   it('matches the canonical provider-observation vector', () => {
     expect(operatorContinuityDimensionFingerprint({
       provider: 'cloudflare',
@@ -60,7 +80,7 @@ describe('Chief operator continuity v2 mirror', () => {
 
   it('accepts an unchanged fresh cross-operator receipt without granting authority', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
-    expect(validateOperatorContinuityReceiptV2(receipt)).toEqual([]);
+    expect(validateOperatorContinuityReceiptV2(receipt, NOW)).toEqual([]);
     expect(evaluateOperatorContinuityReceiptV2(receipt, {
       ...baseInput,
       source: 'work',
@@ -74,6 +94,23 @@ describe('Chief operator continuity v2 mirror', () => {
       reacquireRequired: false,
       continuityMayAuthorizeAction: false,
     });
+  });
+
+  it('rejects a receipt before its claimed observation time', () => {
+    const receipt = createOperatorContinuityReceiptV2({
+      ...baseInput,
+      observedAt: '2026-08-31T16:31:00.000Z',
+      expiresAt: '2026-08-31T16:50:00.000Z',
+    });
+
+    expect(validateOperatorContinuityReceiptV2(receipt, NOW)).toContain(
+      'operator continuity observedAt cannot be in the future',
+    );
+
+    const result = evaluateOperatorContinuityReceiptV2(receipt, baseInput, NOW);
+    expect(result.state).toBe('invalid');
+    expect(result.reasons).toContain('observation_time_invalid');
+    expect(result.continuityMayAuthorizeAction).toBe(false);
   });
 
   it('revokes inherited green on load-bearing state movement', () => {
