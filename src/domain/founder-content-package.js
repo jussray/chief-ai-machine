@@ -3,7 +3,7 @@ import { buildFounderContentProposal } from './founder-content-brain.js';
 import {
   bindStrategyLeaseToProposal,
   buildFounderContentStrategyLease,
-} from './founder-content-strategy.js';
+} from './founder-content-strategy-lease.js';
 import { attachV4AdvisoryLearningToStrategyInput } from './founder-content-v4-advisory.js';
 
 const HASH = /^[0-9a-f]{64}$/i;
