@@ -1,5 +1,5 @@
 import { classifyRepositoryEvidence } from '../plugins/proofmode/src/audit.js';
-import { loadPublicRepositoryEvidence } from '../plugins/proofmode/src/github.js';
+import { loadPublicRepositoryEvidence, ProofModeGitHubError } from '../plugins/proofmode/src/github.js';
 import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
@@ -7,12 +7,12 @@ const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
-const SAFE_TOOL_ERROR_CODES = new Set([
-  'repository_unavailable',
-  'source_rate_limited',
-  'source_forbidden',
-  'source_error',
-]);
+const SAFE_TOOL_ERROR_MESSAGES = Object.freeze({
+  repository_unavailable: 'Repository or ref is not publicly available to ProofMode.',
+  source_rate_limited: 'GitHub rate-limited the public evidence request.',
+  source_forbidden: 'GitHub refused the anonymous public evidence request.',
+  source_error: 'GitHub public evidence request failed.',
+});
 
 const TOOL = {
   name: 'audit_repository',
@@ -148,10 +148,11 @@ function toolResult(report, proofReceipt) {
 
 function toolError(error) {
   const suppliedCode = typeof error?.code === 'string' ? error.code : '';
-  const safeProviderError = SAFE_TOOL_ERROR_CODES.has(suppliedCode);
+  const safeProviderError = error instanceof ProofModeGitHubError
+    && Object.prototype.hasOwnProperty.call(SAFE_TOOL_ERROR_MESSAGES, suppliedCode);
   const errorCode = safeProviderError ? suppliedCode : 'audit_failed';
-  const message = safeProviderError && error instanceof Error
-    ? error.message
+  const message = safeProviderError
+    ? SAFE_TOOL_ERROR_MESSAGES[suppliedCode]
     : 'ProofMode audit failed without exposing internal details.';
   return {
     content: [{ type: 'text', text: message }],
