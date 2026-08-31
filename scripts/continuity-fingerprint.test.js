@@ -170,13 +170,17 @@ describe('Chief operator continuity v2 mirror', () => {
     expect(result.reasons).toEqual(['provider_moved']);
   });
 
-  it('fails closed on forged authority and expires old receipts', () => {
+  it('fails closed on forged authority and expires receipts at their exact deadline', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
     const forged = { ...receipt, authorizing: true };
     const invalid = evaluateOperatorContinuityReceiptV2(forged, baseInput, NOW);
     expect(invalid.state).toBe('invalid');
     expect(invalid.reasons).toContain('receipt_invalid');
     expect(invalid.continuityMayAuthorizeAction).toBe(false);
+
+    const atDeadline = evaluateOperatorContinuityReceiptV2(receipt, baseInput, baseInput.expiresAt);
+    expect(atDeadline.state).toBe('stale');
+    expect(atDeadline.reasons).toContain('receipt_expired');
 
     const expired = evaluateOperatorContinuityReceiptV2(receipt, baseInput, '2026-08-31T16:40:00.001Z');
     expect(expired.state).toBe('stale');
