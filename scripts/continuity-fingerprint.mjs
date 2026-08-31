@@ -132,7 +132,7 @@ export function operatorContinuityFingerprintV2(input) {
 /**
  * Deterministic content binding for the complete receipt metadata. This digest detects
  * accidental or unaccompanied mutation, but is deliberately not treated as authenticity:
- * cross-operator acceptance additionally requires an out-of-band authenticated transport
+ * evaluating continuity additionally requires an out-of-band authenticated transport
  * or trusted-signer context bound to this exact digest.
  */
 export function operatorContinuityProvenanceDigestV2(input) {
@@ -168,7 +168,7 @@ export function operatorContinuityProvenanceDigestV2(input) {
 
 function provenanceAuthenticationErrors(receipt, authentication) {
   if (!authentication || typeof authentication !== 'object' || Array.isArray(authentication)) {
-    return ['operator continuity cross-operator provenance is unauthenticated'];
+    return ['operator continuity provenance is unauthenticated'];
   }
   const errors = [];
   const mechanism = text(authentication.mechanism);
@@ -253,6 +253,7 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now, prove
   const add = (reason) => { if (!reasons.includes(reason)) reasons.push(reason); };
   if (validateOperatorContinuityReceiptV2(receipt).length) add('receipt_invalid');
   if (operatorContinuityInputErrorsV2(current).length) add('current_input_invalid');
+  if (provenanceAuthenticationErrors(receipt, provenanceAuthentication).length) add('provenance_unauthenticated');
   const nowMs = Date.parse(now);
   const observedMs = Date.parse(receipt.observedAt);
   const expiresMs = Date.parse(receipt.expiresAt);
@@ -267,9 +268,6 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now, prove
   if (!reasons.includes('receipt_invalid') && !reasons.includes('current_input_invalid')) {
     const prior = normalizedInput(receipt);
     const next = normalizedInput(current);
-    if (prior.source !== next.source && provenanceAuthenticationErrors(receipt, provenanceAuthentication).length) {
-      add('provenance_unauthenticated');
-    }
     const fields = [
       ['projectSlug', 'project_moved'],
       ['repositoryFullName', 'repository_moved'],
