@@ -237,7 +237,7 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
     add('observation_time_invalid');
   } else if (observedMs > nowMs) {
     add('observation_time_invalid');
-  } else if (nowMs > expiresMs) {
+  } else if (nowMs >= expiresMs) {
     add('receipt_expired');
   }
 
