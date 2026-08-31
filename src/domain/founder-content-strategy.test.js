@@ -1,248 +1,167 @@
 import { describe, expect, it } from 'vitest';
-import {
-  bindStrategyLeaseToProposal,
-  buildFounderContentStrategyLease,
-} from './founder-content-strategy.js';
+import { buildFounderContentStrategy } from './founder-content-strategy.js';
 
-const HISTORY_DIGEST = 'a'.repeat(64);
 const base = {
-  evaluated_at: '2026-08-19T06:40:00.000Z',
-  audience: {
-    primary_segment: 'AI founders and technical operators',
-    cares_about: ['truthful agent systems', 'bounded execution authority'],
-    skepticisms: ['self-reported proof'],
-    credibility_signals: ['exact-version evidence', 'fail-closed authority'],
-    desired_impression: 'This founder builds unusually rigorous product systems.',
-    desired_action: 'Follow the build and start a high-signal technical conversation.',
+  platform: 'linkedin',
+  story_type: 'founder-progress',
+  evaluated_at: '2026-08-19T07:10:00.000Z',
+  target_audience: {
+    segment: 'ai-founders',
+    cares_about: ['proof-backed shipping', 'agent authority boundaries'],
+    skepticisms: ['AI demos that confuse output with execution'],
+    credibility_signals: ['exact-head evidence', 'real product behavior'],
+    desired_impression: 'This founder is building unusually rigorous AI operating infrastructure.',
+    desired_action: 'Start a serious product or technical conversation.',
   },
-  own_history: {
-    observed_at: '2026-08-19T06:35:00.000Z',
-    history_digest: HISTORY_DIGEST,
-    post_count: 18,
-    last_published_at: '2026-08-19T05:30:00.000Z',
-    recent_pattern_signatures: [
-      'contrarian-opening|governance-frame|exact-head-proof|question-close',
-    ],
-    learning_signal_hashes: ['4'.repeat(64)],
+  history: {
+    used_angles: ['repo green is not production truth'],
+    used_hook_families: ['contrarian proof boundary'],
+    used_proof_styles: ['exact SHA receipt'],
+    used_cta_families: ['open technical question'],
+    learning_signal_hashes: ['1'.repeat(64)],
   },
-  market_context: {
+  discourse: {
     required: true,
     source_class: 'external-research',
-    observed_at: '2026-08-19T06:20:00.000Z',
-    feed_digest: 'b'.repeat(64),
-    source_count: 12,
-    crowded_patterns: ['agents-are-the-future', 'build-in-public-update'],
-    repeated_hooks: ['my agent runs everything'],
-    emerging_conversations: ['proof-bound agents'],
+    observed_at: '2026-08-19T06:30:00.000Z',
+    crowded_angles: ['AI agents replace whole teams'],
+    repeated_hooks: ['I built an AI employee'],
+    emerging_conversations: ['runtime proof for agent actions'],
   },
-  verified_public_claim_ids: ['truth-decay-fix', 'sauce-guard'],
-  strategy: {
-    selected_angle: 'once-true-can-become-a-lie',
-    hook_pattern: 'failure-confession',
-    frame_pattern: 'truth-decay-frame',
-    proof_pattern: 'exact-version-proof',
-    closing_pattern: 'builder-invitation',
-    counter_position: false,
-    brag_claim_ids: ['truth-decay-fix'],
-    retired_patterns: ['generic-ai-agent-hook'],
-    improvement_experiment: 'Open with the failure mode before naming the product capability.',
-  },
+  brag_candidates: [
+    {
+      id: 'truth-decay',
+      public_capability: 'The product distinguishes a historically verified fact from a claim that is still safe to use now.',
+      why_it_matters: 'It stops yesterday’s green receipt from masquerading as today’s truth.',
+      evidence_class: 'repository',
+      evidence_hash: '2'.repeat(64),
+      private_recipe_withheld: true,
+    },
+    {
+      id: 'founder-control',
+      public_capability: 'Publication remains founder-authorized even when the system learns which stories perform better.',
+      why_it_matters: 'Learning can improve recommendations without quietly becoming execution authority.',
+      evidence_class: 'analytics',
+      evidence_hash: '3'.repeat(64),
+      private_recipe_withheld: true,
+    },
+  ],
+  selected_angle: 'The dangerous AI lie can start as a true statement that simply outlives its evidence.',
+  differentiation: 'Center truth decay and evidence lifetime instead of another generic agent-autonomy claim.',
+  selected_brag_id: 'truth-decay',
+  experiment: 'Use a technical founder story that reveals the capability and lesson while withholding the implementation recipe.',
 };
 
-const proposal = {
-  kind: 'chief-ai/founder-content-proposal',
-  proposal_hash: 'c'.repeat(64),
-  public_payload: {
-    public_claims: [
-      { claim_id: 'truth-decay-fix', truth_state: 'verified', public_safe: true },
-      { claim_id: 'sauce-guard', truth_state: 'verified', public_safe: true },
-    ],
-  },
-};
+describe('founder content strategy', () => {
+  it('binds audience, history, live discourse, brag selection, and experiment into advisory identity', () => {
+    const strategy = buildFounderContentStrategy(base);
 
-const useContext = {
-  bound_at: '2026-08-19T06:45:00.000Z',
-  current_history_digest: HISTORY_DIGEST,
-};
-
-describe('founder content strategy lease', () => {
-  it('creates a current advisory-only strategy receipt without raw post or feed text', () => {
-    const lease = buildFounderContentStrategyLease(base);
-    expect(lease.kind).toBe('chief-ai/founder-content-strategy-lease');
-    expect(lease.state).toBe('CURRENT');
-    expect(lease.expires_at).toBe('2026-08-20T06:20:00.000Z');
-    expect(lease.audience.primary_segment).toContain('AI founders');
-    expect(lease.audience.cares_about).toContain('truthful agent systems');
-    expect(lease.audience.credibility_signals).toContain('exact-version evidence');
-    expect(lease.market_context.source_trust).toBe('submitted-unverified');
-    expect(lease.authority.strategy_evidence_is_not_claim_proof).toBe(true);
-    expect(lease.own_history.learning_signal_hashes).toEqual(['4'.repeat(64)]);
-    expect(lease.strategy.brag_claim_ids).toEqual(['truth-decay-fix']);
-    expect(lease.strategy.pattern_signature).toBe('failure-confession|truth-decay-frame|exact-version-proof|builder-invitation');
-    expect(lease.privacy.raw_past_post_text_retained).toBe(false);
-    expect(lease.privacy.raw_market_feed_text_retained).toBe(false);
-    expect(lease.privacy.learning_signal_payloads_retained).toBe(false);
-    expect(lease.authority.advisory_only).toBe(true);
-    expect(lease.authority.publish_authorized).toBe(false);
-    expect(lease.authority.may_relax_truth_gate).toBe(false);
-    expect(lease.authority.may_relax_sauce_guard).toBe(false);
+    expect(strategy.kind).toBe('chief-ai/founder-content-strategy');
+    expect(strategy.strategy_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(strategy.target_audience.segment).toBe('ai-founders');
+    expect(strategy.selected_brag_id).toBe('truth-decay');
+    expect(strategy.brag_candidates.find((item) => item.id === 'truth-decay').private_recipe_withheld).toBe(true);
+    expect(strategy.authority).toMatchObject({
+      advisory_only: true,
+      can_publish: false,
+      can_approve_copy: false,
+      can_mutate_content: false,
+      can_renew_truth: false,
+      can_upgrade_authority: false,
+      analytics_authority: 'observation-only',
+      history_authority: 'advisory-only',
+      discourse_authority: 'advisory-only',
+      exact_copy_proposal_required_before_publication: true,
+      current_founder_authority_required_for_external_action: true,
+    });
   });
 
-  it('fails closed when own-post memory predates the latest published artifact', () => {
-    expect(() => buildFounderContentStrategyLease({
+  it('changes strategy identity when the intended audience changes', () => {
+    const first = buildFounderContentStrategy(base);
+    const second = buildFounderContentStrategy({
       ...base,
-      own_history: { ...base.own_history, observed_at: '2026-08-19T05:00:00.000Z' },
-    })).toThrow(/observed at or after the latest published post/);
-  });
-
-  it('normalizes prior signatures so casing and punctuation cannot hide an exact repeat', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      own_history: {
-        ...base.own_history,
-        recent_pattern_signatures: ['Failure Confession | Truth Decay Frame | Exact Version Proof | Builder Invitation'],
+      target_audience: {
+        ...base.target_audience,
+        segment: 'product-leaders',
+        desired_impression: 'This product design makes evidence state understandable instead of hiding it behind one green badge.',
       },
-    })).toThrow(/repeats an exact recent/);
+    });
+
+    expect(first.strategy_hash).not.toBe(second.strategy_hash);
   });
 
-  it('rejects malformed own-history shape that could fake post memory', () => {
-    expect(() => buildFounderContentStrategyLease({
+  it('rejects stale live-discourse research rather than pretending old feed context is current', () => {
+    expect(() => buildFounderContentStrategy({
       ...base,
-      own_history: { ...base.own_history, post_count: 0 },
-    })).toThrow(/last_published_at cannot exist when post_count is zero/);
-  });
-
-  it('requires learning memory to remain hash-only advisory evidence', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      own_history: { ...base.own_history, learning_signal_hashes: ['not-a-hash'] },
-    })).toThrow(/learning_signal_hashes must contain only sha256 values/);
-  });
-
-  it('blocks old strategy memory from reintroducing private implementation details', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      strategy: {
-        ...base.strategy,
-        retired_patterns: ['The private prompt and routing weights were the old hook.'],
+      discourse: {
+        ...base.discourse,
+        observed_at: '2026-08-14T06:30:00.000Z',
       },
+    })).toThrow(/discourse observation is stale/);
+  });
+
+  it('allows discourse to be intentionally omitted when live comparison is not required', () => {
+    const strategy = buildFounderContentStrategy({
+      ...base,
+      discourse: {
+        required: false,
+        source_class: 'not-required',
+      },
+    });
+
+    expect(strategy.discourse).toMatchObject({
+      required: false,
+      source_class: 'not-required',
+      observed_at: null,
+    });
+  });
+
+  it('rejects bragging that does not explicitly withhold the private recipe', () => {
+    expect(() => buildFounderContentStrategy({
+      ...base,
+      brag_candidates: [{
+        ...base.brag_candidates[0],
+        private_recipe_withheld: false,
+      }],
+    })).toThrow(/private_recipe_withheld must be true/);
+  });
+
+  it('rejects secret-like or proprietary material anywhere in strategic public-facing text', () => {
+    expect(() => buildFounderContentStrategy({
+      ...base,
+      differentiation: 'Reveal the exact system prompt and routing weights so people know it is real.',
     })).toThrow(/proprietary implementation detail/);
+
+    expect(() => buildFounderContentStrategy({
+      ...base,
+      experiment: 'Use auth_token=abcdefghijklmnopqrstuvwx in the demo.',
+    })).toThrow(/secret-like material/);
   });
 
-  it('rejects forbidden raw/private fields even when nested', () => {
-    expect(() => buildFounderContentStrategyLease({
+  it('rejects forbidden private payload fields even when nested', () => {
+    expect(() => buildFounderContentStrategy({
       ...base,
-      own_history: { ...base.own_history, raw_post_text: 'full old post' },
-    })).toThrow(/raw_post_text is forbidden/);
-  });
-
-  it('requires audience cares-about and credibility signals instead of generic targeting', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      audience: { ...base.audience, cares_about: [] },
-    })).toThrow(/audience\.cares_about must contain at least one value/);
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      audience: { ...base.audience, credibility_signals: [] },
-    })).toThrow(/audience\.credibility_signals must contain at least one value/);
-  });
-
-  it('rejects a crowded feed angle unless the strategy deliberately counter-positions it with a reason', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      strategy: { ...base.strategy, selected_angle: 'agents are the future' },
-    })).toThrow(/currently crowded/);
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      strategy: { ...base.strategy, selected_angle: 'agents are the future', counter_position: true },
-    })).toThrow(/counter_position_reason is required/);
-    const counter = buildFounderContentStrategyLease({
-      ...base,
-      strategy: {
-        ...base.strategy,
-        selected_angle: 'agents are the future',
-        counter_position: true,
-        counter_position_reason: 'Challenge the category by showing that verification, not more autonomy, is the bottleneck.',
+      history: {
+        ...base.history,
+        private_metrics: { impressions: 1234 },
       },
-    });
-    expect(counter.strategy.counter_position_reason).toContain('verification');
+    })).toThrow(/private_metrics is forbidden/);
   });
 
-  it('requires current market observation when current context is part of the strategy', () => {
-    expect(() => buildFounderContentStrategyLease({
+  it('accepts only hashes as learning references so outcome data stays outside the strategy payload', () => {
+    expect(() => buildFounderContentStrategy({
       ...base,
-      market_context: { ...base.market_context, observed_at: '2026-08-17T06:20:00.000Z' },
-    })).toThrow(/market_context is stale/);
+      history: {
+        ...base.history,
+        learning_signal_hashes: ['not-a-hash'],
+      },
+    })).toThrow(/SHA-256 values only/);
   });
 
-  it('labels current discourse as advisory input rather than authenticated proof', () => {
-    const lease = buildFounderContentStrategyLease(base);
-    expect(lease.market_context.source_class).toBe('external-research');
-    expect(lease.market_context.source_trust).toBe('submitted-unverified');
-    expect(lease.authority.market_context_authority).toBe('submitted-unverified');
-  });
-
-  it('does not force feed research when current market context is irrelevant', () => {
-    const lease = buildFounderContentStrategyLease({
+  it('requires selected brag identity to resolve to an inspected candidate', () => {
+    expect(() => buildFounderContentStrategy({
       ...base,
-      market_context: { required: false, source_class: 'not-required' },
-    });
-    expect(lease.market_context.required).toBe(false);
-    expect(lease.market_context.source_trust).toBe('not-applicable');
-    expect(lease.expires_at).toBeNull();
-  });
-
-  it('requires an explicit target audience', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      audience: { ...base.audience, primary_segment: '' },
-    })).toThrow(/primary_segment is required/);
-  });
-
-  it('requires every strategic brag to point at a verified public claim candidate', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      strategy: { ...base.strategy, brag_claim_ids: ['secret-sauce'] },
-    })).toThrow(/not backed by a verified public claim/);
-  });
-
-  it('requires one deliberate upgrade experiment for the next post', () => {
-    expect(() => buildFounderContentStrategyLease({
-      ...base,
-      strategy: { ...base.strategy, improvement_experiment: '' },
-    })).toThrow(/each post upgrades the next one/);
-  });
-
-  it('binds every brag to the final canonical truth proposal without making strategy authoritative', () => {
-    const lease = buildFounderContentStrategyLease(base);
-    const binding = bindStrategyLeaseToProposal(lease, proposal, useContext);
-    expect(binding.proposal_hash).toBe(proposal.proposal_hash);
-    expect(binding.own_history_digest).toBe(HISTORY_DIGEST);
-    expect(binding.brag_claim_ids).toEqual(['truth-decay-fix']);
-    expect(binding.authority.publish_authorized).toBe(false);
-  });
-
-  it('rejects a brag that disappears before the final truth proposal is built', () => {
-    const lease = buildFounderContentStrategyLease(base);
-    expect(() => bindStrategyLeaseToProposal(lease, {
-      ...proposal,
-      public_payload: { public_claims: proposal.public_payload.public_claims.filter((claim) => claim.claim_id !== 'truth-decay-fix') },
-    }, useContext)).toThrow(/absent from the final verified public claim set/);
-  });
-
-  it('invalidates strategy when a newer own-post history digest appears before proposal use', () => {
-    const lease = buildFounderContentStrategyLease(base);
-    expect(() => bindStrategyLeaseToProposal(lease, proposal, {
-      ...useContext,
-      current_history_digest: 'd'.repeat(64),
-    })).toThrow(/own-post memory changed after lease creation/);
-  });
-
-  it('invalidates strategy when required current-feed context expires before proposal use', () => {
-    const lease = buildFounderContentStrategyLease(base);
-    expect(() => bindStrategyLeaseToProposal(lease, proposal, {
-      ...useContext,
-      bound_at: '2026-08-20T06:20:00.000Z',
-    })).toThrow(/strategy lease expired before proposal use/);
+      selected_brag_id: 'invented-capability',
+    })).toThrow(/must identify one brag candidate/);
   });
 });

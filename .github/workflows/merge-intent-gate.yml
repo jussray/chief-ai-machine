@@ -1,0 +1,64 @@
+name: Merge Intent Gate
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+
+permissions:
+  contents: read
+
+jobs:
+  merge-intent:
+    name: Merge Intent Gate
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out trusted base evaluator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+
+      - name: Evaluate current merge intent
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { evaluateMergeIntent } from './src/domain/merge-intent.js';
+
+          const decision = evaluateMergeIntent({
+            baseRef: process.env.PR_BASE,
+            title: process.env.PR_TITLE,
+            body: process.env.PR_BODY,
+            isDraft: process.env.PR_DRAFT === 'true',
+          });
+
+          console.log(JSON.stringify({
+            pr: Number(process.env.PR_NUMBER),
+            headSha: process.env.PR_HEAD_SHA,
+            ...decision,
+          }, null, 2));
+
+          if (!decision.mergeIntentClear) {
+            console.error(`Merge intent blocked: ${decision.reasons.join(', ')}`);
+            process.exit(1);
+          }
+          NODE
