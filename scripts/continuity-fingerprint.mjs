@@ -104,11 +104,14 @@ export function operatorContinuityInputErrorsV2(input) {
   return [...new Set(errors)];
 }
 
+/**
+ * State identity only. Observer identity, evidence references and freshness metadata
+ * remain receipt provenance, so the same reality hashes identically across operators.
+ */
 export function operatorContinuityFingerprintV2(input) {
   const value = normalizedInput(input);
   return createHash('sha256').update(JSON.stringify([
     OPERATOR_CONTINUITY_CONTRACT_V2,
-    value.source,
     value.projectSlug,
     value.repositoryFullName,
     value.targetBranch,
@@ -122,15 +125,6 @@ export function operatorContinuityFingerprintV2(input) {
     value.providerFingerprint,
     value.runtimeFingerprint,
     value.authorityFingerprint,
-    value.evidenceRefs,
-    value.observedAt,
-    value.expiresAt,
-    value.predecessorFingerprint,
-    false,
-    false,
-    false,
-    false,
-    true,
   ])).digest('hex');
 }
 
@@ -183,10 +177,6 @@ export function validateOperatorContinuityReceiptV2(receipt) {
   return [...new Set(errors)];
 }
 
-function sameEvidenceRefs(a, b) {
-  return JSON.stringify(normalizedEvidenceRefs(a)) === JSON.stringify(normalizedEvidenceRefs(b));
-}
-
 export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
   const reasons = [];
   const add = (reason) => { if (!reasons.includes(reason)) reasons.push(reason); };
@@ -201,7 +191,6 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
     const prior = normalizedInput(receipt);
     const next = normalizedInput(current);
     const fields = [
-      ['source', 'source_moved'],
       ['projectSlug', 'project_moved'],
       ['repositoryFullName', 'repository_moved'],
       ['targetBranch', 'target_branch_moved'],
@@ -217,7 +206,6 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
       ['authorityFingerprint', 'authority_moved'],
     ];
     for (const [field, reason] of fields) if (prior[field] !== next[field]) add(reason);
-    if (!sameEvidenceRefs(prior.evidenceRefs, next.evidenceRefs)) add('evidence_refs_moved');
   }
 
   const invalid = reasons.includes('receipt_invalid')
