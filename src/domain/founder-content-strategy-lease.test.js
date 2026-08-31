@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bindStrategyLeaseToProposal,
   buildFounderContentStrategyLease,
-} from './founder-content-strategy.js';
+} from './founder-content-strategy-lease.js';
 
 const HISTORY_DIGEST = 'a'.repeat(64);
 const base = {
