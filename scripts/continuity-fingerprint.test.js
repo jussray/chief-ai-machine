@@ -1,54 +1,60 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createContinuityFingerprint,
-  evaluateContinuityCookie,
-  mintContinuityCookie,
+  createOperatorContinuityReceiptV2,
+  evaluateOperatorContinuityReceiptV2,
+  operatorContinuityDimensionFingerprint,
+  operatorContinuityFingerprintV2,
+  validateOperatorContinuityReceiptV2,
 } from './continuity-fingerprint.mjs';
 
 const NOW = '2026-08-31T16:30:00.000Z';
-const MINTED_AT = '2026-08-31T16:20:00.000Z';
-const EXPIRES_AT = '2026-08-31T16:40:00.000Z';
+const baseInput = {
+  source: 'chatgpt',
+  projectSlug: 'founder-control-room',
+  repositoryFullName: 'jussray/founder-control-room',
+  targetBranch: 'main',
+  targetSha: 'a'.repeat(40),
+  prNumber: 733,
+  baseSha: 'b'.repeat(40),
+  headSha: 'c'.repeat(40),
+  scopeFingerprint: '1'.repeat(64),
+  proofFingerprint: '2'.repeat(64),
+  reviewFingerprint: '3'.repeat(64),
+  providerFingerprint: '4'.repeat(64),
+  runtimeFingerprint: '5'.repeat(64),
+  authorityFingerprint: '6'.repeat(64),
+  evidenceRefs: ['github:main-readback', 'github:pr-733'],
+  observedAt: '2026-08-31T16:20:00.000Z',
+  expiresAt: '2026-08-31T16:40:00.000Z',
+  predecessorFingerprint: null,
+};
 
-function observation(overrides = {}) {
-  return {
-    project: 'founder-control-room',
-    repository: 'jussray/founder-control-room',
-    targetBranch: 'main',
-    targetSha: 'a'.repeat(40),
-    prNumber: 733,
-    baseSha: 'b'.repeat(40),
-    headSha: 'c'.repeat(40),
-    scopeFingerprint: '1'.repeat(64),
-    proofFingerprint: '2'.repeat(64),
-    reviewFingerprint: '3'.repeat(64),
-    providerFingerprint: '4'.repeat(64),
-    runtimeFingerprint: '5'.repeat(64),
-    authorityFingerprint: '6'.repeat(64),
-    observedAt: MINTED_AT,
-    ...overrides,
-  };
-}
-
-function cookie(overrides = {}) {
-  return mintContinuityCookie({
-    fingerprint: createContinuityFingerprint(observation()),
-    mintedAt: MINTED_AT,
-    expiresAt: EXPIRES_AT,
-    issuer: 'chief-proofmode',
-    issuerIdentityState: 'verified',
-    ...overrides,
-  });
-}
-
-describe('Chief continuity fingerprint + cookie mirror', () => {
-  it('matches the FCR canonical SHA-256 test vector', () => {
-    expect(createContinuityFingerprint(observation()).digest).toBe(
-      '78f478e422bd731b0dbf45b1acd47c555bb4315ba7d6b618bf6219ee28afc02e',
+describe('Chief operator continuity v2 mirror', () => {
+  it('matches the FCR canonical v2 SHA-256 vector', () => {
+    expect(operatorContinuityFingerprintV2(baseInput)).toBe(
+      'ee90f5351755772ed04169c63abb3347eba7b9ec721b706d0002f7fa0d32f3d9',
     );
   });
 
-  it('accepts an unchanged, fresh cookie without granting authority', () => {
-    expect(evaluateContinuityCookie(cookie(), createContinuityFingerprint(observation()), NOW)).toMatchObject({
+  it('matches the canonical provider-observation vector', () => {
+    expect(operatorContinuityDimensionFingerprint({
+      provider: 'cloudflare',
+      audit: 'authority',
+      attempt: 2,
+      jobId: '99560046321',
+      state: 'queued',
+      mutation: 'none',
+    })).toBe('1a5507cb4afcde7281176b78d05e9b788a6f278672c1f196b1c0eb2f1d55171a');
+  });
+
+  it('accepts an unchanged fresh receipt without granting authority', () => {
+    const receipt = createOperatorContinuityReceiptV2(baseInput);
+    expect(validateOperatorContinuityReceiptV2(receipt)).toEqual([]);
+    expect(evaluateOperatorContinuityReceiptV2(receipt, {
+      ...baseInput,
+      observedAt: '2026-08-31T16:29:00.000Z',
+      expiresAt: '2026-08-31T16:49:00.000Z',
+    }, NOW)).toEqual({
       state: 'current',
       reasons: [],
       reacquireRequired: false,
@@ -56,7 +62,8 @@ describe('Chief continuity fingerprint + cookie mirror', () => {
     });
   });
 
-  it('revokes inherited green when target/base/head/scope/proof/review/provider/runtime/authority changes', () => {
+  it('revokes inherited green on target/base/head/scope/proof/review/provider/runtime/authority movement', () => {
+    const receipt = createOperatorContinuityReceiptV2(baseInput);
     const variants = [
       [{ targetSha: 'd'.repeat(40) }, 'target_sha_moved'],
       [{ baseSha: 'd'.repeat(40) }, 'base_sha_moved'],
@@ -67,10 +74,10 @@ describe('Chief continuity fingerprint + cookie mirror', () => {
       [{ providerFingerprint: 'a'.repeat(64) }, 'provider_moved'],
       [{ runtimeFingerprint: 'b'.repeat(64) }, 'runtime_moved'],
       [{ authorityFingerprint: 'c'.repeat(64) }, 'authority_moved'],
+      [{ evidenceRefs: ['github:main-readback', 'cloudflare:job:99560046321'] }, 'evidence_refs_moved'],
     ];
-
     for (const [change, reason] of variants) {
-      const result = evaluateContinuityCookie(cookie(), createContinuityFingerprint(observation(change)), NOW);
+      const result = evaluateOperatorContinuityReceiptV2(receipt, { ...baseInput, ...change }, NOW);
       expect(result.state, reason).toBe('stale');
       expect(result.reasons, reason).toContain(reason);
       expect(result.reacquireRequired, reason).toBe(true);
@@ -78,62 +85,46 @@ describe('Chief continuity fingerprint + cookie mirror', () => {
     }
   });
 
-  it('treats unknown provider/runtime evidence becoming observed as a stale-cookie event', () => {
-    const prior = createContinuityFingerprint(observation({ providerFingerprint: null, runtimeFingerprint: null }));
-    const continuityCookie = mintContinuityCookie({
-      fingerprint: prior,
-      mintedAt: MINTED_AT,
-      expiresAt: EXPIRES_AT,
-      issuer: 'chief-proofmode',
-      issuerIdentityState: 'verified',
+  it('models the Se’kret Bip Cloudflare rerun as a new cookie despite unchanged main', () => {
+    const attempt1Provider = operatorContinuityDimensionFingerprint({
+      provider: 'cloudflare', audit: 'authority', attempt: 1, state: 'blocked', mutation: 'none',
     });
-    const result = evaluateContinuityCookie(continuityCookie, createContinuityFingerprint(observation()), NOW);
-    expect(result.reasons).toEqual(expect.arrayContaining(['provider_moved', 'runtime_moved']));
-    expect(result.state).toBe('stale');
-  });
-
-  it('expires old cookies and fails closed on unverified issuers', () => {
-    const expired = evaluateContinuityCookie(
-      cookie(),
-      createContinuityFingerprint(observation()),
-      '2026-08-31T16:40:00.001Z',
-    );
-    expect(expired.state).toBe('stale');
-    expect(expired.reasons).toContain('cookie_expired');
-
-    const unverified = evaluateContinuityCookie(
-      cookie({ issuerIdentityState: 'unverified' }),
-      createContinuityFingerprint(observation()),
-      NOW,
-    );
-    expect(unverified.state).toBe('invalid');
-    expect(unverified.reasons).toContain('cookie_issuer_unverified');
-  });
-
-  it('detects tampering and cannot be converted into an authority grant', () => {
-    const original = cookie();
-    const tampered = {
-      ...original,
-      fingerprint: {
-        ...original.fingerprint,
-        observation: { ...original.fingerprint.observation, headSha: 'd'.repeat(40) },
-      },
+    const attempt2Provider = operatorContinuityDimensionFingerprint({
+      provider: 'cloudflare', audit: 'authority', attempt: 2, jobId: '99560046321', state: 'queued', mutation: 'none',
+    });
+    const shared = {
+      ...baseInput,
+      projectSlug: 'sekret-bip',
+      repositoryFullName: 'jussray/Sekret-Bip',
+      targetSha: '0d26db9c77799bd99ba68db194bd6bd948ca4f37',
+      prNumber: null,
+      baseSha: null,
+      headSha: null,
     };
-    const tamperedResult = evaluateContinuityCookie(tampered, createContinuityFingerprint(observation()), NOW);
-    expect(tamperedResult.state).toBe('invalid');
-    expect(tamperedResult.reasons).toEqual(expect.arrayContaining([
-      'fingerprint_integrity_mismatch',
-      'cookie_integrity_mismatch',
-    ]));
+    const receipt = createOperatorContinuityReceiptV2({
+      ...shared,
+      providerFingerprint: attempt1Provider,
+      evidenceRefs: ['cloudflare:authority-audit:attempt-1'],
+    });
+    const result = evaluateOperatorContinuityReceiptV2(receipt, {
+      ...shared,
+      providerFingerprint: attempt2Provider,
+      evidenceRefs: ['cloudflare:authority-audit:attempt-2', 'cloudflare:job:99560046321'],
+    }, NOW);
+    expect(result.state).toBe('stale');
+    expect(result.reasons).toEqual(expect.arrayContaining(['provider_moved', 'evidence_refs_moved']));
+  });
 
-    const forgedAuthority = { ...original, authority: true };
-    const authorityResult = evaluateContinuityCookie(
-      forgedAuthority,
-      createContinuityFingerprint(observation()),
-      NOW,
-    );
-    expect(authorityResult.state).toBe('invalid');
-    expect(authorityResult.reasons).toContain('cookie_authority_invalid');
-    expect(authorityResult.continuityMayAuthorizeAction).toBe(false);
+  it('fails closed on forged authority and expires old receipts', () => {
+    const receipt = createOperatorContinuityReceiptV2(baseInput);
+    const forged = { ...receipt, authorizing: true };
+    const invalid = evaluateOperatorContinuityReceiptV2(forged, baseInput, NOW);
+    expect(invalid.state).toBe('invalid');
+    expect(invalid.reasons).toContain('receipt_invalid');
+    expect(invalid.continuityMayAuthorizeAction).toBe(false);
+
+    const expired = evaluateOperatorContinuityReceiptV2(receipt, baseInput, '2026-08-31T16:40:00.001Z');
+    expect(expired.state).toBe('stale');
+    expect(expired.reasons).toContain('receipt_expired');
   });
 });
