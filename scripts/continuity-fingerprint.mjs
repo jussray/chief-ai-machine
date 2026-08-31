@@ -128,6 +128,41 @@ export function operatorContinuityFingerprintV2(input) {
   ])).digest('hex');
 }
 
+/**
+ * Integrity envelope for the complete receipt metadata. Unlike the state fingerprint,
+ * this digest intentionally changes when observer/provenance/freshness metadata changes.
+ */
+export function operatorContinuityProvenanceDigestV2(input) {
+  const value = normalizedInput(input);
+  return createHash('sha256').update(JSON.stringify([
+    OPERATOR_CONTINUITY_CONTRACT_V2,
+    value.source,
+    value.projectSlug,
+    value.repositoryFullName,
+    value.targetBranch,
+    value.targetSha,
+    value.prNumber,
+    value.baseSha,
+    value.headSha,
+    value.scopeFingerprint,
+    value.proofFingerprint,
+    value.reviewFingerprint,
+    value.providerFingerprint,
+    value.runtimeFingerprint,
+    value.authorityFingerprint,
+    value.evidenceRefs,
+    value.observedAt,
+    value.expiresAt,
+    value.predecessorFingerprint,
+    operatorContinuityFingerprintV2(value),
+    false,
+    false,
+    false,
+    false,
+    true,
+  ])).digest('hex');
+}
+
 export function createOperatorContinuityReceiptV2(input) {
   const value = normalizedInput(input);
   const errors = operatorContinuityInputErrorsV2(value);
@@ -137,6 +172,7 @@ export function createOperatorContinuityReceiptV2(input) {
     ...value,
     predecessorFingerprint: value.predecessorFingerprint ?? null,
     fingerprint: operatorContinuityFingerprintV2(value),
+    provenanceDigest: operatorContinuityProvenanceDigestV2(value),
     browserCookie: false,
     authorizing: false,
     standingMergeAuthority: false,
@@ -145,7 +181,7 @@ export function createOperatorContinuityReceiptV2(input) {
   };
 }
 
-export function validateOperatorContinuityReceiptV2(receipt) {
+export function validateOperatorContinuityReceiptV2(receipt, now = null) {
   const input = {
     source: receipt.source,
     projectSlug: receipt.projectSlug,
@@ -169,6 +205,18 @@ export function validateOperatorContinuityReceiptV2(receipt) {
   const errors = operatorContinuityInputErrorsV2(input);
   if (receipt.contract !== OPERATOR_CONTINUITY_CONTRACT_V2) errors.push('operator continuity v2 contract is unsupported');
   if (receipt.fingerprint !== operatorContinuityFingerprintV2(input)) errors.push('operator continuity v2 fingerprint does not match bound evidence');
+  const provenanceDigest = text(receipt.provenanceDigest).toLowerCase();
+  if (!SHA256.test(provenanceDigest)) {
+    errors.push('operator continuity v2 provenance digest must be a 64-character SHA-256 hash');
+  } else if (provenanceDigest !== operatorContinuityProvenanceDigestV2(input)) {
+    errors.push('operator continuity v2 provenance digest does not match bound receipt metadata');
+  }
+  if (now !== null && now !== undefined) {
+    const nowMs = Date.parse(text(now));
+    const observedMs = Date.parse(input.observedAt);
+    if (!Number.isFinite(nowMs)) errors.push('operator continuity validation time must be an ISO-compatible timestamp');
+    else if (Number.isFinite(observedMs) && observedMs > nowMs) errors.push('operator continuity observedAt cannot be in the future');
+  }
   if (receipt.browserCookie !== false) errors.push('operator continuity must never become a browser cookie');
   if (receipt.authorizing !== false) errors.push('operator continuity cannot authorize actions');
   if (receipt.standingMergeAuthority !== false) errors.push('operator continuity cannot carry standing merge authority');
@@ -183,9 +231,15 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
   if (validateOperatorContinuityReceiptV2(receipt).length) add('receipt_invalid');
   if (operatorContinuityInputErrorsV2(current).length) add('current_input_invalid');
   const nowMs = Date.parse(now);
+  const observedMs = Date.parse(receipt.observedAt);
   const expiresMs = Date.parse(receipt.expiresAt);
-  if (!Number.isFinite(nowMs) || !Number.isFinite(expiresMs)) add('observation_time_invalid');
-  else if (nowMs > expiresMs) add('receipt_expired');
+  if (!Number.isFinite(nowMs) || !Number.isFinite(observedMs) || !Number.isFinite(expiresMs)) {
+    add('observation_time_invalid');
+  } else if (observedMs > nowMs) {
+    add('observation_time_invalid');
+  } else if (nowMs > expiresMs) {
+    add('receipt_expired');
+  }
 
   if (!reasons.includes('receipt_invalid') && !reasons.includes('current_input_invalid')) {
     const prior = normalizedInput(receipt);
