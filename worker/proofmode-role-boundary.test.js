@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 const proofModeSource = read('worker/proofmode-mcp.js');
@@ -32,7 +33,7 @@ describe('Chief + FCR MCP role boundary', () => {
     expect(proofModeSource).toContain('idempotentHint: true');
     expect(proofModeSource).toContain('ProofMode is read-only.');
 
-    const authorityShapedTool = /name:\s*['\"](?:execute|merge|deploy|publish|delete|write|mutate|approve|authorize)/i;
+    const authorityShapedTool = /name:\s*['"](?:execute|merge|deploy|publish|delete|write|mutate|approve|authorize)/i;
     expect(authorityShapedTool.test(proofModeSource)).toBe(false);
   });
 
