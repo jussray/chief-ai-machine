@@ -11,7 +11,7 @@
     "generate:promptos": "node scripts/generateCatalog.mjs",
     "verify:v10-capability-kernel": "vitest run src/domain/capability-plan.test.js src/domain/capability-security.test.js src/domain/capability-outcome.test.js",
     "verify:mcp": "node scripts/verify-mcp-config.mjs",
-    "verify:cookies": "node scripts/verify-cookie-contract.mjs",
+    "verify:cookies": "node scripts/verify-cookie-contract.mjs && vitest run scripts/continuity-fingerprint.test.js",
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs",
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
