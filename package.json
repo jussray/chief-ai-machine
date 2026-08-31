@@ -6,7 +6,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "smoke:perplexity-router": "node scripts/smoke-perplexity-router.mjs",
     "verify:proofmode": "vitest run plugins/proofmode/test/audit.test.js plugins/proofmode/test/github.test.js plugins/proofmode/src/github.test.js plugins/proofmode/src/proof-receipt.test.js plugins/proofmode/src/execution-authority.test.js worker/proofmode-mcp.test.js worker/proofmode-mcp-error.test.js scripts/proofmode-access-policy.test.js",
     "generate:promptos": "node scripts/generateCatalog.mjs",
     "verify:v10-capability-kernel": "vitest run src/domain/capability-plan.test.js src/domain/capability-security.test.js src/domain/capability-outcome.test.js",
@@ -16,9 +15,6 @@
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
     "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"
-  },
-  "dependencies": {
-    "openai": "6.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
