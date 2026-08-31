@@ -100,6 +100,29 @@ describe('Perplexity Router', () => {
     }));
   });
 
+  it('passes Chat Completions streaming options through unchanged', async () => {
+    const stream = { async *[Symbol.asyncIterator]() {} };
+    const create = vi.fn(async () => stream);
+    const router = createPerplexityRouter({
+      env: { PERPLEXITY_API_KEY: API_KEY },
+      fetchImpl: vi.fn(async () => modelResponse(['provider/allowed'])),
+      openAIClientFactory: clientFactory(create),
+    });
+
+    const result = await router.chat.completions.create({
+      model: 'provider/allowed',
+      stream: true,
+      stream_options: { include_usage: true },
+      messages: [{ role: 'user', content: 'hello' }],
+    });
+
+    expect(result).toBe(stream);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      stream: true,
+      stream_options: { include_usage: true },
+    }));
+  });
+
   it('honors Retry-After on model-catalog 429s', async () => {
     const sleep = vi.fn(async () => {});
     const fetchImpl = vi.fn()
@@ -122,7 +145,7 @@ describe('Perplexity Router', () => {
 
   it('parses HTTP-date Retry-After values', () => {
     const now = Date.parse('2026-08-30T20:00:00Z');
-    const headers = new Headers({
+    const headers = new globalThis.Headers({
       'Retry-After': 'Sun, 30 Aug 2026 20:00:03 GMT',
     });
     expect(parseRetryAfterMs(headers, now)).toBe(3000);
