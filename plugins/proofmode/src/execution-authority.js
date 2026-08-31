@@ -54,9 +54,8 @@ function normalizeAction(value) {
 }
 
 function normalizeSigningKey(value) {
-  const key = Buffer.isBuffer(value) ? value : Buffer.from(typeof value === 'string' ? value : '');
-  if (key.byteLength < 32) throw new Error('invalid_effector_signing_key');
-  return key;
+  if (typeof value !== 'string' || value.length < 32) throw new Error('invalid_effector_signing_key');
+  return value;
 }
 
 function normalizeAllowedActions(value) {
