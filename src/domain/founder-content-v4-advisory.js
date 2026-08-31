@@ -55,7 +55,7 @@ export function validateFounderContentV4AdvisoryHandoff(input) {
 }
 
 /**
- * Feed only the validated learning hash into Chief strategy memory.
+ * Feed only the validated learning hash into the Strategy Lease memory shape.
  * The raw handoff itself is intentionally not retained in strategy state.
  */
 export function attachV4AdvisoryLearningToStrategyInput(strategyInput = {}, handoff) {
@@ -73,6 +73,30 @@ export function attachV4AdvisoryLearningToStrategyInput(strategyInput = {}, hand
     ...strategyInput,
     own_history: {
       ...ownHistory,
+      learning_signal_hashes: [...new Set([...(existing ?? []), learningHash])],
+    },
+  };
+}
+
+/**
+ * Feed the same validated learning hash into Chief's current runtime strategy
+ * shape without retaining subject/observation hashes or the raw handoff.
+ */
+export function attachV4AdvisoryLearningToCurrentStrategyInput(strategyInput = {}, handoff) {
+  if (!record(strategyInput)) {
+    throw new Error('FOUNDER_CONTENT_V4_ADVISORY_REJECTED: strategy input must be an object');
+  }
+  const { learningHash } = validateFounderContentV4AdvisoryHandoff(handoff);
+  const history = record(strategyInput.history) ? strategyInput.history : {};
+  const existing = history.learning_signal_hashes;
+  if (existing !== undefined && !Array.isArray(existing)) {
+    throw new Error('FOUNDER_CONTENT_V4_ADVISORY_REJECTED: history.learning_signal_hashes must be an array');
+  }
+
+  return {
+    ...strategyInput,
+    history: {
+      ...history,
       learning_signal_hashes: [...new Set([...(existing ?? []), learningHash])],
     },
   };
