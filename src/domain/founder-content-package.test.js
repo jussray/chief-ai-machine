@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   buildStrategyAwareFounderContentPackage,
@@ -7,6 +8,18 @@ import {
 const SHA = 'e'.repeat(40);
 const EVIDENCE_REF = `github:chief-ai-machine@${SHA}#strategy-package`;
 const HISTORY_DIGEST = 'a'.repeat(64);
+const V4_SUBJECT_HASH = '2'.repeat(64);
+const V4_OBSERVATION_HASH = '3'.repeat(64);
+const V4_LEARNING_HASH = createHash('sha256')
+  .update(`ultrathink/v4-advisory-handoff@v0\n${V4_SUBJECT_HASH}\n${V4_OBSERVATION_HASH}\nATTESTED`, 'utf8')
+  .digest('hex');
+const V4_HANDOFF = Object.freeze({
+  schema: 'ultrathink/v4-advisory-handoff@v0',
+  evidenceLevel: 'ATTESTED',
+  subjectHash: V4_SUBJECT_HASH,
+  observationHash: V4_OBSERVATION_HASH,
+  learningHash: V4_LEARNING_HASH,
+});
 
 const proposalInput = {
   source_repo: 'jussray/chief-ai-machine',
@@ -123,6 +136,39 @@ describe('strategy-aware founder content package', () => {
     expect(result.authority.strategy_sidecars_advisory_only).toBe(true);
     expect(result.authority.strategy_can_authorize_publish).toBe(false);
     expect(result.authority.strategy_can_change_proposal_hash).toBe(false);
+  });
+
+  it('feeds only a validated FCR V4 learning hash into strategy memory', () => {
+    const result = buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: strategyInput,
+      v4_advisory_handoff: V4_HANDOFF,
+      use_context: useContext,
+    });
+
+    expect(result.strategy_lease.own_history.learning_signal_hashes).toEqual([
+      '4'.repeat(64),
+      V4_LEARNING_HASH,
+    ]);
+    const encoded = JSON.stringify(result);
+    expect(encoded).not.toContain(V4_SUBJECT_HASH);
+    expect(encoded).not.toContain(V4_OBSERVATION_HASH);
+  });
+
+  it('rejects V4 authority laundering and raw-payload smuggling', () => {
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: strategyInput,
+      v4_advisory_handoff: { ...V4_HANDOFF, evidenceLevel: 'VERIFIED_CURRENT' },
+      use_context: useContext,
+    })).toThrow(/ATTESTED ceiling/);
+
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: strategyInput,
+      v4_advisory_handoff: { ...V4_HANDOFF, raw_metrics: { impressions: 999 } },
+      use_context: useContext,
+    })).toThrow(/non-advisory fields/);
   });
 
   it('does not trust caller-supplied verified brag IDs over the final canonical proposal', () => {
