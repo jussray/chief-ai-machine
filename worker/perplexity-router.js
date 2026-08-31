@@ -5,6 +5,17 @@ export const PERPLEXITY_ROUTER_MODELS_URL = `${PERPLEXITY_ROUTER_BASE_URL}/model
 
 const MAX_RATE_LIMIT_RETRIES = 2;
 
+/**
+ * @typedef {{ PERPLEXITY_API_KEY?: string }} RouterEnv
+ * @typedef {{ chat: { completions: { create: (request: any) => Promise<any> } } }} RouterClient
+ * @typedef {{
+ *   env?: RouterEnv,
+ *   fetchImpl?: (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>,
+ *   openAIClientFactory?: (options: any) => RouterClient,
+ *   sleep?: (ms: number) => Promise<void>,
+ * }} CreatePerplexityRouterOptions
+ */
+
 export class PerplexityRouterError extends Error {
   constructor(message, { code = 'perplexity_router_error', status = null, retryAfterMs = null } = {}) {
     super(message);
@@ -148,12 +159,17 @@ async function createWithRateLimitRetry(client, request, sleep) {
   throw new PerplexityRouterError('Perplexity Router retry budget was exhausted.');
 }
 
-export function createPerplexityRouter({
-  env,
-  fetchImpl = globalThis.fetch,
-  openAIClientFactory = (options) => new OpenAI(options),
-  sleep = wait,
-} = {}) {
+/**
+ * @param {CreatePerplexityRouterOptions} [options]
+ */
+export function createPerplexityRouter(options = {}) {
+  const {
+    env,
+    fetchImpl = globalThis.fetch,
+    openAIClientFactory = (clientOptions) => new OpenAI(clientOptions),
+    sleep = wait,
+  } = options;
+
   const apiKey = resolveApiKey(env);
   if (typeof fetchImpl !== 'function') {
     throw new PerplexityRouterError('A fetch implementation is required for the Router model catalog.');
