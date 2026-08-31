@@ -8,6 +8,7 @@ export const OPERATOR_CONTINUITY_SOURCES_V2 = [
 const FULL_SHA = /^[0-9a-f]{40}$/i;
 const SHA256 = /^[0-9a-f]{64}$/i;
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const PROVENANCE_AUTH_MECHANISMS = new Set(['authenticated-transport', 'trusted-signer']);
 
 function text(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -129,8 +130,10 @@ export function operatorContinuityFingerprintV2(input) {
 }
 
 /**
- * Integrity envelope for the complete receipt metadata. Unlike the state fingerprint,
- * this digest intentionally changes when observer/provenance/freshness metadata changes.
+ * Deterministic content binding for the complete receipt metadata. This digest detects
+ * accidental or unaccompanied mutation, but is deliberately not treated as authenticity:
+ * cross-operator acceptance additionally requires an out-of-band authenticated transport
+ * or trusted-signer context bound to this exact digest.
  */
 export function operatorContinuityProvenanceDigestV2(input) {
   const value = normalizedInput(input);
@@ -161,6 +164,26 @@ export function operatorContinuityProvenanceDigestV2(input) {
     false,
     true,
   ])).digest('hex');
+}
+
+function provenanceAuthenticationErrors(receipt, authentication) {
+  if (!authentication || typeof authentication !== 'object' || Array.isArray(authentication)) {
+    return ['operator continuity cross-operator provenance is unauthenticated'];
+  }
+  const errors = [];
+  const mechanism = text(authentication.mechanism);
+  const source = text(authentication.source);
+  const provenanceDigest = text(authentication.provenanceDigest).toLowerCase();
+  if (!PROVENANCE_AUTH_MECHANISMS.has(mechanism)) {
+    errors.push('operator continuity provenance authentication mechanism is unsupported');
+  }
+  if (source !== receipt.source) {
+    errors.push('operator continuity provenance authentication source mismatch');
+  }
+  if (!SHA256.test(provenanceDigest) || provenanceDigest !== text(receipt.provenanceDigest).toLowerCase()) {
+    errors.push('operator continuity provenance authentication digest mismatch');
+  }
+  return errors;
 }
 
 export function createOperatorContinuityReceiptV2(input) {
@@ -225,7 +248,7 @@ export function validateOperatorContinuityReceiptV2(receipt, now = null) {
   return [...new Set(errors)];
 }
 
-export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
+export function evaluateOperatorContinuityReceiptV2(receipt, current, now, provenanceAuthentication = null) {
   const reasons = [];
   const add = (reason) => { if (!reasons.includes(reason)) reasons.push(reason); };
   if (validateOperatorContinuityReceiptV2(receipt).length) add('receipt_invalid');
@@ -244,6 +267,9 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
   if (!reasons.includes('receipt_invalid') && !reasons.includes('current_input_invalid')) {
     const prior = normalizedInput(receipt);
     const next = normalizedInput(current);
+    if (prior.source !== next.source && provenanceAuthenticationErrors(receipt, provenanceAuthentication).length) {
+      add('provenance_unauthenticated');
+    }
     const fields = [
       ['projectSlug', 'project_moved'],
       ['repositoryFullName', 'repository_moved'],
@@ -264,7 +290,8 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now) {
 
   const invalid = reasons.includes('receipt_invalid')
     || reasons.includes('current_input_invalid')
-    || reasons.includes('observation_time_invalid');
+    || reasons.includes('observation_time_invalid')
+    || reasons.includes('provenance_unauthenticated');
   return {
     state: invalid ? 'invalid' : reasons.length ? 'stale' : 'current',
     reasons: [...reasons].sort((a, b) => a.localeCompare(b)),
