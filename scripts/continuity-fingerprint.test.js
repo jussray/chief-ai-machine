@@ -4,6 +4,7 @@ import {
   evaluateOperatorContinuityReceiptV2,
   operatorContinuityDimensionFingerprint,
   operatorContinuityFingerprintV2,
+  operatorContinuityProvenanceDigestV2,
   validateOperatorContinuityReceiptV2,
 } from './continuity-fingerprint.mjs';
 
@@ -28,6 +29,14 @@ const baseInput = {
   expiresAt: '2026-08-31T16:40:00.000Z',
   predecessorFingerprint: null,
 };
+
+function authenticatedProvenance(receipt, mechanism = 'authenticated-transport') {
+  return {
+    mechanism,
+    source: receipt.source,
+    provenanceDigest: receipt.provenanceDigest,
+  };
+}
 
 describe('Chief operator continuity v2 mirror', () => {
   it('matches the FCR canonical v2 state vector', () => {
@@ -67,6 +76,38 @@ describe('Chief operator continuity v2 mirror', () => {
     }
   });
 
+  it('does not treat a publicly recomputable provenance digest as cross-operator authenticity', () => {
+    const receipt = createOperatorContinuityReceiptV2(baseInput);
+    const forged = {
+      ...receipt,
+      evidenceRefs: ['github:attacker-controlled-evidence'],
+    };
+    forged.provenanceDigest = operatorContinuityProvenanceDigestV2(forged);
+    expect(validateOperatorContinuityReceiptV2(forged, NOW)).toEqual([]);
+
+    const current = {
+      ...baseInput,
+      source: 'work',
+      evidenceRefs: ['cloudflare:receipt:9766241316'],
+      observedAt: '2026-08-31T16:29:00.000Z',
+      expiresAt: '2026-08-31T16:49:00.000Z',
+    };
+
+    const unauthenticated = evaluateOperatorContinuityReceiptV2(forged, current, NOW);
+    expect(unauthenticated.state).toBe('invalid');
+    expect(unauthenticated.reasons).toContain('provenance_unauthenticated');
+    expect(unauthenticated.reacquireRequired).toBe(true);
+
+    const authenticationBoundToDifferentDigest = evaluateOperatorContinuityReceiptV2(
+      forged,
+      current,
+      NOW,
+      authenticatedProvenance(receipt),
+    );
+    expect(authenticationBoundToDifferentDigest.state).toBe('invalid');
+    expect(authenticationBoundToDifferentDigest.reasons).toContain('provenance_unauthenticated');
+  });
+
   it('matches the canonical provider-observation vector', () => {
     expect(operatorContinuityDimensionFingerprint({
       provider: 'cloudflare',
@@ -88,7 +129,7 @@ describe('Chief operator continuity v2 mirror', () => {
       observedAt: '2026-08-31T16:29:00.000Z',
       expiresAt: '2026-08-31T16:49:00.000Z',
       predecessorFingerprint: '7'.repeat(64),
-    }, NOW)).toEqual({
+    }, NOW, authenticatedProvenance(receipt))).toEqual({
       state: 'current',
       reasons: [],
       reacquireRequired: false,
@@ -165,7 +206,7 @@ describe('Chief operator continuity v2 mirror', () => {
       source: 'work',
       providerFingerprint: attempt2Provider,
       evidenceRefs: ['cloudflare:authority-audit:attempt-2', 'cloudflare:job:99560046321'],
-    }, NOW);
+    }, NOW, authenticatedProvenance(receipt));
     expect(result.state).toBe('stale');
     expect(result.reasons).toEqual(['provider_moved']);
   });
