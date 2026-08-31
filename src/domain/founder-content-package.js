@@ -4,6 +4,7 @@ import {
   bindStrategyLeaseToProposal,
   buildFounderContentStrategyLease,
 } from './founder-content-strategy.js';
+import { attachV4AdvisoryLearningToStrategyInput } from './founder-content-v4-advisory.js';
 
 const HASH = /^[0-9a-f]{64}$/i;
 
@@ -38,14 +39,21 @@ function recentDraftFingerprints(strategyInput) {
  * strategy is allowed to brag about from that validated proposal. The
  * Strategy Lease and binding remain advisory sidecars and never enter FCR's
  * canonical publication-authority hash.
+ *
+ * When an FCR V4 advisory handoff is supplied, only its validated learning
+ * hash is added to strategy memory. Subject/observation hashes and any raw
+ * evidence remain outside the strategy package.
  */
 export function buildStrategyAwareFounderContentPackage(input = {}) {
   const proposalInput = input.proposal_input && typeof input.proposal_input === 'object'
     ? input.proposal_input
     : {};
-  const strategyInput = input.strategy_input && typeof input.strategy_input === 'object'
+  const submittedStrategyInput = input.strategy_input && typeof input.strategy_input === 'object'
     ? input.strategy_input
     : {};
+  const strategyInput = input.v4_advisory_handoff === undefined
+    ? submittedStrategyInput
+    : attachV4AdvisoryLearningToStrategyInput(submittedStrategyInput, input.v4_advisory_handoff);
   const useContext = input.use_context && typeof input.use_context === 'object'
     ? input.use_context
     : {};
