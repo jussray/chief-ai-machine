@@ -76,10 +76,11 @@ describe('Chief operator continuity v2 mirror', () => {
     }
   });
 
-  it('does not treat a publicly recomputable provenance digest as cross-operator authenticity', () => {
+  it('does not treat a publicly recomputable provenance digest as authenticity', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
     const forged = {
       ...receipt,
+      source: 'work',
       evidenceRefs: ['github:attacker-controlled-evidence'],
     };
     forged.provenanceDigest = operatorContinuityProvenanceDigestV2(forged);
@@ -119,7 +120,7 @@ describe('Chief operator continuity v2 mirror', () => {
     })).toBe('1a5507cb4afcde7281176b78d05e9b788a6f278672c1f196b1c0eb2f1d55171a');
   });
 
-  it('accepts an unchanged fresh cross-operator receipt without granting authority', () => {
+  it('accepts an unchanged fresh authenticated cross-operator receipt without granting authority', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
     expect(validateOperatorContinuityReceiptV2(receipt, NOW)).toEqual([]);
     expect(evaluateOperatorContinuityReceiptV2(receipt, {
@@ -148,7 +149,12 @@ describe('Chief operator continuity v2 mirror', () => {
       'operator continuity observedAt cannot be in the future',
     );
 
-    const result = evaluateOperatorContinuityReceiptV2(receipt, baseInput, NOW);
+    const result = evaluateOperatorContinuityReceiptV2(
+      receipt,
+      baseInput,
+      NOW,
+      authenticatedProvenance(receipt),
+    );
     expect(result.state).toBe('invalid');
     expect(result.reasons).toContain('observation_time_invalid');
     expect(result.continuityMayAuthorizeAction).toBe(false);
@@ -172,7 +178,12 @@ describe('Chief operator continuity v2 mirror', () => {
       [{ authorityFingerprint: 'c'.repeat(64) }, 'authority_moved'],
     ];
     for (const [change, reason] of variants) {
-      const result = evaluateOperatorContinuityReceiptV2(receipt, { ...baseInput, ...change }, NOW);
+      const result = evaluateOperatorContinuityReceiptV2(
+        receipt,
+        { ...baseInput, ...change },
+        NOW,
+        authenticatedProvenance(receipt),
+      );
       expect(result.state, reason).toBe('stale');
       expect(result.reasons, reason).toContain(reason);
       expect(result.reacquireRequired, reason).toBe(true);
@@ -214,16 +225,31 @@ describe('Chief operator continuity v2 mirror', () => {
   it('fails closed on forged authority and expires receipts at their exact deadline', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
     const forged = { ...receipt, authorizing: true };
-    const invalid = evaluateOperatorContinuityReceiptV2(forged, baseInput, NOW);
+    const invalid = evaluateOperatorContinuityReceiptV2(
+      forged,
+      baseInput,
+      NOW,
+      authenticatedProvenance(forged),
+    );
     expect(invalid.state).toBe('invalid');
     expect(invalid.reasons).toContain('receipt_invalid');
     expect(invalid.continuityMayAuthorizeAction).toBe(false);
 
-    const atDeadline = evaluateOperatorContinuityReceiptV2(receipt, baseInput, baseInput.expiresAt);
+    const atDeadline = evaluateOperatorContinuityReceiptV2(
+      receipt,
+      baseInput,
+      baseInput.expiresAt,
+      authenticatedProvenance(receipt),
+    );
     expect(atDeadline.state).toBe('stale');
     expect(atDeadline.reasons).toContain('receipt_expired');
 
-    const expired = evaluateOperatorContinuityReceiptV2(receipt, baseInput, '2026-08-31T16:40:00.001Z');
+    const expired = evaluateOperatorContinuityReceiptV2(
+      receipt,
+      baseInput,
+      '2026-08-31T16:40:00.001Z',
+      authenticatedProvenance(receipt),
+    );
     expect(expired.state).toBe('stale');
     expect(expired.reasons).toContain('receipt_expired');
   });
