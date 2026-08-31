@@ -30,10 +30,21 @@ const baseInput = {
 };
 
 describe('Chief operator continuity v2 mirror', () => {
-  it('matches the FCR canonical v2 SHA-256 vector', () => {
+  it('matches the FCR canonical v2 state vector', () => {
     expect(operatorContinuityFingerprintV2(baseInput)).toBe(
-      'ee90f5351755772ed04169c63abb3347eba7b9ec721b706d0002f7fa0d32f3d9',
+      '635568aadd9174633266a8332139575f86d7ed265f51095749cf692aafe69aea',
     );
+  });
+
+  it('keeps the same state vector across observer and provenance rotation', () => {
+    expect(operatorContinuityFingerprintV2({
+      ...baseInput,
+      source: 'work',
+      evidenceRefs: ['cloudflare:receipt:9766241316'],
+      observedAt: '2026-08-31T16:29:00.000Z',
+      expiresAt: '2026-08-31T16:49:00.000Z',
+      predecessorFingerprint: '7'.repeat(64),
+    })).toBe(operatorContinuityFingerprintV2(baseInput));
   });
 
   it('matches the canonical provider-observation vector', () => {
@@ -47,13 +58,16 @@ describe('Chief operator continuity v2 mirror', () => {
     })).toBe('1a5507cb4afcde7281176b78d05e9b788a6f278672c1f196b1c0eb2f1d55171a');
   });
 
-  it('accepts an unchanged fresh receipt without granting authority', () => {
+  it('accepts an unchanged fresh cross-operator receipt without granting authority', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
     expect(validateOperatorContinuityReceiptV2(receipt)).toEqual([]);
     expect(evaluateOperatorContinuityReceiptV2(receipt, {
       ...baseInput,
+      source: 'work',
+      evidenceRefs: ['cloudflare:receipt:9766241316'],
       observedAt: '2026-08-31T16:29:00.000Z',
       expiresAt: '2026-08-31T16:49:00.000Z',
+      predecessorFingerprint: '7'.repeat(64),
     }, NOW)).toEqual({
       state: 'current',
       reasons: [],
@@ -62,10 +76,14 @@ describe('Chief operator continuity v2 mirror', () => {
     });
   });
 
-  it('revokes inherited green on target/base/head/scope/proof/review/provider/runtime/authority movement', () => {
+  it('revokes inherited green on load-bearing state movement', () => {
     const receipt = createOperatorContinuityReceiptV2(baseInput);
     const variants = [
+      [{ projectSlug: 'sekret-bip' }, 'project_moved'],
+      [{ repositoryFullName: 'jussray/other' }, 'repository_moved'],
+      [{ targetBranch: 'release' }, 'target_branch_moved'],
       [{ targetSha: 'd'.repeat(40) }, 'target_sha_moved'],
+      [{ prNumber: 999 }, 'pr_moved'],
       [{ baseSha: 'd'.repeat(40) }, 'base_sha_moved'],
       [{ headSha: 'e'.repeat(40) }, 'head_sha_moved'],
       [{ scopeFingerprint: '7'.repeat(64) }, 'scope_moved'],
@@ -74,7 +92,6 @@ describe('Chief operator continuity v2 mirror', () => {
       [{ providerFingerprint: 'a'.repeat(64) }, 'provider_moved'],
       [{ runtimeFingerprint: 'b'.repeat(64) }, 'runtime_moved'],
       [{ authorityFingerprint: 'c'.repeat(64) }, 'authority_moved'],
-      [{ evidenceRefs: ['github:main-readback', 'cloudflare:job:99560046321'] }, 'evidence_refs_moved'],
     ];
     for (const [change, reason] of variants) {
       const result = evaluateOperatorContinuityReceiptV2(receipt, { ...baseInput, ...change }, NOW);
@@ -85,7 +102,7 @@ describe('Chief operator continuity v2 mirror', () => {
     }
   });
 
-  it('models the Se’kret Bip Cloudflare rerun as a new cookie despite unchanged main', () => {
+  it('models the Se’kret Bip Cloudflare rerun as new state despite unchanged main', () => {
     const attempt1Provider = operatorContinuityDimensionFingerprint({
       provider: 'cloudflare', audit: 'authority', attempt: 1, state: 'blocked', mutation: 'none',
     });
@@ -108,11 +125,12 @@ describe('Chief operator continuity v2 mirror', () => {
     });
     const result = evaluateOperatorContinuityReceiptV2(receipt, {
       ...shared,
+      source: 'work',
       providerFingerprint: attempt2Provider,
       evidenceRefs: ['cloudflare:authority-audit:attempt-2', 'cloudflare:job:99560046321'],
     }, NOW);
     expect(result.state).toBe('stale');
-    expect(result.reasons).toEqual(expect.arrayContaining(['provider_moved', 'evidence_refs_moved']));
+    expect(result.reasons).toEqual(['provider_moved']);
   });
 
   it('fails closed on forged authority and expires old receipts', () => {
