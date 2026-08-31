@@ -1,0 +1,49 @@
+name: Sync package lock after Perplexity removal
+
+on:
+  push:
+    branches:
+      - fix/proofmode-main-audit-20260828
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/sync-package-lock-after-perplexity-removal.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/proofmode-main-audit-20260828
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Regenerate npm lockfile only
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Assert deferred provider is absent
+        run: |
+          ! grep -q '"openai"' package.json
+          ! grep -q 'node_modules/openai' package-lock.json
+          ! grep -qi 'perplexity' package.json package-lock.json
+
+      - name: Commit synchronized lockfile when changed
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: sync lockfile after Perplexity removal"
+          git push origin HEAD:fix/proofmode-main-audit-20260828
