@@ -1,12 +1,8 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from './capability-plan.js';
 
 const SCHEMA = 'ultrathink/v4-advisory-handoff@v0';
 const SHA256 = /^[a-f0-9]{64}$/;
 const EXACT_FIELDS = ['evidenceLevel', 'learningHash', 'observationHash', 'schema', 'subjectHash'];
-
-function sha256(value) {
-  return createHash('sha256').update(value).digest('hex');
-}
 
 function record(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -46,7 +42,7 @@ export function validateFounderContentV4AdvisoryHandoff(input) {
   const subjectHash = digest(input.subjectHash, 'subjectHash');
   const observationHash = digest(input.observationHash, 'observationHash');
   const learningHash = digest(input.learningHash, 'learningHash');
-  const expected = sha256(`${SCHEMA}\n${subjectHash}\n${observationHash}\nATTESTED`);
+  const expected = sha256Hex(`${SCHEMA}\n${subjectHash}\n${observationHash}\nATTESTED`);
   if (learningHash !== expected) {
     throw new Error('FOUNDER_CONTENT_V4_ADVISORY_REJECTED: learning hash integrity failure');
   }
