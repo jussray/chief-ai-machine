@@ -385,32 +385,23 @@ describe('juss/browser-reality@v1', () => {
     });
   });
 
-  it('mirrors the Founder Control Room browser-reality authority block', () => {
-    expect(pairContract.contractVersion).toBe('2026-08-29.1');
-    expect(pairContract.browserReality).toEqual({
-      contractId: 'juss/browser-reality@v1',
-      capabilityName: 'browser-reality-inspector',
-      authority: 'read-only',
-      chiefRole: 'interpret and summarize rendered evidence without granting authority',
-      controlRoomRole: 'govern evidence status, provider boundaries, continuity, and receipts',
-      truthStates: ['VERIFIED', 'INFERRED', 'UNKNOWN', 'BLOCKED'],
-      stopBoundaries: [
-        'login-required-without-an-existing-authenticated-session',
-        'authentication-step',
-        'captcha',
-        'permission-prompt',
-        'provider-boundary',
-        'mutation-required',
-        'scope-expansion-required',
-      ],
-      continuityInvariant: 'Reuse only existing browser-managed first-party sessions in place; never inspect, extract, export, copy, log, alter, or synthesize cookie or storage values; never use probabilistic fingerprinting, fingerprint alteration, or cross-site tracking.',
-      cookieWriterAdded: false,
-      evidenceFingerprint: {
-        contract: 'juss-browser-reality-canonical-json-v1',
-        purpose: 'evidence-binding-not-person-or-device-identity',
-        conformanceSha256: CONFORMANCE_DIGEST,
-      },
-    });
+  it('keeps browser-reality authority in its dedicated contract without widening the shared pair contract', () => {
+    expect(pairContract.contractVersion).toBe('2026-08-09.1');
+    expect(pairContract.browserReality).toBeUndefined();
+    expect(contract.contractId).toBe('juss/browser-reality@v1');
+    expect(contract.capabilityName).toBe('browser-reality-inspector');
+    expect(contract.authority).toBe('read-only');
+    expect(contract.truthStates).toEqual(['VERIFIED', 'INFERRED', 'UNKNOWN', 'BLOCKED']);
+    expect(contract.stopBoundaries).toEqual([
+      'login-required-without-an-existing-authenticated-session',
+      'authentication-step',
+      'captcha',
+      'permission-prompt',
+      'provider-boundary',
+      'mutation-required',
+      'scope-expansion-required',
+    ]);
+    expect(contract.evidenceFingerprint.conformanceSha256).toBe(CONFORMANCE_DIGEST);
   });
 
   it('keeps the repo skill and PromptOS family bound to the same contract', () => {
