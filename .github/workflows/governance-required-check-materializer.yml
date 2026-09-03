@@ -12,6 +12,10 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
   BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
+concurrency:
+  group: governance-required-check-materializer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   provider-receipt:
     name: Redacted provider receipt
@@ -46,7 +50,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Fail closed unless Founder Goals is unaffected
         shell: bash
         run: |
@@ -66,7 +73,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Fail closed unless Freestyle Goalfix PromptOS is unaffected
         shell: bash
         run: |
@@ -86,7 +96,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Fail closed unless Chief runtime is unaffected
         shell: bash
         run: |
@@ -106,7 +119,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Fail closed unless capability plan is unaffected
         shell: bash
         run: |
@@ -126,7 +142,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Fail closed unless live ProofMode is unaffected
         shell: bash
         run: |
@@ -146,7 +165,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Fail closed unless production ProofMode is unaffected
         shell: bash
         run: |
