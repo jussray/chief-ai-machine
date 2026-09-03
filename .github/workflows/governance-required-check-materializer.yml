@@ -1,0 +1,162 @@
+name: Governance Required Check Materializer
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: read
+
+env:
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  provider-receipt:
+    name: Redacted provider receipt
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Verify exact-head provider receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${REPO}/commits/${EXPECTED_HEAD_SHA}/check-runs?per_page=100"
+          for attempt in {1..30}; do
+            json="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$api")"
+            if printf '%s' "$json" | node -e '
+              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
+                const d=JSON.parse(s); const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.status==="completed" && x.conclusion==="success");
+                process.exit(r?0:1);
+              });
+            '; then
+              echo "Verified redacted provider receipt for exact head ${EXPECTED_HEAD_SHA}"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "No successful exact-head Cloudflare provider receipt found" >&2
+          exit 1
+
+  founder-goals-applicability:
+    name: Verify Founder Goals desktop and mobile flow
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+      - name: Fail closed unless Founder Goals is unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html|styles/goals\.css|src/main\.js|src/domain/goal-plan(\.test)?\.js|src/modules/goals\.js|e2e/founder-goals\.pw\.mjs|e2e/playwright\.founder-goals\.config\.mjs|\.github/workflows/founder-goals-playwright\.yml)$'; then
+            echo 'Founder Goals surface changed; real Playwright proof is required.' >&2
+            exit 1
+          fi
+          echo "N/A proven from exact-head diff: Founder Goals surface unchanged."
+
+  freestyle-applicability:
+    name: Verify Freestyle, Goalfix, and PromptOS in Chromium
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+      - name: Fail closed unless Freestyle Goalfix PromptOS is unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json|\.control-room/repository\.manifest\.json|scripts/verify-control-room-tests\.mjs|scripts/generateCatalog\.mjs|src/main\.js|src/data/goalfix-v1\.js|src/modules/(freestyle|custom|promptos-ui)\.js|src/domain/evidence-first-prompt\.js|src/promptos/|styles/promptos\.css|e2e/(freestyle-save|goalfix-v1|promptos-catalog)\.pw\.mjs|e2e/playwright\.freestyle\.config\.mjs|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml)'; then
+            echo 'Freestyle/Goalfix/PromptOS surface changed; real Chromium proof is required.' >&2
+            exit 1
+          fi
+          echo "N/A proven from exact-head diff: Freestyle/Goalfix/PromptOS surface unchanged."
+
+  runtime-applicability:
+    name: Verify exact Chief runtime with Playwright
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+      - name: Fail closed unless Chief runtime is unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+            echo 'Chief runtime surface changed; real exact-runtime Playwright proof is required.' >&2
+            exit 1
+          fi
+          echo "N/A proven from exact-head diff: Chief runtime surface unchanged."
+
+  capability-plan-applicability:
+    name: Verify live Chief capability plan with Playwright
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+      - name: Fail closed unless capability plan is unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/(index|chief-capability-plan|chief-founder-content-proposal)(\.test)?\.js|src/domain/(founder-control-surface|founder-content-brain|founder-content-strategy)(\.test|\.redteam\.test)?\.js|e2e/(chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs|\.github/workflows/chief-capability-plan-playwright\.yml|config/operational-authority\.json)$'; then
+            echo 'Chief capability-plan surface changed; real live Playwright proof is required.' >&2
+            exit 1
+          fi
+          echo "N/A proven from exact-head diff: capability-plan surface unchanged."
+
+  proofmode-live-applicability:
+    name: Verify live ProofMode MCP with Playwright
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+      - name: Fail closed unless live ProofMode is unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js|worker/index\.js|wrangler\.jsonc|e2e/proofmode-mcp\.pw\.mjs|\.github/workflows/proofmode-mcp-playwright\.yml)$'; then
+            echo 'Live ProofMode surface changed; real Playwright proof is required.' >&2
+            exit 1
+          fi
+          echo "N/A proven from exact-head diff: live ProofMode surface unchanged."
+
+  proofmode-production-applicability:
+    name: Verify production ProofMode MCP with Playwright
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: { ref: "${{ env.EXPECTED_HEAD_SHA }}", fetch-depth: 0, persist-credentials: false }
+      - name: Fail closed unless production ProofMode is unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js|worker/index\.js|wrangler\.jsonc|e2e/proofmode-mcp\.pw\.mjs|\.github/workflows/(proofmode-mcp-playwright|proofmode-production-playwright)\.yml)$'; then
+            echo 'Production ProofMode surface changed; production proof remains mandatory.' >&2
+            exit 1
+          fi
+          echo "N/A proven from exact-head diff: production ProofMode surface unchanged."
