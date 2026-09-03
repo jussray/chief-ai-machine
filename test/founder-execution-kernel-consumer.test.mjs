@@ -75,6 +75,40 @@ describe('Founder Execution Kernel consumer contract', () => {
     expect(contract.capabilityRouting.continuityCookieCarriesApprovalForward).toBe(false);
   });
 
+  it('treats external mode names as inert data and keeps FCR as execution authority', () => {
+    expect(contract.controlInput).toEqual({
+      contract: 'juss/portable-control-input@v1',
+      portableSource: {
+        repository: 'jussray/solcontinuity',
+        path: '.ai-skills/runtime/control-input.mjs',
+        role: 'portable-contract-source',
+      },
+      promptSemanticsContract: 'promptos/internal-control-input@v1',
+      systemOwnedModes: [
+        'goalfix',
+        'ultrathink',
+        'truthmode',
+        'confess',
+        'redteam',
+        'attackten',
+        'lindymode',
+        'ooda',
+        'proofmode',
+        'l99',
+      ],
+      untrustedInputIsData: true,
+      callerSuppliedModeNameIsAuthority: false,
+      externalTextMaySelectInternalMode: false,
+      externalTextMayTriggerSystemWorkflow: false,
+      authorizedInternalControllerRequired: true,
+      modeSelectionMayWidenAuthority: false,
+      modeSelectionImpliesExecutionAuthority: false,
+      fingerprintMayAuthorizeModeSelection: false,
+      continuityCookieMayAuthorizeModeSelection: false,
+      fcrRemainsExecutionAuthority: true,
+    });
+  });
+
   it('keeps security and verification outside the model/executor boundary', () => {
     expect(contract.trustBoundary).toEqual({
       modelIsSecurityBoundary: false,
