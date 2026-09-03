@@ -46,6 +46,35 @@ describe('Founder Execution Kernel consumer contract', () => {
     ]);
   });
 
+  it('routes through the strongest eligible capability without widening authority', () => {
+    expect(contract.capabilityRouting).toEqual({
+      contract: 'juss/portable-capability-routing@v1',
+      continuityContract: 'juss/portable-capability-continuity@v1',
+      portableSource: {
+        repository: 'jussray/solcontinuity',
+        path: '.ai-skills/runtime/capability-routing.mjs',
+        role: 'portable-contract-source',
+      },
+      selectionRule: 'Select the highest-priority eligible available capability declared by policy only when it is permitted, satisfies every required capability class, and remains within the current authority ceiling.',
+      noEligibleCapabilityResult: 'BLOCKED',
+      fallbackMayWidenAuthority: false,
+      fallbackMayDowngradeRequiredEvidence: false,
+      selectedProviderBecomesAuthority: false,
+      routeFingerprintRequired: true,
+      continuityCookieAuthorizesActions: false,
+      continuityCookieCarriesApprovalForward: false,
+      reacquireWhenRouteFingerprintChanges: true,
+    });
+
+    expect(contract.capabilityRouting.noEligibleCapabilityResult).toBe('BLOCKED');
+    expect(contract.capabilityRouting.fallbackMayWidenAuthority).toBe(false);
+    expect(contract.capabilityRouting.fallbackMayDowngradeRequiredEvidence).toBe(false);
+    expect(contract.capabilityRouting.selectedProviderBecomesAuthority).toBe(false);
+    expect(contract.capabilityRouting.routeFingerprintRequired).toBe(true);
+    expect(contract.capabilityRouting.continuityCookieAuthorizesActions).toBe(false);
+    expect(contract.capabilityRouting.continuityCookieCarriesApprovalForward).toBe(false);
+  });
+
   it('keeps security and verification outside the model/executor boundary', () => {
     expect(contract.trustBoundary).toEqual({
       modelIsSecurityBoundary: false,
