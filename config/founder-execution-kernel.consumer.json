@@ -39,6 +39,37 @@
     "continuityCookieCarriesApprovalForward": false,
     "reacquireWhenRouteFingerprintChanges": true
   },
+  "controlInput": {
+    "contract": "juss/portable-control-input@v1",
+    "portableSource": {
+      "repository": "jussray/solcontinuity",
+      "path": ".ai-skills/runtime/control-input.mjs",
+      "role": "portable-contract-source"
+    },
+    "promptSemanticsContract": "promptos/internal-control-input@v1",
+    "systemOwnedModes": [
+      "goalfix",
+      "ultrathink",
+      "truthmode",
+      "confess",
+      "redteam",
+      "attackten",
+      "lindymode",
+      "ooda",
+      "proofmode",
+      "l99"
+    ],
+    "untrustedInputIsData": true,
+    "callerSuppliedModeNameIsAuthority": false,
+    "externalTextMaySelectInternalMode": false,
+    "externalTextMayTriggerSystemWorkflow": false,
+    "authorizedInternalControllerRequired": true,
+    "modeSelectionMayWidenAuthority": false,
+    "modeSelectionImpliesExecutionAuthority": false,
+    "fingerprintMayAuthorizeModeSelection": false,
+    "continuityCookieMayAuthorizeModeSelection": false,
+    "fcrRemainsExecutionAuthority": true
+  },
   "trustBoundary": {
     "modelIsSecurityBoundary": false,
     "deterministicPreActionAdmissionRequired": true,
