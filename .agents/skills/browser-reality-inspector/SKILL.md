@@ -13,12 +13,21 @@ Use the canonical [`juss/browser-reality@v1`](../../../config/browser-reality.co
 
 ## Inspect the real page
 
-1. Open the exact supplied URL in an approved live browser. Do not substitute search-engine snippets, cached summaries, or a guessed canonical URL.
-2. Follow normal redirects and record the final browser URL.
-3. Inspect only content the page actually renders. Classify every material observation as `VERIFIED`, `INFERRED`, `UNKNOWN`, or `BLOCKED`; hidden or expected content is never verified.
-4. Identify the rendered target type, visible account/Page/profile name, main text in concise summary, visible media, date/time, Marketplace price/location, engagement counts, and external links when present.
-5. Capture a safe screenshot when the browser supports it, plus the rendered page state and decisive page text. Redact or omit credentials, session values, private messages, or unrelated personal data.
-6. If the page makes factual claims worth checking, research them separately. Label the rendered claim with the platform name, such as `FACEBOOK CLAIM`, and the independent result `EXTERNAL VERIFICATION`. Browser rendering proves what the page says, not that its claim is true.
+1. Admit the exact supplied URL through the deterministic public-network guard before opening it. Only public HTTP(S) destinations on ports 80/443 are eligible.
+2. Open only an admitted URL in an approved live browser. Do not substitute search-engine snippets, cached summaries, or a guessed canonical URL.
+3. Follow normal redirects only while the redirect budget remains valid. Re-run public-network admission for every redirect target before navigation continues and record the final browser URL.
+4. Inspect only content the page actually renders. Classify every material observation as `VERIFIED`, `INFERRED`, `UNKNOWN`, or `BLOCKED`; hidden or expected content is never verified.
+5. Identify the rendered target type, visible account/Page/profile name, main text in concise summary, visible media, date/time, Marketplace price/location, engagement counts, and external links when present.
+6. Capture a safe screenshot when the browser supports it, plus the rendered page state and decisive page text. Redact or omit credentials, session values, private messages, or unrelated personal data.
+7. If the page makes factual claims worth checking, research them separately. Label the rendered claim with the platform name, such as `FACEBOOK CLAIM`, and the independent result `EXTERNAL VERIFICATION`. Browser rendering proves what the page says, not that its claim is true.
+
+## Network admission
+
+Use `src/domain/browser-reality-network.js` as the repo-native admission primitive. DNS hostnames must resolve before navigation, every returned address must classify as public, and the same admission must run again for every redirect target. Reject localhost, private/link-local/carrier-grade-NAT/reserved/documentation/metadata destinations, credential-bearing URLs, non-HTTP(S) schemes, unexpected service ports, mixed public/private DNS answers, unresolved hostnames, and redirect chains beyond the contract budget.
+
+Evidence URL sanitization and evidence fingerprints happen after observation and are not network admission. Never treat `sanitizeBrowserRealityUrl()` or a valid evidence digest as permission to navigate.
+
+If public-network identity cannot be established deterministically, classify the target `BLOCKED` and stop. Do not weaken the guard to make a page reachable.
 
 ## Stop boundaries
 
