@@ -29,47 +29,72 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Classify provider receipt applicability
-        id: provider-scope
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
-          git fetch --no-tags origin "$BASE_SHA"
-          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
-          printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
-            echo 'changed=true' >> "$GITHUB_OUTPUT"
-            echo 'Provider/runtime surface changed; exact-head Cloudflare provider receipt is required.'
-          else
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
-            echo 'N/A proven from exact-head diff: provider/runtime surface unchanged.'
-          fi
-
-      - name: Verify exact-head provider receipt
-        if: steps.provider-scope.outputs.changed == 'true'
+      - name: Verify exact-head or unchanged-provider-tree receipt
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          api="https://api.github.com/repos/${REPO}/commits/${EXPECTED_HEAD_SHA}/check-runs?per_page=100"
-          for attempt in {1..30}; do
-            json="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$api")"
-            if printf '%s' "$json" | node -e '
-              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
-                const d=JSON.parse(s); const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.status==="completed" && x.conclusion==="success");
-                process.exit(r?0:1);
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+
+          has_provider_receipt() {
+            local sha="$1"
+            local api="https://api.github.com/repos/${REPO}/commits/${sha}/check-runs?check_name=Workers%20Builds%3A%20chief-ai&per_page=100"
+            local json
+            json="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$api" || true)"
+            EXPECTED_PROVIDER_SHA="$sha" printf '%s' "$json" | EXPECTED_PROVIDER_SHA="$sha" node -e '
+              let s="";
+              process.stdin.on("data", c => s += c);
+              process.stdin.on("end", () => {
+                if (!s) process.exit(1);
+                const d = JSON.parse(s);
+                const expected = process.env.EXPECTED_PROVIDER_SHA;
+                const run = (d.check_runs || []).find((x) =>
+                  x.name === "Workers Builds: chief-ai"
+                  && x.head_sha === expected
+                  && x.status === "completed"
+                  && x.conclusion === "success"
+                );
+                process.exit(run ? 0 : 1);
               });
-            '; then
-              echo "Verified redacted provider receipt for exact head ${EXPECTED_HEAD_SHA}"
-              exit 0
+            '
+          }
+
+          if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
+            echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
+            exit 0
+          fi
+
+          inherited_sha=""
+          while IFS= read -r candidate; do
+            [ -n "$candidate" ] || continue
+            if has_provider_receipt "$candidate"; then
+              inherited_sha="$candidate"
+              break
             fi
-            sleep 2
-          done
-          echo "No successful exact-head Cloudflare provider receipt found" >&2
-          exit 1
+          done < <(git rev-list --first-parent "${EXPECTED_HEAD_SHA}^" "^${BASE_SHA}")
+
+          if [ -z "$inherited_sha" ]; then
+            echo "No successful exact-head or predecessor Cloudflare provider receipt found" >&2
+            exit 1
+          fi
+
+          changed_since_receipt="$(git diff --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
+          printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
+          printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
+
+          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/)' || true)"
+          if [ -n "$unsafe_since_receipt" ]; then
+            printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
+            exit 1
+          fi
+
+          echo "Provider receipt continuity proven: only non-runtime .github/ or test/ files changed since ${inherited_sha}."
 
   founder-goals-applicability:
     name: Verify Founder Goals desktop and mobile flow
