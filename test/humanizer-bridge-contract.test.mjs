@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const skill = readFileSync(new URL('../.agents/skills/humanizer/SKILL.md', import.meta.url), 'utf8');
-const source = JSON.parse(readFileSync(new URL('../.agents/skills/humanizer/SOURCE.json', import.meta.url), 'utf8'));
+const skill = readFileSync('.agents/skills/humanizer/SKILL.md', 'utf8');
+const source = JSON.parse(readFileSync('.agents/skills/humanizer/SOURCE.json', 'utf8'));
 
 describe('Humanizer donor bridge contract', () => {
   it('pins the founder-approved Blader source exactly', () => {
