@@ -89,6 +89,11 @@ describe('compilePrompt', () => {
     expect(result.ok).toBe(true);
     expect(result.readyToCopy).toBe(true);
     expect(result.prompt).toContain('juss/browser-reality@v1');
+    expect(result.prompt).toContain('public-network boundary before any browser navigation');
+    expect(result.prompt).toContain('ports 80/443');
+    expect(result.prompt).toContain('only public resolved addresses');
+    expect(result.prompt).toContain('re-run public-network admission for every redirect target');
+    expect(result.prompt).toContain('Evidence URL sanitization or a valid evidence digest is never navigation authority');
     expect(result.prompt).toContain('approved live browser');
     expect(result.prompt).toContain('final browser URL');
     expect(result.prompt).toContain('CAPTCHA/human verification');
