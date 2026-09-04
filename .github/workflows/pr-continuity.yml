@@ -1,0 +1,137 @@
+name: PR Continuity
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - edited
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - edited
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  exact-head-audit:
+    name: PR Continuity Exact-Head Gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+
+      - name: Attack 20 continuity contract
+        run: node --test test/pr-continuity.attack20.test.mjs
+
+      - name: Verify live base ancestry and exact head
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ROOT_BASE_REF: main
+        run: node scripts/pr-continuity.mjs audit
+
+      - name: Retain continuity receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr-continuity-${{ github.event.pull_request.head.sha }}
+          path: artifacts/pr-continuity.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  metadata-receipt:
+    name: PR Continuity Metadata Receipt
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out trusted base evaluator
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+
+      - name: Verify trusted Attack 20 contract
+        run: node --test test/pr-continuity.attack20.test.mjs
+
+      - name: Refresh managed PR continuity block
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ROOT_BASE_REF: main
+        run: node scripts/pr-continuity.mjs metadata
+
+  rollover:
+    name: Roll Current Main Through Open PR Graph
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'push')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out trusted current main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+
+      - name: Attack 20 before write authority
+        run: node --test test/pr-continuity.attack20.test.mjs
+
+      - name: Roll main forward without force, rebase, or conflict guessing
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ROOT_BASE_REF: main
+        run: node scripts/pr-continuity.mjs rollover
+
+      - name: Retain rollover receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr-continuity-rollover-${{ github.sha }}
+          path: artifacts/pr-continuity.json
+          if-no-files-found: ignore
+          retention-days: 14
