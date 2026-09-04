@@ -11,6 +11,32 @@
     "searchSnippetsAreProof": false,
     "hiddenContentMayBeInferred": false
   },
+  "networkPolicy": {
+    "publicNetworkOnly": true,
+    "allowedSchemes": [
+      "http",
+      "https"
+    ],
+    "allowedPorts": [
+      80,
+      443
+    ],
+    "resolveBeforeNavigation": true,
+    "revalidateEveryRedirect": true,
+    "rejectMixedPublicPrivateResolution": true,
+    "maxRedirects": 5,
+    "blockedDestinationClasses": [
+      "localhost",
+      "private-network",
+      "link-local",
+      "carrier-grade-nat",
+      "reserved",
+      "documentation",
+      "metadata-service"
+    ],
+    "evidenceSanitizationIsNetworkAdmission": false,
+    "failClosed": true
+  },
   "truthStates": [
     "VERIFIED",
     "INFERRED",
