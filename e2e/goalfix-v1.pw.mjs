@@ -32,7 +32,7 @@ test('Goalfix v1 public pack is discoverable, selectable, and end-to-end continu
     'POST-MERGE TRUTH',
     'Never inherit predecessor green',
     'same carrier',
-    'skipped required checks remain blockers',
+    'Skipped required checks remain blockers',
     'expected head SHA',
     'actual landed merge/main SHA',
   ]) {
