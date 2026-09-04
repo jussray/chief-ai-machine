@@ -31,4 +31,15 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs');
     expect(runtimeSection).not.toContain('Chief runtime surface changed; real exact-runtime Playwright proof is required.');
   });
+
+  it('does not require a Cloudflare preview for governance-only materializer edits', () => {
+    const runtimeSection = materializer
+      .split('  runtime-applicability:')[1]
+      .split('  capability-plan-applicability:')[0];
+
+    expect(runtimeSection).not.toContain('governance-required-check-materializer');
+    expect(runtimeSection).toContain('worker/');
+    expect(runtimeSection).toContain('wrangler\\.jsonc$');
+    expect(runtimeSection).toContain('e2e/');
+  });
 });
