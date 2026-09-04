@@ -11,6 +11,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: pr-continuity-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   exact-head-audit:
     name: PR Continuity Exact-Head Gate
