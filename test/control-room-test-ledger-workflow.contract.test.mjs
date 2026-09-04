@@ -52,8 +52,17 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(providerSection).toContain('has_provider_receipt');
     expect(providerSection).toContain('git rev-list --first-parent');
     expect(providerSection).toContain('git diff --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA"');
-    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/)'");
+    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$)'");
     expect(providerSection).toContain('Provider receipt continuity proven');
     expect(providerSection).not.toContain('N/A proven from exact-head diff: provider/runtime surface unchanged.');
+  });
+
+  it('does not treat root Vitest configuration as provider-affecting runtime state', () => {
+    const providerSection = materializer
+      .split('  provider-receipt:')[1]
+      .split('  founder-goals-applicability:')[0];
+
+    expect(providerSection).toContain('vitest\\.config\\.js$');
+    expect(providerSection).toContain('only non-runtime governance/test files changed');
   });
 });
