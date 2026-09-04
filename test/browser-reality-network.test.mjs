@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { URL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BROWSER_REALITY_MAX_REDIRECTS,
@@ -6,7 +8,42 @@ import {
   isPublicBrowserRealityAddress,
 } from '../src/domain/browser-reality-network.js';
 
+const contract = JSON.parse(readFileSync(
+  new URL('../config/browser-reality.contract.json', import.meta.url),
+  'utf8',
+));
+const skill = readFileSync(
+  new URL('../.agents/skills/browser-reality-inspector/SKILL.md', import.meta.url),
+  'utf8',
+);
+
 describe('Browser Reality public-network admission', () => {
+  it('machine-freezes the network membrane in the contract and skill', () => {
+    expect(contract.networkPolicy).toEqual({
+      publicNetworkOnly: true,
+      allowedSchemes: ['http', 'https'],
+      allowedPorts: [80, 443],
+      resolveBeforeNavigation: true,
+      revalidateEveryRedirect: true,
+      rejectMixedPublicPrivateResolution: true,
+      maxRedirects: 5,
+      blockedDestinationClasses: [
+        'localhost',
+        'private-network',
+        'link-local',
+        'carrier-grade-nat',
+        'reserved',
+        'documentation',
+        'metadata-service',
+      ],
+      evidenceSanitizationIsNetworkAdmission: false,
+      failClosed: true,
+    });
+    expect(skill).toContain('src/domain/browser-reality-network.js');
+    expect(skill).toContain('Re-run public-network admission for every redirect target');
+    expect(skill).toContain('Never treat `sanitizeBrowserRealityUrl()` or a valid evidence digest as permission to navigate.');
+  });
+
   it('admits only public HTTP(S) targets after DNS resolution', async () => {
     const resolveHost = vi.fn(async (hostname) => {
       expect(hostname).toBe('example.com');
