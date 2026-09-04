@@ -32,12 +32,19 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).not.toContain('Chief runtime surface changed; real exact-runtime Playwright proof is required.');
   });
 
-  it('does not require a Cloudflare preview for governance-only materializer edits', () => {
+  it('does not require runtime/provider proof for governance-only materializer edits', () => {
+    const providerSection = materializer
+      .split('  provider-receipt:')[1]
+      .split('  founder-goals-applicability:')[0];
     const runtimeSection = materializer
       .split('  runtime-applicability:')[1]
       .split('  capability-plan-applicability:')[0];
 
+    expect(providerSection).toContain('Classify provider receipt applicability');
+    expect(providerSection).toContain('N/A proven from exact-head diff: provider/runtime surface unchanged.');
+    expect(providerSection).not.toContain('governance-required-check-materializer');
     expect(runtimeSection).not.toContain('governance-required-check-materializer');
+    expect(providerSection).toContain('worker/');
     expect(runtimeSection).toContain('worker/');
     expect(runtimeSection).toContain('wrangler\\.jsonc$');
     expect(runtimeSection).toContain('e2e/');
