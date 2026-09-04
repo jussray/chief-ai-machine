@@ -32,21 +32,28 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).not.toContain('Chief runtime surface changed; real exact-runtime Playwright proof is required.');
   });
 
-  it('does not require runtime/provider proof for governance-only materializer edits', () => {
-    const providerSection = materializer
-      .split('  provider-receipt:')[1]
-      .split('  founder-goals-applicability:')[0];
+  it('does not force runtime Playwright for governance-only materializer edits', () => {
     const runtimeSection = materializer
       .split('  runtime-applicability:')[1]
       .split('  capability-plan-applicability:')[0];
 
-    expect(providerSection).toContain('Classify provider receipt applicability');
-    expect(providerSection).toContain('N/A proven from exact-head diff: provider/runtime surface unchanged.');
-    expect(providerSection).not.toContain('governance-required-check-materializer');
     expect(runtimeSection).not.toContain('governance-required-check-materializer');
-    expect(providerSection).toContain('worker/');
     expect(runtimeSection).toContain('worker/');
     expect(runtimeSection).toContain('wrangler\\.jsonc$');
     expect(runtimeSection).toContain('e2e/');
+  });
+
+  it('inherits provider proof only across an unchanged governance/test-only tail', () => {
+    const providerSection = materializer
+      .split('  provider-receipt:')[1]
+      .split('  founder-goals-applicability:')[0];
+
+    expect(providerSection).toContain('Verify exact-head or unchanged-provider-tree receipt');
+    expect(providerSection).toContain('has_provider_receipt');
+    expect(providerSection).toContain('git rev-list --first-parent');
+    expect(providerSection).toContain('git diff --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA"');
+    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/)'");
+    expect(providerSection).toContain('Provider receipt continuity proven');
+    expect(providerSection).not.toContain('N/A proven from exact-head diff: provider/runtime surface unchanged.');
   });
 });
