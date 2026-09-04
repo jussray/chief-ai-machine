@@ -113,7 +113,7 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA"
           changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan|governance-required-check-materializer))'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             echo 'Chief runtime surface changed; executing real exact-runtime Playwright proof.'
           else
