@@ -11,7 +11,7 @@
     "verify:mcp": "node scripts/verify-mcp-config.mjs",
     "verify:cookies": "node scripts/verify-cookie-contract.mjs",
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs",
-    "verify:browser-reality": "vitest run test/browser-reality-contract.test.mjs src/promptos/catalog.test.js",
+    "verify:browser-reality": "vitest run test/browser-reality-contract.test.mjs test/browser-reality-network.test.mjs src/promptos/catalog.test.js",
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
     "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"
