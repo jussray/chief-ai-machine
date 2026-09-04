@@ -23,7 +23,31 @@ jobs:
     name: Redacted provider receipt
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify provider receipt applicability
+        id: provider-scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git fetch --no-tags origin "$BASE_SHA"
+          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            echo 'Provider/runtime surface changed; exact-head Cloudflare provider receipt is required.'
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'N/A proven from exact-head diff: provider/runtime surface unchanged.'
+          fi
+
       - name: Verify exact-head provider receipt
+        if: steps.provider-scope.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
