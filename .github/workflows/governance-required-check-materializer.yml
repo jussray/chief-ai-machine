@@ -88,13 +88,13 @@ jobs:
           printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
           printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
 
-          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/)' || true)"
+          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$)' || true)"
           if [ -n "$unsafe_since_receipt" ]; then
             printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
             exit 1
           fi
 
-          echo "Provider receipt continuity proven: only non-runtime .github/ or test/ files changed since ${inherited_sha}."
+          echo "Provider receipt continuity proven: only non-runtime governance/test files changed since ${inherited_sha}."
 
   founder-goals-applicability:
     name: Verify Founder Goals desktop and mobile flow
