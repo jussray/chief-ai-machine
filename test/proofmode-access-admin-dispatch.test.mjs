@@ -10,7 +10,7 @@ const accessAdminWorkflow = readFileSync(
   'utf8',
 );
 
-const TRUSTED_ADMIN_SHA = '18768db9618ad925f6be7c263e0bce7fd5860929';
+const TRUSTED_ADMIN_SHA = '988e2ac70d5d8d0c1988a373aae419c2f9b63b59';
 const TRUSTED_ADMIN_CALL = `uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@${TRUSTED_ADMIN_SHA}`;
 
 describe('ProofMode Access admin dispatch bootstrap', () => {
@@ -20,9 +20,8 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(capabilityWorkflow).toContain(TRUSTED_ADMIN_CALL);
     expect(capabilityWorkflow).not.toContain('uses: ./.github/workflows/proofmode-access-service-auth.yml');
     expect(capabilityWorkflow).not.toContain('secrets: inherit');
-    expect(capabilityWorkflow).toContain('CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}');
-    expect(capabilityWorkflow).toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}');
-    expect(capabilityWorkflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
+    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}');
+    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}');
   });
 
   it('keeps privileged Access admin work manual and scoped to the requested immutable target', () => {
@@ -44,13 +43,14 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(accessAdminWorkflow).toContain('run: node scripts/proofmode-access-policy.mjs');
   });
 
-  it('declares only the Cloudflare secrets required by the admin policy evaluator', () => {
+  it('sources admin credentials only from the protected environment job', () => {
+    expect(accessAdminWorkflow).not.toContain('    secrets:\n      CLOUDFLARE_ACCOUNT_ID:');
     for (const secret of [
       'CLOUDFLARE_ACCOUNT_ID',
       'CLOUDFLARE_ACCESS_ADMIN_API_TOKEN',
       'CLOUDFLARE_ACCESS_CLIENT_ID',
     ]) {
-      expect(accessAdminWorkflow).toContain(`${secret}:\n        required: true`);
+      expect(accessAdminWorkflow).toContain(`${secret}: ${{ secrets.${secret} }}`);
     }
     expect(accessAdminWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
   });
