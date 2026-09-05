@@ -11,20 +11,6 @@ on:
         description: "Exact immutable Chief preview origin to inspect"
         required: true
         type: string
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "Check or repair the specific ProofMode CI Service Auth policy"
-        required: true
-        default: check
-        type: choice
-        options:
-          - check
-          - repair
-      target_url:
-        description: "Exact immutable Chief preview origin to inspect (for example https://1234abcd-chief-ai.mcgill-raylene.workers.dev)"
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -43,18 +29,26 @@ jobs:
     timeout-minutes: 5
     environment: proofmode-access-admin
     steps:
-      - name: Check out requested revision
+      - name: Check out immutable admin workflow source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.sha }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           persist-credentials: false
 
       - name: Record trusted admin source
         shell: bash
+        env:
+          TRUSTED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          TRUSTED_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          TRUSTED_WORKFLOW_REF: ${{ job.workflow_ref }}
         run: |
           actual="$(git rev-parse HEAD)"
-          printf 'trusted_admin_source=%s\n' "$actual"
-          test "$actual" = "$GITHUB_SHA"
+          printf 'trusted_admin_workflow=%s\ntrusted_admin_source=%s\ntrusted_admin_ref=%s\n' \
+            "$TRUSTED_WORKFLOW_REPOSITORY" "$actual" "$TRUSTED_WORKFLOW_REF"
+          test "$TRUSTED_WORKFLOW_REPOSITORY" = "$GITHUB_REPOSITORY"
+          test -n "$TRUSTED_WORKFLOW_SHA"
+          test "$actual" = "$TRUSTED_WORKFLOW_SHA"
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
