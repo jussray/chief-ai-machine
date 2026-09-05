@@ -1,6 +1,16 @@
 name: ProofMode Access Service Auth Admin
 
 on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "Check or repair the specific ProofMode CI Service Auth policy"
+        required: true
+        type: string
+      target_url:
+        description: "Exact immutable Chief preview origin to inspect"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       mode:
@@ -20,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: proofmode-access-service-auth-admin
+  group: proofmode-access-service-auth-admin-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -36,7 +46,15 @@ jobs:
       - name: Check out requested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
+
+      - name: Record trusted admin source
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'trusted_admin_source=%s\n' "$actual"
+          test "$actual" = "$GITHUB_SHA"
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
