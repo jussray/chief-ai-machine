@@ -34,6 +34,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(capabilityWorkflow).not.toContain('secrets: inherit');
     expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}');
     expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}');
+    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_WORKERS_READ_API_TOKEN');
   });
 
   it('fails closed when a manual dispatch does not prove the selected ref owns the intended exact head', () => {
@@ -89,17 +90,20 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(accessAdminWorkflow).toContain('run: node scripts/proofmode-access-policy.mjs');
   });
 
-  it('sources admin credentials and stable provider identity only from the protected environment job', () => {
+  it('sources admin credentials, Worker-registry read authority, and stable provider identity only from the protected environment job', () => {
     expect(accessAdminWorkflow).not.toContain('    secrets:\n      CLOUDFLARE_ACCOUNT_ID:');
     for (const secret of [
       'CLOUDFLARE_ACCOUNT_ID',
       'CLOUDFLARE_ACCESS_ADMIN_API_TOKEN',
+      'CLOUDFLARE_WORKERS_READ_API_TOKEN',
       'CLOUDFLARE_ACCESS_CLIENT_ID',
       'CLOUDFLARE_ACCESS_APP_ID',
     ]) {
       expect(accessAdminWorkflow).toContain(`${secret}: \${{ secrets.${secret} }}`);
     }
     expect(accessAdminWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+    expect(proofModeWorkflow).not.toContain('CLOUDFLARE_WORKERS_READ_API_TOKEN');
+    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_WORKERS_READ_API_TOKEN');
   });
 
   it('separates pre-merge candidate ProofMode runtime proof from post-merge production proof', () => {
