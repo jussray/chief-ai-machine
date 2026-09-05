@@ -53,6 +53,26 @@ describe('merge intent gate', () => {
     expect(decision.reasons).toContain('keep-draft');
   });
 
+  it('blocks numbered keep-draft status directives after provider metadata is flipped ready', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'feat(chief): fingerprint authority handoff to FCR',
+      body: [
+        '## NEXT GATE',
+        '',
+        '1. Obtain fresh independent semantic/security review.',
+        '4. Keep DRAFT until current review/authority gates are satisfied.',
+      ].join('\n'),
+      isDraft: false,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: false,
+    });
+    expect(decision.reasons).toContain('keep-draft');
+  });
+
   it('blocks the exact stale wording that was present on merged PR #113', () => {
     const decision = evaluateMergeIntent({
       baseRef: 'main',

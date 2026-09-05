@@ -9,7 +9,7 @@ const BLOCKING_MARKERS = Object.freeze([
   },
   {
     code: 'superseded',
-    pattern: /^(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?(?:\[superseded\]|superseded\b)/i,
+    pattern: /^(?:\[superseded\](?:\s|$)|(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?superseded(?:\s|[.:;,(]|$))/i,
   },
   { code: 'verification-only', pattern: /^verification\s+only\b/i },
   { code: 'merge-blocked', pattern: /^merge\s+blocked\b/i },
@@ -37,6 +37,7 @@ function directiveLines(title, body) {
       .trim()
       .replace(/^#{1,6}\s*/, '')
       .replace(/^[-*+]\s+/, '')
+      .replace(/^\d+[.)]\s+/, '')
       .trim();
 
     if ((line.startsWith('**') && line.endsWith('**')) || (line.startsWith('__') && line.endsWith('__'))) {
