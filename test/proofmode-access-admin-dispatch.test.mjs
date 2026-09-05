@@ -36,13 +36,23 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(capabilityWorkflow).toContain('needs: dispatch-identity');
   });
 
-  it('keeps privileged Access admin work manual and scoped to the normalized immutable target', () => {
-    expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}");
-    expect(capabilityWorkflow).toContain('mode: ${{ inputs.access_mode }}');
+  it('keeps privileged Access admin work manual, rechecks on verify, and scopes repair to the normalized immutable target', () => {
+    expect(capabilityWorkflow).toContain('name: Redacted provider receipt');
+    expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' }}");
+    expect(capabilityWorkflow).toContain("mode: ${{ inputs.access_mode == 'repair' && 'repair' || 'check' }}");
+    expect(capabilityWorkflow).not.toContain('mode: ${{ inputs.access_mode }}');
     expect(capabilityWorkflow).toContain('target_url: ${{ needs.dispatch-identity.outputs.base_url }}');
     expect(capabilityWorkflow).not.toContain('target_url: ${{ inputs.base_url }}');
+    expect(capabilityWorkflow).toContain('      - access-policy-admin');
     expect(capabilityWorkflow).not.toContain('github.event.pull_request.number == 143');
     expect(capabilityWorkflow).not.toContain('https://0a541f03-chief-ai.mcgill-raylene.workers.dev');
+  });
+
+  it('binds the stale exact-runtime required context only to successful privileged runtime proof', () => {
+    expect(capabilityWorkflow).toContain('name: Verify exact Chief runtime with Playwright');
+    expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}");
+    expect(capabilityWorkflow).toContain('needs: runtime-proof');
+    expect(capabilityWorkflow).toContain('Exact Chief runtime compatibility receipt is derived only from a successful privileged live runtime and Playwright job');
   });
 
   it('keeps provider credentials inside a reusable-only workflow that checks out its own immutable source', () => {
