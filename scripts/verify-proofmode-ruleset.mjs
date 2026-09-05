@@ -3,6 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const API_VERSION = '2022-11-28';
+const GITHUB_ACTIONS_INTEGRATION_ID = 15368;
+const REQUIRED_CANDIDATE_PRODUCER_TRUST = 'external-github-app-check-required';
+const REQUIRED_CANDIDATE_WORKFLOW_PROVENANCE = 'must-not-be-pr-authored-github-actions-only';
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -86,6 +89,16 @@ export function validateProofModeRulesetMigration({
   const candidateRulesetValid = Number.isSafeInteger(candidateRulesetId) && candidateRulesetId > 0;
   const candidateRulesetName = clean(semantics?.preMergeCandidateRulesetName) || null;
   const candidateMustHaveNoBypassActors = semantics?.preMergeCandidateRulesetMustHaveNoBypassActors === true;
+  const candidateProducerTrust = clean(semantics?.preMergeCandidateProducerTrust);
+  const candidateWorkflowProvenance = clean(semantics?.preMergeCandidateWorkflowProvenance);
+  const producerContractPresent = Boolean(candidateProducerTrust || candidateWorkflowProvenance);
+  const producerContractValid = !producerContractPresent || (
+    candidateProducerTrust === REQUIRED_CANDIDATE_PRODUCER_TRUST
+    && candidateWorkflowProvenance === REQUIRED_CANDIDATE_WORKFLOW_PROVENANCE
+  );
+  const externalCandidateProducerRequired = producerContractPresent && producerContractValid;
+  const candidateUsesGithubActions = candidateIntegrationValid
+    && candidateIntegrationId === GITHUB_ACTIONS_INTEGRATION_ID;
   const violations = [];
 
   if (activeDefaultBranchRulesets.length === 0) {
@@ -102,6 +115,7 @@ export function validateProofModeRulesetMigration({
     || !candidateIntegrationValid
     || !candidateRulesetValid
     || !candidateMustHaveNoBypassActors
+    || !producerContractValid
   ) {
     violations.push({
       classification: 'proofmode-ruleset-contract-incomplete',
@@ -110,6 +124,19 @@ export function validateProofModeRulesetMigration({
       candidateIntegrationId: candidateIntegrationValid ? candidateIntegrationId : null,
       candidateRulesetId: candidateRulesetValid ? candidateRulesetId : null,
       candidateRulesetMustHaveNoBypassActors: candidateMustHaveNoBypassActors,
+      candidateProducerTrust: candidateProducerTrust || null,
+      candidateWorkflowProvenance: candidateWorkflowProvenance || null,
+    });
+  }
+
+  if (externalCandidateProducerRequired && candidateUsesGithubActions) {
+    violations.push({
+      classification: 'candidate-proofmode-producer-untrusted',
+      context: candidateContext || null,
+      integrationId: candidateIntegrationId,
+      producerTrust: candidateProducerTrust,
+      workflowProvenance: candidateWorkflowProvenance,
+      reason: 'GitHub Actions can be invoked by PR-authored workflow code and cannot be the sole external candidate-proof producer',
     });
   }
 
@@ -242,6 +269,7 @@ export function validateProofModeRulesetMigration({
       .filter((entry) => (
         entry.integrationId === candidateIntegrationId
         && entry.bypassActorCount === 0
+        && (!externalCandidateProducerRequired || entry.integrationId !== GITHUB_ACTIONS_INTEGRATION_ID)
       ))
       .map(({ id, name }) => ({ id, name }))
     : [];
@@ -255,6 +283,8 @@ export function validateProofModeRulesetMigration({
     candidateRulesetId: candidateRulesetValid ? candidateRulesetId : null,
     candidateRulesetName,
     candidateRulesetMustHaveNoBypassActors: candidateMustHaveNoBypassActors,
+    candidateProducerTrust: candidateProducerTrust || null,
+    candidateWorkflowProvenance: candidateWorkflowProvenance || null,
     activeDefaultBranchRulesets: requiredByRuleset,
     candidateRulesets,
     violations,
