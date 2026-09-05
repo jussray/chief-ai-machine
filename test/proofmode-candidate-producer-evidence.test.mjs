@@ -204,10 +204,7 @@ describe('candidate producer evidence', () => {
 
   it('requests all check-run history and follows pagination so page-two producer conflicts cannot hide', async () => {
     const pageOne = Array.from({ length: 100 }, (_, index) => (
-      check({
-        id: index + 1,
-        name: `unrelated-${index + 1}`,
-      })
+      check({ id: index + 1 })
     ));
     const pageTwo = [check({
       id: 101,
@@ -236,11 +233,13 @@ describe('candidate producer evidence', () => {
 
       expect(checks).toHaveLength(101);
       expect(requestedUrls).toHaveLength(2);
-      expect(requestedUrls[0]).toContain('filter=all');
-      expect(requestedUrls[0]).toContain('per_page=100');
-      expect(requestedUrls[0]).toContain('page=1');
-      expect(requestedUrls[0]).toContain(`check_name=${encodeURIComponent(CONTEXT)}`);
-      expect(requestedUrls[1]).toContain('page=2');
+      const firstUrl = new URL(requestedUrls[0]);
+      const secondUrl = new URL(requestedUrls[1]);
+      expect(firstUrl.searchParams.get('filter')).toBe('all');
+      expect(firstUrl.searchParams.get('per_page')).toBe('100');
+      expect(firstUrl.searchParams.get('page')).toBe('1');
+      expect(firstUrl.searchParams.get('check_name')).toBe(CONTEXT);
+      expect(secondUrl.searchParams.get('page')).toBe('2');
 
       const result = evaluateCandidateProducerEvidence({
         checks,
