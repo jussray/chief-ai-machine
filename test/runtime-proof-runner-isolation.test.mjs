@@ -8,7 +8,7 @@ const workflows = [
 
 describe('credential-bearing runtime proof runner isolation', () => {
   it.each(workflows)('%s keeps PR-head execution and Access secrets in separate jobs', (_name, relativePath) => {
-    const workflow = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+    const workflow = readFileSync(new globalThis.URL(relativePath, import.meta.url), 'utf8');
     const sourceStart = workflow.indexOf('  source-contract:');
     const runtimeStart = workflow.indexOf('  runtime-proof:');
     const sourceSection = workflow.slice(sourceStart, runtimeStart);
