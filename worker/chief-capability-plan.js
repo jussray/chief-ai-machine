@@ -105,7 +105,7 @@ function createTrustedReasoningPolicy(capabilityPlan) {
     activation: 'server-owned',
     callerMaySelectPolicy: false,
     untrustedWorkflowTokensInert: true,
-    strategicLenses: [...CHIEF_TRUSTED_STRATEGIC_LENSES],
+    strategicLenses: [...capabilityPlan.strategicLenses],
     attackBudget: 1000,
     attackBudgetSemantics: 'reasoning pressure-test budget; not proof that 1000 tool actions or external mutations executed',
     executedAttackCount: null,
