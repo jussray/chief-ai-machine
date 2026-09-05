@@ -21,6 +21,7 @@ function check({
   appSlug = 'chief-proof-witness',
   status = 'completed',
   conclusion = 'success',
+  startedAt = '2026-09-05T20:00:00Z',
 } = {}) {
   return {
     id,
@@ -28,6 +29,7 @@ function check({
     head_sha: headSha,
     status,
     conclusion,
+    started_at: startedAt,
     app: { id: appId, slug: appSlug },
   };
 }
@@ -43,6 +45,7 @@ describe('candidate producer evidence', () => {
     expect(result.ok).toBe(true);
     expect(result.violations).toEqual([]);
     expect(result.observedProducerIds).toEqual([EXTERNAL_APP_ID]);
+    expect(result.currentConfiguredCheckId).toBe(1);
     expect(result.successfulConfiguredCheckIds).toEqual([1]);
   });
 
@@ -74,6 +77,58 @@ describe('candidate producer evidence', () => {
     expect(result.violations).toEqual(expect.arrayContaining([
       expect.objectContaining({ classification: 'candidate-check-producer-ambiguous' }),
       expect.objectContaining({ classification: 'candidate-context-emitted-by-github-actions' }),
+    ]));
+  });
+
+  it('does not let an older success mask a newer failed run from the same producer', () => {
+    const result = evaluateCandidateProducerEvidence({
+      checks: [
+        check({ id: 10, startedAt: '2026-09-05T20:00:00Z' }),
+        check({
+          id: 11,
+          startedAt: '2026-09-05T20:05:00Z',
+          status: 'completed',
+          conclusion: 'failure',
+        }),
+      ],
+      semantics,
+      expectedHeadSha: HEAD,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.currentConfiguredCheckId).toBe(11);
+    expect(result.successfulConfiguredCheckIds).toEqual([]);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'candidate-check-not-successful',
+        current: expect.objectContaining({ id: 11, conclusion: 'failure' }),
+      }),
+    ]));
+  });
+
+  it('does not let an older success mask a newer in-progress rerun', () => {
+    const result = evaluateCandidateProducerEvidence({
+      checks: [
+        check({ id: 20, startedAt: '2026-09-05T20:00:00Z' }),
+        check({
+          id: 21,
+          startedAt: '2026-09-05T20:06:00Z',
+          status: 'in_progress',
+          conclusion: '',
+        }),
+      ],
+      semantics,
+      expectedHeadSha: HEAD,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.currentConfiguredCheckId).toBe(21);
+    expect(result.successfulConfiguredCheckIds).toEqual([]);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'candidate-check-not-successful',
+        current: expect.objectContaining({ id: 21, status: 'in_progress' }),
+      }),
     ]));
   });
 
