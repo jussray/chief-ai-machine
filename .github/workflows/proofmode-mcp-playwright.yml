@@ -59,7 +59,7 @@ jobs:
             reason=no-proofmode-runtime-path-changed
             while IFS= read -r file; do
               case "$file" in
-                worker/proofmode-mcp.js|worker/index.js|wrangler.jsonc|e2e/proofmode-mcp.pw.mjs|.github/workflows/proofmode-mcp-playwright.yml)
+                worker/proofmode-mcp.js|worker/index.js|wrangler.jsonc|e2e/proofmode-mcp.pw.mjs)
                   applicable=true
                   reason=proofmode-runtime-path-changed
                   break
