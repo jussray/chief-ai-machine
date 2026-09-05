@@ -7,6 +7,8 @@ const GITHUB_ACTIONS_INTEGRATION_ID = 15368;
 const REQUIRED_PRODUCER_TRUST = 'external-github-app-check-required';
 const REQUIRED_WORKFLOW_PROVENANCE = 'must-not-be-pr-authored-github-actions-only';
 const REQUIRED_PRODUCER_EVIDENCE = 'exact-head-check-run-app-identity-required';
+const CHECK_RUNS_PER_PAGE = 100;
+const MAX_CHECK_RUN_PAGES = 100;
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 const positiveInteger = (value) => {
@@ -27,8 +29,6 @@ function latestCheck(checks) {
     if (leftStarted !== null && rightStarted !== null && leftStarted !== rightStarted) {
       return rightStarted - leftStarted;
     }
-    if (leftStarted !== null && rightStarted === null) return -1;
-    if (leftStarted === null && rightStarted !== null) return 1;
     return (positiveInteger(right?.id) || 0) - (positiveInteger(left?.id) || 0);
   })[0];
 }
@@ -94,6 +94,19 @@ export function evaluateCandidateProducerEvidence({
     });
   }
 
+  const producerIdentityUnobservable = exactContextChecks.filter((check) => (
+    !positiveInteger(check?.app?.id)
+  ));
+  if (producerIdentityUnobservable.length > 0) {
+    violations.push({
+      classification: 'candidate-check-producer-unobservable',
+      context: candidateContext || null,
+      count: producerIdentityUnobservable.length,
+      checkIds: producerIdentityUnobservable.map((check) => positiveInteger(check?.id)),
+      reason: 'every authoritative candidate-context check must expose a GitHub App integration id',
+    });
+  }
+
   const observedProducerIds = [...new Set(
     exactContextChecks
       .map((check) => positiveInteger(check?.app?.id))
@@ -136,7 +149,25 @@ export function evaluateCandidateProducerEvidence({
     });
   }
 
-  const currentConfiguredCheck = latestCheck(configuredProducerChecks);
+  const orderingUnobservableChecks = configuredProducerChecks.filter((check) => (
+    checkStartedAtMs(check) === null
+  ));
+  const orderingUnobservable = configuredProducerChecks.length > 1
+    && orderingUnobservableChecks.length > 0;
+  if (orderingUnobservable) {
+    violations.push({
+      classification: 'candidate-check-order-unobservable',
+      context: candidateContext || null,
+      expectedIntegrationId: candidateIntegrationId,
+      checkIds: configuredProducerChecks.map((check) => positiveInteger(check?.id)),
+      missingStartedAtCheckIds: orderingUnobservableChecks.map((check) => positiveInteger(check?.id)),
+      reason: 'duplicate candidate checks cannot be ordered safely while any run lacks started_at',
+    });
+  }
+
+  const currentConfiguredCheck = orderingUnobservable
+    ? null
+    : latestCheck(configuredProducerChecks);
   const currentConfiguredCheckIsSuccessful = Boolean(currentConfiguredCheck)
     && clean(currentConfiguredCheck?.status).toLowerCase() === 'completed'
     && clean(currentConfiguredCheck?.conclusion).toLowerCase() === 'success'
@@ -192,18 +223,38 @@ async function githubJson(url, token) {
   return response.json();
 }
 
-export async function observeCandidateChecks({ repository, token, expectedHeadSha } = {}) {
+export async function observeCandidateChecks({
+  repository,
+  token,
+  expectedHeadSha,
+  checkName,
+} = {}) {
   const repo = clean(repository);
   const headSha = clean(expectedHeadSha).toLowerCase();
+  const requestedCheckName = clean(checkName);
   if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) throw new Error('repository must be owner/name');
   if (!/^[0-9a-f]{40}$/.test(headSha)) throw new Error('expectedHeadSha must be an exact commit SHA');
 
-  const data = await githubJson(
-    `https://api.github.com/repos/${repo}/commits/${headSha}/check-runs?per_page=100`,
-    token,
-  );
-  if (!Array.isArray(data?.check_runs)) throw new Error('GitHub check-runs response was invalid');
-  return data.check_runs;
+  const checks = [];
+  for (let page = 1; page <= MAX_CHECK_RUN_PAGES; page += 1) {
+    const params = new URLSearchParams({
+      filter: 'all',
+      per_page: String(CHECK_RUNS_PER_PAGE),
+      page: String(page),
+    });
+    if (requestedCheckName) params.set('check_name', requestedCheckName);
+
+    const data = await githubJson(
+      `https://api.github.com/repos/${repo}/commits/${headSha}/check-runs?${params.toString()}`,
+      token,
+    );
+    if (!Array.isArray(data?.check_runs)) throw new Error('GitHub check-runs response was invalid');
+
+    checks.push(...data.check_runs);
+    if (data.check_runs.length < CHECK_RUNS_PER_PAGE) return checks;
+  }
+
+  throw new Error(`GitHub candidate check pagination exceeded ${MAX_CHECK_RUN_PAGES} pages`);
 }
 
 export async function writeCandidateProducerEvidenceReport({
@@ -217,7 +268,13 @@ export async function writeCandidateProducerEvidenceReport({
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   const repo = clean(repository) || clean(config?.truthSource?.repository);
   const headSha = clean(expectedHeadSha).toLowerCase();
-  const checks = await observeCandidateChecks({ repository: repo, token, expectedHeadSha: headSha });
+  const candidateContext = clean(config?.proofContextSemantics?.preMergeCandidateContext);
+  const checks = await observeCandidateChecks({
+    repository: repo,
+    token,
+    expectedHeadSha: headSha,
+    checkName: candidateContext,
+  });
   const report = {
     schemaVersion: 1,
     project: config?.project || null,
