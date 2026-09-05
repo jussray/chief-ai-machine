@@ -9,19 +9,20 @@ on:
 
 permissions:
   contents: read
-  checks: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 concurrency:
-  group: operational-proof-${{ github.event.pull_request.number || github.ref }}
+  group: operational-proof-source-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  authority:
-    name: Verify operational authority
+  source-contract:
+    # Candidate-controlled GitHub Actions can prove source invariants, but cannot
+    # manufacture operational authority or external producer identity.
+    name: Verify operational source contract
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -46,37 +47,17 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Test operational contracts
-        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs
+      - name: Test operational source contracts
+        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/operational-proof-trust-root.test.mjs
 
-      - name: Enforce immutable workflow authority
+      - name: Enforce source workflow authority
         run: node scripts/verify-operational-authority.mjs
 
-      - name: Observe live governance and candidate producer authority
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set +e
-          node scripts/verify-proofmode-ruleset.mjs
-          ruleset_status=$?
-          node scripts/verify-candidate-producer-evidence.mjs
-          producer_status=$?
-          set -e
-
-          if [ "$ruleset_status" -ne 0 ] || [ "$producer_status" -ne 0 ]; then
-            printf 'Operational authority remains blocked: ruleset_status=%s producer_status=%s\n' "$ruleset_status" "$producer_status" >&2
-            exit 1
-          fi
-
-      - name: Retain operational authority receipts
+      - name: Retain operational source receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: operational-authority-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            artifacts/operational-authority-report.json
-            artifacts/proofmode-ruleset-report.json
-            artifacts/candidate-producer-evidence-report.json
+          name: operational-source-contract-${{ env.EXPECTED_HEAD_SHA }}
+          path: artifacts/operational-authority-report.json
           if-no-files-found: error
           retention-days: 30
