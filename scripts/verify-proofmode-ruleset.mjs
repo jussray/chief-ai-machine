@@ -51,6 +51,19 @@ export function requiredStatusContexts(ruleset) {
   return [...new Set(requiredStatusChecks(ruleset).map((check) => check.context))];
 }
 
+export function requiredDeploymentEnvironments(ruleset) {
+  const rules = Array.isArray(ruleset?.rules) ? ruleset.rules : [];
+  const environments = [];
+  for (const rule of rules) {
+    if (rule?.type !== 'required_deployments') continue;
+    const required = Array.isArray(rule?.parameters?.required_deployment_environments)
+      ? rule.parameters.required_deployment_environments
+      : [];
+    environments.push(...required.map(clean).filter(Boolean));
+  }
+  return [...new Set(environments)];
+}
+
 export function validateProofModeRulesetMigration({
   rulesets,
   semantics,
@@ -62,6 +75,9 @@ export function validateProofModeRulesetMigration({
   ));
   const legacyContexts = Array.isArray(semantics?.legacyPreMergeProofModeContexts)
     ? semantics.legacyPreMergeProofModeContexts.map(clean).filter(Boolean)
+    : [];
+  const postMergeOnlyDeploymentEnvironments = Array.isArray(semantics?.postMergeOnlyDeploymentEnvironments)
+    ? semantics.postMergeOnlyDeploymentEnvironments.map(clean).filter(Boolean)
     : [];
   const candidateContext = clean(semantics?.preMergeCandidateContext);
   const candidateIntegrationId = Number(semantics?.preMergeCandidateIntegrationId);
@@ -99,6 +115,7 @@ export function validateProofModeRulesetMigration({
 
   const requiredByRuleset = activeDefaultBranchRulesets.map((ruleset) => {
     const checks = requiredStatusChecks(ruleset);
+    const deployments = requiredDeploymentEnvironments(ruleset);
     const bypassActorsObservable = Array.isArray(ruleset?.bypass_actors);
     const bypassActorCount = bypassActorsObservable ? ruleset.bypass_actors.length : null;
     return {
@@ -106,6 +123,7 @@ export function validateProofModeRulesetMigration({
       name: clean(ruleset.name) || null,
       contexts: [...new Set(checks.map((check) => check.context))],
       checks,
+      requiredDeploymentEnvironments: deployments,
       bypassActorCount,
       bypassActorState: bypassActorsObservable ? 'observed' : 'unobservable',
     };
@@ -120,6 +138,20 @@ export function validateProofModeRulesetMigration({
         classification: 'legacy-proofmode-context-still-required',
         context: legacyContext,
         rulesets: blockers,
+      });
+    }
+  }
+
+  for (const environment of postMergeOnlyDeploymentEnvironments) {
+    const blockers = requiredByRuleset
+      .filter((ruleset) => ruleset.requiredDeploymentEnvironments.includes(environment))
+      .map(({ id, name }) => ({ id, name }));
+    if (blockers.length > 0) {
+      violations.push({
+        classification: 'postmerge-only-deployment-required-premerge',
+        environment,
+        rulesets: blockers,
+        reason: 'a production-plane deployment environment is required by a default-branch merge ruleset before merge',
       });
     }
   }
@@ -217,6 +249,7 @@ export function validateProofModeRulesetMigration({
   return {
     defaultBranch,
     legacyContexts,
+    postMergeOnlyDeploymentEnvironments,
     candidateContext: candidateContext || null,
     candidateIntegrationId: candidateIntegrationValid ? candidateIntegrationId : null,
     candidateRulesetId: candidateRulesetValid ? candidateRulesetId : null,
@@ -292,6 +325,7 @@ export async function writeProofModeRulesetReport({
         name: clean(ruleset?.name) || null,
         enforcement: clean(ruleset?.enforcement) || null,
         target: clean(ruleset?.target) || null,
+        requiredDeploymentEnvironments: requiredDeploymentEnvironments(ruleset),
         bypassActorCount: bypassActorsObservable ? ruleset.bypass_actors.length : null,
         bypassActorState: bypassActorsObservable ? 'observed' : 'unobservable',
       };
