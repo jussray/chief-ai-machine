@@ -91,12 +91,10 @@ export function validateProofModeRulesetMigration({
   const candidateMustHaveNoBypassActors = semantics?.preMergeCandidateRulesetMustHaveNoBypassActors === true;
   const candidateProducerTrust = clean(semantics?.preMergeCandidateProducerTrust);
   const candidateWorkflowProvenance = clean(semantics?.preMergeCandidateWorkflowProvenance);
-  const producerContractPresent = Boolean(candidateProducerTrust || candidateWorkflowProvenance);
-  const producerContractValid = !producerContractPresent || (
+  const producerContractValid = (
     candidateProducerTrust === REQUIRED_CANDIDATE_PRODUCER_TRUST
     && candidateWorkflowProvenance === REQUIRED_CANDIDATE_WORKFLOW_PROVENANCE
   );
-  const externalCandidateProducerRequired = producerContractPresent && producerContractValid;
   const candidateUsesGithubActions = candidateIntegrationValid
     && candidateIntegrationId === GITHUB_ACTIONS_INTEGRATION_ID;
   const violations = [];
@@ -129,7 +127,7 @@ export function validateProofModeRulesetMigration({
     });
   }
 
-  if (externalCandidateProducerRequired && candidateUsesGithubActions) {
+  if (producerContractValid && candidateUsesGithubActions) {
     violations.push({
       classification: 'candidate-proofmode-producer-untrusted',
       context: candidateContext || null,
@@ -264,12 +262,12 @@ export function validateProofModeRulesetMigration({
     });
   }
 
-  const candidateRulesets = candidateIntegrationValid && candidateRulesetValid
+  const candidateRulesets = candidateIntegrationValid && candidateRulesetValid && producerContractValid
     ? authoritativeOccurrences
       .filter((entry) => (
         entry.integrationId === candidateIntegrationId
         && entry.bypassActorCount === 0
-        && (!externalCandidateProducerRequired || entry.integrationId !== GITHUB_ACTIONS_INTEGRATION_ID)
+        && entry.integrationId !== GITHUB_ACTIONS_INTEGRATION_ID
       ))
       .map(({ id, name }) => ({ id, name }))
     : [];
