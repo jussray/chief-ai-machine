@@ -9,6 +9,18 @@ const accessAdminWorkflow = readFileSync(
   new globalThis.URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
   'utf8',
 );
+const proofModeWorkflow = readFileSync(
+  new globalThis.URL('../.github/workflows/proofmode-mcp-playwright.yml', import.meta.url),
+  'utf8',
+);
+const productionProofModeWorkflow = readFileSync(
+  new globalThis.URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
+  'utf8',
+);
+const operationalAuthority = JSON.parse(readFileSync(
+  new globalThis.URL('../config/operational-authority.json', import.meta.url),
+  'utf8',
+));
 
 const TRUSTED_ADMIN_SHA = '988e2ac70d5d8d0c1988a373aae419c2f9b63b59';
 const TRUSTED_ADMIN_CALL = `uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@${TRUSTED_ADMIN_SHA}`;
@@ -37,7 +49,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
   });
 
   it('keeps privileged Access admin work manual, rechecks on verify, and scopes repair to the normalized immutable target', () => {
-    expect(capabilityWorkflow).toContain('name: Redacted provider receipt');
+    expect(capabilityWorkflow).toContain("github.event_name == 'workflow_dispatch' && 'Redacted provider receipt'");
     expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' }}");
     expect(capabilityWorkflow).toContain("mode: ${{ inputs.access_mode == 'repair' && 'repair' || 'check' }}");
     expect(capabilityWorkflow).not.toContain('mode: ${{ inputs.access_mode }}');
@@ -48,10 +60,21 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(capabilityWorkflow).not.toContain('https://0a541f03-chief-ai.mcgill-raylene.workers.dev');
   });
 
-  it('binds the stale exact-runtime required context only to successful privileged runtime proof', () => {
-    expect(capabilityWorkflow).toContain('name: Verify exact Chief runtime with Playwright');
-    expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}");
+  it('fails required provider and exact-runtime receipts closed on PR events instead of relying on skipped-job success', () => {
+    expect(capabilityWorkflow).toContain('provider-receipt-pr-gate:');
+    expect(capabilityWorkflow).toContain("github.event_name == 'pull_request' && 'Redacted provider receipt'");
+    expect(capabilityWorkflow).toContain('Fail closed before protected provider receipt');
+    expect(capabilityWorkflow).toContain('exact-runtime-pr-gate:');
+    expect(capabilityWorkflow).toContain("github.event_name == 'pull_request' && 'Verify exact Chief runtime with Playwright'");
+    expect(capabilityWorkflow).toContain('Fail closed before exact-runtime receipt');
+  });
+
+  it('binds the exact-runtime required context to an explicit successful privileged runtime result', () => {
+    expect(capabilityWorkflow).toContain("github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' && 'Verify exact Chief runtime with Playwright'");
+    expect(capabilityWorkflow).toContain("if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}");
     expect(capabilityWorkflow).toContain('needs: runtime-proof');
+    expect(capabilityWorkflow).toContain('RUNTIME_PROOF_RESULT: ${{ needs.runtime-proof.result }}');
+    expect(capabilityWorkflow).toContain('if [ "$RUNTIME_PROOF_RESULT" != "success" ]; then');
     expect(capabilityWorkflow).toContain('Exact Chief runtime compatibility receipt is derived only from a successful privileged live runtime and Playwright job');
   });
 
@@ -76,5 +99,28 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
       expect(accessAdminWorkflow).toContain(`${secret}: \${{ secrets.${secret} }}`);
     }
     expect(accessAdminWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+  });
+
+  it('separates pre-merge candidate ProofMode runtime proof from post-merge production proof', () => {
+    expect(proofModeWorkflow).toContain("'Verify candidate ProofMode runtime with Playwright'");
+    expect(proofModeWorkflow).toContain('environment: proofmode-access-admin');
+    expect(proofModeWorkflow).toContain('Verify immutable preview serves exact head');
+    expect(proofModeWorkflow).not.toContain('Verify production ProofMode MCP with Playwright');
+
+    expect(productionProofModeWorkflow).toContain('name: Verify production ProofMode MCP with Playwright');
+    expect(productionProofModeWorkflow).toContain('environment: proofmode-access-admin');
+    expect(productionProofModeWorkflow).not.toContain('pull_request:');
+    expect(productionProofModeWorkflow).toContain('Guard production proof to current main only');
+    expect(productionProofModeWorkflow).toContain('if [ "$EVENT_REF" != "refs/heads/main" ]; then');
+    expect(productionProofModeWorkflow).toContain('if [ -z "$current" ] || [ "$current" != "$GITHUB_SHA" ]; then');
+    expect(productionProofModeWorkflow).not.toContain('Verify candidate ProofMode runtime with Playwright');
+
+    expect(operationalAuthority.proofContextSemantics).toEqual({
+      preMergeCandidateContext: 'Verify candidate ProofMode runtime with Playwright',
+      preMergeCandidateScope: 'founder-authorized immutable-preview exact-SHA Playwright proof',
+      postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
+      postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
+      rulesetMigration: 'replace the pre-merge production ProofMode requirement with the candidate ProofMode runtime context; keep production verification post-merge/main-only',
+    });
   });
 });
