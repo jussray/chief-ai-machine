@@ -22,6 +22,7 @@ export const MERGE_REVIEW_DISPOSITIONS = Object.freeze([
   'WAIT_REQUIRED_CHECKS',
   'WAIT_CODE_SCANNING',
   'WAIT_REQUIRED_DEPLOYMENTS',
+  'WAIT_FOUNDER_SELF_AUDIT',
   'WAIT_INDEPENDENT_APPROVAL',
   'WAIT_FOUNDER_AUTHORITY',
   'HOLD_METHOD',
@@ -134,6 +135,10 @@ export function evaluateMergeReview(mergeReview = {}) {
       codeScanningSatisfied: false,
       missingRequiredDeployments: [],
       requiredDeploymentsSatisfied: false,
+      founderSelfAuditRequired: false,
+      founderSelfAuditSatisfied: false,
+      founderSelfAuditHeadMatches: false,
+      founderSelfAuditDisposition: 'UNKNOWN',
       independentApprovalSatisfied: false,
       founderAuthoritySatisfied: false,
       headMatchesReview: false,
@@ -168,6 +173,38 @@ export function evaluateMergeReview(mergeReview = {}) {
   );
   const missingRequiredDeployments = requiredDeployments.filter((name) => !successfulDeployments.has(name));
   const requiredDeploymentsSatisfied = missingRequiredDeployments.length === 0;
+
+  const founderSelfAuditRequired = mergeReview.rules?.founderSelfAuditRequired === true;
+  const founderActor = typeof mergeReview.founderActor === 'string' ? mergeReview.founderActor.trim() : '';
+  const founderSelfAuditReviewer = typeof mergeReview.founderSelfAudit?.reviewer === 'string'
+    ? mergeReview.founderSelfAudit.reviewer.trim()
+    : '';
+  const founderSelfAuditReviewedHeadSha = typeof mergeReview.founderSelfAudit?.reviewedHeadSha === 'string'
+    ? mergeReview.founderSelfAudit.reviewedHeadSha.trim()
+    : '';
+  const founderSelfAuditHeadMatches = Boolean(
+    currentHeadSha
+      && founderSelfAuditReviewedHeadSha
+      && founderSelfAuditReviewedHeadSha === currentHeadSha,
+  );
+  const founderSelfAuditDisposition = ['ACCEPT', 'REVISE', 'HOLD'].includes(mergeReview.founderSelfAudit?.disposition)
+    ? mergeReview.founderSelfAudit.disposition
+    : 'UNKNOWN';
+  const founderSelfAuditCoverageSatisfied = [
+    'diffReviewed',
+    'requiredChecksReviewed',
+    'codeScanningReviewed',
+    'runtimeEvidenceReviewed',
+    'knownRisksReviewed',
+  ].every((field) => mergeReview.founderSelfAudit?.[field] === true);
+  const founderSelfAuditSatisfied = !founderSelfAuditRequired || Boolean(
+    mergeReview.founderSelfAudit?.completed === true
+      && founderActor
+      && founderSelfAuditReviewer === founderActor
+      && founderSelfAuditHeadMatches
+      && founderSelfAuditDisposition === 'ACCEPT'
+      && founderSelfAuditCoverageSatisfied,
+  );
 
   const requireLastPushApproval = mergeReview.rules?.requireLastPushApproval === true;
   const lastPusher = typeof mergeReview.lastPusher === 'string' ? mergeReview.lastPusher.trim() : '';
@@ -210,6 +247,7 @@ export function evaluateMergeReview(mergeReview = {}) {
   else if (missingRequiredChecks.length > 0) disposition = 'WAIT_REQUIRED_CHECKS';
   else if (!codeScanningSatisfied) disposition = 'WAIT_CODE_SCANNING';
   else if (!requiredDeploymentsSatisfied) disposition = 'WAIT_REQUIRED_DEPLOYMENTS';
+  else if (!founderSelfAuditSatisfied) disposition = 'WAIT_FOUNDER_SELF_AUDIT';
   else if (!independentApprovalSatisfied) disposition = 'WAIT_INDEPENDENT_APPROVAL';
   else if (!founderAuthoritySatisfied) disposition = 'WAIT_FOUNDER_AUTHORITY';
   else if (!recommendedMergeMethod) disposition = 'HOLD_METHOD';
@@ -231,6 +269,14 @@ export function evaluateMergeReview(mergeReview = {}) {
     requiredDeployments,
     missingRequiredDeployments,
     requiredDeploymentsSatisfied,
+    founderSelfAuditRequired,
+    founderActor,
+    founderSelfAuditReviewer,
+    founderSelfAuditReviewedHeadSha,
+    founderSelfAuditHeadMatches,
+    founderSelfAuditDisposition,
+    founderSelfAuditCoverageSatisfied,
+    founderSelfAuditSatisfied,
     requireLastPushApproval,
     lastPusher,
     reviewer,
@@ -338,6 +384,8 @@ export function evaluateEvidenceDecision(input = {}) {
       requiredChecksMustMaterializeOnReviewedHead: true,
       codeScanningIsSeparateMergeEvidence: true,
       requiredDeploymentsAreSeparateMergeEvidence: true,
+      founderSelfAuditIsBoundToExactHead: true,
+      founderSelfAuditDoesNotGrantMergeAuthority: true,
       independentApprovalCannotBeSelfSatisfied: true,
       linearHistoryForbidsMergeCommitFallback: true,
     },
