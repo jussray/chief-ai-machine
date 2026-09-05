@@ -5,6 +5,12 @@
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
   },
+  "candidatePairing": {
+    "schema": "juss/founder-chief-pair-candidate@v1",
+    "founderControlRoomPullRequest": 735,
+    "chiefAIPullRequest": 129,
+    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority."
+  },
   "roles": {
     "controlRoom": [
       "memory",
