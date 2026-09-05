@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const capabilityWorkflow = readFileSync(
-  new URL('../.github/workflows/chief-capability-plan-playwright.yml', import.meta.url),
+  new globalThis.URL('../.github/workflows/chief-capability-plan-playwright.yml', import.meta.url),
   'utf8',
 );
 const accessAdminWorkflow = readFileSync(
-  new URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
+  new globalThis.URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
   'utf8',
 );
 
