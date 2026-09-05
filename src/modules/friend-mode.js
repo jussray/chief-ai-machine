@@ -64,9 +64,9 @@ function renderResult(result) {
       </dl>
     </details>`;
 
-  document.getElementById('friendCopy')?.addEventListener('click', () => {
-    copyText(result.action);
-    showToast('One move copied.');
+  document.getElementById('friendCopy')?.addEventListener('click', async () => {
+    const copied = await copyText(result.action);
+    showToast(copied ? 'One move copied.' : 'Copy failed. Select the move manually.');
   });
   document.getElementById('friendDone')?.addEventListener('click', event => {
     event.currentTarget.textContent = 'Done ✓';

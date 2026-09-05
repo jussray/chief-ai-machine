@@ -43,6 +43,7 @@ test.beforeEach(async ({ context, page }) => {
   await page.evaluate(() => {
     localStorage.removeItem('chief-custom');
     localStorage.removeItem('chief-stars');
+    localStorage.removeItem('chief-goals-v1');
   });
   await page.reload();
 });
@@ -173,4 +174,56 @@ test('Builder save is visible in Library without a reload', async ({ page }) => 
   await page.locator('#search').fill('Builder:');
   await expect(page.locator('#grid .pcard')).toHaveCount(1);
   await expect(page.locator('#grid .pcard h3')).toContainText('Builder:');
+});
+
+test('portable goal list shapes normalize before readiness and Builder continuation', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('chief-goals-v1', JSON.stringify([{
+      goal: 'Ship the smallest safe fix',
+      project: 'chief-ai-machine',
+      priority: 'now',
+      definitionOfDone: 'Rendered continuation reaches Builder',
+      evidence: 'exact head observed, source tests green',
+      constraints: 'minimal edits\nno bypass',
+      strategicLenses: 'ooda, redteam',
+      capabilities: 'repo-audit-first',
+      proofRequirements: 'unit tests green\nPlaywright green',
+      rollback: 'Revert the focused commit',
+      nextGate: 'Review exact head',
+      createdAt: '2026-09-05T12:00:00.000Z',
+    }]));
+  });
+  await page.reload();
+
+  await openPage(page, 'goals');
+  await expect(page.locator('#goalReadiness')).toHaveText('1/1 ready');
+
+  const normalized = await page.evaluate(() => JSON.parse(localStorage.getItem('chief-goals-v1') || '[]')[0]);
+  expect(normalized.constraints).toEqual(['minimal edits', 'no bypass']);
+  expect(normalized.proofRequirements).toEqual(['unit tests green', 'Playwright green']);
+  expect(normalized.strategicLenses).toEqual(['ooda', 'redteam']);
+
+  await page.getByRole('button', { name: 'Continue in Builder' }).click();
+  await expect(page.locator('#page-builder')).toHaveClass(/\bon\b/);
+  await expect(page.locator('#bRepo')).toHaveValue('chief-ai-machine');
+  await expect(page.locator('#bConstraints')).toHaveValue(/no bypass/);
+  await expect(page.locator('#bConstraints')).toHaveValue(/Proof: unit tests green; Playwright green/);
+});
+
+test('Friend Mode copy receipt fails closed when clipboard and fallback both fail', async ({ page }) => {
+  await openPage(page, 'friend');
+  await page.locator('#friendInput').fill('I need one safe next move for this build blocker.');
+  await page.locator('#friendResolve').click();
+  await expect(page.locator('#friendCopy')).toBeVisible();
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => { throw new Error('clipboard denied'); } },
+    });
+    document.execCommand = () => false;
+  });
+
+  await page.locator('#friendCopy').click();
+  await expect(page.locator('#toast')).toHaveText('Copy failed. Select the move manually.');
 });
