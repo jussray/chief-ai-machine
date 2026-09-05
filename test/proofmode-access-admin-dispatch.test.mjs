@@ -122,10 +122,11 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
         'Verify production ProofMode MCP with Playwright',
       ],
       preMergeCandidateContext: 'Verify candidate ProofMode runtime with Playwright',
+      preMergeCandidateIntegrationId: 15368,
       preMergeCandidateScope: 'founder-authorized immutable-preview exact-SHA Playwright proof',
       postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
       postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
-      rulesetMigration: 'replace both legacy pre-merge ProofMode requirements with the candidate ProofMode runtime context; do not require the production ProofMode context before merge; keep production verification post-merge/main-only',
+      rulesetMigration: 'replace both legacy pre-merge ProofMode requirements with the candidate ProofMode runtime context bound to GitHub Actions integration 15368; do not require the production ProofMode context before merge; keep production verification post-merge/main-only',
     });
   });
 });
