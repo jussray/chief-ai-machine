@@ -14,6 +14,25 @@ const positiveInteger = (value) => {
   return Number.isSafeInteger(number) && number > 0 ? number : null;
 };
 
+function checkStartedAtMs(check) {
+  const value = Date.parse(clean(check?.started_at));
+  return Number.isFinite(value) ? value : null;
+}
+
+function latestCheck(checks) {
+  if (!Array.isArray(checks) || checks.length === 0) return null;
+  return [...checks].sort((left, right) => {
+    const leftStarted = checkStartedAtMs(left);
+    const rightStarted = checkStartedAtMs(right);
+    if (leftStarted !== null && rightStarted !== null && leftStarted !== rightStarted) {
+      return rightStarted - leftStarted;
+    }
+    if (leftStarted !== null && rightStarted === null) return -1;
+    if (leftStarted === null && rightStarted !== null) return 1;
+    return (positiveInteger(right?.id) || 0) - (positiveInteger(left?.id) || 0);
+  })[0];
+}
+
 export function evaluateCandidateProducerEvidence({
   checks,
   semantics,
@@ -117,24 +136,26 @@ export function evaluateCandidateProducerEvidence({
     });
   }
 
-  const successfulConfiguredChecks = configuredProducerChecks.filter((check) => (
-    clean(check?.status).toLowerCase() === 'completed'
-    && clean(check?.conclusion).toLowerCase() === 'success'
-    && clean(check?.app?.slug).toLowerCase() !== 'github-actions'
-  ));
+  const currentConfiguredCheck = latestCheck(configuredProducerChecks);
+  const currentConfiguredCheckIsSuccessful = Boolean(currentConfiguredCheck)
+    && clean(currentConfiguredCheck?.status).toLowerCase() === 'completed'
+    && clean(currentConfiguredCheck?.conclusion).toLowerCase() === 'success'
+    && clean(currentConfiguredCheck?.app?.slug).toLowerCase() !== 'github-actions';
 
-  if (candidateIntegrationId && configuredProducerChecks.length > 0 && successfulConfiguredChecks.length === 0) {
+  if (candidateIntegrationId && configuredProducerChecks.length > 0 && !currentConfiguredCheckIsSuccessful) {
     violations.push({
       classification: 'candidate-check-not-successful',
       context: candidateContext || null,
       expectedIntegrationId: candidateIntegrationId,
-      observed: configuredProducerChecks.map((check) => ({
-        id: check?.id ?? null,
-        status: clean(check?.status) || null,
-        conclusion: clean(check?.conclusion) || null,
-        appId: positiveInteger(check?.app?.id),
-        appSlug: clean(check?.app?.slug) || null,
-      })),
+      current: {
+        id: currentConfiguredCheck?.id ?? null,
+        startedAt: clean(currentConfiguredCheck?.started_at) || null,
+        status: clean(currentConfiguredCheck?.status) || null,
+        conclusion: clean(currentConfiguredCheck?.conclusion) || null,
+        appId: positiveInteger(currentConfiguredCheck?.app?.id),
+        appSlug: clean(currentConfiguredCheck?.app?.slug) || null,
+      },
+      observedRunCount: configuredProducerChecks.length,
     });
   }
 
@@ -147,7 +168,10 @@ export function evaluateCandidateProducerEvidence({
     producerEvidence: producerEvidence || null,
     observedProducerIds,
     exactContextCheckCount: exactContextChecks.length,
-    successfulConfiguredCheckIds: successfulConfiguredChecks.map((check) => check?.id ?? null),
+    currentConfiguredCheckId: currentConfiguredCheck?.id ?? null,
+    successfulConfiguredCheckIds: currentConfiguredCheckIsSuccessful
+      ? [currentConfiguredCheck?.id ?? null]
+      : [],
     violations,
     ok: violations.length === 0,
   };
