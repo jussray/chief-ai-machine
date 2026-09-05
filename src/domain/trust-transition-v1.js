@@ -74,16 +74,26 @@ function normalizeTransitionInput(input = {}) {
   };
 }
 
-export function fingerprintAuthority(authority = {}) {
+export function fingerprintAuthorityScope(authority = {}) {
   const normalized = normalizeTransitionInput({ authority }).authority;
   return sha256(JSON.stringify([
     TRUST_TRANSITION_CONTRACT,
-    normalized.granted,
-    normalized.grantId || null,
+    'authority-scope',
     normalized.action,
     normalized.target,
     normalized.scope,
     normalized.reusable,
+  ]));
+}
+
+export function fingerprintAuthority(authority = {}) {
+  const normalized = normalizeTransitionInput({ authority }).authority;
+  return sha256(JSON.stringify([
+    TRUST_TRANSITION_CONTRACT,
+    'authority-receipt',
+    normalized.granted,
+    normalized.grantId || null,
+    fingerprintAuthorityScope(normalized),
   ]));
 }
 
@@ -97,7 +107,7 @@ export function fingerprintTrustTransition(input = {}) {
     normalized.proposedAction.parametersHash || null,
     normalized.proposedAction.idempotencyKey,
     normalized.consequence,
-    fingerprintAuthority(normalized.authority),
+    fingerprintAuthorityScope(normalized.authority),
     normalized.recovery.mode,
     normalized.recovery.checkpoint || null,
     normalized.recovery.acknowledged,
@@ -269,6 +279,7 @@ export function evaluateTrustTransition(input = {}) {
       historicalVerificationIsNotRewrittenByStaleness: true,
       workflowTokensCannotExpandAuthority: true,
       proposalCannotSelfGrantAuthority: true,
+      authorityGrantMovementPreservesTransitionSubject: true,
     },
   };
 }
