@@ -284,6 +284,7 @@ export function evaluateOperatorContinuityReceiptV2(receipt, current, now, prove
       ['providerFingerprint', 'provider_moved'],
       ['runtimeFingerprint', 'runtime_moved'],
       ['authorityFingerprint', 'authority_moved'],
+      ['predecessorFingerprint', 'predecessor_moved'],
     ];
     for (const [field, reason] of fields) if (prior[field] !== next[field]) add(reason);
   }
