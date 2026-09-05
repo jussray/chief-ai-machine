@@ -48,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Test operational source contracts
-        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/operational-proof-trust-root.test.mjs
+        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-ruleset-pagination.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/operational-proof-trust-root.test.mjs
 
       - name: Enforce source workflow authority
         run: node scripts/verify-operational-authority.mjs
