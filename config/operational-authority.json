@@ -56,7 +56,13 @@
     "publicProductionClaimRequiresSeparateEvidenceBackedChange": true,
     "providerMutationRequiresExplicitFounderGate": true,
     "neverRequestSecretsInChat": true,
-    "unknownOrMissingAuthorityFailsClosed": true
+    "unknownOrMissingAuthorityFailsClosed": true,
+    "candidateAuthoredWorkflowsMayConsumeProtectedSecrets": false,
+    "candidateAuthoredWorkflowsMayEnterProtectedEnvironment": false,
+    "privilegedWorkflowSourceMustEqualCurrentMain": true,
+    "stalePrivilegedWorkflowSourceFailsClosed": true,
+    "secretBearingWorkflowDispatchForbidden": true,
+    "providerAdminUsesDefaultBranchRepositoryDispatch": true
   },
   "proofContextSemantics": {
     "legacyPreMergeProofModeContexts": [
@@ -78,12 +84,28 @@
       "requiredReviewThreadResolution": true
     },
     "preMergeCandidateScope": "founder-authorized immutable-preview exact-SHA Playwright proof",
+    "privilegedBootstrap": {
+      "state": "BLOCKED_UNTIL_TRUSTED_MAIN_CARRIER",
+      "adminWorkflowPath": ".github/workflows/proofmode-access-service-auth.yml",
+      "trustedAdminWorkflowSha": null,
+      "trustedSourceRule": "exact-current-main-only",
+      "trigger": "repository_dispatch",
+      "candidateWorkflowMayInvokeAdmin": false,
+      "candidateWorkflowMayReadProtectedSecrets": false,
+      "activationRequires": [
+        "admin workflow exists on protected main",
+        "admin workflow run GITHUB_SHA equals current main exactly",
+        "repository_dispatch executes default-branch workflow source",
+        "repair requires explicit repository-owner authorization",
+        "provider evidence is re-observed after every main movement"
+      ]
+    },
     "postMergeProductionContext": "Verify production ProofMode MCP with Playwright",
     "postMergeProductionScope": "current-main canonical-production exact-SHA Playwright proof",
     "postMergeOnlyDeploymentEnvironments": [
       "Cloudflare Production"
     ],
-    "rulesetMigration": "HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed on the exact candidate SHA and its integration ID is recorded here; require exact-head check-run app-identity evidence for that producer; remove any post-merge-only production deployment environment from pre-merge required deployments; require at least one fresh approval with stale-review dismissal, last-push approval, and resolved review threads on the zero-bypass carrier; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only"
+    "rulesetMigration": "HOLD: this PR cannot self-bootstrap privileged authority. Candidate-authored workflows are source-only and may not enter proofmode-access-admin or consume protected secrets. First land a reviewed admin carrier on protected main; privileged provider administration must then run from exact-current-main repository_dispatch source, with repair restricted to explicit repository-owner authorization. Separately identify an external GitHub App/check producer unavailable to PR-authored GitHub Actions, observe it on the exact candidate SHA, record its integration ID, remove post-merge-only production deployment requirements from the pre-merge carrier, require at least one fresh approval with stale-review dismissal, last-push approval, and resolved review threads, then migrate the candidate runtime context to the zero-bypass carrier."
   },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
