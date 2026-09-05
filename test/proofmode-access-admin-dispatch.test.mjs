@@ -25,6 +25,14 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(capabilityWorkflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
   });
 
+  it('keeps privileged Access admin work manual and scoped to the requested immutable target', () => {
+    expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}");
+    expect(capabilityWorkflow).toContain('mode: ${{ inputs.access_mode }}');
+    expect(capabilityWorkflow).toContain('target_url: ${{ inputs.base_url }}');
+    expect(capabilityWorkflow).not.toContain('github.event.pull_request.number == 143');
+    expect(capabilityWorkflow).not.toContain('https://0a541f03-chief-ai.mcgill-raylene.workers.dev');
+  });
+
   it('keeps provider credentials inside a reusable-only workflow that checks out its own immutable source', () => {
     expect(accessAdminWorkflow).toContain('workflow_call:');
     expect(accessAdminWorkflow).not.toContain('workflow_dispatch:');
