@@ -66,8 +66,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  authority:
-    name: Verify operational authority
+  authority-observation:
+    # GitHub Actions integration 15368 is not an authority identity. This job may
+    # observe trusted-base governance state, but it must never emit the legacy
+    # required-check context "Verify operational authority".
+    name: Observe operational authority from trusted base
     if: ${{ github.event_name == 'pull_request_target' }}
     permissions:
       contents: read
@@ -125,11 +128,11 @@ jobs:
             exit 1
           fi
 
-      - name: Retain trusted operational authority receipts
+      - name: Retain trusted operational observation receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: operational-authority-${{ env.EXPECTED_HEAD_SHA }}
+          name: operational-authority-observation-${{ env.EXPECTED_HEAD_SHA }}
           path: |
             artifacts/operational-authority-report.json
             artifacts/proofmode-ruleset-report.json
