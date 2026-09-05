@@ -42,11 +42,10 @@ env:
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
 
 jobs:
-  verify:
-    name: Verify live Chief capability plan with Playwright
+  source-contract:
+    name: Verify Chief capability source contract
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    environment: proofmode-access-admin
+    timeout-minutes: 10
     steps:
       - name: Check out exact requested head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -60,6 +59,42 @@ jobs:
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Run focused capability contracts
+        run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
+
+  runtime-proof:
+    name: Verify live Chief capability plan with Playwright
+    needs: source-contract
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    environment: proofmode-access-admin
+    steps:
+      - name: Check out trusted base runtime proof source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          persist-credentials: false
+
+      - name: Record trusted runtime proof source
+        shell: bash
+        env:
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          trusted="$(git rev-parse HEAD)"
+          printf 'trusted_runtime_proof_source=%s\n' "$trusted"
+          if [ -n "$TRUSTED_BASE_SHA" ]; then
+            test "$trusted" = "$TRUSTED_BASE_SHA"
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -181,23 +216,6 @@ jobs:
           console.log(JSON.stringify({ expectedHeadSha: process.env.EXPECTED_HEAD_SHA, cloudflareChecks: checks }, null, 2));
           NODE
 
-      - name: Check out trusted base runtime proof source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.event.pull_request.base.sha || 'main' }}
-          persist-credentials: false
-
-      - name: Record trusted runtime proof source
-        shell: bash
-        env:
-          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
-        run: |
-          trusted="$(git rev-parse HEAD)"
-          printf 'trusted_runtime_proof_source=%s\n' "$trusted"
-          if [ -n "$TRUSTED_BASE_SHA" ]; then
-            test "$trusted" = "$TRUSTED_BASE_SHA"
-          fi
-
       - name: Install trusted runtime proof dependencies
         run: npm ci
 
@@ -250,7 +268,7 @@ jobs:
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
             if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
-              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Verify that the token is enabled and unexpired and that the Access application has a Service Auth policy including this service token.\n' >&2
+              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Verify that the token is enabled and unexpired and that the Access application has a Service Auth policy including only this service token.\n' >&2
             else
               printf 'Cloudflare Access intercepted the immutable preview and no complete service-token pair is configured. Configure both credentials and a matching Service Auth policy.\n' >&2
             fi
