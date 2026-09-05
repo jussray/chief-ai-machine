@@ -58,6 +58,7 @@ function normalizeTransitionInput(input = {}) {
     },
     consequence: clean(input.consequence, 40).toLowerCase(),
     authority: {
+      granted: authority.granted === true,
       grantId: clean(authority.grantId, 500),
       action: clean(authority.action, 200),
       target: clean(authority.target, 500),
@@ -77,7 +78,8 @@ export function fingerprintAuthority(authority = {}) {
   const normalized = normalizeTransitionInput({ authority }).authority;
   return sha256(JSON.stringify([
     TRUST_TRANSITION_CONTRACT,
-    normalized.grantId,
+    normalized.granted,
+    normalized.grantId || null,
     normalized.action,
     normalized.target,
     normalized.scope,
@@ -121,7 +123,9 @@ function validateCore(normalized) {
   if (!normalized.proposedAction.action) errors.push('proposedAction.action is required');
   if (!normalized.proposedAction.target) errors.push('proposedAction.target is required');
   if (!CONSEQUENCES.has(normalized.consequence)) errors.push('consequence is invalid');
-  if (!normalized.authority.grantId) errors.push('authority.grantId is required');
+  if (normalized.authority.granted && !normalized.authority.grantId) {
+    errors.push('granted authority requires authority.grantId');
+  }
   if (!normalized.authority.action || !normalized.authority.target) errors.push('authority action and target are required');
   if (normalized.authority.action !== normalized.proposedAction.action) errors.push('authority action does not match proposed action');
   if (normalized.authority.target !== normalized.proposedAction.target) errors.push('authority target does not match proposed target');
@@ -130,6 +134,7 @@ function validateCore(normalized) {
 
   if (normalized.consequence === 'consequential' || normalized.consequence === 'irreversible') {
     if (!normalized.proposedAction.idempotencyKey) errors.push('consequential actions require an idempotency key');
+    if (!normalized.runtimeFingerprint) errors.push('consequential actions require a runtime fingerprint');
     if (normalized.authority.reusable) errors.push('consequential authority must not be reusable');
     if (normalized.recovery.mode === 'none' || !normalized.recovery.acknowledged) {
       errors.push('consequential actions require acknowledged recovery');
@@ -202,10 +207,14 @@ export function evaluateTrustTransition(input = {}) {
     consequentialAction: normalized.consequence !== 'routine',
   });
 
+  if (!normalized.authority.granted && (evidenceDecision.executionVerified || evidenceDecision.outcomeVerified)) {
+    errors.push('execution or outcome evidence cannot verify before scoped authority is granted');
+  }
+
   const historicalOutcomeVerified = input.historicalVerification?.outcomeVerified === true
     && Boolean(normalizeHash(input.historicalVerification?.evidenceFingerprint));
 
-  let disposition = 'authorized';
+  let disposition = normalized.authority.granted ? 'authorized' : 'awaiting_authority';
   if (errors.length) disposition = 'blocked';
   else if (subjectDrifted || cookieExpired) disposition = 'unknown';
   else if (evidenceDecision.outcomeVerified) disposition = 'verified';
@@ -217,6 +226,15 @@ export function evaluateTrustTransition(input = {}) {
       ? 'fresh'
       : 'unknown';
 
+  const executionAllowed = Boolean(
+    errors.length === 0
+      && normalized.authority.granted
+      && !subjectDrifted
+      && !cookieExpired
+      && !evidenceDecision.executionVerified
+      && !evidenceDecision.outcomeVerified,
+  );
+
   return {
     contract: TRUST_TRANSITION_CONTRACT,
     valid: errors.length === 0,
@@ -226,6 +244,8 @@ export function evaluateTrustTransition(input = {}) {
     continuityCookie,
     subjectDrifted,
     cookieExpired,
+    authorityGranted: normalized.authority.granted,
+    executionAllowed,
     disposition,
     currentTruthState,
     historicalDisposition: historicalOutcomeVerified ? 'verified' : 'unverified',
@@ -248,6 +268,7 @@ export function evaluateTrustTransition(input = {}) {
       outcomeRequiresIndependentWitness: true,
       historicalVerificationIsNotRewrittenByStaleness: true,
       workflowTokensCannotExpandAuthority: true,
+      proposalCannotSelfGrantAuthority: true,
     },
   };
 }
