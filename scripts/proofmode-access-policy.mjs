@@ -48,9 +48,15 @@ function unwrap(result, label) {
 }
 
 function hasSpecificServiceToken(policy, serviceTokenId) {
-  return policy?.decision === 'non_identity'
-    && Array.isArray(policy.include)
-    && policy.include.some((rule) => rule?.service_token?.token_id === serviceTokenId);
+  if (policy?.decision !== 'non_identity' || !Array.isArray(policy.include) || policy.include.length !== 1) {
+    return false;
+  }
+  const [rule] = policy.include;
+  return rule
+    && typeof rule === 'object'
+    && !Array.isArray(rule)
+    && Object.keys(rule).length === 1
+    && rule?.service_token?.token_id === serviceTokenId;
 }
 
 async function cloudflareJson(fetchImpl, apiToken, path, init = {}) {
@@ -108,15 +114,14 @@ function normalizePublicUri(raw) {
   return value.replace(/^\/+/, '');
 }
 
-function publicUriMatchesProofMode(uri, hostname) {
+function publicUriMatchesPath(uri, hostname, path) {
   const pattern = normalizePublicUri(uri);
   if (!pattern) return false;
   const hostWidePattern = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern;
   if (!hostWidePattern.includes('/')) {
     return globToRegExp(hostWidePattern).test(hostname);
   }
-  const matcher = globToRegExp(pattern);
-  return REQUIRED_PATHS.some((path) => matcher.test(`${hostname}${path}`));
+  return globToRegExp(pattern).test(`${hostname}${path}`);
 }
 
 function isExactHostWidePublicUri(uri, hostname) {
@@ -125,21 +130,36 @@ function isExactHostWidePublicUri(uri, hostname) {
 }
 
 function resolveEffectiveApplication(apps, hostname, applicationName) {
-  const publicMatches = [];
-  for (const app of apps) {
-    for (const destination of app?.destinations || []) {
-      if (destination?.type === 'public' && publicUriMatchesProofMode(destination.uri, hostname)) {
-        publicMatches.push({ app, destination });
+  const publicMatchesByPath = new Map();
+  for (const path of REQUIRED_PATHS) {
+    const matches = [];
+    for (const app of apps) {
+      for (const destination of app?.destinations || []) {
+        if (destination?.type === 'public' && publicUriMatchesPath(destination.uri, hostname, path)) {
+          matches.push({ app, destination });
+        }
       }
     }
+    publicMatchesByPath.set(path, matches);
   }
 
-  if (publicMatches.length) {
-    const appIds = [...new Set(publicMatches.map(({ app }) => app?.id).filter(Boolean))];
-    if (appIds.length !== 1) {
-      throw new Error('Multiple public Access applications match the ProofMode preview paths; refusing to guess effective policy precedence.');
+  const pathsWithPublicCoverage = REQUIRED_PATHS.filter((path) => publicMatchesByPath.get(path).length > 0);
+  if (pathsWithPublicCoverage.length > 0) {
+    if (pathsWithPublicCoverage.length !== REQUIRED_PATHS.length) {
+      throw new Error('Public Access application coverage differs across required ProofMode paths; refusing to guess mixed public/Worker precedence.');
     }
-    const selected = publicMatches[0].app;
+
+    const appIds = [...new Set(REQUIRED_PATHS.flatMap((path) => (
+      publicMatchesByPath.get(path).map(({ app }) => app?.id).filter(Boolean)
+    )))];
+    if (appIds.length !== 1) {
+      throw new Error('Required ProofMode paths resolve to different public Access applications; refusing to guess effective policy precedence.');
+    }
+
+    const selected = publicMatchesByPath.get(REQUIRED_PATHS[0]).find(({ app }) => app?.id === appIds[0])?.app;
+    if (!selected) {
+      throw new Error('Could not resolve the public Access application shared by all required ProofMode paths.');
+    }
     const destinations = Array.isArray(selected?.destinations) ? selected.destinations : [];
     const exactHostOnly = destinations.length === 1
       && destinations[0]?.type === 'public'
@@ -294,7 +314,7 @@ export async function ensureProofModeAccessPolicy({
   const conflictingNamedPolicy = policies.find((policy) => policy?.name === POLICY_NAME);
   if (conflictingNamedPolicy) {
     throw new Error(
-      'A ProofMode CI service-auth policy already exists but does not target the configured service token. Refusing to overwrite it automatically.',
+      'A ProofMode CI service-auth policy already exists but does not exclusively target the configured service token. Refusing to overwrite it automatically.',
     );
   }
 
@@ -323,7 +343,7 @@ export async function ensureProofModeAccessPolicy({
   );
 
   if (!hasSpecificServiceToken(created, serviceId)) {
-    throw new Error('Cloudflare created a policy that did not match the requested specific service-token rule.');
+    throw new Error('Cloudflare created a policy that did not match the requested exclusive specific service-token rule.');
   }
 
   return {
