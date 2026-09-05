@@ -7,39 +7,46 @@ const workflows = [
 ];
 
 describe('credential-bearing runtime proof runner isolation', () => {
-  it.each(workflows)('%s keeps PR execution secretless and privileged runtime proof manual-only', (_name, relativePath) => {
+  it.each(workflows)('%s keeps PR execution secretless and trusted runtime evidence default-main only', (_name, relativePath) => {
     const workflow = readFileSync(new globalThis.URL(relativePath, import.meta.url), 'utf8');
     const sourceStart = workflow.indexOf('  source-contract:');
-    const prGateStart = workflow.indexOf('  pr-runtime-gate:');
-    const runtimeStart = workflow.indexOf('  runtime-proof:');
-    const sourceSection = workflow.slice(sourceStart, prGateStart);
-    const prGateSection = workflow.slice(prGateStart, runtimeStart);
-    const runtimeSection = workflow.slice(runtimeStart);
+    const dispatchStart = workflow.indexOf('  dispatch-identity:');
+    const evidenceStart = workflow.indexOf('  trusted-runtime-evidence:');
 
     expect(sourceStart).toBeGreaterThanOrEqual(0);
-    expect(prGateStart).toBeGreaterThan(sourceStart);
-    expect(runtimeStart).toBeGreaterThan(prGateStart);
+    expect(dispatchStart).toBeGreaterThan(sourceStart);
+    expect(evidenceStart).toBeGreaterThan(dispatchStart);
+    expect(workflow).not.toContain('workflow_dispatch:');
+    expect(workflow).toContain('repository_dispatch:');
 
+    const sourceSection = workflow.slice(sourceStart, dispatchStart);
     expect(sourceSection).toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
     expect(sourceSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(sourceSection).not.toContain('environment: proofmode-access-admin');
 
-    expect(prGateSection).toContain("github.event_name == 'pull_request'");
-    expect(prGateSection).toContain('PR-authored workflow code is not permitted to enter proofmode-access-admin');
-    expect(prGateSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
-    expect(prGateSection).not.toContain('environment: proofmode-access-admin');
+    const dispatchSection = workflow.slice(dispatchStart, evidenceStart);
+    expect(dispatchSection).toContain("github.event_name == 'repository_dispatch'");
+    expect(dispatchSection).toContain('EVENT_REF: ${{ github.ref }}');
+    expect(dispatchSection).toContain('WORKFLOW_SHA: ${{ github.sha }}');
+    expect(dispatchSection).toContain('EXPECTED_MAIN_SHA: ${{ github.event.client_payload.expected_main_sha }}');
+    expect(dispatchSection).toContain('current_main');
+    expect(dispatchSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+    expect(dispatchSection).not.toContain('environment: proofmode-access-admin');
 
-    expect(runtimeSection).toMatch(/needs:\n(?:\s+- [^\n]+\n)*\s+- source-contract/);
-    expect(runtimeSection).toContain("github.event_name == 'workflow_dispatch'");
-    expect(runtimeSection).toContain('environment: proofmode-access-admin');
-    expect(runtimeSection).toContain('TRUSTED_BASE_SHA');
-    expect(runtimeSection).toContain('ref: ${{ env.TRUSTED_BASE_SHA }}');
-    expect(runtimeSection).toContain('Reacquire current main before privileged');
-    expect(runtimeSection).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    const evidenceSection = workflow.slice(evidenceStart);
+    expect(evidenceSection).toContain("github.event_name == 'repository_dispatch'");
+    expect(evidenceSection).toContain('environment: proofmode-access-admin');
+    expect(evidenceSection).toContain('ref: ${{ github.sha }}');
+    expect(evidenceSection).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    expect(evidenceSection).not.toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
+  });
 
-    const trustedCheckout = runtimeSection.search(/name: Check out immutable trusted .*browser-proof source/);
-    const firstAccessSecret = runtimeSection.indexOf('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
-    expect(trustedCheckout).toBeGreaterThanOrEqual(0);
-    expect(firstAccessSecret).toBeGreaterThan(trustedCheckout);
+  it('keeps the reserved candidate authority context out of GitHub Actions', () => {
+    const proofMode = readFileSync(
+      new globalThis.URL('../.github/workflows/proofmode-mcp-playwright.yml', import.meta.url),
+      'utf8',
+    );
+    expect(proofMode).not.toContain('Verify candidate ProofMode runtime with Playwright');
+    expect(proofMode).toContain('ProofMode trusted runtime evidence');
   });
 });
