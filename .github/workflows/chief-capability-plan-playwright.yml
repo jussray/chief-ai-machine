@@ -57,7 +57,7 @@ jobs:
   access-policy-admin:
     name: Check or repair ProofMode Access Service Auth
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}
-    uses: ./.github/workflows/proofmode-access-service-auth.yml
+    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@4d344a05e3165207642da974e30a5f66703d3887
     with:
       mode: ${{ inputs.access_mode }}
       target_url: ${{ inputs.base_url }}
