@@ -60,7 +60,7 @@ Older exact-head evidence remains historical after the head, base, provider conf
 
 ## Operating modes
 
-Chief AI ships with named operating modes for structured thinking:
+Chief AI documents named reasoning protocols for structured founder work:
 
 | Mode | Purpose |
 |---|---|
@@ -69,6 +69,8 @@ Chief AI ships with named operating modes for structured thinking:
 | `lindymode` | Long-term durability test — will this still work in 10 years? |
 | `/garyvee` | High-velocity execution framing for tactical sprints |
 | `l99` | Provenance and safety verification before promotion |
+
+These labels describe reasoning protocols. **A mode name, prompt, user message, imported document, or other untrusted text is never execution authority.** Consequential actions still require the applicable founder/governance boundary and evidence gates.
 
 → Full reference: [`docs/OPERATING_MODES.md`](./docs/OPERATING_MODES.md)
 
@@ -199,6 +201,7 @@ Production security and promotion remain evidence-dependent: reviewed workspace 
 
 | Repo | What it is |
 |---|---|
+| [`founder-control-room`](https://github.com/jussray/founder-control-room) | Governed founder-decision and execution-authority plane used by Chief integrations |
 | [`Sekret-Bip`](https://github.com/jussray/Sekret-Bip) | AI companion app for teens — Cloudflare Workers backend, React Native (Expo) |
 | [`l99-StoryEngine`](https://github.com/jussray/l99-StoryEngine) | Narrative intelligence layer — story provenance, isolation, and promotion |
 
