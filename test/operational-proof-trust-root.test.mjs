@@ -20,31 +20,32 @@ describe('Operational Proof trusted producer authority boundary', () => {
     expect(jobsStart).toBeGreaterThanOrEqual(0);
     expect(workflow.slice(0, jobsStart)).not.toContain('checks: read');
 
-    const source = section('  source-contract:', '  authority:');
+    const source = section('  source-contract:', '  authority-observation:');
     expect(source).toContain('name: Verify operational source contract');
     expect(source).toContain("if: ${{ github.event_name != 'pull_request_target' }}");
     expect(source).toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
     expect(source).not.toContain('checks: read');
     expect(source).not.toContain('verify-candidate-producer-evidence.mjs');
-    expect(source).not.toContain('name: Verify operational authority');
   });
 
-  it('emits operational authority only from a trusted-base pull_request_target job', () => {
+  it('uses pull_request_target only for trusted-base observation, never an Actions authority context', () => {
     expect(workflow).toContain('pull_request_target:');
-    const authority = section('  authority:');
-    expect(authority).toContain('name: Verify operational authority');
-    expect(authority).toContain("if: ${{ github.event_name == 'pull_request_target' }}");
-    expect(authority).toContain('checks: read');
-    expect(authority).toContain('TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}');
-    expect(authority).toContain('EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}');
-    expect(authority).toContain('ref: ${{ env.TRUSTED_BASE_SHA }}');
-    expect(authority).not.toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
-    expect(authority).toContain('test "$trusted" = "$TRUSTED_BASE_SHA"');
-    expect(authority).toContain('test "$trusted" != "$EXPECTED_HEAD_SHA"');
-    expect(authority).toContain('node scripts/verify-candidate-producer-evidence.mjs');
+    expect(workflow).not.toContain('name: Verify operational authority');
+
+    const observation = section('  authority-observation:');
+    expect(observation).toContain('name: Observe operational authority from trusted base');
+    expect(observation).toContain("if: ${{ github.event_name == 'pull_request_target' }}");
+    expect(observation).toContain('checks: read');
+    expect(observation).toContain('TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}');
+    expect(observation).toContain('EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}');
+    expect(observation).toContain('ref: ${{ env.TRUSTED_BASE_SHA }}');
+    expect(observation).not.toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
+    expect(observation).toContain('test "$trusted" = "$TRUSTED_BASE_SHA"');
+    expect(observation).toContain('test "$trusted" != "$EXPECTED_HEAD_SHA"');
+    expect(observation).toContain('node scripts/verify-candidate-producer-evidence.mjs');
   });
 
-  it('does not let source and trusted authority runs cancel one another', () => {
+  it('does not let source and trusted observation runs cancel one another', () => {
     expect(workflow).toContain(
       'group: operational-proof-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}',
     );
