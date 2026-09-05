@@ -4,17 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "plugins/proofmode/**"
-      - "worker/proofmode-mcp*.js"
-      - "worker/index.js"
-      - "wrangler.jsonc"
-      - "package.json"
-      - "package-lock.json"
-      - "scripts/proofmode-access-policy.mjs"
-      - "scripts/proofmode-access-policy.test.js"
-      - "e2e/proofmode-mcp.pw.mjs"
-      - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
       base_url:
