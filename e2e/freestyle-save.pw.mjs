@@ -65,12 +65,19 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
     return drafts.at(-1) || null;
   });
   expect(savedImmediately).not.toBeNull();
+  expect(savedImmediately.id).toMatch(/^freestyle-/);
   expect(Object.keys(savedImmediately.versions)).toEqual(
     expect.arrayContaining(['chatgpt', 'claude', 'perplexity']),
   );
   for (const text of Object.values(savedImmediately.versions)) {
     expect(floorCount(text)).toBe(1);
   }
+
+  await openPage(page, 'library');
+  await page.locator('#search').fill(savedImmediately.title);
+  await expect(page.locator('#grid .pcard')).toHaveCount(1);
+  await expect(page.locator('#grid .pcard h3')).toHaveText(savedImmediately.title);
+  await page.locator('#search').fill('');
 
   await reopenLatestDraft(page);
   const chatgptText = await assertModalProvider(page, 'Chatgpt');
@@ -96,4 +103,69 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
     return drafts.at(-1) || null;
   });
   expect(savedAfterReload).toEqual(savedImmediately);
+});
+
+test('custom prompt text is inert, legacy star ids migrate, and delete stays coherent', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('chief-custom', JSON.stringify([{
+      id: 'custom-xss-proof',
+      title: '<img src=x onerror="window.__chiefStoredXss=1"> literal title',
+      sub: '<svg onload="window.__chiefStoredXss=2"> literal subtitle',
+      cat: '<script>window.__chiefStoredXss=3</script>',
+      notes: '<img src=x onerror="window.__chiefStoredXss=4"> literal note',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Safe prompt body' },
+      emoji: '<img src=x onerror="window.__chiefStoredXss=5">',
+    }]));
+    localStorage.setItem('chief-stars', JSON.stringify(['c0']));
+  });
+  await page.reload();
+
+  await openPage(page, 'library');
+  await expect(page.locator('#statStar')).toHaveText('1');
+  await expect(page.locator('#grid .pcard h3')).toContainText('<img src=x onerror=');
+  await expect(page.locator('#grid .pcard .sub')).toContainText('<svg onload=');
+  expect(await page.evaluate(() => window.__chiefStoredXss)).toBeUndefined();
+
+  const migratedStars = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('chief-stars') || '[]'),
+  );
+  expect(migratedStars).toEqual(['custom-xss-proof']);
+
+  await page.locator('.chip.c-star').click();
+  await expect(page.locator('#grid .pcard')).toHaveCount(1);
+
+  await openPage(page, 'custom');
+  await page.locator('#customList .citem .mini-btn', { hasText: 'Delete' }).click();
+  await expect(page.locator('#navCustom')).toHaveText('0');
+
+  await openPage(page, 'library');
+  await expect(page.locator('#statStar')).toHaveText('0');
+  expect(await page.evaluate(
+    () => JSON.parse(localStorage.getItem('chief-stars') || '[]'),
+  )).toEqual([]);
+});
+
+test('malformed prompt storage fails closed instead of bricking the library', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('chief-custom', '{not-json');
+    localStorage.setItem('chief-stars', '{also-not-json');
+  });
+  await page.reload();
+
+  await openPage(page, 'library');
+  await expect(page.locator('#grid .pcard').first()).toBeVisible();
+  await expect(page.locator('#statCustom')).toHaveText('0');
+  await expect(page.locator('#statStar')).toHaveText('0');
+});
+
+test('Builder save is visible in Library without a reload', async ({ page }) => {
+  await openPage(page, 'builder');
+  await page.locator('#saveBuilder').click();
+  await expect(page.locator('#navCustom')).toHaveText('1');
+
+  await openPage(page, 'library');
+  await page.locator('#search').fill('Builder:');
+  await expect(page.locator('#grid .pcard')).toHaveCount(1);
+  await expect(page.locator('#grid .pcard h3')).toContainText('Builder:');
 });
