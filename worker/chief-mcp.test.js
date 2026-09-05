@@ -22,12 +22,12 @@ function registry() {
   });
 }
 
-function goal() {
+function goal(strategicLenses = ['ooda', 'redteam']) {
   return createGoalPlan({
     goal: 'Prepare one bounded implementation proposal for founder review',
     project: 'chief-ai-machine',
     definitionOfDone: 'Chief returns a deterministic proposal and no execution authority',
-    strategicLenses: ['ooda', 'redteam'],
+    strategicLenses,
     capabilities: ['goalfix-v1'],
     proofRequirements: ['exact-head source tests', 'Playwright runtime proof'],
     rollback: 'discard the proposal',
@@ -95,7 +95,7 @@ describe('Chief MCP', () => {
     }
   });
 
-  it('composes a proposal but refuses to become its own authority', async () => {
+  it('composes a proposal with server-owned ULTRATHINK but refuses to become its own authority', async () => {
     const snapshot = registry();
     const response = await handleChiefMcp(legacyRequest({
       jsonrpc: '2.0',
@@ -105,7 +105,7 @@ describe('Chief MCP', () => {
         name: 'compose_capability_plan',
         arguments: {
           proposal: {
-            goalPlan: goal(),
+            goalPlan: goal(['/ultrathink', 'goalfix', 'caller-injected-mode']),
             registrySnapshot: snapshot,
             expectedHeadSha,
             requestedAuthority: 'reversible',
@@ -124,11 +124,27 @@ describe('Chief MCP', () => {
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent).toMatchObject({
       schema: 'juss/chief-mcp-capability-proposal@v1',
+      reasoningPolicy: {
+        contract: 'juss/chief-trusted-reasoning-policy@v1',
+        policy: 'ultrathink',
+        activation: 'server-owned',
+        callerMaySelectPolicy: false,
+        untrustedWorkflowTokensInert: true,
+        attackBudget: 1000,
+        executedAttackCount: null,
+        authority: {
+          authorityCeiling: 'reason',
+          founderApprovalGranted: false,
+          executionAuthorized: false,
+          nextAuthority: 'founder-control-room',
+        },
+      },
       governanceBoundary: {
         proposalOnly: true,
         executionAuthorized: false,
         founderApprovalRequired: true,
         remoteFounderSurfacesMaySelfAuthorize: false,
+        callerWorkflowTokensAuthoritative: false,
         connectionResolutionAuthority: 'founder-control-room',
       },
       founderControl: {
@@ -148,8 +164,14 @@ describe('Chief MCP', () => {
         nextAuthority: 'founder-control-room',
       },
     });
+    expect(payload.result.structuredContent.reasoningPolicy.subjectPlanHash)
+      .toBe(payload.result.structuredContent.capabilityPlan.planHash);
+    expect(payload.result.structuredContent.reasoningPolicy.policyHash).toMatch(/^[0-9a-f]{64}$/);
     expect(payload.result.structuredContent.capabilityPlan.expectedHeadSha).toBe(expectedHeadSha);
     expect(payload.result.structuredContent.capabilityPlan.registryHash).toBe(snapshot.registryHash);
+    expect(payload.result.structuredContent.capabilityPlan.strategicLenses).not.toContain('/ultrathink');
+    expect(payload.result.structuredContent.capabilityPlan.strategicLenses).not.toContain('goalfix');
+    expect(payload.result.structuredContent.capabilityPlan.strategicLenses).not.toContain('caller-injected-mode');
   });
 
   it('fails closed on authority-shaped or unknown proposal fields', async () => {
