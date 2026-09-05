@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from './capability-plan.js';
 import { evaluateEvidenceDecision } from './evidence-decision-loop.js';
 
 export const TRUST_TRANSITION_CONTRACT = 'juss/trust-transition@v1';
@@ -30,7 +30,7 @@ function cleanList(values, maxItems = 50, maxLength = 200) {
 }
 
 function sha256(value) {
-  return createHash('sha256').update(value).digest('hex');
+  return sha256Hex(value);
 }
 
 function normalizeHash(value) {
