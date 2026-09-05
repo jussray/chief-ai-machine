@@ -129,6 +129,10 @@ function isExactHostWidePublicUri(uri, hostname) {
   return pattern === hostname || pattern === `${hostname}/*`;
 }
 
+function uniqueAppsForDestinationType(apps, type) {
+  return apps.filter((app) => (app?.destinations || []).some((destination) => destination?.type === type));
+}
+
 function resolveEffectiveApplication(apps, hostname, applicationName) {
   const publicMatchesByPath = new Map();
   for (const path of REQUIRED_PATHS) {
@@ -182,31 +186,53 @@ function resolveEffectiveApplication(apps, hostname, applicationName) {
   }
 
   const workerIds = [...new Set(namedWorkerDestinations.map(({ destination }) => destination.worker_id))];
-  if (workerIds.length !== 1) {
-    throw new Error(`Expected exactly one Worker identity across Access applications named ${applicationName}; found ${workerIds.length}.`);
-  }
-  const workerId = workerIds[0];
-
-  const previewApps = apps.filter((app) => (app?.destinations || []).some(
-    (destination) => destination?.type === 'preview_worker' && destination.worker_id === workerId,
-  ));
-  if (previewApps.length > 1) {
-    throw new Error('Multiple preview_worker Access applications protect the same Chief Worker; refusing to guess precedence.');
-  }
-  if (previewApps.length === 1) {
-    return { app: previewApps[0], scope: 'preview_worker', repairEligible: true };
+  if (workerIds.length > 1) {
+    throw new Error(`Expected at most one Worker identity across Access applications named ${applicationName}; found ${workerIds.length}.`);
   }
 
-  const workerApps = apps.filter((app) => (app?.destinations || []).some(
-    (destination) => destination?.type === 'worker' && destination.worker_id === workerId,
-  ));
-  if (workerApps.length > 1) {
-    throw new Error('Multiple worker Access applications protect the same Chief Worker; refusing to guess precedence.');
-  }
-  if (workerApps.length === 1) {
-    return { app: workerApps[0], scope: 'worker', repairEligible: false };
+  if (workerIds.length === 1) {
+    const workerId = workerIds[0];
+
+    const previewApps = apps.filter((app) => (app?.destinations || []).some(
+      (destination) => destination?.type === 'preview_worker' && destination.worker_id === workerId,
+    ));
+    if (previewApps.length > 1) {
+      throw new Error('Multiple preview_worker Access applications protect the same Chief Worker; refusing to guess precedence.');
+    }
+    if (previewApps.length === 1) {
+      return { app: previewApps[0], scope: 'preview_worker', repairEligible: true };
+    }
+
+    const workerApps = apps.filter((app) => (app?.destinations || []).some(
+      (destination) => destination?.type === 'worker' && destination.worker_id === workerId,
+    ));
+    if (workerApps.length > 1) {
+      throw new Error('Multiple worker Access applications protect the same Chief Worker; refusing to guess precedence.');
+    }
+    if (workerApps.length === 1) {
+      return { app: workerApps[0], scope: 'worker', repairEligible: false };
+    }
   }
 
+  const allPreviewApps = uniqueAppsForDestinationType(apps, 'all_preview_workers');
+  if (allPreviewApps.length > 1) {
+    throw new Error('Multiple all_preview_workers Access applications were observed; refusing to guess account-wide preview precedence.');
+  }
+  if (allPreviewApps.length === 1) {
+    return { app: allPreviewApps[0], scope: 'all_preview_workers', repairEligible: false };
+  }
+
+  const allWorkerApps = uniqueAppsForDestinationType(apps, 'all_workers');
+  if (allWorkerApps.length > 1) {
+    throw new Error('Multiple all_workers Access applications were observed; refusing to guess account-wide Worker precedence.');
+  }
+  if (allWorkerApps.length === 1) {
+    return { app: allWorkerApps[0], scope: 'all_workers', repairEligible: false };
+  }
+
+  if (workerIds.length === 0) {
+    throw new Error(`Could not resolve a Worker-specific or account-wide Access application for ${applicationName}.`);
+  }
   throw new Error('Could not resolve an effective Worker-specific Access application for the immutable Chief preview.');
 }
 
