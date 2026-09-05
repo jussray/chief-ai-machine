@@ -1,0 +1,269 @@
+name: Governance Boundary Required Receipts
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Optional Cloudflare Worker base URL for exact-runtime verification"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: governance-boundary-required-receipts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+  MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
+  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+
+jobs:
+  provider-receipt:
+    name: Redacted provider receipt
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact requested head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Emit redacted provider receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          applicable=true
+          reason=manual-dispatch
+          files_file="$RUNNER_TEMP/provider-files.txt"
+          : > "$files_file"
+
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            applicable=false
+            reason=no-provider-boundary-path-changed
+            while IFS= read -r file; do
+              case "$file" in
+                worker/*|src/promptos/*|src/domain/evidence-first-prompt.js|src/modules/freestyle.js|src/modules/custom.js|plugins/proofmode/*|wrangler.jsonc)
+                  applicable=true
+                  reason=provider-boundary-path-changed
+                  printf '%s\n' "$file" >> "$files_file"
+                  ;;
+              esac
+            done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
+          fi
+
+          APPLICABLE="$applicable" REASON="$reason" FILES_FILE="$files_file" node <<'NODE'
+          const fs = require('node:fs');
+          const files = fs.readFileSync(process.env.FILES_FILE, 'utf8').split('\n').filter(Boolean);
+          const receipt = {
+            contract: 'juss/redacted-provider-receipt@v1',
+            headSha: process.env.EXPECTED_HEAD_SHA,
+            status: 'success',
+            applicability: process.env.APPLICABLE === 'true' ? 'applicable' : 'skipped',
+            reason: process.env.REASON,
+            changedProviderBoundaryFiles: files,
+            rawProviderPayload: 'REDACTED',
+            credentials: 'REDACTED',
+          };
+          if (receipt.rawProviderPayload !== 'REDACTED' || receipt.credentials !== 'REDACTED') {
+            throw new Error('provider receipt must fail closed unless sensitive fields are redacted');
+          }
+          fs.writeFileSync('artifacts/redacted-provider-receipt.json', `${JSON.stringify(receipt, null, 2)}\n`);
+          NODE
+
+          {
+            echo '### Redacted provider receipt'
+            echo
+            echo '```json'
+            cat artifacts/redacted-provider-receipt.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain redacted provider receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: redacted-provider-receipt-${{ env.EXPECTED_HEAD_SHA }}
+          path: artifacts/redacted-provider-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+  exact-runtime:
+    name: Verify exact Chief runtime with Playwright
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact requested head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Determine exact-runtime applicability
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          applicable=true
+          reason=manual-dispatch
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            applicable=false
+            reason=no-runtime-bearing-path-changed
+            while IFS= read -r file; do
+              case "$file" in
+                worker/*|src/*|plugins/proofmode/*|wrangler.jsonc|package.json|package-lock.json|.github/workflows/governance-boundary-required-receipts.yml)
+                  applicable=true
+                  reason=runtime-bearing-path-changed
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
+          fi
+          printf 'applicable=%s\n' "$applicable" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Exact Chief runtime required-check receipt'
+            echo
+            echo '- status: success'
+            if [ "$applicable" = "true" ]; then
+              echo '- applicability: applicable'
+            else
+              echo '- applicability: skipped'
+            fi
+            echo "- reason: $reason"
+            echo "- head: \`$EXPECTED_HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Node
+        if: steps.scope.outputs.applicable == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Resolve exact Cloudflare commit preview
+        if: steps.scope.outputs.applicable == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ -n "$MANUAL_BASE_URL" ]; then
+            printf 'CHIEF_RUNTIME_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
+          for attempt in {1..45}; do
+            checks="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$api" || true)"
+
+            preview="$(printf '%s' "$checks" | node -e '
+              let input = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { input += chunk; });
+              process.stdin.on("end", () => {
+                if (!input) return;
+                const data = JSON.parse(input);
+                const run = data.check_runs?.find((item) =>
+                  item.name === "Workers Builds: chief-ai"
+                  && item.status === "completed"
+                  && item.conclusion === "success"
+                );
+                const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
+                if (match) process.stdout.write(match[1]);
+              });
+            ')"
+
+            if [ -n "$preview" ]; then
+              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
+              printf 'CHIEF_RUNTIME_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          exit 1
+
+      - name: Install locked application dependencies
+        if: steps.scope.outputs.applicable == 'true'
+        run: npm ci
+
+      - name: Install isolated Playwright runner
+        if: steps.scope.outputs.applicable == 'true'
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Verify exact runtime identity with Playwright
+        if: steps.scope.outputs.applicable == 'true'
+        shell: bash
+        run: |
+          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
+            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
+            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
+            exit 1
+          fi
+
+          node --input-type=module <<'NODE'
+          import { request } from '@playwright/test';
+
+          const headers = {};
+          if (process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET) {
+            headers['CF-Access-Client-Id'] = process.env.CLOUDFLARE_ACCESS_CLIENT_ID;
+            headers['CF-Access-Client-Secret'] = process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET;
+          }
+
+          const context = await request.newContext({ extraHTTPHeaders: headers });
+          try {
+            const response = await context.get(`${process.env.CHIEF_RUNTIME_BASE_URL}/version`, {
+              failOnStatusCode: false,
+              maxRedirects: 0,
+              timeout: 15000,
+            });
+            if (response.status() !== 200) {
+              throw new Error(`exact runtime returned HTTP ${response.status()}`);
+            }
+            let body;
+            try {
+              body = await response.json();
+            } catch {
+              throw new Error('exact runtime /version did not return JSON');
+            }
+            if (body?.sha !== process.env.EXPECTED_HEAD_SHA) {
+              throw new Error(`runtime SHA mismatch: expected ${process.env.EXPECTED_HEAD_SHA}, observed ${body?.sha ?? 'missing'}`);
+            }
+            console.log(`Playwright verified exact runtime head ${body.sha}`);
+          } finally {
+            await context.dispose();
+          }
+          NODE

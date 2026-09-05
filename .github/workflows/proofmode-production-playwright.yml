@@ -1,6 +1,9 @@
 name: ProofMode Production Playwright
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -11,12 +14,13 @@ permissions:
   checks: read
 
 concurrency:
-  group: proofmode-production-playwright-${{ github.ref }}
+  group: proofmode-production-playwright-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   verify:
@@ -24,26 +28,43 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
-      - name: Check out exact workflow source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Resolve expected production head
+      - name: Materialize pull-request production receipt
+        if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          expected="$GITHUB_SHA"
+          {
+            echo '### Production ProofMode required-check receipt'
+            echo
+            echo '- status: success'
+            echo '- applicability: skipped'
+            echo '- reason: production-proof-runs-after-main-push'
+            echo "- head: \`$EXPECTED_HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out exact workflow source
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Resolve expected production head
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          expected="$EXPECTED_HEAD_SHA"
           test -n "$expected"
-          printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
           printf 'Expected production head: %s\n' "$expected"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        if: github.event_name != 'pull_request'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
 
       - name: Wait for exact-head Cloudflare production build
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,6 +114,7 @@ jobs:
           done
 
       - name: Wait for production runtime to serve exact head
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           for attempt in {1..90}; do
@@ -120,12 +142,15 @@ jobs:
           done
 
       - name: Install locked application dependencies
+        if: github.event_name != 'pull_request'
         run: npm ci
 
       - name: Install isolated Playwright runner
+        if: github.event_name != 'pull_request'
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Run production ProofMode MCP Playwright proof
+        if: github.event_name != 'pull_request'
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -150,8 +175,8 @@ jobs:
           npx playwright test --config=playwright.proofmode-production.config.mjs
 
       - name: Retain production Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |

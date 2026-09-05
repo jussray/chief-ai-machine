@@ -4,23 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "worker/index.js"
-      - "worker/chief-capability-plan.js"
-      - "worker/chief-capability-plan.test.js"
-      - "worker/chief-founder-content-proposal.js"
-      - "worker/chief-founder-content-proposal.test.js"
-      - "src/domain/founder-control-surface.js"
-      - "src/domain/founder-control-surface.test.js"
-      - "src/domain/founder-content-brain.js"
-      - "src/domain/founder-content-brain.test.js"
-      - "src/domain/founder-content-strategy.js"
-      - "src/domain/founder-content-strategy.test.js"
-      - "src/domain/founder-content-strategy.redteam.test.js"
-      - "e2e/chief-capability-plan.pw.mjs"
-      - "e2e/chief-founder-content-proposal.pw.mjs"
-      - ".github/workflows/chief-capability-plan-playwright.yml"
-      - "config/operational-authority.json"
   workflow_dispatch:
     inputs:
       base_url:
@@ -39,6 +22,7 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
   CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
@@ -53,6 +37,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Record and verify exact head
@@ -62,7 +47,42 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
+      - name: Determine Chief capability applicability
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          applicable=true
+          reason=manual-dispatch
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            applicable=false
+            reason=no-chief-capability-path-changed
+            while IFS= read -r file; do
+              case "$file" in
+                worker/index.js|worker/chief-capability-plan.js|worker/chief-capability-plan.test.js|worker/chief-founder-content-proposal.js|worker/chief-founder-content-proposal.test.js|src/domain/founder-control-surface.js|src/domain/founder-control-surface.test.js|src/domain/founder-content-brain.js|src/domain/founder-content-brain.test.js|src/domain/founder-content-strategy.js|src/domain/founder-content-strategy.test.js|src/domain/founder-content-strategy.redteam.test.js|e2e/chief-capability-plan.pw.mjs|e2e/chief-founder-content-proposal.pw.mjs|.github/workflows/chief-capability-plan-playwright.yml|config/operational-authority.json)
+                  applicable=true
+                  reason=chief-capability-path-changed
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
+          fi
+          printf 'applicable=%s\n' "$applicable" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Chief capability required-check receipt'
+            echo
+            echo "- status: success"
+            if [ "$applicable" = "true" ]; then
+              echo "- applicability: applicable"
+            else
+              echo "- applicability: skipped"
+            fi
+            echo "- reason: $reason"
+            echo "- head: \`$EXPECTED_HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Node
+        if: steps.scope.outputs.applicable == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
@@ -70,6 +90,7 @@ jobs:
 
       - name: Resolve exact Cloudflare commit preview
         id: resolve-preview
+        if: steps.scope.outputs.applicable == 'true'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -117,7 +138,7 @@ jobs:
           exit 1
 
       - name: Report sanitized Cloudflare check state
-        if: failure() && steps.resolve-preview.outcome == 'failure'
+        if: steps.scope.outputs.applicable == 'true' && failure() && steps.resolve-preview.outcome == 'failure'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -145,12 +166,15 @@ jobs:
           NODE
 
       - name: Install locked application dependencies
+        if: steps.scope.outputs.applicable == 'true'
         run: npm ci
 
       - name: Install isolated Playwright runner
+        if: steps.scope.outputs.applicable == 'true'
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Verify immutable preview serves exact head
+        if: steps.scope.outputs.applicable == 'true'
         shell: bash
         run: |
           if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
@@ -197,6 +221,7 @@ jobs:
           exit 1
 
       - name: Run live Chief capability-plan Playwright proof
+        if: steps.scope.outputs.applicable == 'true'
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -228,7 +253,7 @@ jobs:
           npx playwright test --config=playwright.chief-capability-plan.config.mjs
 
       - name: Retain Playwright report
-        if: always()
+        if: always() && steps.scope.outputs.applicable == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: chief-capability-plan-playwright-${{ env.EXPECTED_HEAD_SHA }}

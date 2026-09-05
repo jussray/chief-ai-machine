@@ -4,16 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "index.html"
-      - "styles/goals.css"
-      - "src/main.js"
-      - "src/domain/goal-plan.js"
-      - "src/domain/goal-plan.test.js"
-      - "src/modules/goals.js"
-      - "e2e/founder-goals.pw.mjs"
-      - "e2e/playwright.founder-goals.config.mjs"
-      - ".github/workflows/founder-goals-playwright.yml"
   workflow_dispatch:
 
 permissions:
@@ -26,6 +16,7 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
 
 jobs:
   verify:
@@ -37,6 +28,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Record and verify exact head
@@ -46,22 +38,61 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
+      - name: Determine Founder Goals applicability
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          applicable=true
+          reason=manual-dispatch
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            applicable=false
+            reason=no-founder-goals-path-changed
+            while IFS= read -r file; do
+              case "$file" in
+                index.html|styles/goals.css|src/main.js|src/domain/goal-plan.js|src/domain/goal-plan.test.js|src/modules/goals.js|e2e/founder-goals.pw.mjs|e2e/playwright.founder-goals.config.mjs|.github/workflows/founder-goals-playwright.yml)
+                  applicable=true
+                  reason=founder-goals-path-changed
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
+          fi
+          printf 'applicable=%s\n' "$applicable" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Founder Goals required-check receipt'
+            echo
+            echo "- status: success"
+            if [ "$applicable" = "true" ]; then
+              echo "- applicability: applicable"
+            else
+              echo "- applicability: skipped"
+            fi
+            echo "- reason: $reason"
+            echo "- head: \`$EXPECTED_HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Node
+        if: steps.scope.outputs.applicable == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
 
       - name: Install locked application dependencies
+        if: steps.scope.outputs.applicable == 'true'
         run: npm ci
 
       - name: Install isolated Playwright runner
+        if: steps.scope.outputs.applicable == 'true'
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Install Chromium
+        if: steps.scope.outputs.applicable == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Start static application server
+        if: steps.scope.outputs.applicable == 'true'
         shell: bash
         run: |
           python3 -m http.server 4173 > /tmp/chief-ai-goals-server.log 2>&1 &
@@ -74,15 +105,16 @@ jobs:
           exit 1
 
       - name: Run rendered Founder Goals proof
+        if: steps.scope.outputs.applicable == 'true'
         run: npx playwright test --config=e2e/playwright.founder-goals.config.mjs
 
       - name: Stop static server
-        if: always()
+        if: always() && steps.scope.outputs.applicable == 'true'
         shell: bash
         run: test ! -f /tmp/chief-ai-goals-server.pid || kill "$(cat /tmp/chief-ai-goals-server.pid)" || true
 
       - name: Retain desktop and mobile browser evidence
-        if: always()
+        if: always() && steps.scope.outputs.applicable == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: founder-goals-playwright-${{ env.EXPECTED_HEAD_SHA }}
