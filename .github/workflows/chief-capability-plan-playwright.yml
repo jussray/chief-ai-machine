@@ -27,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Exact immutable Chief workers.dev runtime origin to verify or inspect"
+        description: "Exact immutable Chief workers.dev runtime origin to inspect or verify"
         required: true
         type: string
       expected_head_sha:
@@ -65,15 +65,22 @@ jobs:
     outputs:
       base_url: ${{ steps.guard.outputs.base_url }}
     steps:
-      - name: Guard exact manual dispatch ref and target
+      - name: Guard founder, exact ref, and immutable target
         id: guard
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_SHA: ${{ github.sha }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
             exit 0
+          fi
+
+          if [ "$DISPATCH_ACTOR" != "$REPOSITORY_OWNER" ]; then
+            printf 'Privileged manual proof is founder-only: actor=%s owner=%s.\n' "$DISPATCH_ACTOR" "$REPOSITORY_OWNER" >&2
+            exit 1
           fi
 
           if ! printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
@@ -82,7 +89,7 @@ jobs:
           fi
 
           if [ "$EXPECTED_HEAD_SHA" != "$DISPATCH_SHA" ]; then
-            printf 'Manual proof identity mismatch: expected_head_sha=%s but the selected workflow ref resolves to %s. Select the branch/ref that owns the intended proof and dispatch again.\n' \
+            printf 'Manual proof identity mismatch: expected_head_sha=%s but selected ref resolves to %s.\n' \
               "$EXPECTED_HEAD_SHA" "$DISPATCH_SHA" >&2
             exit 1
           fi
@@ -93,7 +100,6 @@ jobs:
               const url = new URL(raw);
               const host = url.hostname.toLowerCase();
               const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
-              const production = host === "chief-ai.mcgill-raylene.workers.dev";
               if (
                 url.protocol !== "https:"
                 || url.username
@@ -101,18 +107,18 @@ jobs:
                 || url.search
                 || url.hash
                 || url.pathname !== "/"
-                || (!immutable && !production)
+                || !immutable
               ) process.exit(1);
               process.stdout.write(url.origin);
             } catch {
               process.exit(1);
             }
           ' "$MANUAL_BASE_URL")" || {
-            printf 'Manual Chief base URL must be an approved chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
+            printf 'Manual Chief base URL must be one immutable chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
             exit 1
           }
 
-          printf 'Manual dispatch identity verified for %s\n' "$EXPECTED_HEAD_SHA"
+          printf 'Manual dispatch identity verified for %s by %s\n' "$EXPECTED_HEAD_SHA" "$DISPATCH_ACTOR"
           printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
 
   access-policy-admin:
@@ -156,150 +162,55 @@ jobs:
       - name: Run focused capability contracts
         run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
 
+  pr-runtime-gate:
+    name: Verify live Chief capability plan with Playwright
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: source-contract
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed before secret-bearing runtime proof
+        shell: bash
+        run: |
+          printf 'PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.\n' >&2
+          printf 'Run a founder-authorized workflow_dispatch on this exact audited SHA with access_mode=verify after the bounded Access check/repair path is complete.\n' >&2
+          exit 1
+
   runtime-proof:
     name: Verify live Chief capability plan with Playwright
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.access_mode == 'verify' }}
-    needs: source-contract
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
+    needs:
+      - dispatch-identity
+      - source-contract
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     environment: proofmode-access-admin
     steps:
-      - name: Check out trusted base runtime proof source
+      - name: Check out trusted browser-proof source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          ref: main
           persist-credentials: false
 
-      - name: Record trusted runtime proof source
+      - name: Record trusted browser-proof source
         shell: bash
-        env:
-          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
           trusted="$(git rev-parse HEAD)"
-          printf 'trusted_runtime_proof_source=%s\n' "$trusted"
-          if [ -n "$TRUSTED_BASE_SHA" ]; then
-            test "$trusted" = "$TRUSTED_BASE_SHA"
-          fi
+          printf 'trusted_browser_proof_source=%s\n' "$trusted"
+
+      - name: Bind immutable target
+        shell: bash
+        env:
+          GUARDED_BASE_URL: ${{ needs.dispatch-identity.outputs.base_url }}
+        run: |
+          test -n "$GUARDED_BASE_URL"
+          printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$GUARDED_BASE_URL" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
-
-      - name: Resolve exact Cloudflare commit preview
-        id: resolve-preview
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          validate_target() {
-            node -e '
-              const raw = process.argv[1].trim();
-              try {
-                const url = new URL(raw);
-                const host = url.hostname.toLowerCase();
-                const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
-                const production = host === "chief-ai.mcgill-raylene.workers.dev";
-                if (
-                  url.protocol !== "https:"
-                  || url.username
-                  || url.password
-                  || url.search
-                  || url.hash
-                  || url.pathname !== "/"
-                  || (!immutable && !production)
-                ) process.exit(1);
-                process.stdout.write(url.origin);
-              } catch {
-                process.exit(1);
-              }
-            ' "$1"
-          }
-
-          if [ -n "$MANUAL_BASE_URL" ]; then
-            preview="$(validate_target "$MANUAL_BASE_URL")" || {
-              printf 'Manual Chief base URL must be an approved chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
-              exit 1
-            }
-            printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
-          for attempt in {1..45}; do
-            checks="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$api" || true)"
-
-            candidate="$(printf '%s' "$checks" | node -e '
-              let input = "";
-              process.stdin.setEncoding("utf8");
-              process.stdin.on("data", (chunk) => { input += chunk; });
-              process.stdin.on("end", () => {
-                if (!input) return;
-                const data = JSON.parse(input);
-                const run = data.check_runs?.find((item) =>
-                  item.name === "Workers Builds: chief-ai"
-                  && item.app?.slug === "cloudflare-workers-and-pages"
-                  && item.status === "completed"
-                  && item.conclusion === "success"
-                );
-                const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
-                if (match) process.stdout.write(match[1]);
-              });
-            ')"
-
-            if [ -n "$candidate" ]; then
-              preview="$(validate_target "$candidate")" || {
-                printf 'Rejected Cloudflare check output with an unexpected preview target.\n' >&2
-                exit 1
-              }
-              if ! printf '%s' "$preview" | grep -Eq '^https://[0-9a-fA-F]{8}-chief-ai\.mcgill-raylene\.workers\.dev$'; then
-                printf 'Automatic Chief proof requires an immutable Cloudflare version preview.\n' >&2
-                exit 1
-              fi
-              printf 'Resolved trusted immutable Cloudflare preview: %s\n' "$preview"
-              printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          printf 'No successful trusted Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
-          exit 1
-
-      - name: Report sanitized Cloudflare check state
-        if: failure() && steps.resolve-preview.outcome == 'failure'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "$api" > /tmp/checks.json
-          node <<'NODE'
-          const fs = require('node:fs');
-          const data = JSON.parse(fs.readFileSync('/tmp/checks.json', 'utf8'));
-          const checks = (data.check_runs || [])
-            .filter((item) => item.name === 'Workers Builds: chief-ai')
-            .map((item) => ({
-              name: item.name,
-              app: item.app?.slug || null,
-              status: item.status,
-              conclusion: item.conclusion,
-              outputTitle: item.output?.title || null,
-              summary: String(item.output?.summary || '').slice(0, 500),
-            }));
-          console.log(JSON.stringify({ expectedHeadSha: process.env.EXPECTED_HEAD_SHA, cloudflareChecks: checks }, null, 2));
-          NODE
 
       - name: Install trusted runtime proof dependencies
         run: npm ci
@@ -313,18 +224,9 @@ jobs:
           CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
           CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
-          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
-            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
-            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
+          if [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] || [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+            printf 'Cloudflare Access service auth requires both credentials in proofmode-access-admin.\n' >&2
             exit 1
-          fi
-
-          access_headers=()
-          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
-            access_headers+=(
-              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"
-              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"
-            )
           fi
 
           headers="$RUNNER_TEMP/chief-version.headers"
@@ -333,7 +235,8 @@ jobs:
 
           for attempt in {1..10}; do
             status="$(curl --silent --show-error \
-              "${access_headers[@]}" \
+              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
+              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
               --dump-header "$headers" \
               --output "$body_file" \
               --write-out '%{http_code}' \
@@ -352,11 +255,7 @@ jobs:
             printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
-              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Run this workflow manually on the current branch with access_mode=check against this immutable preview, then use access_mode=repair only if the check proves an exact-host policy is eligible.\n' >&2
-            else
-              printf 'Cloudflare Access intercepted the immutable preview and no complete service-token pair is configured. Configure both credentials and a matching Service Auth policy.\n' >&2
-            fi
+            printf 'Cloudflare Access rejected the configured service token or no matching exact-host Service Auth policy accepted it. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
           fi
           exit 1
 
@@ -370,12 +269,10 @@ jobs:
           cat > playwright.chief-capability-plan.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
 
-          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-            ? {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              }
-            : {};
+          const accessHeaders = {
+            'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+            'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+          };
 
           export default defineConfig({
             testDir: './e2e',
