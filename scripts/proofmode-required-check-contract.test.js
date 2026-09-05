@@ -7,6 +7,11 @@ const workflow = readFileSync(
   'utf8',
 );
 
+const productionWorkflow = readFileSync(
+  resolve(process.cwd(), '.github/workflows/proofmode-production-playwright.yml'),
+  'utf8',
+);
+
 describe('ProofMode required-check contract', () => {
   it('keeps required-check materialization separate from proof applicability', () => {
     expect(workflow).toContain('pull_request:\n    branches:\n      - main');
@@ -26,5 +31,13 @@ describe('ProofMode required-check contract', () => {
     expect(workflow).toContain('git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA"');
     expect(workflow).toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
     expect(workflow).toContain('fetch-depth: 0');
+  });
+
+  it('keeps production ProofMode verification post-merge only', () => {
+    expect(productionWorkflow).toContain('push:\n    branches:\n      - main');
+    expect(productionWorkflow).toContain('workflow_dispatch:');
+    expect(productionWorkflow).not.toContain('pull_request:');
+    expect(productionWorkflow).not.toContain('Materialize pull-request production receipt');
+    expect(productionWorkflow).toContain('Run production ProofMode MCP Playwright proof');
   });
 });
