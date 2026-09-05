@@ -135,11 +135,11 @@ jobs:
         shell: bash
         run: |
           printf 'PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.\n' >&2
-          printf 'Run a founder-authorized workflow_dispatch on this exact audited SHA after the bounded Access check/repair path is complete.\n' >&2
+          printf 'Run a founder-authorized workflow_dispatch on this exact audited SHA after the bounded Access check/repair path is complete; the privileged run owns the candidate runtime proof.\n' >&2
           exit 1
 
   runtime-proof:
-    name: ${{ github.event_name == 'workflow_dispatch' && 'Verify live ProofMode MCP with Playwright' || 'Verify live ProofMode MCP with Playwright (privileged manual only)' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Verify candidate ProofMode runtime with Playwright' || 'Verify candidate ProofMode runtime with Playwright (privileged manual only)' }}
     if: ${{ github.event_name == 'workflow_dispatch' }}
     needs:
       - dispatch-identity
