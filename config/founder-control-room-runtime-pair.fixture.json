@@ -10,7 +10,7 @@
   },
   "fcr": {
     "repository": "jussray/founder-control-room",
-    "headSha": "6770298489150e0a5b94272b1ada9e69805f5ccb",
+    "headSha": "e288d024c38c8ca1bccff4fcd3b0ad871236551a",
     "endpoint": "/mcp",
     "protocolVersion": "2026-07-28"
   },
