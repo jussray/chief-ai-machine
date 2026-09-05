@@ -47,6 +47,15 @@ function sameStringArray(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function normalizeStringArray(value, { lowercase = false } = {}) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(item => typeof item === 'string')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => lowercase ? item.toLowerCase() : item);
+}
+
 function normalizeVersions(prompt) {
   const versions = {};
   let changed = false;
@@ -91,12 +100,7 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
     }
     if (normalizedVersions.changed) changed = true;
 
-    const sourcePlatforms = Array.isArray(prompt.platforms)
-      ? prompt.platforms
-        .filter(platform => typeof platform === 'string')
-        .map(platform => platform.trim().toLowerCase())
-        .filter(Boolean)
-      : [];
+    const sourcePlatforms = normalizeStringArray(prompt.platforms, { lowercase: true });
     if (Array.isArray(prompt.platforms)) {
       if (!sameStringArray(prompt.platforms, sourcePlatforms)) changed = true;
     } else if (prompt.platforms != null) {
@@ -108,6 +112,14 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
       ...Object.keys(normalizedVersions.versions),
     ])];
     if (!sameStringArray(sourcePlatforms, platforms)) changed = true;
+
+    const sourceRepos = normalizeStringArray(prompt.repos, { lowercase: true });
+    const repos = [...new Set(sourceRepos)];
+    if (Array.isArray(prompt.repos)) {
+      if (!sameStringArray(prompt.repos, repos)) changed = true;
+    } else if (prompt.repos != null) {
+      changed = true;
+    }
 
     let id = prompt.id == null ? '' : String(prompt.id).trim();
     if (!id || !LOCAL_PROMPT_ID_PATTERN.test(id) || seenIds.has(id)) {
@@ -128,8 +140,7 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
       changed = true;
     }
 
-    normalized.push({
-      ...prompt,
+    const canonical = {
       id,
       title,
       sub,
@@ -138,7 +149,16 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
       emoji,
       platforms,
       versions: normalizedVersions.versions,
-    });
+      repos,
+    };
+
+    const canonicalKeys = Object.keys(canonical).sort();
+    const sourceKeys = Object.keys(prompt).sort();
+    if (canonicalKeys.length !== sourceKeys.length || canonicalKeys.some((key, index) => key !== sourceKeys[index])) {
+      changed = true;
+    }
+
+    normalized.push(canonical);
   }
 
   if (!Array.isArray(prompts) || normalized.length !== prompts.length) changed = true;
