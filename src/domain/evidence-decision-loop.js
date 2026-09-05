@@ -21,6 +21,7 @@ export const MERGE_REVIEW_DISPOSITIONS = Object.freeze([
   'REOBSERVE',
   'WAIT_REQUIRED_CHECKS',
   'WAIT_CODE_SCANNING',
+  'WAIT_REQUIRED_DEPLOYMENTS',
   'WAIT_INDEPENDENT_APPROVAL',
   'WAIT_FOUNDER_AUTHORITY',
   'HOLD_METHOD',
@@ -131,6 +132,8 @@ export function evaluateMergeReview(mergeReview = {}) {
       bypassSuggested: false,
       missingRequiredChecks: [],
       codeScanningSatisfied: false,
+      missingRequiredDeployments: [],
+      requiredDeploymentsSatisfied: false,
       independentApprovalSatisfied: false,
       founderAuthoritySatisfied: false,
       headMatchesReview: false,
@@ -152,6 +155,19 @@ export function evaluateMergeReview(mergeReview = {}) {
     ? mergeReview.rules.codeScanningTool
     : 'CodeQL';
   const codeScanningSatisfied = !codeScanningRequired || successfulChecks.has(codeScanningTool);
+
+  const requiredDeployments = Array.isArray(mergeReview.rules?.requiredDeployments)
+    ? [...new Set(mergeReview.rules.requiredDeployments.filter((name) => typeof name === 'string' && name.trim()))]
+    : [];
+  const deploymentStatuses = Array.isArray(mergeReview.deploymentStatuses) ? mergeReview.deploymentStatuses : [];
+  const successfulDeployments = new Set(
+    deploymentStatuses
+      .filter((item) => item?.headSha === currentHeadSha && item?.state === 'success')
+      .map((item) => item?.environment)
+      .filter(Boolean),
+  );
+  const missingRequiredDeployments = requiredDeployments.filter((name) => !successfulDeployments.has(name));
+  const requiredDeploymentsSatisfied = missingRequiredDeployments.length === 0;
 
   const requireLastPushApproval = mergeReview.rules?.requireLastPushApproval === true;
   const lastPusher = typeof mergeReview.lastPusher === 'string' ? mergeReview.lastPusher.trim() : '';
@@ -193,6 +209,7 @@ export function evaluateMergeReview(mergeReview = {}) {
   if (!headMatchesReview) disposition = 'REOBSERVE';
   else if (missingRequiredChecks.length > 0) disposition = 'WAIT_REQUIRED_CHECKS';
   else if (!codeScanningSatisfied) disposition = 'WAIT_CODE_SCANNING';
+  else if (!requiredDeploymentsSatisfied) disposition = 'WAIT_REQUIRED_DEPLOYMENTS';
   else if (!independentApprovalSatisfied) disposition = 'WAIT_INDEPENDENT_APPROVAL';
   else if (!founderAuthoritySatisfied) disposition = 'WAIT_FOUNDER_AUTHORITY';
   else if (!recommendedMergeMethod) disposition = 'HOLD_METHOD';
@@ -211,6 +228,9 @@ export function evaluateMergeReview(mergeReview = {}) {
     codeScanningRequired,
     codeScanningTool,
     codeScanningSatisfied,
+    requiredDeployments,
+    missingRequiredDeployments,
+    requiredDeploymentsSatisfied,
     requireLastPushApproval,
     lastPusher,
     reviewer,
@@ -317,6 +337,7 @@ export function evaluateEvidenceDecision(input = {}) {
       safetyAndAuthorityCannotBeReasonedAround: true,
       requiredChecksMustMaterializeOnReviewedHead: true,
       codeScanningIsSeparateMergeEvidence: true,
+      requiredDeploymentsAreSeparateMergeEvidence: true,
       independentApprovalCannotBeSelfSatisfied: true,
       linearHistoryForbidsMergeCommitFallback: true,
     },

@@ -60,15 +60,17 @@ Apply these gates in order:
 1. **Head freshness.** If the PR head differs from the reviewed/proved head, return `REOBSERVE`. Earlier checks, approvals, founder merge authority, and review conclusions become historical for the moved head.
 2. **Required check materialization.** Enumerate every status context required by active repository rules. A context that is merely “expected,” missing, queued forever, or attached to another SHA is not green proof. Hold at `WAIT_REQUIRED_CHECKS` until each required context completes successfully on the current head.
 3. **Code scanning.** Treat CodeQL/code-scanning policy as a separate gate from ordinary status checks. Required checks green + scanning unknown is `WAIT_CODE_SCANNING`, not merge-ready.
-4. **Independent last-push approval.** When repository rules require approval from someone other than the last pusher, the reviewer identity must differ from the last pusher and the review must actually be `APPROVED`. A quota-limited bot, self-review, comment-only review, missing reviewer, or unavailable reviewer remains `WAIT_INDEPENDENT_APPROVAL`.
-5. **Founder merge authority.** Explicit founder authority is required at the current head. Authority granted for a predecessor head does not roll forward after head movement.
-6. **Merge method.** If linear history is required, do not retry a merge commit after GitHub rejects it. Prefer `squash` when allowed, otherwise `rebase`. Never weaken the linear-history rule merely to make the merge succeed.
-7. **Execute only after READY.** Even when the evaluator returns `READY`, it is still bounded decision support. Do not fabricate approval, bypass a ruleset, disable CodeQL, remove required contexts, or relax branch protection to manufacture a merge.
+4. **Required deployments.** Treat every ruleset-required deployment environment as separate exact-head evidence. A successful deployment for an older SHA, a preview in a differently named environment, or unreadable deployment state does not satisfy the gate. Hold at `WAIT_REQUIRED_DEPLOYMENTS` until every required environment is proven successful for the current head.
+5. **Independent last-push approval.** When repository rules require approval from someone other than the last pusher, the reviewer identity must differ from the last pusher and the review must actually be `APPROVED`. A quota-limited bot, self-review, comment-only review, missing reviewer, or unavailable reviewer remains `WAIT_INDEPENDENT_APPROVAL`.
+6. **Founder merge authority.** Explicit founder authority is required at the current head. Authority granted for a predecessor head does not roll forward after head movement.
+7. **Merge method.** If linear history is required, do not retry a merge commit after GitHub rejects it. Prefer `squash` when allowed, otherwise `rebase`. Never weaken the linear-history rule merely to make the merge succeed.
+8. **Execute only after READY.** Even when the evaluator returns `READY`, it is still bounded decision support. Do not fabricate approval, bypass a ruleset, disable CodeQL, remove required contexts, or relax branch protection to manufacture a merge.
 
 The executable merge adapter must preserve these invariants:
 
 - required checks must materialize on the reviewed head;
 - code scanning is separate merge evidence;
+- required deployment environments are separate merge evidence;
 - independent approval cannot be self-satisfied;
 - linear history forbids merge-commit fallback;
 - head movement expires review proof and merge authority;

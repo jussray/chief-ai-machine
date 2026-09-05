@@ -178,6 +178,32 @@ describe('Evidence Decision Loop v1', () => {
     expect(result.mergeAllowed).toBe(false);
   });
 
+
+  it('treats required deployment environments as separate exact-head merge evidence', () => {
+    const checks = [...REQUIRED_MERGE_CHECKS.map((name) => successfulCheck(name)), successfulCheck('CodeQL')];
+    const result = evaluateMergeReview({
+      requested: true,
+      currentHeadSha: fingerprint,
+      reviewedHeadSha: fingerprint,
+      requiredChecks: REQUIRED_MERGE_CHECKS,
+      checkRuns: checks,
+      rules: {
+        codeScanningRequired: true,
+        codeScanningTool: 'CodeQL',
+        requiredDeployments: ['Cloudflare Production', 'proofmode-access-admin'],
+      },
+      deploymentStatuses: [
+        { environment: 'Cloudflare Production', headSha: fingerprint, state: 'success' },
+        { environment: 'proofmode-access-admin', headSha: 'old-head', state: 'success' },
+      ],
+      founderAuthorityExplicit: true,
+    });
+
+    expect(result.disposition).toBe('WAIT_REQUIRED_DEPLOYMENTS');
+    expect(result.missingRequiredDeployments).toEqual(['proofmode-access-admin']);
+    expect(result.requiredDeploymentsSatisfied).toBe(false);
+  });
+
   it('cannot self-satisfy a last-push approval rule', () => {
     const checks = [...REQUIRED_MERGE_CHECKS.map((name) => successfulCheck(name)), successfulCheck('CodeQL')];
     const result = evaluateMergeReview({
@@ -216,7 +242,12 @@ describe('Evidence Decision Loop v1', () => {
         requireLastPushApproval: true,
         requiredLinearHistory: true,
         allowedMergeMethods: ['merge', 'squash', 'rebase'],
+        requiredDeployments: ['Cloudflare Production', 'proofmode-access-admin'],
       },
+      deploymentStatuses: [
+        { environment: 'Cloudflare Production', headSha: fingerprint, state: 'success' },
+        { environment: 'proofmode-access-admin', headSha: fingerprint, state: 'success' },
+      ],
       requestedMethod: 'merge',
       lastPusher: 'jussray',
       independentApproval: { approved: true, reviewer: 'independent-reviewer' },
@@ -260,7 +291,12 @@ describe('Evidence Decision Loop v1', () => {
         requireLastPushApproval: true,
         requiredLinearHistory: true,
         allowedMergeMethods: ['squash', 'rebase'],
+        requiredDeployments: ['Cloudflare Production', 'proofmode-access-admin'],
       },
+      deploymentStatuses: [
+        { environment: 'Cloudflare Production', headSha: fingerprint, state: 'success' },
+        { environment: 'proofmode-access-admin', headSha: fingerprint, state: 'success' },
+      ],
       lastPusher: 'jussray',
       independentApproval: { approved: true, reviewer: 'independent-reviewer' },
       founderAuthorityExplicit: false,
