@@ -1,5 +1,6 @@
 name: ProofMode Access Service Auth Admin
 
+# Privileged Access inspection/repair is reusable-only; the trusted caller decides when a manual dispatch may invoke it.
 on:
   workflow_call:
     inputs:
