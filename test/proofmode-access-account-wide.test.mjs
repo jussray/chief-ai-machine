@@ -162,7 +162,10 @@ describe('ProofMode account-wide Cloudflare Access observation', () => {
       policiesByApp: { 'app-specific-preview-renamed': [EXACT_POLICY] },
     });
 
-    await expect(ensureProofModeAccessPolicy(input(fetchImpl))).resolves.toMatchObject({
+    await expect(ensureProofModeAccessPolicy({
+      ...input(fetchImpl),
+      accessAppId: 'app-specific-preview-renamed',
+    })).resolves.toMatchObject({
       appId: 'app-specific-preview-renamed',
       scope: 'preview_worker',
       changed: false,
