@@ -6,6 +6,8 @@ const API_VERSION = '2022-11-28';
 const GITHUB_ACTIONS_INTEGRATION_ID = 15368;
 const REQUIRED_CANDIDATE_PRODUCER_TRUST = 'external-github-app-check-required';
 const REQUIRED_CANDIDATE_WORKFLOW_PROVENANCE = 'must-not-be-pr-authored-github-actions-only';
+const RULESETS_PER_PAGE = 100;
+const MAX_RULESET_PAGES = 100;
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -394,15 +396,31 @@ export async function observeRepositoryRulesets({ repository, token } = {}) {
   }
 
   const base = `https://api.github.com/repos/${repo}`;
-  const summaries = await githubJson(`${base}/rulesets?includes_parents=true&per_page=100`, token);
-  if (!Array.isArray(summaries)) throw new Error('GitHub ruleset list was not an array');
+  const summaries = [];
+  for (let page = 1; page <= MAX_RULESET_PAGES; page += 1) {
+    const batch = await githubJson(
+      `${base}/rulesets?includes_parents=true&per_page=${RULESETS_PER_PAGE}&page=${page}`,
+      token,
+    );
+    if (!Array.isArray(batch)) throw new Error('GitHub ruleset list was not an array');
+    summaries.push(...batch);
+    if (batch.length < RULESETS_PER_PAGE) break;
+    if (page === MAX_RULESET_PAGES) {
+      throw new Error(`GitHub ruleset pagination exceeded ${MAX_RULESET_PAGES} pages`);
+    }
+  }
 
+  const uniqueIds = new Set();
   const detailed = [];
   for (const summary of summaries) {
     const id = Number(summary?.id);
     if (!Number.isSafeInteger(id) || id <= 0) {
       throw new Error('GitHub ruleset list contained an invalid ruleset id');
     }
+    if (uniqueIds.has(id)) {
+      throw new Error(`GitHub ruleset list contained duplicate ruleset id ${id}`);
+    }
+    uniqueIds.add(id);
     detailed.push(await githubJson(`${base}/rulesets/${id}`, token));
   }
   return detailed;
