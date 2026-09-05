@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { ensureProofModeAccessPolicy } from '../scripts/proofmode-access-policy.mjs';
 
 const TARGET = 'https://1234abcd-chief-ai.mcgill-raylene.workers.dev';
+const WORKER_ID = 'c81a2d22c29840ed9d61681a3270dbff';
 const TOKEN = { id: 'token-1', client_id: 'client-1', enabled: true };
+const WORKER = {
+  id: WORKER_ID,
+  name: 'chief-ai',
+  subdomain: {
+    previews_enabled: true,
+    preview_url_suffix: 'chief-ai.mcgill-raylene.workers.dev',
+  },
+};
 const EXACT_POLICY = {
   id: 'policy-1',
   name: 'ProofMode CI service auth',
@@ -18,13 +27,14 @@ function response(result) {
   };
 }
 
-function cloudflareFixture({ apps, policiesByApp = {} }) {
+function cloudflareFixture({ apps, workers = [WORKER], policiesByApp = {} }) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     calls.push({ url, method: init.method || 'GET' });
     const parsed = new URL(url);
     if (parsed.pathname.endsWith('/access/service_tokens')) return response([TOKEN]);
     if (parsed.pathname.endsWith('/access/apps')) return response(apps);
+    if (parsed.pathname.endsWith('/workers/workers')) return response(workers);
     const policyMatch = parsed.pathname.match(/\/access\/apps\/([^/]+)\/policies$/);
     if (policyMatch) return response(policiesByApp[decodeURIComponent(policyMatch[1])] || []);
     throw new Error(`Unexpected Cloudflare fixture request: ${parsed.pathname}`);
@@ -119,12 +129,12 @@ describe('ProofMode account-wide Cloudflare Access observation', () => {
       {
         id: 'app-worker',
         name: 'chief-ai - Cloudflare Workers',
-        destinations: [{ type: 'worker', worker_id: 'chief-ai' }],
+        destinations: [{ type: 'worker', worker_id: WORKER_ID }],
       },
       {
         id: 'app-specific-preview',
         name: 'Chief preview override',
-        destinations: [{ type: 'preview_worker', worker_id: 'chief-ai' }],
+        destinations: [{ type: 'preview_worker', worker_id: WORKER_ID }],
       },
       {
         id: 'app-all-preview',
@@ -149,7 +159,7 @@ describe('ProofMode account-wide Cloudflare Access observation', () => {
       {
         id: 'app-specific-preview-renamed',
         name: 'Renamed by administrator',
-        destinations: [{ type: 'preview_worker', worker_id: 'chief-ai' }],
+        destinations: [{ type: 'preview_worker', worker_id: WORKER_ID }],
       },
       {
         id: 'app-all-preview',
