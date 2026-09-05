@@ -129,7 +129,6 @@ describe('Chief operator continuity v2 mirror', () => {
       evidenceRefs: ['cloudflare:receipt:9766241316'],
       observedAt: '2026-08-31T16:29:00.000Z',
       expiresAt: '2026-08-31T16:49:00.000Z',
-      predecessorFingerprint: '7'.repeat(64),
     }, NOW, authenticatedProvenance(receipt))).toEqual({
       state: 'current',
       reasons: [],
@@ -176,6 +175,7 @@ describe('Chief operator continuity v2 mirror', () => {
       [{ providerFingerprint: 'a'.repeat(64) }, 'provider_moved'],
       [{ runtimeFingerprint: 'b'.repeat(64) }, 'runtime_moved'],
       [{ authorityFingerprint: 'c'.repeat(64) }, 'authority_moved'],
+      [{ predecessorFingerprint: '7'.repeat(64) }, 'predecessor_moved'],
     ];
     for (const [change, reason] of variants) {
       const result = evaluateOperatorContinuityReceiptV2(
