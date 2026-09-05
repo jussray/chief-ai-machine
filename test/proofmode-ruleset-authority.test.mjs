@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  requiredDeploymentEnvironments,
   requiredStatusChecks,
   requiredStatusContexts,
   rulesetTargetsDefaultBranch,
@@ -20,6 +21,7 @@ const semantics = {
   preMergeCandidateRulesetId: TRUSTED_RULESET_ID,
   preMergeCandidateRulesetName: TRUSTED_RULESET_NAME,
   preMergeCandidateRulesetMustHaveNoBypassActors: true,
+  postMergeOnlyDeploymentEnvironments: ['Cloudflare Production'],
 };
 
 function ruleset({
@@ -29,8 +31,29 @@ function ruleset({
   include = ['~DEFAULT_BRANCH'],
   exclude = [],
   contexts = [],
+  deployments = [],
   bypassActors = [],
 } = {}) {
+  const rules = [{
+    type: 'required_status_checks',
+    parameters: {
+      required_status_checks: contexts.map((entry) => {
+        if (typeof entry === 'string') {
+          return {
+            context: entry,
+            integration_id: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
+          };
+        }
+        return { ...entry };
+      }),
+    },
+  }];
+  if (deployments.length) {
+    rules.push({
+      type: 'required_deployments',
+      parameters: { required_deployment_environments: deployments },
+    });
+  }
   return {
     id,
     name,
@@ -38,20 +61,7 @@ function ruleset({
     enforcement,
     conditions: { ref_name: { include, exclude } },
     bypass_actors: bypassActors,
-    rules: [{
-      type: 'required_status_checks',
-      parameters: {
-        required_status_checks: contexts.map((entry) => {
-          if (typeof entry === 'string') {
-            return {
-              context: entry,
-              integration_id: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
-            };
-          }
-          return { ...entry };
-        }),
-      },
-    }],
+    rules,
   };
 }
 
@@ -70,6 +80,11 @@ describe('ProofMode live ruleset authority', () => {
       { context: 'Typecheck', integrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID },
       { context: 'Verify operational authority', integrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID },
     ]);
+  });
+
+  it('extracts required deployment environments from active rules', () => {
+    const observed = ruleset({ deployments: ['Cloudflare Production', 'proofmode-access-admin'] });
+    expect(requiredDeploymentEnvironments(observed)).toEqual(['Cloudflare Production', 'proofmode-access-admin']);
   });
 
   it('recognizes only active rulesets that actually target the default branch', () => {
@@ -138,6 +153,26 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.candidateIntegrationId).toBe(TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID);
     expect(result.candidateRulesetId).toBe(TRUSTED_RULESET_ID);
     expect(result.candidateRulesets).toEqual([{ id: TRUSTED_RULESET_ID, name: TRUSTED_RULESET_NAME }]);
+  });
+
+  it('rejects a post-merge-only production environment when a merge ruleset requires it pre-merge', () => {
+    const result = validateProofModeRulesetMigration({
+      rulesets: [ruleset({
+        contexts: ['Verify candidate ProofMode runtime with Playwright'],
+        deployments: ['Cloudflare Production', 'proofmode-access-admin'],
+      })],
+      semantics,
+      defaultBranch: 'main',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'postmerge-only-deployment-required-premerge',
+        environment: 'Cloudflare Production',
+        rulesets: [{ id: TRUSTED_RULESET_ID, name: TRUSTED_RULESET_NAME }],
+      }),
+    ]));
   });
 
   it('fails closed when the candidate check name is present but unbound to an integration', () => {
