@@ -136,12 +136,12 @@ jobs:
           reason=manual-dispatch
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             applicable=false
-            reason=no-runtime-bearing-path-changed
+            reason=no-worker-runtime-path-changed
             while IFS= read -r file; do
               case "$file" in
-                worker/*|src/*|plugins/proofmode/*|wrangler.jsonc|package.json|package-lock.json|.github/workflows/governance-boundary-required-receipts.yml)
+                worker/*|plugins/proofmode/*|wrangler.jsonc|package.json|package-lock.json)
                   applicable=true
-                  reason=runtime-bearing-path-changed
+                  reason=worker-runtime-path-changed
                   break
                   ;;
               esac
