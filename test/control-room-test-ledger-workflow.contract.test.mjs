@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
 const materializer = await readFile('.github/workflows/governance-required-check-materializer.yml', 'utf8');
+const productionProof = await readFile('.github/workflows/proofmode-production-playwright.yml', 'utf8');
 const manifest = JSON.parse(await readFile('.control-room/test-ledger.manifest.json', 'utf8'));
 
 describe('Control Room Test Ledger workflow contract', () => {
@@ -41,6 +42,21 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('worker/');
     expect(runtimeSection).toContain('wrangler\\.jsonc$');
     expect(runtimeSection).toContain('e2e/');
+  });
+
+  it('keeps production ProofMode proof post-merge instead of making PRs prove production', () => {
+    const productionSection = materializer.split('  proofmode-production-applicability:')[1];
+
+    expect(productionSection).toContain('name: Verify production ProofMode MCP with Playwright');
+    expect(productionSection).toContain('Production ProofMode is post-merge/current-main proof');
+    expect(productionSection).toContain('pre-merge candidate proof remains separate');
+    expect(productionSection).not.toContain('Production ProofMode surface changed; production proof remains mandatory.');
+    expect(productionSection).not.toContain('exit 1');
+
+    expect(productionProof).toContain('push:');
+    expect(productionProof).toContain('- main');
+    expect(productionProof).toContain('workflow_dispatch:');
+    expect(productionProof).not.toContain('pull_request:');
   });
 
   it('inherits provider proof only across an unchanged governance/test-only tail', () => {
