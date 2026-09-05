@@ -9,6 +9,8 @@ const SERVICE_ID = 'service-token-1';
 const APP_NAME = 'chief-ai - Cloudflare Workers';
 const TARGET = 'https://5a188322-chief-ai.mcgill-raylene.workers.dev';
 const HOST = '5a188322-chief-ai.mcgill-raylene.workers.dev';
+const WORKER_ID = 'c81a2d22c29840ed9d61681a3270dbff';
+const WORKER_PREVIEW_SUFFIX = 'chief-ai.mcgill-raylene.workers.dev';
 
 function response(result, status = 200) {
   return {
@@ -25,11 +27,27 @@ function response(result, status = 200) {
   };
 }
 
-function routeFetch({ serviceTokens, apps, policiesByApp = {}, createByApp = {} }) {
+const workerRecord = {
+  id: WORKER_ID,
+  name: 'chief-ai',
+  subdomain: {
+    previews_enabled: true,
+    preview_url_suffix: WORKER_PREVIEW_SUFFIX,
+  },
+};
+
+function routeFetch({
+  serviceTokens,
+  apps,
+  workers = [workerRecord],
+  policiesByApp = {},
+  createByApp = {},
+}) {
   return vi.fn(async (url, init = {}) => {
     const parsed = new URL(url);
     if (parsed.pathname.endsWith('/access/service_tokens')) return response(serviceTokens);
     if (parsed.pathname.endsWith('/access/apps')) return response(apps);
+    if (parsed.pathname.endsWith('/workers/workers')) return response(workers);
     const policyMatch = parsed.pathname.match(/\/access\/apps\/([^/]+)\/policies$/);
     if (policyMatch) {
       const appId = decodeURIComponent(policyMatch[1]);
@@ -70,13 +88,13 @@ const exactPublicApp = {
 const workerApp = {
   id: 'app-worker',
   name: APP_NAME,
-  destinations: [{ type: 'worker', worker_id: 'chief-ai' }],
+  destinations: [{ type: 'worker', worker_id: WORKER_ID }],
 };
 
 const previewWorkerApp = {
   id: 'app-preview-worker',
   name: APP_NAME,
-  destinations: [{ type: 'preview_worker', worker_id: 'chief-ai' }],
+  destinations: [{ type: 'preview_worker', worker_id: WORKER_ID }],
 };
 
 describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
@@ -121,7 +139,7 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
     expect(expiredFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves preview_worker ahead of worker and creates only the specific service-token policy', async () => {
+  it('resolves preview_worker ahead of worker using the independently observed immutable Worker ID', async () => {
     const fetchImpl = routeFetch({
       serviceTokens: [activeToken],
       apps: [workerApp, previewWorkerApp],
@@ -141,6 +159,8 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
       serviceTokenId: SERVICE_ID,
     });
 
+    const workerRead = fetchImpl.mock.calls.find(([url]) => new URL(url).pathname.endsWith('/workers/workers'));
+    expect(workerRead).toBeTruthy();
     const createCall = fetchImpl.mock.calls.find(([, init]) => init?.method === 'POST');
     expect(createCall).toBeTruthy();
     expect(JSON.parse(createCall[1].body)).toEqual({
@@ -162,7 +182,7 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
       mode: 'repair',
       fetchImpl,
     })).rejects.toThrow('Effective Access scope worker');
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
   it('fails closed when duplicate preview_worker apps make precedence ambiguous', async () => {
@@ -177,7 +197,56 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
     await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl })).rejects.toThrow(
       'Multiple preview_worker Access applications protect the same Chief Worker',
     );
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('fails closed when the Worker registry cannot uniquely bind the hostname name to one immutable Worker ID', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [previewWorkerApp],
+      workers: [
+        workerRecord,
+        { ...workerRecord, id: '617f1d0431a98306ff61e336d79fce86' },
+      ],
+    });
+
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl })).rejects.toThrow(
+      'Expected exactly one Cloudflare Worker named chief-ai; found 2',
+    );
+  });
+
+  it('fails closed when the Worker registry preview suffix does not bind to the immutable preview hostname', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [previewWorkerApp],
+      workers: [{
+        ...workerRecord,
+        subdomain: {
+          ...workerRecord.subdomain,
+          preview_url_suffix: 'other-worker.mcgill-raylene.workers.dev',
+        },
+      }],
+    });
+
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl })).rejects.toThrow(
+      'does not match target chief-ai.mcgill-raylene.workers.dev',
+    );
+  });
+
+  it('fails closed if Worker identity cannot be read instead of falling back to Access app name or configured app ID', async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      const parsed = new URL(url);
+      if (parsed.pathname.endsWith('/access/service_tokens')) return response([activeToken]);
+      if (parsed.pathname.endsWith('/access/apps')) return response([previewWorkerApp]);
+      if (parsed.pathname.endsWith('/workers/workers')) return response([], 403);
+      throw new Error(`Unexpected Cloudflare test request: ${url}`);
+    });
+
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      accessAppId: previewWorkerApp.id,
+      fetchImpl,
+    })).rejects.toThrow('Cloudflare API request failed with HTTP 403');
   });
 
   it('fails closed on a broader matching public destination instead of mutating worker policy', async () => {
@@ -290,7 +359,7 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps the existing pre-merge explicit-ID path but validates it against live precedence', async () => {
+  it('keeps the existing pre-merge explicit-ID path but validates it against independently observed live precedence', async () => {
     const fetchImpl = routeFetch({
       serviceTokens: [activeToken],
       apps: [workerApp, exactPublicApp],
