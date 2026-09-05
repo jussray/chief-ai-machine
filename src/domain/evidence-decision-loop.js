@@ -140,7 +140,9 @@ export function evaluateMergeReview(mergeReview = {}) {
       founderSelfAuditHeadMatches: false,
       founderSelfAuditDisposition: 'UNKNOWN',
       independentApprovalSatisfied: false,
+      independentApprovalHeadMatches: false,
       founderAuthoritySatisfied: false,
+      founderAuthorityHeadMatches: false,
       headMatchesReview: false,
     };
   }
@@ -211,14 +213,34 @@ export function evaluateMergeReview(mergeReview = {}) {
   const reviewer = typeof mergeReview.independentApproval?.reviewer === 'string'
     ? mergeReview.independentApproval.reviewer.trim()
     : '';
+  const independentApprovalReviewedHeadSha = typeof mergeReview.independentApproval?.reviewedHeadSha === 'string'
+    ? mergeReview.independentApproval.reviewedHeadSha.trim()
+    : '';
+  const independentApprovalHeadMatches = Boolean(
+    currentHeadSha
+      && independentApprovalReviewedHeadSha
+      && independentApprovalReviewedHeadSha === currentHeadSha,
+  );
   const independentApprovalSatisfied = !requireLastPushApproval || Boolean(
     mergeReview.independentApproval?.approved === true
       && reviewer
       && lastPusher
-      && reviewer !== lastPusher,
+      && reviewer !== lastPusher
+      && independentApprovalHeadMatches,
   );
 
-  const founderAuthoritySatisfied = mergeReview.founderAuthorityExplicit === true;
+  const founderAuthorityHeadSha = typeof mergeReview.founderAuthorityHeadSha === 'string'
+    ? mergeReview.founderAuthorityHeadSha.trim()
+    : '';
+  const founderAuthorityHeadMatches = Boolean(
+    currentHeadSha
+      && founderAuthorityHeadSha
+      && founderAuthorityHeadSha === currentHeadSha,
+  );
+  const founderAuthoritySatisfied = Boolean(
+    mergeReview.founderAuthorityExplicit === true
+      && founderAuthorityHeadMatches,
+  );
   const allowedMergeMethods = Array.isArray(mergeReview.rules?.allowedMergeMethods)
     ? mergeReview.rules.allowedMergeMethods.filter((method) => ['merge', 'squash', 'rebase'].includes(method))
     : ['merge', 'squash', 'rebase'];
@@ -280,7 +302,11 @@ export function evaluateMergeReview(mergeReview = {}) {
     requireLastPushApproval,
     lastPusher,
     reviewer,
+    independentApprovalReviewedHeadSha,
+    independentApprovalHeadMatches,
     independentApprovalSatisfied,
+    founderAuthorityHeadSha,
+    founderAuthorityHeadMatches,
     founderAuthoritySatisfied,
     requiredLinearHistory,
     requestedMethod,
@@ -387,6 +413,8 @@ export function evaluateEvidenceDecision(input = {}) {
       founderSelfAuditIsBoundToExactHead: true,
       founderSelfAuditDoesNotGrantMergeAuthority: true,
       independentApprovalCannotBeSelfSatisfied: true,
+      independentApprovalIsBoundToExactHead: true,
+      founderMergeAuthorityIsBoundToExactHead: true,
       linearHistoryForbidsMergeCommitFallback: true,
     },
   };
