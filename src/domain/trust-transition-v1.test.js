@@ -21,6 +21,7 @@ function mission(overrides = {}) {
     },
     consequence: 'consequential',
     authority: {
+      granted: true,
       grantId: 'grant-123',
       action: 'publish_collection',
       target: 'fall-2026-test',
@@ -62,6 +63,49 @@ describe('TrustTransitionV1', () => {
     expect(first.continuityCookie).toMatch(/^[0-9a-f]{64}$/);
     expect(first.transitionFingerprint).toBe(second.transitionFingerprint);
     expect(first.continuityCookie).toBe(second.continuityCookie);
+  });
+
+  it('keeps a proposal non-executable until scoped authority is actually granted', () => {
+    const base = mission();
+    const proposal = mission({
+      authority: {
+        granted: false,
+        grantId: '',
+        action: base.proposedAction.action,
+        target: base.proposedAction.target,
+        scope: ['publish'],
+        reusable: false,
+      },
+    });
+
+    const result = evaluateTrustTransition(proposal);
+    expect(result.valid).toBe(true);
+    expect(result.authorityGranted).toBe(false);
+    expect(result.executionAllowed).toBe(false);
+    expect(result.disposition).toBe('awaiting_authority');
+    expect(result.selfAuthorize).toBe(false);
+    expect(result.invariants.proposalCannotSelfGrantAuthority).toBe(true);
+  });
+
+  it('requires a real grant identity when authority is marked granted', () => {
+    const base = mission();
+    const input = mission({
+      authority: {
+        ...base.authority,
+        grantId: '',
+      },
+    });
+
+    const result = evaluateTrustTransition(input);
+    expect(result.valid).toBe(false);
+    expect(result.executionAllowed).toBe(false);
+    expect(result.errors).toContain('granted authority requires authority.grantId');
+  });
+
+  it('requires runtime identity for consequential transitions so cookies cannot float across runtimes', () => {
+    const result = evaluateTrustTransition(mission({ runtimeFingerprint: '' }));
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('consequential actions require a runtime fingerprint');
   });
 
   it('expires the cookie when runtime identity changes without rewriting the historical subject', () => {
@@ -114,6 +158,7 @@ describe('TrustTransitionV1', () => {
   it('rejects widened authority that does not match the proposed action target', () => {
     const input = mission({
       authority: {
+        granted: true,
         grantId: 'grant-123',
         action: 'publish_collection',
         target: '*',
@@ -162,6 +207,30 @@ describe('TrustTransitionV1', () => {
     expect(result.evidenceDecision.recommendation).toBe('MEASURE');
   });
 
+  it('blocks execution evidence that tries to appear before authority exists', () => {
+    const granted = mission();
+    const pending = mission({
+      authority: {
+        granted: false,
+        grantId: '',
+        action: granted.proposedAction.action,
+        target: granted.proposedAction.target,
+        scope: ['publish'],
+        reusable: false,
+      },
+    });
+
+    const result = evaluateTrustTransition({
+      ...pending,
+      evidence: [proof(pending, 'execution')],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.disposition).toBe('blocked');
+    expect(result.executionAllowed).toBe(false);
+    expect(result.errors).toContain('execution or outcome evidence cannot verify before scoped authority is granted');
+  });
+
   it('requires an independent outcome witness', () => {
     const input = mission();
     const result = evaluateTrustTransition({
@@ -205,6 +274,7 @@ describe('TrustTransitionV1', () => {
     expect(result.outcomeVerified).toBe(true);
     expect(result.currentTruthState).toBe('fresh');
     expect(result.disposition).toBe('verified');
+    expect(result.executionAllowed).toBe(false);
     expect(result.selfAuthorize).toBe(false);
   });
 
