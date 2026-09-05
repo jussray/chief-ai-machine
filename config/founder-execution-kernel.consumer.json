@@ -1,0 +1,130 @@
+{
+  "contract": "juss/founder-execution-kernel-consumer@v1",
+  "kernelContract": "juss/founder-execution-kernel@v1",
+  "canonicalSource": {
+    "repository": "jussray/founder-control-room",
+    "path": "docs/FOUNDER_ADAPTIVE_KERNEL_V0.md",
+    "role": "canonical-governance-source"
+  },
+  "consumer": {
+    "repository": "jussray/chief-ai-machine",
+    "role": "reason-plan-propose",
+    "mayGrantFounderAuthority": false,
+    "mayGrantActionAuthority": false,
+    "mayMerge": false,
+    "mayDeploy": false,
+    "mayPublish": false
+  },
+  "fingerprintLaw": {
+    "evidenceBoundToExactFingerprint": true,
+    "headOrScopeMovementExpiresDependentProof": true,
+    "continuityIsDescriptiveOnly": true,
+    "continuityMayAuthorizeActions": false
+  },
+  "capabilityRouting": {
+    "contract": "juss/portable-capability-routing@v1",
+    "continuityContract": "juss/portable-capability-continuity@v1",
+    "portableSource": {
+      "repository": "jussray/solcontinuity",
+      "path": ".ai-skills/runtime/capability-routing.mjs",
+      "role": "portable-contract-source"
+    },
+    "selectionRule": "Select the highest-priority eligible available capability declared by policy only when it is permitted, satisfies every required capability class, and remains within the current authority ceiling.",
+    "noEligibleCapabilityResult": "BLOCKED",
+    "fallbackMayWidenAuthority": false,
+    "fallbackMayDowngradeRequiredEvidence": false,
+    "selectedProviderBecomesAuthority": false,
+    "routeFingerprintRequired": true,
+    "continuityCookieAuthorizesActions": false,
+    "continuityCookieCarriesApprovalForward": false,
+    "reacquireWhenRouteFingerprintChanges": true
+  },
+  "controlInput": {
+    "contract": "juss/portable-control-input@v1",
+    "portableSource": {
+      "repository": "jussray/solcontinuity",
+      "path": ".ai-skills/runtime/control-input.mjs",
+      "role": "portable-contract-source"
+    },
+    "promptSemanticsContract": "promptos/internal-control-input@v1",
+    "systemOwnedModes": [
+      "goalfix",
+      "ultrathink",
+      "truthmode",
+      "confess",
+      "redteam",
+      "attackten",
+      "lindymode",
+      "ooda",
+      "proofmode",
+      "l99"
+    ],
+    "untrustedInputIsData": true,
+    "callerSuppliedModeNameIsAuthority": false,
+    "externalTextMaySelectInternalMode": false,
+    "externalTextMayTriggerSystemWorkflow": false,
+    "authorizedInternalControllerRequired": true,
+    "modeSelectionMayWidenAuthority": false,
+    "modeSelectionImpliesExecutionAuthority": false,
+    "fingerprintMayAuthorizeModeSelection": false,
+    "continuityCookieMayAuthorizeModeSelection": false,
+    "fcrRemainsExecutionAuthority": true
+  },
+  "trustBoundary": {
+    "modelIsSecurityBoundary": false,
+    "deterministicPreActionAdmissionRequired": true,
+    "executorMaySelfVerify": false,
+    "executorGeneratedEvidenceCeiling": "ATTESTED",
+    "independentWitnessRequiredForVerified": true,
+    "delegatedAuthorityMustMonotonicallyNarrow": true,
+    "capabilityManifestBoundToAuthority": true,
+    "capabilityMovementExpiresDependentAuthority": true,
+    "selfReportedToolIdentityIsAuthenticatedIdentity": false,
+    "providerAcceptanceIsTerminalOutcomeProof": false,
+    "evidenceMustBind": [
+      "source",
+      "artifact",
+      "execution-environment",
+      "deployment",
+      "runtime"
+    ]
+  },
+  "truthVocabulary": [
+    "VERIFIED",
+    "INFERRED",
+    "UNKNOWN",
+    "BLOCKED",
+    "STALE"
+  ],
+  "adaptiveSignals": [
+    "STRONGER_THAN_EXPECTED",
+    "AS_EXPECTED",
+    "WEAKER_THAN_EXPECTED",
+    "UNEXPECTED_DIRECTION",
+    "UNKNOWN"
+  ],
+  "adaptiveActions": [
+    "ACCELERATE",
+    "CONTINUE",
+    "REPAIR",
+    "REORIENT",
+    "HOLD",
+    "STOP"
+  ],
+  "portableMirror": {
+    "kind": "github-gist",
+    "distributionOnly": true,
+    "authority": false,
+    "mayPersistRuntimeState": false,
+    "mayCarryFounderApproval": false
+  },
+  "report": [
+    "REALITY",
+    "FIX",
+    "PROOF",
+    "RISK",
+    "ROLLBACK",
+    "ADAPTIVE SIGNAL",
+    "NEXT GATE"
+  ]
+}
