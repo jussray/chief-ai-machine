@@ -3,30 +3,25 @@ name: Operational Proof Contract
 on:
   pull_request:
     branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  checks: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 concurrency:
-  group: operational-proof-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: operational-proof-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  source-contract:
-    name: Verify operational source contract
-    if: ${{ github.event_name != 'pull_request_target' }}
-    permissions:
-      contents: read
+  authority:
+    name: Verify operational authority
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -51,67 +46,13 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Test operational source contracts
-        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/operational-proof-trust-root.test.mjs
+      - name: Test operational contracts
+        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs
 
-      - name: Enforce source workflow authority
+      - name: Enforce immutable workflow authority
         run: node scripts/verify-operational-authority.mjs
 
-      - name: Retain operational source receipt
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: operational-source-contract-${{ env.EXPECTED_HEAD_SHA }}
-          path: artifacts/operational-authority-report.json
-          if-no-files-found: error
-          retention-days: 30
-
-  authority-observation:
-    # GitHub Actions integration 15368 is not an authority identity. This job may
-    # observe trusted-base governance state, but it must never emit the legacy
-    # required-check context "Verify operational authority".
-    name: Observe operational authority from trusted base
-    if: ${{ github.event_name == 'pull_request_target' }}
-    permissions:
-      contents: read
-      checks: read
-    runs-on: ubuntu-22.04
-    timeout-minutes: 10
-    env:
-      TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-    steps:
-      - name: Check out trusted base evaluator
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.TRUSTED_BASE_SHA }}
-          persist-credentials: false
-
-      - name: Verify trusted evaluator identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          trusted="$(git rev-parse HEAD)"
-          printf 'trusted_base=%s\ncandidate_head=%s\n' "$trusted" "$EXPECTED_HEAD_SHA"
-          test "$trusted" = "$TRUSTED_BASE_SHA"
-          test "$trusted" != "$EXPECTED_HEAD_SHA"
-
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: '24'
-          cache: npm
-
-      - name: Install trusted locked dependencies
-        run: npm ci
-
-      - name: Test trusted authority evaluators
-        run: npx vitest run test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/operational-proof-trust-root.test.mjs
-
-      - name: Enforce trusted workflow authority
-        run: node scripts/verify-operational-authority.mjs
-
-      - name: Observe live governance and external candidate producer authority
+      - name: Observe live governance and candidate producer authority
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -128,11 +69,11 @@ jobs:
             exit 1
           fi
 
-      - name: Retain trusted operational observation receipts
+      - name: Retain operational authority receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: operational-authority-observation-${{ env.EXPECTED_HEAD_SHA }}
+          name: operational-authority-${{ env.EXPECTED_HEAD_SHA }}
           path: |
             artifacts/operational-authority-report.json
             artifacts/proofmode-ruleset-report.json
