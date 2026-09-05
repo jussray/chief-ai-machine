@@ -7,7 +7,7 @@ import {
   validateProofModeRulesetMigration,
 } from '../scripts/verify-proofmode-ruleset.mjs';
 
-const TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID = 15368;
+const EXTERNAL_GITHUB_APP_INTEGRATION_ID = 424242;
 const TRUSTED_RULESET_ID = 20818149;
 const TRUSTED_RULESET_NAME = 'Chief AI main exact-head gate';
 
@@ -17,7 +17,9 @@ const semantics = {
     'Verify production ProofMode MCP with Playwright',
   ],
   preMergeCandidateContext: 'Verify candidate ProofMode runtime with Playwright',
-  preMergeCandidateIntegrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
+  preMergeCandidateIntegrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
+  preMergeCandidateProducerTrust: 'external-github-app-check-required',
+  preMergeCandidateWorkflowProvenance: 'must-not-be-pr-authored-github-actions-only',
   preMergeCandidateRulesetId: TRUSTED_RULESET_ID,
   preMergeCandidateRulesetName: TRUSTED_RULESET_NAME,
   preMergeCandidateRulesetMustHaveNoBypassActors: true,
@@ -41,7 +43,7 @@ function ruleset({
         if (typeof entry === 'string') {
           return {
             context: entry,
-            integration_id: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
+            integration_id: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
           };
         }
         return { ...entry };
@@ -77,8 +79,8 @@ describe('ProofMode live ruleset authority', () => {
 
     expect(requiredStatusContexts(observed)).toEqual(['Typecheck', 'Verify operational authority']);
     expect(requiredStatusChecks(observed)).toEqual([
-      { context: 'Typecheck', integrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID },
-      { context: 'Verify operational authority', integrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID },
+      { context: 'Typecheck', integrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID },
+      { context: 'Verify operational authority', integrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID },
     ]);
   });
 
@@ -131,7 +133,7 @@ describe('ProofMode live ruleset authority', () => {
     ]));
   });
 
-  it('passes only when candidate proof is required by the trusted no-bypass ruleset and trusted integration', () => {
+  it('passes only when candidate proof is required by the trusted no-bypass ruleset and external integration', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [
         ruleset({
@@ -150,7 +152,7 @@ describe('ProofMode live ruleset authority', () => {
 
     expect(result.ok).toBe(true);
     expect(result.violations).toEqual([]);
-    expect(result.candidateIntegrationId).toBe(TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID);
+    expect(result.candidateIntegrationId).toBe(EXTERNAL_GITHUB_APP_INTEGRATION_ID);
     expect(result.candidateRulesetId).toBe(TRUSTED_RULESET_ID);
     expect(result.candidateRulesets).toEqual([{ id: TRUSTED_RULESET_ID, name: TRUSTED_RULESET_NAME }]);
   });
@@ -188,7 +190,7 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.violations).toEqual(expect.arrayContaining([
       expect.objectContaining({
         classification: 'candidate-proofmode-integration-mismatch',
-        expectedIntegrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
+        expectedIntegrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
       }),
     ]));
   });
@@ -209,7 +211,7 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.violations).toEqual(expect.arrayContaining([
       expect.objectContaining({
         classification: 'candidate-proofmode-integration-mismatch',
-        expectedIntegrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
+        expectedIntegrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
         observed: expect.arrayContaining([
           expect.objectContaining({ integrationId: 99999 }),
         ]),
@@ -286,7 +288,7 @@ describe('ProofMode live ruleset authority', () => {
     ]));
   });
 
-  it('fails closed if producer or no-bypass carrier identity is missing from the governance contract', () => {
+  it('fails closed if producer trust or no-bypass carrier identity is missing from the governance contract', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [ruleset({
         contexts: ['Verify candidate ProofMode runtime with Playwright'],
@@ -294,6 +296,8 @@ describe('ProofMode live ruleset authority', () => {
       semantics: {
         ...semantics,
         preMergeCandidateIntegrationId: undefined,
+        preMergeCandidateProducerTrust: undefined,
+        preMergeCandidateWorkflowProvenance: undefined,
         preMergeCandidateRulesetId: undefined,
         preMergeCandidateRulesetMustHaveNoBypassActors: false,
       },
