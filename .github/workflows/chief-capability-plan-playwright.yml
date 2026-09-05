@@ -102,8 +102,21 @@ jobs:
           printf 'Manual dispatch identity verified for %s by %s\n' "$EXPECTED_HEAD_SHA" "$DISPATCH_ACTOR"
           printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
 
+  provider-receipt-pr-gate:
+    name: ${{ github.event_name == 'pull_request' && 'Redacted provider receipt' || 'Redacted provider receipt (PR gate only)' }}
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: dispatch-identity
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed before protected provider receipt
+        shell: bash
+        run: |
+          printf 'A pull-request event cannot satisfy the protected provider receipt. Run the founder-authorized exact-head Access check/verify path.\n' >&2
+          exit 1
+
   access-policy-admin:
-    name: Redacted provider receipt
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Redacted provider receipt' || 'Redacted provider receipt (privileged manual only)' }}
     if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: dispatch-identity
     uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@988e2ac70d5d8d0c1988a373aae419c2f9b63b59
@@ -308,14 +321,33 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  exact-runtime-pr-gate:
+    name: ${{ github.event_name == 'pull_request' && 'Verify exact Chief runtime with Playwright' || 'Verify exact Chief runtime with Playwright (PR gate only)' }}
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: source-contract
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed before exact-runtime receipt
+        shell: bash
+        run: |
+          printf 'A pull-request event cannot satisfy the exact-runtime receipt; successful privileged runtime Playwright proof is required.\n' >&2
+          exit 1
+
   exact-runtime-receipt:
-    name: Verify exact Chief runtime with Playwright
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' && 'Verify exact Chief runtime with Playwright' || 'Verify exact Chief runtime with Playwright (privileged manual only)' }}
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
     needs: runtime-proof
     runs-on: ubuntu-22.04
     timeout-minutes: 2
     steps:
       - name: Bind compatibility context to successful privileged runtime proof
         shell: bash
+        env:
+          RUNTIME_PROOF_RESULT: ${{ needs.runtime-proof.result }}
         run: |
+          if [ "$RUNTIME_PROOF_RESULT" != "success" ]; then
+            printf 'Exact Chief runtime receipt denied because privileged runtime proof result is %s, not success.\n' "$RUNTIME_PROOF_RESULT" >&2
+            exit 1
+          fi
           printf 'Exact Chief runtime compatibility receipt is derived only from a successful privileged live runtime and Playwright job for %s.\n' "$EXPECTED_HEAD_SHA"
