@@ -23,7 +23,40 @@ jobs:
     name: Verify production ProofMode MCP with Playwright
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    environment: proofmode-access-admin
     steps:
+      - name: Guard production proof to current main only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_REF: ${{ github.ref }}
+        run: |
+          if [ "$EVENT_REF" != "refs/heads/main" ]; then
+            printf 'Production ProofMode verification is main-only; candidate refs must use immutable-preview ProofMode verification instead. ref=%s\n' "$EVENT_REF" >&2
+            exit 1
+          fi
+
+          current="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const data = JSON.parse(raw);
+                process.stdout.write(data?.commit?.sha || "");
+              });
+            ')"
+
+          if [ -z "$current" ] || [ "$current" != "$GITHUB_SHA" ]; then
+            printf 'Production ProofMode proof is stale or not bound to current main: workflow_sha=%s current_main=%s.\n' "$GITHUB_SHA" "$current" >&2
+            exit 1
+          fi
+
+          printf 'Production ProofMode proof is bound to current main %s.\n' "$GITHUB_SHA"
+
       - name: Check out exact workflow source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
