@@ -65,10 +65,13 @@
     ],
     "preMergeCandidateContext": "Verify candidate ProofMode runtime with Playwright",
     "preMergeCandidateIntegrationId": 15368,
+    "preMergeCandidateRulesetId": 20818149,
+    "preMergeCandidateRulesetName": "Chief AI main exact-head gate",
+    "preMergeCandidateRulesetMustHaveNoBypassActors": true,
     "preMergeCandidateScope": "founder-authorized immutable-preview exact-SHA Playwright proof",
     "postMergeProductionContext": "Verify production ProofMode MCP with Playwright",
     "postMergeProductionScope": "current-main canonical-production exact-SHA Playwright proof",
-    "rulesetMigration": "replace both legacy pre-merge ProofMode requirements with the candidate ProofMode runtime context bound to GitHub Actions integration 15368; do not require the production ProofMode context before merge; keep production verification post-merge/main-only"
+    "rulesetMigration": "remove both legacy pre-merge ProofMode requirements from governance boundary; require the candidate ProofMode runtime context in Chief AI main exact-head gate (ruleset 20818149), bound to GitHub Actions integration 15368 with no bypass actors; do not require production ProofMode before merge; keep production verification post-merge/main-only"
   },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
