@@ -16,6 +16,16 @@ export const DIVERGENCE_RESOLUTIONS = Object.freeze([
   'neither',
   'unresolved',
 ]);
+export const MERGE_REVIEW_DISPOSITIONS = Object.freeze([
+  'NOT_APPLICABLE',
+  'REOBSERVE',
+  'WAIT_REQUIRED_CHECKS',
+  'WAIT_CODE_SCANNING',
+  'WAIT_INDEPENDENT_APPROVAL',
+  'WAIT_FOUNDER_AUTHORITY',
+  'HOLD_METHOD',
+  'READY',
+]);
 
 function normalizeEvidence(evidence) {
   return Array.isArray(evidence) ? evidence : [];
@@ -96,6 +106,122 @@ function evaluateDivergence(divergence = {}) {
   };
 }
 
+function normalizeCheckRuns(checkRuns) {
+  return Array.isArray(checkRuns) ? checkRuns : [];
+}
+
+function successfulCheckNames(checkRuns, headSha) {
+  return new Set(
+    checkRuns
+      .filter((item) => item?.headSha === headSha && item?.status === 'completed' && item?.conclusion === 'success')
+      .map((item) => item?.name)
+      .filter(Boolean),
+  );
+}
+
+export function evaluateMergeReview(mergeReview = {}) {
+  const requested = mergeReview?.requested === true;
+  if (!requested) {
+    return {
+      requested: false,
+      disposition: 'NOT_APPLICABLE',
+      mergeAllowed: false,
+      recommendedMergeMethod: null,
+      selfAuthorize: false,
+      bypassSuggested: false,
+      missingRequiredChecks: [],
+      codeScanningSatisfied: false,
+      independentApprovalSatisfied: false,
+      founderAuthoritySatisfied: false,
+      headMatchesReview: false,
+    };
+  }
+
+  const currentHeadSha = typeof mergeReview.currentHeadSha === 'string' ? mergeReview.currentHeadSha : '';
+  const reviewedHeadSha = typeof mergeReview.reviewedHeadSha === 'string' ? mergeReview.reviewedHeadSha : '';
+  const headMatchesReview = Boolean(currentHeadSha && reviewedHeadSha && currentHeadSha === reviewedHeadSha);
+  const checkRuns = normalizeCheckRuns(mergeReview.checkRuns);
+  const successfulChecks = successfulCheckNames(checkRuns, currentHeadSha);
+  const requiredChecks = Array.isArray(mergeReview.requiredChecks)
+    ? [...new Set(mergeReview.requiredChecks.filter((name) => typeof name === 'string' && name.trim()))]
+    : [];
+  const missingRequiredChecks = requiredChecks.filter((name) => !successfulChecks.has(name));
+
+  const codeScanningRequired = mergeReview.rules?.codeScanningRequired === true;
+  const codeScanningTool = typeof mergeReview.rules?.codeScanningTool === 'string'
+    ? mergeReview.rules.codeScanningTool
+    : 'CodeQL';
+  const codeScanningSatisfied = !codeScanningRequired || successfulChecks.has(codeScanningTool);
+
+  const requireLastPushApproval = mergeReview.rules?.requireLastPushApproval === true;
+  const lastPusher = typeof mergeReview.lastPusher === 'string' ? mergeReview.lastPusher.trim() : '';
+  const reviewer = typeof mergeReview.independentApproval?.reviewer === 'string'
+    ? mergeReview.independentApproval.reviewer.trim()
+    : '';
+  const independentApprovalSatisfied = !requireLastPushApproval || Boolean(
+    mergeReview.independentApproval?.approved === true
+      && reviewer
+      && lastPusher
+      && reviewer !== lastPusher,
+  );
+
+  const founderAuthoritySatisfied = mergeReview.founderAuthorityExplicit === true;
+  const allowedMergeMethods = Array.isArray(mergeReview.rules?.allowedMergeMethods)
+    ? mergeReview.rules.allowedMergeMethods.filter((method) => ['merge', 'squash', 'rebase'].includes(method))
+    : ['merge', 'squash', 'rebase'];
+  const requestedMethod = ['merge', 'squash', 'rebase'].includes(mergeReview.requestedMethod)
+    ? mergeReview.requestedMethod
+    : null;
+  const requiredLinearHistory = mergeReview.rules?.requiredLinearHistory === true;
+
+  let recommendedMergeMethod = null;
+  if (requiredLinearHistory) {
+    if (requestedMethod && requestedMethod !== 'merge' && allowedMergeMethods.includes(requestedMethod)) {
+      recommendedMergeMethod = requestedMethod;
+    } else if (allowedMergeMethods.includes('squash')) {
+      recommendedMergeMethod = 'squash';
+    } else if (allowedMergeMethods.includes('rebase')) {
+      recommendedMergeMethod = 'rebase';
+    }
+  } else if (requestedMethod && allowedMergeMethods.includes(requestedMethod)) {
+    recommendedMergeMethod = requestedMethod;
+  } else {
+    recommendedMergeMethod = allowedMergeMethods[0] ?? null;
+  }
+
+  let disposition = 'READY';
+  if (!headMatchesReview) disposition = 'REOBSERVE';
+  else if (missingRequiredChecks.length > 0) disposition = 'WAIT_REQUIRED_CHECKS';
+  else if (!codeScanningSatisfied) disposition = 'WAIT_CODE_SCANNING';
+  else if (!independentApprovalSatisfied) disposition = 'WAIT_INDEPENDENT_APPROVAL';
+  else if (!founderAuthoritySatisfied) disposition = 'WAIT_FOUNDER_AUTHORITY';
+  else if (!recommendedMergeMethod) disposition = 'HOLD_METHOD';
+
+  return {
+    requested: true,
+    disposition,
+    mergeAllowed: disposition === 'READY',
+    recommendedMergeMethod,
+    selfAuthorize: false,
+    bypassSuggested: false,
+    currentHeadSha,
+    reviewedHeadSha,
+    headMatchesReview,
+    missingRequiredChecks,
+    codeScanningRequired,
+    codeScanningTool,
+    codeScanningSatisfied,
+    requireLastPushApproval,
+    lastPusher,
+    reviewer,
+    independentApprovalSatisfied,
+    founderAuthoritySatisfied,
+    requiredLinearHistory,
+    requestedMethod,
+    allowedMergeMethods,
+  };
+}
+
 export function evaluateEvidenceDecision(input = {}) {
   const evidence = normalizeEvidence(input.evidence);
   const errors = [];
@@ -111,6 +237,7 @@ export function evaluateEvidenceDecision(input = {}) {
 
   const divergence = evaluateDivergence(input.divergence);
   errors.push(...divergence.errors);
+  const mergeReview = evaluateMergeReview(input.mergeReview);
 
   const subjectChanged = Boolean(
     input.expectedFingerprint
@@ -148,6 +275,12 @@ export function evaluateEvidenceDecision(input = {}) {
     recommendation = 'REOBSERVE';
   } else if (divergence.observed && divergence.disposition === 'TEST_ALTERNATIVE') {
     recommendation = 'INVESTIGATE_DIVERGENCE';
+  } else if (mergeReview.requested && mergeReview.disposition === 'REOBSERVE') {
+    recommendation = 'REOBSERVE';
+  } else if (mergeReview.requested && mergeReview.disposition === 'READY') {
+    recommendation = 'PROPOSE_MERGE';
+  } else if (mergeReview.requested) {
+    recommendation = 'HOLD';
   } else if (winnerAllowed) {
     recommendation = 'PROPOSE_KEEP';
   } else if (outcomeVerified && primarySignal === 'degraded') {
@@ -172,6 +305,7 @@ export function evaluateEvidenceDecision(input = {}) {
     winnerAllowed,
     recommendation,
     divergence,
+    mergeReview,
     selfAuthorize: false,
     founderReviewRequired: Boolean(input.consequentialAction ?? true),
     invariants: {
@@ -181,6 +315,10 @@ export function evaluateEvidenceDecision(input = {}) {
       differenceIsNotAutomaticallyError: true,
       alternativePathIsHypothesisUntilVerified: true,
       safetyAndAuthorityCannotBeReasonedAround: true,
+      requiredChecksMustMaterializeOnReviewedHead: true,
+      codeScanningIsSeparateMergeEvidence: true,
+      independentApprovalCannotBeSelfSatisfied: true,
+      linearHistoryForbidsMergeCommitFallback: true,
     },
   };
 }
