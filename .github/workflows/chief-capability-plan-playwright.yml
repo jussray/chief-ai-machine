@@ -50,12 +50,13 @@ permissions:
 
 concurrency:
   group: chief-capability-plan-playwright-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
+  TRUSTED_BASE_SHA: 2fd4fda0cab12e52ab5096e723884d98bcfe7d10
 
 jobs:
   dispatch-identity:
@@ -163,7 +164,7 @@ jobs:
         run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
 
   pr-runtime-gate:
-    name: Verify live Chief capability plan with Playwright
+    name: ${{ github.event_name == 'pull_request' && 'Verify live Chief capability plan with Playwright' || 'Verify live Chief capability plan with Playwright (PR gate only)' }}
     if: ${{ always() && github.event_name == 'pull_request' }}
     needs: source-contract
     runs-on: ubuntu-22.04
@@ -177,7 +178,7 @@ jobs:
           exit 1
 
   runtime-proof:
-    name: Verify live Chief capability plan with Playwright
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' && 'Verify live Chief capability plan with Playwright' || 'Verify live Chief capability plan with Playwright (privileged manual only)' }}
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
     needs:
       - dispatch-identity
@@ -186,10 +187,34 @@ jobs:
     timeout-minutes: 15
     environment: proofmode-access-admin
     steps:
-      - name: Check out trusted browser-proof source
+      - name: Reacquire current main before privileged proof
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          current="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const data = JSON.parse(raw);
+                process.stdout.write(data?.commit?.sha || "");
+              });
+            ')"
+          if [ "$current" != "$TRUSTED_BASE_SHA" ]; then
+            printf 'Current main advanced: trusted_base=%s current_main=%s. Reacquire main before privileged proof.\n' "$TRUSTED_BASE_SHA" "$current" >&2
+            exit 1
+          fi
+
+      - name: Check out immutable trusted browser-proof source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: main
+          ref: ${{ env.TRUSTED_BASE_SHA }}
           persist-credentials: false
 
       - name: Record trusted browser-proof source
@@ -197,6 +222,7 @@ jobs:
         run: |
           trusted="$(git rev-parse HEAD)"
           printf 'trusted_browser_proof_source=%s\n' "$trusted"
+          test "$trusted" = "$TRUSTED_BASE_SHA"
 
       - name: Bind immutable target
         shell: bash
