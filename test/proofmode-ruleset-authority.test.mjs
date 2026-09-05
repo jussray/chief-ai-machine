@@ -226,6 +226,31 @@ describe('ProofMode live ruleset authority', () => {
     ]));
   });
 
+  it('fails closed as unobservable instead of claiming bypass when bypass actors are omitted', () => {
+    const observed = ruleset({
+      contexts: ['Verify candidate ProofMode runtime with Playwright'],
+    });
+    delete observed.bypass_actors;
+
+    const result = validateProofModeRulesetMigration({
+      rulesets: [observed],
+      semantics,
+      defaultBranch: 'main',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.candidateRulesets).toEqual([]);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'candidate-proofmode-bypass-state-unobservable',
+        expectedRulesetId: TRUSTED_RULESET_ID,
+      }),
+    ]));
+    expect(result.violations).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ classification: 'candidate-proofmode-ruleset-bypassable' }),
+    ]));
+  });
+
   it('fails closed if producer or no-bypass carrier identity is missing from the governance contract', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [ruleset({
