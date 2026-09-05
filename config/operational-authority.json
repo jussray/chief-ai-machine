@@ -26,11 +26,15 @@
     "unknownOrMissingAuthorityFailsClosed": true
   },
   "proofContextSemantics": {
+    "legacyPreMergeProofModeContexts": [
+      "Verify live ProofMode MCP with Playwright",
+      "Verify production ProofMode MCP with Playwright"
+    ],
     "preMergeCandidateContext": "Verify candidate ProofMode runtime with Playwright",
     "preMergeCandidateScope": "founder-authorized immutable-preview exact-SHA Playwright proof",
     "postMergeProductionContext": "Verify production ProofMode MCP with Playwright",
     "postMergeProductionScope": "current-main canonical-production exact-SHA Playwright proof",
-    "rulesetMigration": "replace the pre-merge production ProofMode requirement with the candidate ProofMode runtime context; keep production verification post-merge/main-only"
+    "rulesetMigration": "replace both legacy pre-merge ProofMode requirements with the candidate ProofMode runtime context; do not require the production ProofMode context before merge; keep production verification post-merge/main-only"
   },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
