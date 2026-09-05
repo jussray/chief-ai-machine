@@ -1,152 +1,101 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const capabilityWorkflow = readFileSync(
-  new globalThis.URL('../.github/workflows/chief-capability-plan-playwright.yml', import.meta.url),
-  'utf8',
-);
-const accessAdminWorkflow = readFileSync(
-  new globalThis.URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
-  'utf8',
-);
-const proofModeWorkflow = readFileSync(
-  new globalThis.URL('../.github/workflows/proofmode-mcp-playwright.yml', import.meta.url),
-  'utf8',
-);
-const productionProofModeWorkflow = readFileSync(
-  new globalThis.URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
-  'utf8',
-);
-const operationalAuthority = JSON.parse(readFileSync(
-  new globalThis.URL('../config/operational-authority.json', import.meta.url),
-  'utf8',
-));
+const read = (path) => readFileSync(new globalThis.URL(path, import.meta.url), 'utf8');
+const capabilityWorkflow = read('../.github/workflows/chief-capability-plan-playwright.yml');
+const accessAdminWorkflow = read('../.github/workflows/proofmode-access-service-auth.yml');
+const proofModeWorkflow = read('../.github/workflows/proofmode-mcp-playwright.yml');
+const productionWorkflow = read('../.github/workflows/proofmode-production-playwright.yml');
+const operationalAuthority = JSON.parse(read('../config/operational-authority.json'));
 
-const TRUSTED_ADMIN_SHA = 'c1acda4363099b7233d5857e8d2e4c97163ef42d';
-const TRUSTED_ADMIN_CALL = `uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@${TRUSTED_ADMIN_SHA}`;
-
-describe('ProofMode Access admin dispatch bootstrap', () => {
-  it('routes Access check/repair through an immutable reusable admin revision', () => {
-    expect(capabilityWorkflow).toContain('workflow_dispatch:');
-    expect(capabilityWorkflow).toContain('access_mode:');
-    expect(capabilityWorkflow).toContain(TRUSTED_ADMIN_CALL);
-    expect(capabilityWorkflow).not.toContain('uses: ./.github/workflows/proofmode-access-service-auth.yml');
-    expect(capabilityWorkflow).not.toContain('secrets: inherit');
-    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}');
-    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}');
-    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_WORKERS_READ_API_TOKEN');
-  });
-
-  it('fails closed when a manual dispatch does not prove the selected ref owns the intended exact head', () => {
-    expect(capabilityWorkflow).toContain('expected_head_sha:');
-    expect(capabilityWorkflow).toContain('EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}');
-    expect(capabilityWorkflow).toContain('name: Verify manual dispatch identity');
-    expect(capabilityWorkflow).toContain('DISPATCH_SHA: ${{ github.sha }}');
-    expect(capabilityWorkflow).toContain('if [ "$EXPECTED_HEAD_SHA" != "$DISPATCH_SHA" ]; then');
-    expect(capabilityWorkflow).toContain('Manual proof identity mismatch:');
-    expect(capabilityWorkflow).toContain("const raw = process.argv[1].trim();");
-    expect(capabilityWorkflow).toContain('base_url: ${{ steps.guard.outputs.base_url }}');
-    expect(capabilityWorkflow).toContain('needs: dispatch-identity');
-  });
-
-  it('keeps privileged Access admin work manual, rechecks on verify, and scopes repair to the normalized immutable target', () => {
-    expect(capabilityWorkflow).toContain("github.event_name == 'workflow_dispatch' && 'Redacted provider receipt'");
-    expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' }}");
-    expect(capabilityWorkflow).toContain("mode: ${{ inputs.access_mode == 'repair' && 'repair' || 'check' }}");
-    expect(capabilityWorkflow).not.toContain('mode: ${{ inputs.access_mode }}');
-    expect(capabilityWorkflow).toContain('target_url: ${{ needs.dispatch-identity.outputs.base_url }}');
-    expect(capabilityWorkflow).not.toContain('target_url: ${{ inputs.base_url }}');
-    expect(capabilityWorkflow).toContain('      - access-policy-admin');
-    expect(capabilityWorkflow).not.toContain('github.event.pull_request.number == 143');
-    expect(capabilityWorkflow).not.toContain('https://0a541f03-chief-ai.mcgill-raylene.workers.dev');
-  });
-
-  it('fails required provider and exact-runtime receipts closed on PR events instead of relying on skipped-job success', () => {
-    expect(capabilityWorkflow).toContain('provider-receipt-pr-gate:');
-    expect(capabilityWorkflow).toContain("github.event_name == 'pull_request' && 'Redacted provider receipt'");
-    expect(capabilityWorkflow).toContain('Fail closed before protected provider receipt');
-    expect(capabilityWorkflow).toContain('exact-runtime-pr-gate:');
-    expect(capabilityWorkflow).toContain("github.event_name == 'pull_request' && 'Verify exact Chief runtime with Playwright'");
-    expect(capabilityWorkflow).toContain('Fail closed before exact-runtime receipt');
-  });
-
-  it('binds the exact-runtime required context to an explicit successful privileged runtime result', () => {
-    expect(capabilityWorkflow).toContain("github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' && 'Verify exact Chief runtime with Playwright'");
-    expect(capabilityWorkflow).toContain("if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}");
-    expect(capabilityWorkflow).toContain('needs: runtime-proof');
-    expect(capabilityWorkflow).toContain('RUNTIME_PROOF_RESULT: ${{ needs.runtime-proof.result }}');
-    expect(capabilityWorkflow).toContain('if [ "$RUNTIME_PROOF_RESULT" != "success" ]; then');
-    expect(capabilityWorkflow).toContain('Exact Chief runtime compatibility receipt is derived only from a successful privileged live runtime and Playwright job');
-  });
-
-  it('keeps provider credentials inside a reusable-only workflow that checks out its own immutable source', () => {
-    expect(accessAdminWorkflow).toContain('workflow_call:');
+describe('ProofMode privileged bootstrap membrane', () => {
+  it('runs Access administration only from default-branch repository_dispatch source', () => {
+    expect(accessAdminWorkflow).toContain('repository_dispatch:');
+    expect(accessAdminWorkflow).toContain('types: [proofmode_access_admin]');
+    expect(accessAdminWorkflow).not.toContain('workflow_call:');
     expect(accessAdminWorkflow).not.toContain('workflow_dispatch:');
-    expect(accessAdminWorkflow).toContain('environment: proofmode-access-admin');
-    expect(accessAdminWorkflow).toContain('repository: ${{ job.workflow_repository }}');
-    expect(accessAdminWorkflow).toContain('ref: ${{ job.workflow_sha }}');
-    expect(accessAdminWorkflow).not.toContain('ref: ${{ github.sha }}');
-    expect(accessAdminWorkflow).toContain('test "$actual" = "$TRUSTED_WORKFLOW_SHA"');
-    expect(accessAdminWorkflow).toContain('run: node scripts/proofmode-access-policy.mjs');
+    expect(accessAdminWorkflow).toContain('EVENT_REF: ${{ github.ref }}');
+    expect(accessAdminWorkflow).toContain('if [ "$EVENT_NAME" != "repository_dispatch" ] || [ "$EVENT_REF" != "refs/heads/main" ]; then');
+    expect(accessAdminWorkflow).toContain('EXPECTED_MAIN_SHA: ${{ github.event.client_payload.expected_main_sha }}');
+    expect(accessAdminWorkflow).toContain('if [ "$EXPECTED_MAIN_SHA" != "$WORKFLOW_SHA" ]; then');
+    expect(accessAdminWorkflow).toContain('if [ -z "$current" ] || [ "$current" != "$WORKFLOW_SHA" ]; then');
   });
 
-  it('sources admin credentials, Worker-registry read authority, and stable provider identity only from the protected environment job', () => {
-    expect(accessAdminWorkflow).not.toContain('    secrets:\n      CLOUDFLARE_ACCOUNT_ID:');
-    for (const secret of [
-      'CLOUDFLARE_ACCOUNT_ID',
-      'CLOUDFLARE_ACCESS_ADMIN_API_TOKEN',
-      'CLOUDFLARE_WORKERS_READ_API_TOKEN',
-      'CLOUDFLARE_ACCESS_CLIENT_ID',
-      'CLOUDFLARE_ACCESS_APP_ID',
-    ]) {
-      expect(accessAdminWorkflow).toContain(`${secret}: \${{ secrets.${secret} }}`);
+  it('requires repository-owner authority for provider repair while allowing read-only check dispatch', () => {
+    expect(accessAdminWorkflow).toContain('case "$REQUESTED_MODE" in');
+    expect(accessAdminWorkflow).toContain('repair)');
+    expect(accessAdminWorkflow).toContain('if [ "$DISPATCH_ACTOR" != "$REPOSITORY_OWNER" ]; then');
+    expect(accessAdminWorkflow).toContain('Access repair is repository-owner only');
+    expect(accessAdminWorkflow).toContain('check) ;;');
+  });
+
+  it('keeps provider secrets behind the trusted dispatch gate and rechecks main before provider access', () => {
+    const guard = accessAdminWorkflow.indexOf('  dispatch-identity:');
+    const protectedJob = accessAdminWorkflow.indexOf('  access-policy:');
+    const environment = accessAdminWorkflow.indexOf('environment: proofmode-access-admin');
+    const firstAdminSecret = accessAdminWorkflow.indexOf('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}');
+    expect(guard).toBeGreaterThanOrEqual(0);
+    expect(protectedJob).toBeGreaterThan(guard);
+    expect(environment).toBeGreaterThan(protectedJob);
+    expect(firstAdminSecret).toBeGreaterThan(environment);
+    expect(accessAdminWorkflow).toContain('Main moved before provider access');
+    expect(accessAdminWorkflow).toContain('ref: ${{ github.sha }}');
+  });
+
+  it('removes arbitrary-ref workflow_dispatch from candidate and production secret-bearing paths', () => {
+    for (const workflow of [capabilityWorkflow, proofModeWorkflow, productionWorkflow]) {
+      expect(workflow).not.toContain('workflow_dispatch:');
     }
-    expect(accessAdminWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
-    expect(proofModeWorkflow).not.toContain('CLOUDFLARE_WORKERS_READ_API_TOKEN');
-    expect(capabilityWorkflow).not.toContain('CLOUDFLARE_WORKERS_READ_API_TOKEN');
+    expect(capabilityWorkflow).toContain('repository_dispatch:');
+    expect(capabilityWorkflow).toContain('types: [chief_candidate_runtime_evidence]');
+    expect(proofModeWorkflow).toContain('repository_dispatch:');
+    expect(proofModeWorkflow).toContain('types: [proofmode_candidate_runtime_evidence]');
+    expect(productionWorkflow).toContain('push:');
+    expect(productionWorkflow).toContain('branches: [main]');
   });
 
-  it('separates pre-merge candidate ProofMode runtime proof from post-merge production proof', () => {
-    expect(proofModeWorkflow).toContain("'Verify candidate ProofMode runtime with Playwright'");
-    expect(proofModeWorkflow).toContain("'Verify live ProofMode MCP with Playwright'");
-    expect(proofModeWorkflow).toContain('environment: proofmode-access-admin');
-    expect(proofModeWorkflow).toContain('Verify immutable preview serves exact head');
-    expect(proofModeWorkflow).not.toContain('Verify production ProofMode MCP with Playwright');
+  it('keeps PR execution source-only while protected runtime evidence is main-dispatch only', () => {
+    for (const workflow of [capabilityWorkflow, proofModeWorkflow]) {
+      const sourceStart = workflow.indexOf('  source-contract:');
+      const dispatchStart = workflow.indexOf('  dispatch-identity:');
+      const evidenceStart = workflow.indexOf('  trusted-runtime-evidence:');
+      expect(sourceStart).toBeGreaterThanOrEqual(0);
+      expect(dispatchStart).toBeGreaterThan(sourceStart);
+      expect(evidenceStart).toBeGreaterThan(dispatchStart);
+      const sourceSection = workflow.slice(sourceStart, dispatchStart);
+      expect(sourceSection).not.toContain('environment: proofmode-access-admin');
+      expect(sourceSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+      expect(workflow.slice(dispatchStart, evidenceStart)).toContain("github.event_name == 'repository_dispatch'");
+      expect(workflow.slice(evidenceStart)).toContain('environment: proofmode-access-admin');
+      expect(workflow.slice(evidenceStart)).toContain('ref: ${{ github.sha }}');
+    }
+  });
 
-    expect(productionProofModeWorkflow).toContain('name: Verify production ProofMode MCP with Playwright');
-    expect(productionProofModeWorkflow).toContain('environment: proofmode-access-admin');
-    expect(productionProofModeWorkflow).not.toContain('pull_request:');
-    expect(productionProofModeWorkflow).toContain('Guard production proof to current main only');
-    expect(productionProofModeWorkflow).toContain('if [ "$EVENT_REF" != "refs/heads/main" ]; then');
-    expect(productionProofModeWorkflow).toContain('if [ -z "$current" ] || [ "$current" != "$GITHUB_SHA" ]; then');
-    expect(productionProofModeWorkflow).not.toContain('Verify candidate ProofMode runtime with Playwright');
+  it('never lets GitHub Actions emit the reserved external candidate-authority context', () => {
+    expect(proofModeWorkflow).not.toContain('Verify candidate ProofMode runtime with Playwright');
+    expect(proofModeWorkflow).toContain('name: ProofMode trusted runtime evidence');
+    expect(operationalAuthority.proofContextSemantics.preMergeCandidateContext)
+      .toBe('Verify candidate ProofMode runtime with Playwright');
+    expect(operationalAuthority.proofContextSemantics.preMergeCandidateProducerTrust)
+      .toBe('external-github-app-check-required');
+  });
 
-    expect(operationalAuthority.proofContextSemantics).toMatchObject({
-      legacyPreMergeProofModeContexts: [
-        'Verify live ProofMode MCP with Playwright',
-        'Verify production ProofMode MCP with Playwright',
-      ],
-      preMergeCandidateContext: 'Verify candidate ProofMode runtime with Playwright',
-      preMergeCandidateIntegrationId: null,
-      preMergeCandidateProducerTrust: 'external-github-app-check-required',
-      preMergeCandidateWorkflowProvenance: 'must-not-be-pr-authored-github-actions-only',
-      preMergeCandidateProducerEvidence: 'exact-head-check-run-app-identity-required',
-      preMergeCandidateRulesetId: 20818149,
-      preMergeCandidateRulesetName: 'Chief AI main exact-head gate',
-      preMergeCandidateRulesetMustHaveNoBypassActors: true,
-      preMergeCandidateReviewPolicy: {
-        requiredApprovingReviewCount: 1,
-        dismissStaleReviewsOnPush: true,
-        requireLastPushApproval: true,
-        requiredReviewThreadResolution: true,
-      },
-      preMergeCandidateScope: 'founder-authorized immutable-preview exact-SHA Playwright proof',
-      postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
-      postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
-      postMergeOnlyDeploymentEnvironments: ['Cloudflare Production'],
+  it('records the bootstrap as blocked until a current-main carrier exists', () => {
+    expect(operationalAuthority.workflowRules).toMatchObject({
+      candidateAuthoredWorkflowsMayConsumeProtectedSecrets: false,
+      candidateAuthoredWorkflowsMayEnterProtectedEnvironment: false,
+      privilegedWorkflowSourceMustEqualCurrentMain: true,
+      stalePrivilegedWorkflowSourceFailsClosed: true,
+      secretBearingWorkflowDispatchForbidden: true,
+      providerAdminUsesDefaultBranchRepositoryDispatch: true,
     });
-    expect(operationalAuthority.proofContextSemantics.rulesetMigration).toMatch(/^HOLD:/);
-    expect(operationalAuthority.proofContextSemantics.rulesetMigration).toContain('fresh approval');
-    expect(operationalAuthority.proofContextSemantics.rulesetMigration).toContain('external GitHub App/check producer');
+    expect(operationalAuthority.proofContextSemantics.privilegedBootstrap).toMatchObject({
+      state: 'BLOCKED_UNTIL_TRUSTED_MAIN_CARRIER',
+      trustedAdminWorkflowSha: null,
+      trustedSourceRule: 'exact-current-main-only',
+      trigger: 'repository_dispatch',
+      candidateWorkflowMayInvokeAdmin: false,
+      candidateWorkflowMayReadProtectedSecrets: false,
+    });
   });
 });
