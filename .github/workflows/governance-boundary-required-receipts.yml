@@ -24,8 +24,8 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}
 
 jobs:
   provider-receipt:
@@ -251,7 +251,10 @@ jobs:
               timeout: 15000,
             });
             if (response.status() !== 200) {
-              throw new Error(`exact runtime returned HTTP ${response.status()}`);
+              const accessState = process.env.CLOUDFLARE_ACCESS_CLIENT_ID
+                ? 'configured service token was not accepted by the effective Access policy'
+                : 'privileged service auth is intentionally unavailable on pull_request';
+              throw new Error(`exact runtime returned HTTP ${response.status()}; ${accessState}`);
             }
             let body;
             try {
