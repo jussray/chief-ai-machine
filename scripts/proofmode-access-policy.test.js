@@ -446,27 +446,33 @@ describe('ProofMode workflow credential boundaries', () => {
   });
 
   it.each([
-    ['ProofMode MCP', proofWorkflow, 'Run live ProofMode MCP Playwright proof'],
-    ['Chief capability plan', chiefWorkflow, 'Run live Chief capability-plan Playwright proof'],
-  ])('keeps %s PR events secretless and reserves Access secrets for founder-authorized manual proof', (_name, workflow, liveStepName) => {
+    ['ProofMode MCP', proofWorkflow, 'proofmode_candidate_runtime_evidence'],
+    ['Chief capability plan', chiefWorkflow, 'chief_candidate_runtime_evidence'],
+  ])('keeps %s PR events secretless and reserves Access secrets for trusted current-main evidence', (_name, workflow, dispatchType) => {
+    expect(workflow).toContain('repository_dispatch:');
+    expect(workflow).toContain(`types: [${dispatchType}]`);
+    expect(workflow).not.toContain('workflow_dispatch:');
     expect(workflow).toContain('environment: proofmode-access-admin');
-    expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
-    expect(workflow).toContain('PR-authored workflow code is not permitted to enter proofmode-access-admin');
-    expect(workflow).toContain('DISPATCH_ACTOR: ${{ github.actor }}');
-    expect(workflow).toContain('REPOSITORY_OWNER: ${{ github.repository_owner }}');
-    expect(workflow).toContain('github.event.pull_request.number || github.run_id');
+    expect(workflow).toContain("github.event_name == 'repository_dispatch'");
+    expect(workflow).toContain('EXPECTED_MAIN_SHA: ${{ github.event.client_payload.expected_main_sha }}');
+    expect(workflow).toContain('WORKFLOW_SHA: ${{ github.sha }}');
+    expect(workflow).toContain('  pr-runtime-gate:');
+    expect(workflow).toContain('  trusted-runtime-evidence:');
 
     const prGate = workflow.indexOf('  pr-runtime-gate:');
-    const runtimeProof = workflow.indexOf('  runtime-proof:');
+    const trustedEvidence = workflow.indexOf('  trusted-runtime-evidence:');
     const firstAccessSecret = workflow.indexOf('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
-    const liveStep = workflow.indexOf(`name: ${liveStepName}`);
 
     expect(prGate).toBeGreaterThanOrEqual(0);
-    expect(runtimeProof).toBeGreaterThan(prGate);
-    expect(firstAccessSecret).toBeGreaterThan(runtimeProof);
-    expect(liveStep).toBeGreaterThan(runtimeProof);
+    expect(trustedEvidence).toBeGreaterThan(prGate);
+    expect(firstAccessSecret).toBeGreaterThan(trustedEvidence);
 
-    const beforeRuntimeProof = workflow.slice(0, runtimeProof);
-    expect(beforeRuntimeProof).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    const beforeTrustedEvidence = workflow.slice(0, trustedEvidence);
+    expect(beforeTrustedEvidence).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    expect(beforeTrustedEvidence).not.toContain('environment: proofmode-access-admin');
+
+    const trustedSection = workflow.slice(trustedEvidence);
+    expect(trustedSection).toContain('ref: ${{ github.sha }}');
+    expect(trustedSection).not.toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
   });
 });
