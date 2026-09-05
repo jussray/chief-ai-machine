@@ -75,8 +75,11 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
 
   await openPage(page, 'library');
   await page.locator('#search').fill(savedImmediately.title);
-  await expect(page.locator('#grid .pcard')).toHaveCount(1);
-  await expect(page.locator('#grid .pcard h3')).toHaveText(savedImmediately.title);
+  const savedCard = page.locator('#grid .pcard').filter({
+    has: page.getByRole('heading', { name: savedImmediately.title, exact: true }),
+  });
+  await expect(savedCard).toHaveCount(1);
+  await expect(savedCard.locator('h3')).toHaveText(savedImmediately.title);
   await page.locator('#search').fill('');
 
   await reopenLatestDraft(page);
@@ -123,8 +126,10 @@ test('custom prompt text is inert, legacy star ids migrate, and delete stays coh
 
   await openPage(page, 'library');
   await expect(page.locator('#statStar')).toHaveText('1');
-  await expect(page.locator('#grid .pcard h3')).toContainText('<img src=x onerror=');
-  await expect(page.locator('#grid .pcard .sub')).toContainText('<svg onload=');
+  const injectedCard = page.locator('#grid .pcard').filter({ hasText: 'literal title' });
+  await expect(injectedCard).toHaveCount(1);
+  await expect(injectedCard.locator('h3')).toContainText('<img src=x onerror=');
+  await expect(injectedCard.locator('.sub')).toContainText('<svg onload=');
   expect(await page.evaluate(() => window.__chiefStoredXss)).toBeUndefined();
 
   const migratedStars = await page.evaluate(
