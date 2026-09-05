@@ -11,6 +11,7 @@ function loadSemantics() {
 }
 
 function candidateRuleset(semantics, integrationId) {
+  const review = semantics.preMergeCandidateReviewPolicy || {};
   return {
     id: semantics.preMergeCandidateRulesetId,
     name: semantics.preMergeCandidateRulesetName,
@@ -18,15 +19,26 @@ function candidateRuleset(semantics, integrationId) {
     enforcement: 'active',
     conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } },
     bypass_actors: [],
-    rules: [{
-      type: 'required_status_checks',
-      parameters: {
-        required_status_checks: [{
-          context: semantics.preMergeCandidateContext,
-          integration_id: integrationId,
-        }],
+    rules: [
+      {
+        type: 'pull_request',
+        parameters: {
+          required_approving_review_count: review.requiredApprovingReviewCount,
+          dismiss_stale_reviews_on_push: review.dismissStaleReviewsOnPush,
+          require_last_push_approval: review.requireLastPushApproval,
+          required_review_thread_resolution: review.requiredReviewThreadResolution,
+        },
       },
-    }],
+      {
+        type: 'required_status_checks',
+        parameters: {
+          required_status_checks: [{
+            context: semantics.preMergeCandidateContext,
+            integration_id: integrationId,
+          }],
+        },
+      },
+    ],
   };
 }
 
@@ -68,7 +80,7 @@ describe('ProofMode candidate producer trust root', () => {
     ]));
   });
 
-  it('allows a distinct external GitHub App only when the same no-bypass carrier and provenance contract are preserved', () => {
+  it('allows a distinct external GitHub App only when the same no-bypass carrier, provenance contract, and fresh-review authority are preserved', () => {
     const semantics = {
       ...loadSemantics(),
       preMergeCandidateIntegrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
