@@ -15,7 +15,8 @@ function text(value) {
 }
 
 function normalizedEvidenceRefs(values) {
-  return [...new Set((values ?? []).map(text).filter(Boolean))].sort();
+  if (!Array.isArray(values)) return [];
+  return [...new Set(values.map(text).filter(Boolean))].sort();
 }
 
 function stableValue(value) {
@@ -92,6 +93,7 @@ export function operatorContinuityInputErrorsV2(input) {
       errors.push(`${field} must be a 64-character SHA-256 hash or null`);
     }
   }
+  if (!Array.isArray(input.evidenceRefs)) errors.push('evidenceRefs must be an array');
   if (value.evidenceRefs.length === 0) errors.push('at least one evidenceRef is required');
   if (value.evidenceRefs.length > 40) errors.push('evidenceRefs must contain at most 40 entries');
   if (value.evidenceRefs.some((entry) => entry.length > 256)) errors.push('evidenceRef entries must be at most 256 characters');
@@ -188,7 +190,7 @@ function provenanceAuthenticationErrors(receipt, authentication) {
 
 export function createOperatorContinuityReceiptV2(input) {
   const value = normalizedInput(input);
-  const errors = operatorContinuityInputErrorsV2(value);
+  const errors = operatorContinuityInputErrorsV2(input);
   if (errors.length) throw new Error(errors.join('; '));
   return {
     contract: OPERATOR_CONTINUITY_CONTRACT_V2,
