@@ -155,6 +155,7 @@ describe('Evidence Decision Loop v1', () => {
       checkRuns: REQUIRED_MERGE_CHECKS.slice(0, -1).map((name) => successfulCheck(name)),
       rules: { codeScanningRequired: false },
       founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
     });
 
     expect(result.disposition).toBe('WAIT_REQUIRED_CHECKS');
@@ -171,13 +172,13 @@ describe('Evidence Decision Loop v1', () => {
       checkRuns: REQUIRED_MERGE_CHECKS.map((name) => successfulCheck(name)),
       rules: { codeScanningRequired: true, codeScanningTool: 'CodeQL' },
       founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
     });
 
     expect(result.disposition).toBe('WAIT_CODE_SCANNING');
     expect(result.codeScanningSatisfied).toBe(false);
     expect(result.mergeAllowed).toBe(false);
   });
-
 
   it('treats required deployment environments as separate exact-head merge evidence', () => {
     const checks = [...REQUIRED_MERGE_CHECKS.map((name) => successfulCheck(name)), successfulCheck('CodeQL')];
@@ -197,6 +198,7 @@ describe('Evidence Decision Loop v1', () => {
         { environment: 'proofmode-access-admin', headSha: 'old-head', state: 'success' },
       ],
       founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
     });
 
     expect(result.disposition).toBe('WAIT_REQUIRED_DEPLOYMENTS');
@@ -218,8 +220,9 @@ describe('Evidence Decision Loop v1', () => {
         requireLastPushApproval: true,
       },
       lastPusher: 'jussray',
-      independentApproval: { approved: true, reviewer: 'jussray' },
+      independentApproval: { approved: true, reviewer: 'jussray', reviewedHeadSha: fingerprint },
       founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
     });
 
     expect(result.disposition).toBe('WAIT_INDEPENDENT_APPROVAL');
@@ -250,8 +253,9 @@ describe('Evidence Decision Loop v1', () => {
       ],
       requestedMethod: 'merge',
       lastPusher: 'jussray',
-      independentApproval: { approved: true, reviewer: 'independent-reviewer' },
+      independentApproval: { approved: true, reviewer: 'independent-reviewer', reviewedHeadSha: fingerprint },
       founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
     });
 
     expect(result.disposition).toBe('READY');
@@ -269,6 +273,7 @@ describe('Evidence Decision Loop v1', () => {
         requiredChecks: [],
         checkRuns: [],
         founderAuthorityExplicit: true,
+        founderAuthorityHeadSha: 'old-head',
       },
     });
 
@@ -298,8 +303,9 @@ describe('Evidence Decision Loop v1', () => {
         { environment: 'proofmode-access-admin', headSha: fingerprint, state: 'success' },
       ],
       lastPusher: 'jussray',
-      independentApproval: { approved: true, reviewer: 'independent-reviewer' },
+      independentApproval: { approved: true, reviewer: 'independent-reviewer', reviewedHeadSha: fingerprint },
       founderAuthorityExplicit: false,
+      founderAuthorityHeadSha: fingerprint,
     });
 
     expect(result.disposition).toBe('WAIT_FOUNDER_AUTHORITY');
