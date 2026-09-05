@@ -165,6 +165,49 @@ test('malformed prompt storage fails closed instead of bricking the library', as
   await expect(page.locator('#statStar')).toHaveText('0');
 });
 
+test('structurally hostile custom prompt cannot crash repo filtering or retain arbitrary fields', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+
+  await page.evaluate(() => {
+    localStorage.setItem('chief-custom', JSON.stringify([{
+      id: 'custom-hostile-repos',
+      title: 'Hostile repo shape',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Safe prompt body' },
+      repos: { includes: 'not-a-function' },
+      authority: { granted: true },
+      arbitrary: ['must', 'not', 'survive'],
+    }]));
+  });
+  await page.reload();
+
+  await openPage(page, 'library');
+  await expect(page.locator('#statCustom')).toHaveText('1');
+
+  const normalized = await page.evaluate(() => {
+    const prompts = JSON.parse(localStorage.getItem('chief-custom') || '[]');
+    return prompts[0] || null;
+  });
+  expect(normalized).toEqual({
+    id: 'custom-hostile-repos',
+    title: 'Hostile repo shape',
+    sub: '',
+    cat: 'custom',
+    notes: '',
+    emoji: '✨',
+    platforms: ['chatgpt'],
+    versions: { chatgpt: 'Safe prompt body' },
+    repos: [],
+  });
+
+  const repoFilter = page.locator('[data-repo]:visible').first();
+  await repoFilter.click();
+  await expect(page.locator('#page-library')).toHaveClass(/\bon\b/);
+  await expect(page.locator('#grid .pcard').first()).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
 test('Builder save is visible in Library without a reload', async ({ page }) => {
   await openPage(page, 'builder');
   await page.locator('#saveBuilder').click();
