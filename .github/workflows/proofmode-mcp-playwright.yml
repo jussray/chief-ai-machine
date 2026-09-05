@@ -21,6 +21,10 @@ on:
         description: "Exact Chief workers.dev runtime origin to verify"
         required: true
         type: string
+      expected_head_sha:
+        description: "Exact 40-character commit SHA intended to own this manual proof"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -32,12 +36,70 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
 
 jobs:
+  dispatch-identity:
+    name: Verify manual ProofMode dispatch identity
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    outputs:
+      base_url: ${{ steps.guard.outputs.base_url }}
+    steps:
+      - name: Guard exact manual dispatch ref and target
+        id: guard
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            exit 0
+          fi
+
+          if ! printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            printf 'Manual ProofMode proof requires expected_head_sha to be an exact 40-character commit SHA.\n' >&2
+            exit 1
+          fi
+
+          if [ "$EXPECTED_HEAD_SHA" != "$DISPATCH_SHA" ]; then
+            printf 'Manual ProofMode identity mismatch: expected_head_sha=%s but the selected workflow ref resolves to %s. Select the branch/ref that owns the intended proof and dispatch again.\n' \
+              "$EXPECTED_HEAD_SHA" "$DISPATCH_SHA" >&2
+            exit 1
+          fi
+
+          normalized="$(node -e '
+            const raw = process.argv[1].trim();
+            try {
+              const url = new URL(raw);
+              const host = url.hostname.toLowerCase();
+              const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
+              const production = host === "chief-ai.mcgill-raylene.workers.dev";
+              if (
+                url.protocol !== "https:"
+                || url.username
+                || url.password
+                || url.search
+                || url.hash
+                || url.pathname !== "/"
+                || (!immutable && !production)
+              ) process.exit(1);
+              process.stdout.write(url.origin);
+            } catch {
+              process.exit(1);
+            }
+          ' "$MANUAL_BASE_URL")" || {
+            printf 'Manual ProofMode base URL must be an approved chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
+            exit 1
+          }
+
+          printf 'Manual ProofMode dispatch identity verified for %s\n' "$EXPECTED_HEAD_SHA"
+          printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
+
   source-contract:
     name: Verify ProofMode source contract
+    needs: dispatch-identity
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -68,7 +130,9 @@ jobs:
 
   runtime-proof:
     name: Verify live ProofMode MCP with Playwright
-    needs: source-contract
+    needs:
+      - dispatch-identity
+      - source-contract
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     environment: proofmode-access-admin
@@ -101,10 +165,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          MANUAL_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && needs.dispatch-identity.outputs.base_url || '' }}
         run: |
           validate_target() {
             node -e '
-              const raw = process.argv[1];
+              const raw = process.argv[1].trim();
               try {
                 const url = new URL(raw);
                 const host = url.hostname.toLowerCase();
