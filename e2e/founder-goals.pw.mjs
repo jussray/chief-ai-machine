@@ -1,4 +1,4 @@
-/* global document, localStorage, window */
+/* global document, localStorage, sessionStorage, window */
 import { expect, test } from '@playwright/test';
 
 const GOAL = 'Ship the smallest verified founder-goal loop';
@@ -10,7 +10,12 @@ const ROLLBACK = 'Revert the focused founder-goal commit.';
 const NEXT_GATE = 'Founder approves merge.';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.clear());
+  await page.addInitScript(() => {
+    const marker = 'chief-founder-goals-playwright-initialized';
+    if (sessionStorage.getItem(marker)) return;
+    localStorage.clear();
+    sessionStorage.setItem(marker, 'true');
+  });
   await page.goto('/');
 });
 
@@ -93,3 +98,46 @@ test('founder goal front door exposes Chief reasoning and carries the bounded pl
     fullPage: true,
   });
 });
+
+const validLookingUnsafePlan = JSON.stringify([{
+  goal: 'Legacy partial goal',
+  project: 'chief-ai-machine',
+  priority: 'now',
+  definitionOfDone: 'A required outcome exists.',
+  proofRequirements: ['Proof exists'],
+  rollback: 'Revert.',
+  nextGate: 'Review.',
+}]);
+
+for (const [caseName, corruptPayload] of [
+  ['non-array-json', '{"unexpected":"shape"}'],
+  ['invalid-goal-array', '[null]'],
+  ['operationally-unsafe-goal-array', validLookingUnsafePlan],
+]) {
+  test(`corrupt founder-goal storage (${caseName}) renders UNKNOWN and is not overwritten`, async ({ page }, testInfo) => {
+    await page.evaluate(
+      ({ key, value }) => localStorage.setItem(key, value),
+      { key: 'chief-goals-v1', value: corruptPayload },
+    );
+    await page.reload();
+
+    await expect(page.locator('#page-goals')).toBeVisible();
+    await expect(page.locator('#goalReadiness')).toHaveText('UNKNOWN');
+    await expect(page.locator('#goalCount')).toHaveText('?');
+
+    const unknown = page.locator('[data-goal-storage-truth="unknown"]');
+    await expect(unknown).toBeVisible();
+    await expect(unknown).toContainText('Current goal count and readiness are UNKNOWN.');
+    await expect(unknown).toContainText('Nothing has been overwritten.');
+    await expect(page.getByText('No founder goals yet. Define the outcome first.', { exact: true })).toHaveCount(0);
+    await expect(page.locator('#goalForm button[type="submit"]')).toBeDisabled();
+
+    const preserved = await page.evaluate(() => localStorage.getItem('chief-goals-v1'));
+    expect(preserved).toBe(corruptPayload);
+
+    await page.screenshot({
+      path: testInfo.outputPath(`founder-goals-${testInfo.project.name}-${caseName}-unknown-storage.png`),
+      fullPage: true,
+    });
+  });
+}

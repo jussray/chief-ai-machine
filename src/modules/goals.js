@@ -4,12 +4,35 @@ import { showToast } from './ui.js';
 
 export const GOAL_STORAGE_KEY = 'chief-goals-v1';
 
+const GOAL_LIST_FIELDS = Object.freeze([
+  'evidence',
+  'constraints',
+  'strategicLenses',
+  'capabilities',
+  'proofRequirements',
+]);
+
+function isStoredGoalUsable(goal) {
+  return validateGoalPlan(goal).valid
+    && GOAL_LIST_FIELDS.every((field) => Array.isArray(goal?.[field]));
+}
+
 function readGoals() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(GOAL_STORAGE_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    const raw = localStorage.getItem(GOAL_STORAGE_KEY);
+    if (raw === null) return { state: 'ready', goals: [] };
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return { state: 'corrupt', goals: [] };
+    }
+    if (parsed.some((goal) => !isStoredGoalUsable(goal))) {
+      return { state: 'corrupt', goals: [] };
+    }
+
+    return { state: 'ready', goals: parsed };
   } catch {
-    return [];
+    return { state: 'unavailable', goals: [] };
   }
 }
 
@@ -73,6 +96,20 @@ function makeDecisionTrace(goal) {
   return trace;
 }
 
+function unknownStorageMessage(state) {
+  return state === 'corrupt'
+    ? 'Saved founder-goal state is unreadable. Current goal count and readiness are UNKNOWN. Nothing has been overwritten.'
+    : 'Founder-goal storage is unavailable. Current goal count and readiness are UNKNOWN. Nothing has been overwritten.';
+}
+
+function setGoalFormWritable(form, writable) {
+  const submit = form.querySelector('button[type="submit"]');
+  if (!submit) return;
+  submit.disabled = !writable;
+  submit.setAttribute('aria-disabled', writable ? 'false' : 'true');
+  submit.title = writable ? '' : 'Founder-goal storage must be readable before saving a new plan.';
+}
+
 export function initGoals() {
   const form = document.getElementById('goalForm');
   const list = document.getElementById('goalList');
@@ -81,14 +118,32 @@ export function initGoals() {
   if (!form || !list || !count || !readiness) return;
 
   function render() {
-    const goals = readGoals();
+    const read = readGoals();
+    const goals = read.goals;
+    list.replaceChildren();
+
+    if (read.state !== 'ready') {
+      count.textContent = '?';
+      readiness.textContent = 'UNKNOWN';
+      setGoalFormWritable(form, false);
+
+      const unknown = makeTextElement('div', 'empty', unknownStorageMessage(read.state));
+      unknown.dataset.goalStorageTruth = 'unknown';
+      unknown.setAttribute('role', 'alert');
+      unknown.setAttribute('aria-live', 'assertive');
+      list.appendChild(unknown);
+      return;
+    }
+
+    setGoalFormWritable(form, true);
     count.textContent = String(goals.length);
     const ready = goals.filter((goal) => validateGoalPlan(goal).valid).length;
     readiness.textContent = goals.length ? `${ready}/${goals.length} ready` : '0/0 ready';
-    list.replaceChildren();
 
     if (!goals.length) {
-      list.appendChild(makeTextElement('div', 'empty', 'No founder goals yet. Define the outcome first.'));
+      const empty = makeTextElement('div', 'empty', 'No founder goals yet. Define the outcome first.');
+      empty.dataset.goalStorageTruth = 'verified-empty';
+      list.appendChild(empty);
       return;
     }
 
@@ -127,16 +182,34 @@ export function initGoals() {
 
     list.querySelectorAll('[data-goal-delete]').forEach((button) => {
       button.addEventListener('click', () => {
-        const goals = readGoals();
-        goals.splice(Number(button.dataset.goalDelete), 1);
-        writeGoals(goals);
-        render();
+        const current = readGoals();
+        if (current.state !== 'ready') {
+          showToast('Founder-goal state is UNKNOWN. Nothing was removed.');
+          render();
+          return;
+        }
+
+        try {
+          current.goals.splice(Number(button.dataset.goalDelete), 1);
+          writeGoals(current.goals);
+          render();
+        } catch {
+          showToast('Founder-goal storage is unavailable. Nothing was removed.');
+          render();
+        }
       });
     });
 
     list.querySelectorAll('[data-goal-open]').forEach((button) => {
       button.addEventListener('click', () => {
-        const goal = readGoals()[Number(button.dataset.goalOpen)];
+        const current = readGoals();
+        if (current.state !== 'ready') {
+          showToast('Founder-goal state is UNKNOWN. Builder handoff is blocked.');
+          render();
+          return;
+        }
+
+        const goal = current.goals[Number(button.dataset.goalOpen)];
         if (!goal) return;
         document.querySelector('[data-page="builder"]')?.click();
         const repo = document.getElementById('bRepo');
@@ -156,6 +229,13 @@ export function initGoals() {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     try {
+      const current = readGoals();
+      if (current.state !== 'ready') {
+        showToast('Founder-goal state is UNKNOWN. Repair or reset local state before saving.');
+        render();
+        return;
+      }
+
       const data = new FormData(form);
       const plan = createGoalPlan({
         goal: data.get('goal'),
@@ -175,15 +255,15 @@ export function initGoals() {
         showToast(validation.errors[0]);
         return;
       }
-      const goals = readGoals();
-      goals.unshift(plan);
-      writeGoals(goals.slice(0, 50));
+      current.goals.unshift(plan);
+      writeGoals(current.goals.slice(0, 50));
       form.reset();
       form.querySelector('[name="priority"]').value = 'now';
       render();
       showToast('Founder goal saved and gated.');
     } catch (error) {
       showToast(error.message || 'Goal could not be saved.');
+      render();
     }
   });
 
