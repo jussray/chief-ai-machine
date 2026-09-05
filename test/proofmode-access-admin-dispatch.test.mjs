@@ -131,7 +131,8 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
       preMergeCandidateScope: 'founder-authorized immutable-preview exact-SHA Playwright proof',
       postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
       postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
-      rulesetMigration: 'HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed and its integration ID is recorded here; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only',
+      postMergeOnlyDeploymentEnvironments: ['Cloudflare Production'],
+      rulesetMigration: 'HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed and its integration ID is recorded here; remove any post-merge-only production deployment environment from pre-merge required deployments; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only',
     });
   });
 });
