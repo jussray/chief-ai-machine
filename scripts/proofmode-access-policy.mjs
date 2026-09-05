@@ -1,7 +1,7 @@
 const API = 'https://api.cloudflare.com/client/v4';
 const POLICY_NAME = 'ProofMode CI service auth';
 const DEFAULT_APP_NAME = 'chief-ai - Cloudflare Workers';
-const IMMUTABLE_CHIEF_HOST = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/i;
+const IMMUTABLE_CHIEF_HOST = /^[0-9a-f]{8}-(chief-ai)\.mcgill-raylene\.workers\.dev$/i;
 const REQUIRED_PATHS = ['/version', '/mcp'];
 
 function required(value, name) {
@@ -25,6 +25,8 @@ function validateTargetUrl(raw) {
   } catch {
     throw new Error('PROOFMODE_ACCESS_TARGET_URL must be a valid URL.');
   }
+  const hostname = url.hostname.toLowerCase();
+  const hostMatch = hostname.match(IMMUTABLE_CHIEF_HOST);
   if (
     url.protocol !== 'https:'
     || url.username
@@ -32,11 +34,16 @@ function validateTargetUrl(raw) {
     || url.search
     || url.hash
     || url.pathname !== '/'
-    || !IMMUTABLE_CHIEF_HOST.test(url.hostname)
+    || !hostMatch
   ) {
     throw new Error('PROOFMODE_ACCESS_TARGET_URL must be the origin of one immutable Chief workers.dev preview.');
   }
-  return { origin: url.origin, hostname: url.hostname.toLowerCase() };
+  return {
+    origin: url.origin,
+    hostname,
+    workerName: hostMatch[1].toLowerCase(),
+    previewUrlSuffix: hostname.replace(/^[0-9a-f]{8}-/i, ''),
+  };
 }
 
 function unwrap(result, label) {
@@ -133,49 +140,52 @@ function uniqueAppsForDestinationType(apps, type) {
   return apps.filter((app) => (app?.destinations || []).some((destination) => destination?.type === type));
 }
 
-function workerIdsForApp(app) {
-  return [...new Set((app?.destinations || [])
-    .filter((destination) => (
-      (destination?.type === 'worker' || destination?.type === 'preview_worker')
-      && typeof destination.worker_id === 'string'
-      && destination.worker_id.trim()
-    ))
-    .map((destination) => destination.worker_id.trim()))];
+function hasWorkerSpecificDestination(apps) {
+  return apps.some((app) => (app?.destinations || []).some(
+    (destination) => destination?.type === 'worker' || destination?.type === 'preview_worker',
+  ));
 }
 
-function configuredWorkerId(apps, accessAppId) {
-  const configuredId = typeof accessAppId === 'string' ? accessAppId.trim() : '';
-  if (!configuredId) return '';
-  const matches = apps.filter((app) => app?.id === configuredId);
+function normalizePreviewSuffix(raw) {
+  let value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  value = value.replace(/^https?:\/\//, '');
+  return value.replace(/^\/+|\/+$/g, '');
+}
+
+async function resolveWorkerIdentity(fetchImpl, apiToken, accountId, target) {
+  const workers = await listAll(
+    fetchImpl,
+    apiToken,
+    `/accounts/${encodeURIComponent(accountId)}/workers/workers`,
+    'List Workers registry',
+  );
+  const matches = workers.filter((worker) => (
+    typeof worker?.name === 'string'
+    && worker.name.trim().toLowerCase() === target.workerName
+  ));
   if (matches.length !== 1) {
-    throw new Error(`Configured Cloudflare Access app ${configuredId} was not observed exactly once.`);
+    throw new Error(`Expected exactly one Cloudflare Worker named ${target.workerName}; found ${matches.length}.`);
   }
-  const workerIds = workerIdsForApp(matches[0]);
-  if (workerIds.length > 1) {
-    throw new Error(`Configured Cloudflare Access app ${configuredId} spans multiple Worker identities; refusing to guess precedence.`);
+
+  const worker = matches[0];
+  const workerId = required(worker?.id, 'Resolved immutable Cloudflare Worker ID');
+  const previewSuffix = normalizePreviewSuffix(worker?.subdomain?.preview_url_suffix);
+  if (!previewSuffix) {
+    throw new Error('Cloudflare Worker registry did not expose preview_url_suffix for the immutable preview target.');
   }
-  return workerIds[0] || '';
+  if (previewSuffix !== target.previewUrlSuffix) {
+    throw new Error(
+      `Cloudflare Worker registry preview suffix ${previewSuffix} does not match target ${target.previewUrlSuffix}.`,
+    );
+  }
+  if (worker?.subdomain?.previews_enabled === false) {
+    throw new Error('Cloudflare Worker registry reports preview deployments disabled for the immutable preview target.');
+  }
+
+  return { workerId };
 }
 
-function namedWorkerId(apps, applicationName) {
-  const namedWorkerDestinations = [];
-  for (const app of apps) {
-    if (app?.name !== applicationName) continue;
-    for (const destination of app?.destinations || []) {
-      if ((destination?.type === 'worker' || destination?.type === 'preview_worker') && destination.worker_id) {
-        namedWorkerDestinations.push({ app, destination });
-      }
-    }
-  }
-
-  const workerIds = [...new Set(namedWorkerDestinations.map(({ destination }) => destination.worker_id))];
-  if (workerIds.length > 1) {
-    throw new Error(`Expected at most one Worker identity across Access applications named ${applicationName}; found ${workerIds.length}.`);
-  }
-  return workerIds[0] || '';
-}
-
-function resolveEffectiveApplication(apps, hostname, applicationName, accessAppId) {
+function resolveEffectiveApplication(apps, hostname, workerId, applicationName) {
   const publicMatchesByPath = new Map();
   for (const path of REQUIRED_PATHS) {
     const matches = [];
@@ -217,11 +227,14 @@ function resolveEffectiveApplication(apps, hostname, applicationName, accessAppI
     };
   }
 
-  const workerId = configuredWorkerId(apps, accessAppId) || namedWorkerId(apps, applicationName);
+  if (hasWorkerSpecificDestination(apps) && !workerId) {
+    return { needsWorkerIdentity: true };
+  }
 
   if (workerId) {
+    const immutableWorkerId = required(workerId, 'Immutable Chief Worker identity');
     const previewApps = apps.filter((app) => (app?.destinations || []).some(
-      (destination) => destination?.type === 'preview_worker' && destination.worker_id === workerId,
+      (destination) => destination?.type === 'preview_worker' && destination.worker_id === immutableWorkerId,
     ));
     if (previewApps.length > 1) {
       throw new Error('Multiple preview_worker Access applications protect the same Chief Worker; refusing to guess precedence.');
@@ -231,7 +244,7 @@ function resolveEffectiveApplication(apps, hostname, applicationName, accessAppI
     }
 
     const workerApps = apps.filter((app) => (app?.destinations || []).some(
-      (destination) => destination?.type === 'worker' && destination.worker_id === workerId,
+      (destination) => destination?.type === 'worker' && destination.worker_id === immutableWorkerId,
     ));
     if (workerApps.length > 1) {
       throw new Error('Multiple worker Access applications protect the same Chief Worker; refusing to guess precedence.');
@@ -257,7 +270,9 @@ function resolveEffectiveApplication(apps, hostname, applicationName, accessAppI
     return { app: allWorkerApps[0], scope: 'all_workers', repairEligible: false };
   }
 
-  throw new Error(`Could not resolve a Worker-specific or account-wide Access application for ${applicationName}.`);
+  throw new Error(
+    `Could not resolve a Worker-specific or account-wide Access application for immutable Worker ${workerId || 'unobserved'}; configured app label ${applicationName} is descriptive only.`,
+  );
 }
 
 function resolveServiceToken(serviceTokens, { serviceClientId, serviceTokenId, nowMs }) {
@@ -305,6 +320,7 @@ export async function ensureProofModeAccessPolicy({
   mode,
   accountId,
   apiToken,
+  workersApiToken,
   targetUrl,
   serviceClientId,
   serviceTokenId,
@@ -317,6 +333,9 @@ export async function ensureProofModeAccessPolicy({
   const normalizedMode = validateMode(mode);
   const account = required(accountId, 'CLOUDFLARE_ACCOUNT_ID');
   const token = required(apiToken, 'CLOUDFLARE_ACCESS_ADMIN_API_TOKEN');
+  const workerReadToken = typeof workersApiToken === 'string' && workersApiToken.trim()
+    ? workersApiToken.trim()
+    : token;
   const appName = required(applicationName, 'CLOUDFLARE_ACCESS_APP_NAME');
   const target = validateTargetUrl(targetUrl);
 
@@ -338,9 +357,13 @@ export async function ensureProofModeAccessPolicy({
     `/accounts/${encodeURIComponent(account)}/access/apps`,
     'List Access applications',
   );
-  const configuredAppId = typeof accessAppId === 'string' ? accessAppId.trim() : '';
-  const effective = resolveEffectiveApplication(apps, target.hostname, appName, configuredAppId);
+  let effective = resolveEffectiveApplication(apps, target.hostname, null, appName);
+  if (effective.needsWorkerIdentity) {
+    const identity = await resolveWorkerIdentity(fetchImpl, workerReadToken, account, target);
+    effective = resolveEffectiveApplication(apps, target.hostname, identity.workerId, appName);
+  }
   const appId = required(effective.app?.id, 'Resolved Cloudflare Access application ID');
+  const configuredAppId = typeof accessAppId === 'string' ? accessAppId.trim() : '';
   if (configuredAppId && configuredAppId !== appId) {
     throw new Error(
       `Configured Cloudflare Access app ${configuredAppId} is not effective for this immutable preview; resolved ${appId} (${effective.scope}).`,
@@ -411,6 +434,7 @@ async function main() {
     mode: process.env.PROOFMODE_ACCESS_MODE || 'check',
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
     apiToken: process.env.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN,
+    workersApiToken: process.env.CLOUDFLARE_WORKERS_READ_API_TOKEN,
     targetUrl: process.env.PROOFMODE_ACCESS_TARGET_URL || process.env.PROOFMODE_BASE_URL,
     serviceClientId: process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
     serviceTokenId: process.env.CLOUDFLARE_ACCESS_SERVICE_TOKEN_ID,
