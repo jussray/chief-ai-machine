@@ -67,6 +67,53 @@ export function requiredDeploymentEnvironments(ruleset) {
   return [...new Set(environments)];
 }
 
+export function pullRequestReviewPolicy(ruleset) {
+  const rules = Array.isArray(ruleset?.rules) ? ruleset.rules : [];
+  const rule = rules.find((entry) => entry?.type === 'pull_request');
+  if (!rule) return null;
+
+  const parameters = rule?.parameters && typeof rule.parameters === 'object'
+    ? rule.parameters
+    : {};
+  const rawCount = Number(parameters.required_approving_review_count);
+  return {
+    requiredApprovingReviewCount: Number.isSafeInteger(rawCount) && rawCount >= 0 ? rawCount : null,
+    dismissStaleReviewsOnPush: parameters.dismiss_stale_reviews_on_push === true,
+    requireLastPushApproval: parameters.require_last_push_approval === true,
+    requiredReviewThreadResolution: parameters.required_review_thread_resolution === true,
+  };
+}
+
+function expectedReviewPolicy(semantics) {
+  const configured = semantics?.preMergeCandidateReviewPolicy;
+  if (!configured || typeof configured !== 'object' || Array.isArray(configured)) return null;
+  const count = Number(configured.requiredApprovingReviewCount);
+  if (!Number.isSafeInteger(count) || count < 1) return null;
+  if (
+    configured.dismissStaleReviewsOnPush !== true
+    || configured.requireLastPushApproval !== true
+    || configured.requiredReviewThreadResolution !== true
+  ) return null;
+
+  return {
+    requiredApprovingReviewCount: count,
+    dismissStaleReviewsOnPush: true,
+    requireLastPushApproval: true,
+    requiredReviewThreadResolution: true,
+  };
+}
+
+function reviewPolicyMeets(actual, expected) {
+  if (!actual || !expected) return false;
+  return (
+    Number.isInteger(actual.requiredApprovingReviewCount)
+    && actual.requiredApprovingReviewCount >= expected.requiredApprovingReviewCount
+    && actual.dismissStaleReviewsOnPush === expected.dismissStaleReviewsOnPush
+    && actual.requireLastPushApproval === expected.requireLastPushApproval
+    && actual.requiredReviewThreadResolution === expected.requiredReviewThreadResolution
+  );
+}
+
 export function validateProofModeRulesetMigration({
   rulesets,
   semantics,
@@ -91,6 +138,7 @@ export function validateProofModeRulesetMigration({
   const candidateMustHaveNoBypassActors = semantics?.preMergeCandidateRulesetMustHaveNoBypassActors === true;
   const candidateProducerTrust = clean(semantics?.preMergeCandidateProducerTrust);
   const candidateWorkflowProvenance = clean(semantics?.preMergeCandidateWorkflowProvenance);
+  const candidateReviewPolicy = expectedReviewPolicy(semantics);
   const producerContractValid = (
     candidateProducerTrust === REQUIRED_CANDIDATE_PRODUCER_TRUST
     && candidateWorkflowProvenance === REQUIRED_CANDIDATE_WORKFLOW_PROVENANCE
@@ -114,6 +162,7 @@ export function validateProofModeRulesetMigration({
     || !candidateRulesetValid
     || !candidateMustHaveNoBypassActors
     || !producerContractValid
+    || !candidateReviewPolicy
   ) {
     violations.push({
       classification: 'proofmode-ruleset-contract-incomplete',
@@ -124,6 +173,7 @@ export function validateProofModeRulesetMigration({
       candidateRulesetMustHaveNoBypassActors: candidateMustHaveNoBypassActors,
       candidateProducerTrust: candidateProducerTrust || null,
       candidateWorkflowProvenance: candidateWorkflowProvenance || null,
+      candidateReviewPolicy,
     });
   }
 
@@ -149,10 +199,36 @@ export function validateProofModeRulesetMigration({
       contexts: [...new Set(checks.map((check) => check.context))],
       checks,
       requiredDeploymentEnvironments: deployments,
+      reviewPolicy: pullRequestReviewPolicy(ruleset),
       bypassActorCount,
       bypassActorState: bypassActorsObservable ? 'observed' : 'unobservable',
     };
   });
+
+  const authoritativeCarrierRulesets = candidateRulesetValid
+    ? requiredByRuleset.filter((ruleset) => ruleset.id === candidateRulesetId)
+    : [];
+  if (candidateRulesetValid && authoritativeCarrierRulesets.length === 0) {
+    violations.push({
+      classification: 'candidate-proofmode-authoritative-ruleset-not-observed',
+      expectedRulesetId: candidateRulesetId,
+      expectedRulesetName: candidateRulesetName,
+    });
+  }
+
+  const weakReviewCarriers = candidateReviewPolicy
+    ? authoritativeCarrierRulesets.filter((ruleset) => !reviewPolicyMeets(ruleset.reviewPolicy, candidateReviewPolicy))
+    : [];
+  if (weakReviewCarriers.length > 0) {
+    violations.push({
+      classification: 'candidate-proofmode-review-authority-weak',
+      expectedRulesetId: candidateRulesetId,
+      expectedRulesetName: candidateRulesetName,
+      expected: candidateReviewPolicy,
+      observed: weakReviewCarriers.map(({ id, name, reviewPolicy }) => ({ id, name, reviewPolicy })),
+      reason: 'the zero-bypass candidate carrier must require a fresh approval on the final push and resolved review threads',
+    });
+  }
 
   for (const legacyContext of legacyContexts) {
     const blockers = requiredByRuleset
@@ -188,6 +264,7 @@ export function validateProofModeRulesetMigration({
         id: ruleset.id,
         name: ruleset.name,
         integrationId: check.integrationId,
+        reviewPolicy: ruleset.reviewPolicy,
         bypassActorCount: ruleset.bypassActorCount,
         bypassActorState: ruleset.bypassActorState,
       }))
@@ -262,12 +339,16 @@ export function validateProofModeRulesetMigration({
     });
   }
 
-  const candidateRulesets = candidateIntegrationValid && candidateRulesetValid && producerContractValid
+  const candidateRulesets = candidateIntegrationValid
+    && candidateRulesetValid
+    && producerContractValid
+    && candidateReviewPolicy
     ? authoritativeOccurrences
       .filter((entry) => (
         entry.integrationId === candidateIntegrationId
         && entry.bypassActorCount === 0
         && entry.integrationId !== GITHUB_ACTIONS_INTEGRATION_ID
+        && reviewPolicyMeets(entry.reviewPolicy, candidateReviewPolicy)
       ))
       .map(({ id, name }) => ({ id, name }))
     : [];
@@ -283,6 +364,7 @@ export function validateProofModeRulesetMigration({
     candidateRulesetMustHaveNoBypassActors: candidateMustHaveNoBypassActors,
     candidateProducerTrust: candidateProducerTrust || null,
     candidateWorkflowProvenance: candidateWorkflowProvenance || null,
+    candidateReviewPolicy,
     activeDefaultBranchRulesets: requiredByRuleset,
     candidateRulesets,
     violations,
@@ -354,6 +436,7 @@ export async function writeProofModeRulesetReport({
         enforcement: clean(ruleset?.enforcement) || null,
         target: clean(ruleset?.target) || null,
         requiredDeploymentEnvironments: requiredDeploymentEnvironments(ruleset),
+        reviewPolicy: pullRequestReviewPolicy(ruleset),
         bypassActorCount: bypassActorsObservable ? ruleset.bypass_actors.length : null,
         bypassActorState: bypassActorsObservable ? 'observed' : 'unobservable',
       };
