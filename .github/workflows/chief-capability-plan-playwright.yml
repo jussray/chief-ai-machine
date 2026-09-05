@@ -4,26 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "worker/index.js"
-      - "worker/chief-capability-plan.js"
-      - "worker/chief-capability-plan.test.js"
-      - "worker/chief-founder-content-proposal.js"
-      - "worker/chief-founder-content-proposal.test.js"
-      - "src/domain/founder-control-surface.js"
-      - "src/domain/founder-control-surface.test.js"
-      - "src/domain/founder-content-brain.js"
-      - "src/domain/founder-content-brain.test.js"
-      - "src/domain/founder-content-strategy.js"
-      - "src/domain/founder-content-strategy.test.js"
-      - "src/domain/founder-content-strategy.redteam.test.js"
-      - "e2e/chief-capability-plan.pw.mjs"
-      - "e2e/chief-founder-content-proposal.pw.mjs"
-      - ".github/workflows/chief-capability-plan-playwright.yml"
-      - ".github/workflows/proofmode-access-service-auth.yml"
-      - "scripts/proofmode-access-policy.mjs"
-      - "scripts/proofmode-access-policy.test.js"
-      - "config/operational-authority.json"
   workflow_dispatch:
     inputs:
       base_url:
@@ -123,12 +103,12 @@ jobs:
           printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
 
   access-policy-admin:
-    name: Check or repair ProofMode Access Service Auth
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}
+    name: Redacted provider receipt
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: dispatch-identity
     uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@988e2ac70d5d8d0c1988a373aae419c2f9b63b59
     with:
-      mode: ${{ inputs.access_mode }}
+      mode: ${{ inputs.access_mode == 'repair' && 'repair' || 'check' }}
       target_url: ${{ needs.dispatch-identity.outputs.base_url }}
 
   source-contract:
@@ -182,6 +162,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
     needs:
       - dispatch-identity
+      - access-policy-admin
       - source-contract
     runs-on: ubuntu-22.04
     timeout-minutes: 15
@@ -326,3 +307,15 @@ jobs:
             test-results/chief-capability-plan
           if-no-files-found: warn
           retention-days: 14
+
+  exact-runtime-receipt:
+    name: Verify exact Chief runtime with Playwright
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
+    needs: runtime-proof
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Bind compatibility context to successful privileged runtime proof
+        shell: bash
+        run: |
+          printf 'Exact Chief runtime compatibility receipt is derived only from a successful privileged live runtime and Playwright job for %s.\n' "$EXPECTED_HEAD_SHA"
