@@ -7,6 +7,8 @@ import {
 } from '../scripts/verify-proofmode-ruleset.mjs';
 
 const TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID = 15368;
+const TRUSTED_RULESET_ID = 20818149;
+const TRUSTED_RULESET_NAME = 'Chief AI main exact-head gate';
 
 const semantics = {
   legacyPreMergeProofModeContexts: [
@@ -15,15 +17,19 @@ const semantics = {
   ],
   preMergeCandidateContext: 'Verify candidate ProofMode runtime with Playwright',
   preMergeCandidateIntegrationId: TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID,
+  preMergeCandidateRulesetId: TRUSTED_RULESET_ID,
+  preMergeCandidateRulesetName: TRUSTED_RULESET_NAME,
+  preMergeCandidateRulesetMustHaveNoBypassActors: true,
 };
 
 function ruleset({
-  id = 1,
-  name = 'governance boundary',
+  id = TRUSTED_RULESET_ID,
+  name = TRUSTED_RULESET_NAME,
   enforcement = 'active',
   include = ['~DEFAULT_BRANCH'],
   exclude = [],
   contexts = [],
+  bypassActors = [],
 } = {}) {
   return {
     id,
@@ -31,6 +37,7 @@ function ruleset({
     target: 'branch',
     enforcement,
     conditions: { ref_name: { include, exclude } },
+    bypass_actors: bypassActors,
     rules: [{
       type: 'required_status_checks',
       parameters: {
@@ -76,6 +83,8 @@ describe('ProofMode live ruleset authority', () => {
   it('fails when either legacy pre-merge ProofMode context remains or candidate proof is missing', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [ruleset({
+        id: 21261587,
+        name: 'governance boundary',
         contexts: [
           'Typecheck',
           'Verify live ProofMode MCP with Playwright',
@@ -100,15 +109,23 @@ describe('ProofMode live ruleset authority', () => {
         classification: 'candidate-proofmode-context-not-required',
         context: 'Verify candidate ProofMode runtime with Playwright',
       }),
+      expect.objectContaining({
+        classification: 'candidate-proofmode-authoritative-ruleset-not-required',
+        expectedRulesetId: TRUSTED_RULESET_ID,
+      }),
     ]));
   });
 
-  it('passes only when candidate proof is required from the trusted GitHub Actions integration and both legacy contexts are absent', () => {
+  it('passes only when candidate proof is required by the trusted no-bypass ruleset and trusted integration', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [
-        ruleset({ id: 1, contexts: ['Typecheck', 'Verify operational authority'] }),
         ruleset({
-          id: 2,
+          id: 21261587,
+          name: 'governance boundary',
+          contexts: ['Verify operational authority'],
+          bypassActors: [{ actor_type: 'RepositoryRole', actor_id: 5 }],
+        }),
+        ruleset({
           contexts: ['Verify candidate ProofMode runtime with Playwright'],
         }),
       ],
@@ -119,7 +136,8 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.ok).toBe(true);
     expect(result.violations).toEqual([]);
     expect(result.candidateIntegrationId).toBe(TRUSTED_GITHUB_ACTIONS_INTEGRATION_ID);
-    expect(result.candidateRulesets).toEqual([{ id: 2, name: 'governance boundary' }]);
+    expect(result.candidateRulesetId).toBe(TRUSTED_RULESET_ID);
+    expect(result.candidateRulesets).toEqual([{ id: TRUSTED_RULESET_ID, name: TRUSTED_RULESET_NAME }]);
   });
 
   it('fails closed when the candidate check name is present but unbound to an integration', () => {
@@ -164,7 +182,51 @@ describe('ProofMode live ruleset authority', () => {
     ]));
   });
 
-  it('fails closed if producer identity is missing from the governance contract itself', () => {
+  it('fails closed when the candidate proof is placed in a different active ruleset', () => {
+    const result = validateProofModeRulesetMigration({
+      rulesets: [ruleset({
+        id: 21261587,
+        name: 'governance boundary',
+        contexts: ['Verify candidate ProofMode runtime with Playwright'],
+        bypassActors: [],
+      })],
+      semantics,
+      defaultBranch: 'main',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'candidate-proofmode-ruleset-mismatch',
+        expectedRulesetId: TRUSTED_RULESET_ID,
+      }),
+      expect.objectContaining({
+        classification: 'candidate-proofmode-authoritative-ruleset-not-required',
+        expectedRulesetId: TRUSTED_RULESET_ID,
+      }),
+    ]));
+  });
+
+  it('fails closed when the authoritative candidate ruleset has any bypass actor', () => {
+    const result = validateProofModeRulesetMigration({
+      rulesets: [ruleset({
+        contexts: ['Verify candidate ProofMode runtime with Playwright'],
+        bypassActors: [{ actor_type: 'RepositoryRole', actor_id: 5 }],
+      })],
+      semantics,
+      defaultBranch: 'main',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'candidate-proofmode-ruleset-bypassable',
+        expectedRulesetId: TRUSTED_RULESET_ID,
+      }),
+    ]));
+  });
+
+  it('fails closed if producer or no-bypass carrier identity is missing from the governance contract', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [ruleset({
         contexts: ['Verify candidate ProofMode runtime with Playwright'],
@@ -172,6 +234,8 @@ describe('ProofMode live ruleset authority', () => {
       semantics: {
         ...semantics,
         preMergeCandidateIntegrationId: undefined,
+        preMergeCandidateRulesetId: undefined,
+        preMergeCandidateRulesetMustHaveNoBypassActors: false,
       },
       defaultBranch: 'main',
     });
@@ -196,7 +260,6 @@ describe('ProofMode live ruleset authority', () => {
           contexts: ['Verify production ProofMode MCP with Playwright'],
         }),
         ruleset({
-          id: 3,
           contexts: ['Verify candidate ProofMode runtime with Playwright'],
         }),
       ],
@@ -217,6 +280,7 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.violations).toEqual(expect.arrayContaining([
       expect.objectContaining({ classification: 'default-branch-ruleset-not-observed' }),
       expect.objectContaining({ classification: 'candidate-proofmode-context-not-required' }),
+      expect.objectContaining({ classification: 'candidate-proofmode-authoritative-ruleset-not-required' }),
     ]));
   });
 });
