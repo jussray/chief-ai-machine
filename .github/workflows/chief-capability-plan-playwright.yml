@@ -57,10 +57,14 @@ jobs:
   access-policy-admin:
     name: Check or repair ProofMode Access Service Auth
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify') || (github.event_name == 'pull_request' && github.event.pull_request.number == 143) }}
-    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@4d344a05e3165207642da974e30a5f66703d3887
+    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@18768db9618ad925f6be7c263e0bce7fd5860929
     with:
       mode: ${{ github.event_name == 'pull_request' && 'check' || inputs.access_mode }}
       target_url: ${{ github.event_name == 'pull_request' && 'https://0a541f03-chief-ai.mcgill-raylene.workers.dev' || inputs.base_url }}
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
 
   source-contract:
     name: Verify Chief capability source contract
