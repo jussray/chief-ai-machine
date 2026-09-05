@@ -50,14 +50,19 @@ jobs:
       - name: Test operational source contracts
         run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-ruleset-pagination.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/proofmode-candidate-ordering.test.mjs test/privileged-bootstrap-provenance.test.mjs test/operational-proof-trust-root.test.mjs
 
+      - name: Enforce privileged bootstrap provenance
+        run: node scripts/verify-privileged-bootstrap.mjs
+
       - name: Enforce source workflow authority
         run: node scripts/verify-operational-authority.mjs
 
-      - name: Retain operational source receipt
+      - name: Retain operational source receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: operational-source-contract-${{ env.EXPECTED_HEAD_SHA }}
-          path: artifacts/operational-authority-report.json
+          path: |
+            artifacts/operational-authority-report.json
+            artifacts/privileged-bootstrap-report.json
           if-no-files-found: error
           retention-days: 30
