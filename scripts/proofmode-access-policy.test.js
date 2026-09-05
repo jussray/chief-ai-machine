@@ -121,7 +121,7 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
     expect(expiredFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves preview_worker ahead of worker and refuses broad automatic repair', async () => {
+  it('resolves preview_worker ahead of worker and creates only the specific service-token policy', async () => {
     const fetchImpl = routeFetch({
       serviceTokens: [activeToken],
       apps: [workerApp, previewWorkerApp],
@@ -132,8 +132,52 @@ describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
       ...baseArgs,
       mode: 'repair',
       fetchImpl,
-    })).rejects.toThrow('Effective Access scope preview_worker');
+    })).resolves.toEqual({
+      state: 'configured',
+      changed: true,
+      appId: previewWorkerApp.id,
+      policyId: 'policy-new',
+      scope: 'preview_worker',
+      serviceTokenId: SERVICE_ID,
+    });
+
+    const createCall = fetchImpl.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(createCall).toBeTruthy();
+    expect(JSON.parse(createCall[1].body)).toEqual({
+      name: 'ProofMode CI service auth',
+      decision: 'non_identity',
+      include: [{ service_token: { token_id: SERVICE_ID } }],
+    });
+  });
+
+  it('still refuses automatic repair on worker scope because it includes production traffic', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [workerApp],
+      policiesByApp: { [workerApp.id]: [] },
+    });
+
+    await expect(ensureProofModeAccessPolicy({
+      ...baseArgs,
+      mode: 'repair',
+      fetchImpl,
+    })).rejects.toThrow('Effective Access scope worker');
     expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('fails closed when duplicate preview_worker apps make precedence ambiguous', async () => {
+    const fetchImpl = routeFetch({
+      serviceTokens: [activeToken],
+      apps: [
+        previewWorkerApp,
+        { ...previewWorkerApp, id: 'app-preview-worker-2' },
+      ],
+    });
+
+    await expect(ensureProofModeAccessPolicy({ ...baseArgs, fetchImpl })).rejects.toThrow(
+      'Multiple preview_worker Access applications protect the same Chief Worker',
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it('fails closed on a broader matching public destination instead of mutating worker policy', async () => {
