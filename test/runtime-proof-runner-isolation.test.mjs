@@ -20,7 +20,7 @@ describe('credential-bearing runtime proof runner isolation', () => {
     expect(sourceSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(sourceSection).not.toContain('environment: proofmode-access-admin');
 
-    expect(runtimeSection).toContain('needs: source-contract');
+    expect(runtimeSection).toMatch(/needs:(?: source-contract|\n(?:\s+- [^\n]+\n)*\s+- source-contract)/);
     expect(runtimeSection).toContain('environment: proofmode-access-admin');
     expect(runtimeSection).toContain("ref: ${{ github.event.pull_request.base.sha || 'main' }}");
     expect(runtimeSection).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');

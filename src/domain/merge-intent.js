@@ -110,7 +110,7 @@ function currentTruthReceipt(body) {
  * malformed receipts fail closed and their body directives are quarantined so a
  * predecessor founder decision cannot impersonate current merge intent.
  */
-export function evaluateMergeIntent({ baseRef, title, body, isDraft, headSha }) {
+export function evaluateMergeIntent({ baseRef, title, body, isDraft, headSha = '' }) {
   const base = text(baseRef);
 
   if (base !== 'main') {
