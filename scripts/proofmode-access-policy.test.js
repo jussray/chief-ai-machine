@@ -70,13 +70,13 @@ const exactPublicApp = {
 const workerApp = {
   id: 'app-worker',
   name: APP_NAME,
-  destinations: [{ type: 'worker', worker_id: 'worker-1' }],
+  destinations: [{ type: 'worker', worker_id: 'chief-ai' }],
 };
 
 const previewWorkerApp = {
   id: 'app-preview-worker',
   name: APP_NAME,
-  destinations: [{ type: 'preview_worker', worker_id: 'worker-1' }],
+  destinations: [{ type: 'preview_worker', worker_id: 'chief-ai' }],
 };
 
 describe('ProofMode Cloudflare Access service-auth bootstrap', () => {
