@@ -115,6 +115,7 @@ test('stored custom prompt metadata renders as inert text in Library and My Prom
     }]));
   }, { title: maliciousTitle, sub: maliciousSub });
   await page.reload();
+  await openPage(page, 'library');
 
   const libraryCard = page.locator('#grid .pcard').filter({ hasText: maliciousTitle }).first();
   await expect(libraryCard).toBeVisible();
