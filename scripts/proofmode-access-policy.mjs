@@ -149,7 +149,8 @@ function hasWorkerSpecificDestination(apps) {
 function normalizePreviewSuffix(raw) {
   let value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   value = value.replace(/^https?:\/\//, '');
-  return value.replace(/^\/+|\/+$/g, '');
+  value = value.replace(/^\/+|\/+$/g, '');
+  return value.replace(/^-/, '');
 }
 
 async function resolveWorkerIdentity(fetchImpl, apiToken, accountId, target) {
