@@ -57,14 +57,10 @@ jobs:
   access-policy-admin:
     name: Check or repair ProofMode Access Service Auth
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}
-    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@18768db9618ad925f6be7c263e0bce7fd5860929
+    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@988e2ac70d5d8d0c1988a373aae419c2f9b63b59
     with:
       mode: ${{ inputs.access_mode }}
       target_url: ${{ inputs.base_url }}
-    secrets:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}
-      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
 
   source-contract:
     name: Verify Chief capability source contract
