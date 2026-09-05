@@ -87,6 +87,28 @@ describe('TrustTransitionV1', () => {
     expect(result.invariants.proposalCannotSelfGrantAuthority).toBe(true);
   });
 
+  it('preserves the mission fingerprint across authority grant movement while expiring the cookie', () => {
+    const granted = mission();
+    const pending = mission({
+      authority: {
+        granted: false,
+        grantId: '',
+        action: granted.proposedAction.action,
+        target: granted.proposedAction.target,
+        scope: [...granted.authority.scope],
+        reusable: false,
+      },
+    });
+
+    const pendingResult = evaluateTrustTransition(pending);
+    const grantedResult = evaluateTrustTransition(granted);
+
+    expect(pendingResult.transitionFingerprint).toBe(grantedResult.transitionFingerprint);
+    expect(pendingResult.authorityFingerprint).not.toBe(grantedResult.authorityFingerprint);
+    expect(pendingResult.continuityCookie).not.toBe(grantedResult.continuityCookie);
+    expect(grantedResult.invariants.authorityGrantMovementPreservesTransitionSubject).toBe(true);
+  });
+
   it('requires a real grant identity when authority is marked granted', () => {
     const base = mission();
     const input = mission({
