@@ -194,7 +194,7 @@ function resolveEffectiveApplication(apps, hostname, applicationName) {
     throw new Error('Multiple preview_worker Access applications protect the same Chief Worker; refusing to guess precedence.');
   }
   if (previewApps.length === 1) {
-    return { app: previewApps[0], scope: 'preview_worker', repairEligible: false };
+    return { app: previewApps[0], scope: 'preview_worker', repairEligible: true };
   }
 
   const workerApps = apps.filter((app) => (app?.destinations || []).some(
@@ -326,7 +326,7 @@ export async function ensureProofModeAccessPolicy({
 
   if (!effective.repairEligible) {
     throw new Error(
-      `Effective Access scope ${effective.scope} is broader or narrower than the approved exact immutable preview host. Refusing automatic repair on app ${appId}.`,
+      `Effective Access scope ${effective.scope} is not an approved exact immutable preview host or unique preview_worker application. Refusing automatic repair on app ${appId}.`,
     );
   }
 
