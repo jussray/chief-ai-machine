@@ -43,6 +43,7 @@ jobs:
       - name: Record and verify exact head
         shell: bash
         run: |
+          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
@@ -76,11 +77,11 @@ jobs:
           {
             echo '### ProofMode MCP required-check receipt'
             echo
-            echo "- status: success"
+            echo '- status: success'
             if [ "$applicable" = "true" ]; then
-              echo "- applicability: applicable"
+              echo '- applicability: applicable'
             else
-              echo "- applicability: skipped"
+              echo '- applicability: skipped'
             fi
             echo "- reason: $reason"
             echo "- head: \`$EXPECTED_HEAD_SHA\`"
@@ -93,18 +94,22 @@ jobs:
           node-version: "24"
           cache: npm
 
-      - name: Resolve exact Cloudflare commit preview
+      - name: Install locked application dependencies
         if: steps.scope.outputs.applicable == 'true'
+        run: npm ci
+
+      - name: Install pinned runtime proof tools
+        if: steps.scope.outputs.applicable == 'true'
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
+
+      - name: Require exact-head Cloudflare build materialization
+        if: steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          if [ -n "$MANUAL_BASE_URL" ]; then
-            printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
+          set -euo pipefail
           api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
           for attempt in {1..45}; do
             checks="$(curl --fail --silent --show-error \
@@ -112,47 +117,79 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$api" || true)"
-
-            preview="$(printf '%s' "$checks" | node -e '
+            state="$(printf '%s' "$checks" | node -e '
               let input = "";
               process.stdin.setEncoding("utf8");
               process.stdin.on("data", (chunk) => { input += chunk; });
               process.stdin.on("end", () => {
                 if (!input) return;
                 const data = JSON.parse(input);
-                const run = data.check_runs?.find((item) =>
-                  item.name === "Workers Builds: chief-ai"
-                  && item.status === "completed"
-                  && item.conclusion === "success"
-                );
-                const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
-                if (match) process.stdout.write(match[1]);
+                const run = data.check_runs?.find((item) => item.name === "Workers Builds: chief-ai");
+                if (run) process.stdout.write(`${run.status}:${run.conclusion || ""}`);
               });
             ')"
-
-            if [ -n "$preview" ]; then
-              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
-              printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
+            if [ "$state" = "completed:success" ]; then
+              echo "Cloudflare build check is successful for exact head $EXPECTED_HEAD_SHA."
+              {
+                echo '- provider-build: exact-head-success'
+                echo '- provider-runtime-equivalence: not-claimed-by-pull-request'
+              } >> "$GITHUB_STEP_SUMMARY"
               exit 0
+            fi
+            if [[ "$state" == completed:* ]] && [ "$state" != "completed:success" ]; then
+              printf 'Cloudflare build check finished without success for %s: %s\n' "$EXPECTED_HEAD_SHA" "$state" >&2
+              exit 1
             fi
             sleep 2
           done
-
-          printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'Cloudflare build check did not materialize for %s\n' "$EXPECTED_HEAD_SHA" >&2
           exit 1
 
-      - name: Install locked application dependencies
-        if: steps.scope.outputs.applicable == 'true'
-        run: npm ci
+      - name: Start exact checked-out Worker locally for pull-request proof
+        if: steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_url="http://127.0.0.1:8788"
+          log="$RUNNER_TEMP/proofmode-wrangler.log"
+          printf 'PROOFMODE_BASE_URL=%s\n' "$local_url" >> "$GITHUB_ENV"
+          RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev --ip 127.0.0.1 --port 8788 > "$log" 2>&1 &
+          pid=$!
+          printf '%s\n' "$pid" > "$RUNNER_TEMP/proofmode-wrangler.pid"
+          for attempt in {1..45}; do
+            if ! kill -0 "$pid" 2>/dev/null; then
+              cat "$log" >&2 || true
+              exit 1
+            fi
+            body="$(curl --fail --silent "$local_url/version" || true)"
+            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
+              echo "Local workerd runtime is serving exact head $EXPECTED_HEAD_SHA."
+              {
+                echo '- pull-request-runtime-proof: local-workerd-exact-head'
+                echo '- Cloudflare Access: remains a separate privileged provider boundary'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$log" >&2 || true
+          printf 'Local exact-head Worker did not become ready.\n' >&2
+          exit 1
 
-      - name: Install isolated Playwright runner
-        if: steps.scope.outputs.applicable == 'true'
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+      - name: Use founder-authorized provider target for workflow dispatch
+        if: steps.scope.outputs.applicable == 'true' && github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MANUAL_BASE_URL"
+          printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
+          echo '- runtime-proof-target: founder-authorized-provider-url' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify immutable preview serves exact head
+      - name: Verify exact runtime serves exact head
         if: steps.scope.outputs.applicable == 'true'
         shell: bash
         run: |
+          set -euo pipefail
           if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
             || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
             printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
@@ -170,27 +207,20 @@ jobs:
           headers="$RUNNER_TEMP/proofmode-version.headers"
           body_file="$RUNNER_TEMP/proofmode-version.body"
           status="000"
+          status="$(curl --silent --show-error \
+            "${access_headers[@]}" \
+            --dump-header "$headers" \
+            --output "$body_file" \
+            --write-out '%{http_code}' \
+            "$PROOFMODE_BASE_URL/version" || true)"
+          if [ "$status" = "200" ] && grep -Fq "$EXPECTED_HEAD_SHA" "$body_file"; then
+            printf 'Runtime target is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+            exit 0
+          fi
 
-          for attempt in {1..10}; do
-            status="$(curl --silent --show-error \
-              "${access_headers[@]}" \
-              --dump-header "$headers" \
-              --output "$body_file" \
-              --write-out '%{http_code}' \
-              "$PROOFMODE_BASE_URL/version" || true)"
-            if grep -Fq "$EXPECTED_HEAD_SHA" "$body_file" 2>/dev/null; then
-              printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'Runtime target did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
           printf 'Observed HTTP status: %s\n' "$status" >&2
           location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
-          if [ -n "$location" ]; then
-            printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
-          fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
             if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
               printf 'Cloudflare Access rejected the configured service token; verify the effective Access application, Service Auth policy, token selection, and token status for this exact preview.\n' >&2
@@ -231,6 +261,22 @@ jobs:
           });
           EOF
           npx playwright test --config=playwright.proofmode-mcp.config.mjs
+
+      - name: Preserve local runtime log
+        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p test-results/proofmode-mcp
+          cp "$RUNNER_TEMP/proofmode-wrangler.log" test-results/proofmode-mcp/wrangler.log 2>/dev/null || true
+
+      - name: Stop local exact-head Worker
+        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          pid_file="$RUNNER_TEMP/proofmode-wrangler.pid"
+          if [ -f "$pid_file" ]; then
+            kill "$(cat "$pid_file")" 2>/dev/null || true
+          fi
 
       - name: Retain Playwright report
         if: always() && steps.scope.outputs.applicable == 'true'
