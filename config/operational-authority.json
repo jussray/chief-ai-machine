@@ -64,14 +64,16 @@
       "Verify production ProofMode MCP with Playwright"
     ],
     "preMergeCandidateContext": "Verify candidate ProofMode runtime with Playwright",
-    "preMergeCandidateIntegrationId": 15368,
+    "preMergeCandidateIntegrationId": null,
+    "preMergeCandidateProducerTrust": "external-github-app-check-required",
+    "preMergeCandidateWorkflowProvenance": "must-not-be-pr-authored-github-actions-only",
     "preMergeCandidateRulesetId": 20818149,
     "preMergeCandidateRulesetName": "Chief AI main exact-head gate",
     "preMergeCandidateRulesetMustHaveNoBypassActors": true,
     "preMergeCandidateScope": "founder-authorized immutable-preview exact-SHA Playwright proof",
     "postMergeProductionContext": "Verify production ProofMode MCP with Playwright",
     "postMergeProductionScope": "current-main canonical-production exact-SHA Playwright proof",
-    "rulesetMigration": "remove both legacy pre-merge ProofMode requirements from governance boundary; require the candidate ProofMode runtime context in Chief AI main exact-head gate (ruleset 20818149), bound to GitHub Actions integration 15368 with no bypass actors; do not require production ProofMode before merge; keep production verification post-merge/main-only"
+    "rulesetMigration": "HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed and its integration ID is recorded here; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only"
   },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
