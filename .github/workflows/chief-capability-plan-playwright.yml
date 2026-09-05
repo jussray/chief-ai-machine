@@ -20,13 +20,25 @@ on:
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
+      - ".github/workflows/proofmode-access-service-auth.yml"
+      - "scripts/proofmode-access-policy.mjs"
+      - "scripts/proofmode-access-policy.test.js"
       - "config/operational-authority.json"
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Exact Chief workers.dev runtime origin to verify"
+        description: "Exact immutable Chief workers.dev runtime origin to verify or inspect"
         required: true
         type: string
+      access_mode:
+        description: "Verify runtime, check Access, or repair only the approved exact-host Service Auth policy"
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - check
+          - repair
 
 permissions:
   contents: read
@@ -42,8 +54,17 @@ env:
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
 
 jobs:
+  access-policy-admin:
+    name: Check or repair ProofMode Access Service Auth
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}
+    uses: ./.github/workflows/proofmode-access-service-auth.yml
+    with:
+      mode: ${{ inputs.access_mode }}
+      target_url: ${{ inputs.base_url }}
+
   source-contract:
     name: Verify Chief capability source contract
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.access_mode == 'verify' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -74,6 +95,7 @@ jobs:
 
   runtime-proof:
     name: Verify live Chief capability plan with Playwright
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.access_mode == 'verify' }}
     needs: source-contract
     runs-on: ubuntu-22.04
     timeout-minutes: 15
@@ -268,7 +290,7 @@ jobs:
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
             if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
-              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Verify that the token is enabled and unexpired and that the Access application has a Service Auth policy including only this service token.\n' >&2
+              printf 'Cloudflare Access rejected the configured service token or no matching Service Auth policy accepted it. Run this workflow manually on the current branch with access_mode=check against this immutable preview, then use access_mode=repair only if the check proves an exact-host policy is eligible.\n' >&2
             else
               printf 'Cloudflare Access intercepted the immutable preview and no complete service-token pair is configured. Configure both credentials and a matching Service Auth policy.\n' >&2
             fi
