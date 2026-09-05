@@ -56,12 +56,12 @@ jobs:
           reason=manual-dispatch
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             applicable=false
-            reason=no-chief-capability-path-changed
+            reason=no-chief-capability-product-path-changed
             while IFS= read -r file; do
               case "$file" in
-                worker/index.js|worker/chief-capability-plan.js|worker/chief-capability-plan.test.js|worker/chief-founder-content-proposal.js|worker/chief-founder-content-proposal.test.js|src/domain/founder-control-surface.js|src/domain/founder-control-surface.test.js|src/domain/founder-content-brain.js|src/domain/founder-content-brain.test.js|src/domain/founder-content-strategy.js|src/domain/founder-content-strategy.test.js|src/domain/founder-content-strategy.redteam.test.js|e2e/chief-capability-plan.pw.mjs|e2e/chief-founder-content-proposal.pw.mjs|.github/workflows/chief-capability-plan-playwright.yml|config/operational-authority.json)
+                worker/index.js|worker/chief-capability-plan.js|worker/chief-capability-plan.test.js|worker/chief-founder-content-proposal.js|worker/chief-founder-content-proposal.test.js|src/domain/founder-control-surface.js|src/domain/founder-control-surface.test.js|src/domain/founder-content-brain.js|src/domain/founder-content-brain.test.js|src/domain/founder-content-strategy.js|src/domain/founder-content-strategy.test.js|src/domain/founder-content-strategy.redteam.test.js|e2e/chief-capability-plan.pw.mjs|e2e/chief-founder-content-proposal.pw.mjs)
                   applicable=true
-                  reason=chief-capability-path-changed
+                  reason=chief-capability-product-path-changed
                   break
                   ;;
               esac
