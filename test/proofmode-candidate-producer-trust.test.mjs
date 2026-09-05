@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 const GITHUB_ACTIONS_INTEGRATION_ID = 15368;
 
 function loadSemantics() {
-  const config = JSON.parse(fs.readFileSync(new URL('../config/operational-authority.json', import.meta.url), 'utf8'));
+  const config = JSON.parse(fs.readFileSync(new globalThis.URL('../config/operational-authority.json', import.meta.url), 'utf8'));
   return config.proofContextSemantics || {};
 }
 
