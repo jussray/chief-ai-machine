@@ -1,7 +1,13 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
+import {
+  CUSTOM_PROMPTS_UPDATED_EVENT,
+  createLocalPromptId,
+  readStoredArray,
+  writeCustomPrompts,
+} from './prompt-state.js';
 
-export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
+export { CUSTOM_PROMPTS_UPDATED_EVENT };
 
 const GOALFIX_FREESTYLE_ROUTES = [
   {
@@ -84,43 +90,82 @@ export function initFreestyle(PROMPTS) {
     return renderPromptVariant(currentResult, currentPlatform);
   }
 
+  function renderBadges(base, avail) {
+    fsBadges.replaceChildren();
+    const cat = document.createElement('span');
+    cat.className = 'badge cat';
+    cat.textContent = base.cat || 'prompt';
+    fsBadges.appendChild(cat);
+    avail.forEach(platform => {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = platform;
+      fsBadges.appendChild(badge);
+    });
+  }
+
   function generate() {
-    const ask = askEl?.value?.trim(); if (!ask) return;
+    const ask = askEl?.value?.trim();
+    if (!ask) return;
     const platforms = getChecked();
     const base = selectFreestylePrompt(PROMPTS, ask, platforms);
-    const avail = (base.platforms || []).filter(pl => platforms.includes(pl));
-    if (!avail.length) { showToast('No match for selected platforms.'); return; }
-    currentResult = base; currentPlatform = avail[0];
+    const avail = (base.platforms || []).filter(platform => platforms.includes(platform));
+    if (!avail.length) {
+      showToast('No match for selected platforms.');
+      return;
+    }
+
+    currentResult = base;
+    currentPlatform = avail[0];
     fsEmoji.textContent = base.emoji || '💬';
     fsTitle.textContent = base.title;
     fsSub.textContent = base.sub || '';
-    fsBadges.innerHTML = `<span class="badge cat">${base.cat}</span>` + avail.map(p => `<span class="badge">${p}</span>`).join('');
-    fsTabs.innerHTML = '';
-    avail.forEach((p, i) => {
+    renderBadges(base, avail);
+    fsTabs.replaceChildren();
+
+    avail.forEach((platform, index) => {
       const btn = document.createElement('button');
-      btn.className = 'ptab' + (i === 0 ? ' active' : '');
-      btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
-      btn.addEventListener('click', () => { fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentPlatform = p; fsBody.textContent = renderCurrent(); });
+      btn.className = 'ptab' + (index === 0 ? ' active' : '');
+      btn.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
+      btn.addEventListener('click', () => {
+        fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPlatform = platform;
+        fsBody.textContent = renderCurrent();
+      });
       fsTabs.appendChild(btn);
     });
+
     fsBody.textContent = renderCurrent();
-    placeholder.style.display = 'none'; preview.classList.add('on');
+    placeholder.style.display = 'none';
+    preview.classList.add('on');
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
-  askEl?.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate(); });
-  document.getElementById('fsClear')?.addEventListener('click', () => { if (askEl) askEl.value = ''; preview.classList.remove('on'); placeholder.style.display = ''; });
-  document.getElementById('fsCopy')?.addEventListener('click', () => { if (currentResult && currentPlatform) { copyText(renderCurrent()); showToast('Copied!'); } });
+  askEl?.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') generate();
+  });
+  document.getElementById('fsClear')?.addEventListener('click', () => {
+    if (askEl) askEl.value = '';
+    preview.classList.remove('on');
+    placeholder.style.display = '';
+    currentResult = null;
+    currentPlatform = null;
+  });
+  document.getElementById('fsCopy')?.addEventListener('click', async () => {
+    if (!currentResult || !currentPlatform) return;
+    const copied = await copyText(renderCurrent());
+    showToast(copied ? 'Copied!' : 'Copy failed. Select the prompt manually.');
+  });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
-    const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
+    const custom = readStoredArray('chief-custom');
     custom.push({
       ...currentResult,
-      id: 'fs-' + Date.now(),
+      id: createLocalPromptId('freestyle'),
       versions: normalizePromptVersionsForSave(currentResult),
     });
-    localStorage.setItem('chief-custom', JSON.stringify(custom));
-    window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
+    writeCustomPrompts(custom);
     showToast('Saved to My Prompts!');
   });
   document.getElementById('fsRegenerate')?.addEventListener('click', generate);

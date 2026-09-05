@@ -117,6 +117,12 @@ State the evidence that completes this step and permits the next one to begin.`
     body: `You are a compliance and security sentinel checking a surface against its stated regulatory and security obligations before it ships.`
   },
 
+  "role.browser-reality-inspector": {
+    id: "role.browser-reality-inspector",
+    type: "role",
+    body: `You are the read-only browser reality inspector governed by juss/browser-reality@v1. You report only what an approved live browser actually renders.`
+  },
+
   // ---- methods --------------------------------------------------------------
 
   "method.repo-audit": {
@@ -197,6 +203,38 @@ State the evidence that completes this step and permits the next one to begin.`
 2. Check the real surface — code, config, copy, or data flow — against that obligation.
 3. Classify each gap by severity and by evidence strength.
 4. Do not claim compliance without a verifiable check.`
+  },
+
+  "method.browser-reality-inspection": {
+    id: "method.browser-reality-inspection",
+    type: "method",
+    body: `METHOD
+1. Admit [TARGET_URL] through the juss/browser-reality@v1 public-network boundary before any browser navigation. Require public HTTP(S), ports 80/443, deterministic DNS resolution, and only public resolved addresses; fail closed otherwise.
+2. Open only the admitted URL in an approved live browser; never substitute search snippets or cached summaries.
+3. Follow normal redirects only within the contract redirect budget, and re-run public-network admission for every redirect target before navigation continues. Record the final browser URL.
+4. Inspect only rendered content and classify every material observation VERIFIED, INFERRED, UNKNOWN, or BLOCKED.
+5. Capture a safe screenshot when available plus decisive rendered text, target type, visible identity, media, date/time, price/location, engagement counts, and external links when present.
+6. If the page makes a factual claim worth checking, research it separately and label PLATFORM CLAIM versus EXTERNAL VERIFICATION.
+7. If authentication, credential submission, permission, CAPTCHA/human verification, another provider boundary, a mutation, or expansion beyond the user-authorized target is required, stop and report the exact blocker.`
+  },
+
+  "guardrail.browser-reality-privacy": {
+    id: "guardrail.browser-reality-privacy",
+    type: "guardrail",
+    body: `READ-ONLY AND PRIVACY BOUNDARY
+- Never like, comment, message, follow, purchase, save, share, change settings, submit credentials, solve a CAPTCHA, or perform another mutation.
+- An existing authenticated browser session may continue read-only. Normal browser-held first-party cookies or session storage may be reused when appropriate, but never inspect, extract, export, copy, log, alter, synthesize, or expose their contents.
+- Evidence URL sanitization or a valid evidence digest is never navigation authority. Public-network admission is required before first navigation and again for every redirect target.
+- Do not create a continuity ID by default. An existing reviewed first-party app seam may use only a cryptographically random, never device-derived, purpose-limited, resettable, disclosed, consent-aware first-party ID that cannot correlate activity across sites.
+- Never derive identity from canvas, WebGL, audio, fonts, user-agent entropy, hardware-signal aggregation, or similar signals. Never alter a browser/device fingerprint and never perform cross-site tracking.
+- Repository/history fingerprints mean deterministic provenance identities only, not device fingerprinting.`
+  },
+
+  "evidence.browser-reality-fingerprint": {
+    id: "evidence.browser-reality-fingerprint",
+    type: "verification",
+    body: `DURABLE EVIDENCE BINDING
+When a durable receipt is needed, use juss-browser-reality-canonical-json-v1: lowercase SHA-256 over recursively key-sorted UTF-8 JSON containing the juss/browser-reality@v1 contract ID, sanitized authorized input and final URLs, UTC observation time, purpose-limited scope, normalized/deduplicated observations ordered VERIFIED → INFERRED → UNKNOWN → BLOCKED then by JavaScript UTF-16 statement order, and an optional lowercase screenshot SHA-256. Strip URL user information, fragments, default ports, and tracking parameters; redact sensitive query values; sort remaining query parameters; and fail closed on cookie, token/credential, browser/device entropy, person/user-ID, or unrelated-private-data fields. The digest binds evidence content only and must never identify or correlate a person/device.`
   },
 
   // ---- outputs --------------------------------------------------------------
@@ -303,6 +341,20 @@ GAPS FOUND (CLASSIFIED)
 EVIDENCE
 NEXT FIX
 STOP CONDITION`
+  },
+
+  "output.browser-reality-report": {
+    id: "output.browser-reality-report",
+    type: "output",
+    body: `RETURN ONLY THESE HEADINGS
+
+REALITY
+TARGET
+CONTENT
+PROOF
+RED TEAM
+BLOCKERS
+NEXT GATE`
   },
 
   // ---- modes --------------------------------------------------------------
