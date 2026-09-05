@@ -119,7 +119,7 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Redacted provider receipt' || 'Redacted provider receipt (privileged manual only)' }}
     if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: dispatch-identity
-    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@988e2ac70d5d8d0c1988a373aae419c2f9b63b59
+    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@c1acda4363099b7233d5857e8d2e4c97163ef42d
     with:
       mode: ${{ inputs.access_mode == 'repair' && 'repair' || 'check' }}
       target_url: ${{ needs.dispatch-identity.outputs.base_url }}
