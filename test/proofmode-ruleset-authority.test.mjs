@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  pullRequestReviewPolicy,
   requiredDeploymentEnvironments,
   requiredStatusChecks,
   requiredStatusContexts,
@@ -10,6 +11,13 @@ import {
 const EXTERNAL_GITHUB_APP_INTEGRATION_ID = 424242;
 const TRUSTED_RULESET_ID = 20818149;
 const TRUSTED_RULESET_NAME = 'Chief AI main exact-head gate';
+
+const strongReviewPolicy = {
+  requiredApprovingReviewCount: 1,
+  dismissStaleReviewsOnPush: true,
+  requireLastPushApproval: true,
+  requiredReviewThreadResolution: true,
+};
 
 const semantics = {
   legacyPreMergeProofModeContexts: [
@@ -23,6 +31,7 @@ const semantics = {
   preMergeCandidateRulesetId: TRUSTED_RULESET_ID,
   preMergeCandidateRulesetName: TRUSTED_RULESET_NAME,
   preMergeCandidateRulesetMustHaveNoBypassActors: true,
+  preMergeCandidateReviewPolicy: strongReviewPolicy,
   postMergeOnlyDeploymentEnvironments: ['Cloudflare Production'],
 };
 
@@ -35,21 +44,33 @@ function ruleset({
   contexts = [],
   deployments = [],
   bypassActors = [],
+  reviewPolicy = strongReviewPolicy,
 } = {}) {
-  const rules = [{
-    type: 'required_status_checks',
-    parameters: {
-      required_status_checks: contexts.map((entry) => {
-        if (typeof entry === 'string') {
-          return {
-            context: entry,
-            integration_id: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
-          };
-        }
-        return { ...entry };
-      }),
+  const rules = [
+    {
+      type: 'pull_request',
+      parameters: {
+        required_approving_review_count: reviewPolicy.requiredApprovingReviewCount,
+        dismiss_stale_reviews_on_push: reviewPolicy.dismissStaleReviewsOnPush,
+        require_last_push_approval: reviewPolicy.requireLastPushApproval,
+        required_review_thread_resolution: reviewPolicy.requiredReviewThreadResolution,
+      },
     },
-  }];
+    {
+      type: 'required_status_checks',
+      parameters: {
+        required_status_checks: contexts.map((entry) => {
+          if (typeof entry === 'string') {
+            return {
+              context: entry,
+              integration_id: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
+            };
+          }
+          return { ...entry };
+        }),
+      },
+    },
+  ];
   if (deployments.length) {
     rules.push({
       type: 'required_deployments',
@@ -82,6 +103,10 @@ describe('ProofMode live ruleset authority', () => {
       { context: 'Typecheck', integrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID },
       { context: 'Verify operational authority', integrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID },
     ]);
+  });
+
+  it('extracts the fresh-review policy from the candidate carrier', () => {
+    expect(pullRequestReviewPolicy(ruleset())).toEqual(strongReviewPolicy);
   });
 
   it('extracts required deployment environments from active rules', () => {
@@ -133,7 +158,7 @@ describe('ProofMode live ruleset authority', () => {
     ]));
   });
 
-  it('passes only when candidate proof is required by the trusted no-bypass ruleset and external integration', () => {
+  it('passes only when candidate proof is required by the trusted no-bypass ruleset, external integration, and fresh review policy', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [
         ruleset({
@@ -155,6 +180,53 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.candidateIntegrationId).toBe(EXTERNAL_GITHUB_APP_INTEGRATION_ID);
     expect(result.candidateRulesetId).toBe(TRUSTED_RULESET_ID);
     expect(result.candidateRulesets).toEqual([{ id: TRUSTED_RULESET_ID, name: TRUSTED_RULESET_NAME }]);
+  });
+
+  it('fails closed when the zero-bypass candidate carrier lacks fresh review authority', () => {
+    const weakReviewPolicy = {
+      requiredApprovingReviewCount: 0,
+      dismissStaleReviewsOnPush: false,
+      requireLastPushApproval: false,
+      requiredReviewThreadResolution: true,
+    };
+    const result = validateProofModeRulesetMigration({
+      rulesets: [ruleset({
+        contexts: ['Verify candidate ProofMode runtime with Playwright'],
+        reviewPolicy: weakReviewPolicy,
+      })],
+      semantics,
+      defaultBranch: 'main',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.candidateRulesets).toEqual([]);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        classification: 'candidate-proofmode-review-authority-weak',
+        expectedRulesetId: TRUSTED_RULESET_ID,
+        expected: strongReviewPolicy,
+        observed: expect.arrayContaining([
+          expect.objectContaining({ reviewPolicy: weakReviewPolicy }),
+        ]),
+      }),
+    ]));
+  });
+
+  it('fails closed if the candidate carrier omits its pull-request review rule', () => {
+    const observed = ruleset({ contexts: ['Verify candidate ProofMode runtime with Playwright'] });
+    observed.rules = observed.rules.filter((rule) => rule.type !== 'pull_request');
+
+    const result = validateProofModeRulesetMigration({
+      rulesets: [observed],
+      semantics,
+      defaultBranch: 'main',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.candidateRulesets).toEqual([]);
+    expect(result.violations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ classification: 'candidate-proofmode-review-authority-weak' }),
+    ]));
   });
 
   it('rejects a post-merge-only production environment when a merge ruleset requires it pre-merge', () => {
@@ -288,7 +360,7 @@ describe('ProofMode live ruleset authority', () => {
     ]));
   });
 
-  it('fails closed if producer trust or no-bypass carrier identity is missing from the governance contract', () => {
+  it('fails closed if producer trust, review authority, or no-bypass carrier identity is missing from the governance contract', () => {
     const result = validateProofModeRulesetMigration({
       rulesets: [ruleset({
         contexts: ['Verify candidate ProofMode runtime with Playwright'],
@@ -300,6 +372,7 @@ describe('ProofMode live ruleset authority', () => {
         preMergeCandidateWorkflowProvenance: undefined,
         preMergeCandidateRulesetId: undefined,
         preMergeCandidateRulesetMustHaveNoBypassActors: false,
+        preMergeCandidateReviewPolicy: undefined,
       },
       defaultBranch: 'main',
     });
@@ -343,6 +416,7 @@ describe('ProofMode live ruleset authority', () => {
     expect(result.ok).toBe(false);
     expect(result.violations).toEqual(expect.arrayContaining([
       expect.objectContaining({ classification: 'default-branch-ruleset-not-observed' }),
+      expect.objectContaining({ classification: 'candidate-proofmode-authoritative-ruleset-not-observed' }),
       expect.objectContaining({ classification: 'candidate-proofmode-context-not-required' }),
       expect.objectContaining({ classification: 'candidate-proofmode-authoritative-ruleset-not-required' }),
     ]));
