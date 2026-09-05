@@ -153,7 +153,7 @@ function resolveEffectiveApplication(apps, hostname, applicationName) {
       publicMatchesByPath.get(path).map(({ app }) => app?.id).filter(Boolean)
     )))];
     if (appIds.length !== 1) {
-      throw new Error('Required ProofMode paths resolve to different public Access applications; refusing to guess effective policy precedence.');
+      throw new Error('Multiple public Access applications match required ProofMode paths; Required ProofMode paths resolve to different public Access applications; refusing to guess effective policy precedence.');
     }
 
     const selected = publicMatchesByPath.get(REQUIRED_PATHS[0]).find(({ app }) => app?.id === appIds[0])?.app;
