@@ -25,7 +25,7 @@ function response(result) {
 
 function routeFetch({ apps, policies = [] }) {
   return vi.fn(async (url) => {
-    const parsed = new URL(url);
+    const parsed = new globalThis.URL(url);
     if (parsed.pathname.endsWith('/access/service_tokens')) {
       return response([{
         id: SERVICE_ID,
@@ -88,7 +88,7 @@ describe('ProofMode Access hardening', () => {
     const fetchImpl = routeFetch({ apps: [versionApp, mcpApp] });
 
     await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
-      'Required ProofMode paths resolve to different public Access applications',
+      'Multiple public Access applications match required ProofMode paths',
     );
   });
 
