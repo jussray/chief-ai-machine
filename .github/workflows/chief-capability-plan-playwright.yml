@@ -49,8 +49,8 @@ permissions:
   checks: read
 
 concurrency:
-  group: chief-capability-plan-playwright-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: chief-capability-plan-playwright-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
