@@ -39,7 +39,7 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
   FCR_PAIR_REPOSITORY: jussray/founder-control-room
-  FCR_PAIR_HEAD_SHA: 6770298489150e0a5b94272b1ada9e69805f5ccb
+  FCR_PAIR_HEAD_SHA: e288d024c38c8ca1bccff4fcd3b0ad871236551a
 
 jobs:
   dispatch-identity:
