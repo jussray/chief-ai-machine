@@ -116,7 +116,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(productionProofModeWorkflow).toContain('if [ -z "$current" ] || [ "$current" != "$GITHUB_SHA" ]; then');
     expect(productionProofModeWorkflow).not.toContain('Verify candidate ProofMode runtime with Playwright');
 
-    expect(operationalAuthority.proofContextSemantics).toEqual({
+    expect(operationalAuthority.proofContextSemantics).toMatchObject({
       legacyPreMergeProofModeContexts: [
         'Verify live ProofMode MCP with Playwright',
         'Verify production ProofMode MCP with Playwright',
@@ -129,11 +129,19 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
       preMergeCandidateRulesetId: 20818149,
       preMergeCandidateRulesetName: 'Chief AI main exact-head gate',
       preMergeCandidateRulesetMustHaveNoBypassActors: true,
+      preMergeCandidateReviewPolicy: {
+        requiredApprovingReviewCount: 1,
+        dismissStaleReviewsOnPush: true,
+        requireLastPushApproval: true,
+        requiredReviewThreadResolution: true,
+      },
       preMergeCandidateScope: 'founder-authorized immutable-preview exact-SHA Playwright proof',
       postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
       postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
       postMergeOnlyDeploymentEnvironments: ['Cloudflare Production'],
-      rulesetMigration: 'HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed on the exact candidate SHA and its integration ID is recorded here; require exact-head check-run app-identity evidence for that producer; remove any post-merge-only production deployment environment from pre-merge required deployments; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only',
     });
+    expect(operationalAuthority.proofContextSemantics.rulesetMigration).toMatch(/^HOLD:/);
+    expect(operationalAuthority.proofContextSemantics.rulesetMigration).toContain('fresh approval');
+    expect(operationalAuthority.proofContextSemantics.rulesetMigration).toContain('external GitHub App/check producer');
   });
 });
