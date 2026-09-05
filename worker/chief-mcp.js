@@ -295,7 +295,7 @@ async function delegateProofMode(request, envOrDeps, maybeDeps, method) {
     return response;
   }
 
-  const headers = new Headers(response.headers);
+  const headers = new globalThis.Headers(response.headers);
   headers.set('Content-Type', 'application/json; charset=utf-8');
   return new Response(JSON.stringify(rewriteServerIdentity(payload, method)), {
     status: response.status,
