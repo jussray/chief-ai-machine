@@ -6,6 +6,39 @@
     "branch": "main",
     "refType": "exact-commit-sha"
   },
+  "truthMode": {
+    "contract": "chief/truthmode@v1",
+    "mode": "read-only-claim-adjudication",
+    "proofPlanes": [
+      "repository",
+      "tests",
+      "ci",
+      "deployment",
+      "runtime",
+      "provider",
+      "customer-outcome"
+    ],
+    "classifications": [
+      "VERIFIED",
+      "INFERRED",
+      "RISK",
+      "UNKNOWN",
+      "BLOCKED",
+      "HISTORICAL"
+    ],
+    "rules": {
+      "evidenceOutranksConfidence": true,
+      "proofPlanesMayNotUpgradeOneAnother": true,
+      "historicalTruthIsImmutable": true,
+      "currentTruthRequiresReobservation": true,
+      "unknownOrMissingEvidenceFailsClosed": true,
+      "cannotGrantExecutionAuthority": true,
+      "cannotGrantMergeAuthority": true,
+      "cannotGrantDeployAuthority": true,
+      "cannotGrantProviderMutationAuthority": true,
+      "cannotGrantPublicationAuthority": true
+    }
+  },
   "workflowRules": {
     "auditExactMainBeforeEdits": true,
     "auditExactMainBeforeMerge": true,
