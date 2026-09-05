@@ -16,7 +16,7 @@ function emitStateEvent(name) {
 }
 
 export function writeCustomPrompts(prompts) {
-  const safe = Array.isArray(prompts) ? prompts : [];
+  const safe = normalizeCustomPrompts(Array.isArray(prompts) ? prompts : []).prompts;
   localStorage.setItem('chief-custom', JSON.stringify(safe));
   emitStateEvent(CUSTOM_PROMPTS_UPDATED_EVENT);
 }
