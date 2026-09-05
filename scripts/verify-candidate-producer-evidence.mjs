@@ -29,7 +29,7 @@ function latestCheck(checks) {
     if (leftStarted !== null && rightStarted !== null && leftStarted !== rightStarted) {
       return rightStarted - leftStarted;
     }
-    return (positiveInteger(right?.id) || 0) - (positiveInteger(left?.id) || 0);
+    return 0;
   })[0];
 }
 
@@ -165,7 +165,30 @@ export function evaluateCandidateProducerEvidence({
     });
   }
 
-  const currentConfiguredCheck = orderingUnobservable
+  const startedAtCounts = new Map();
+  for (const check of configuredProducerChecks) {
+    const startedAt = checkStartedAtMs(check);
+    if (startedAt === null) continue;
+    startedAtCounts.set(startedAt, (startedAtCounts.get(startedAt) || 0) + 1);
+  }
+  const ambiguousStartedAt = [...startedAtCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([startedAt]) => new Date(startedAt).toISOString());
+  const orderingAmbiguous = configuredProducerChecks.length > 1
+    && ambiguousStartedAt.length > 0;
+  if (orderingAmbiguous) {
+    violations.push({
+      classification: 'candidate-check-order-ambiguous',
+      context: candidateContext || null,
+      expectedIntegrationId: candidateIntegrationId,
+      checkIds: configuredProducerChecks.map((check) => positiveInteger(check?.id)),
+      duplicateStartedAt: ambiguousStartedAt,
+      reason: 'duplicate candidate checks sharing started_at cannot be safely ordered by check id',
+    });
+  }
+
+  const orderingBlocked = orderingUnobservable || orderingAmbiguous;
+  const currentConfiguredCheck = orderingBlocked
     ? null
     : latestCheck(configuredProducerChecks);
   const currentConfiguredCheckIsSuccessful = Boolean(currentConfiguredCheck)
