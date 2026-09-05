@@ -11,6 +11,13 @@ on:
         description: "Exact immutable Chief preview origin to inspect"
         required: true
         type: string
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      CLOUDFLARE_ACCESS_ADMIN_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCESS_CLIENT_ID:
+        required: true
 
 permissions:
   contents: read
