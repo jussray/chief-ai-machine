@@ -103,6 +103,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
 
   it('separates pre-merge candidate ProofMode runtime proof from post-merge production proof', () => {
     expect(proofModeWorkflow).toContain("'Verify candidate ProofMode runtime with Playwright'");
+    expect(proofModeWorkflow).toContain("'Verify live ProofMode MCP with Playwright'");
     expect(proofModeWorkflow).toContain('environment: proofmode-access-admin');
     expect(proofModeWorkflow).toContain('Verify immutable preview serves exact head');
     expect(proofModeWorkflow).not.toContain('Verify production ProofMode MCP with Playwright');
@@ -116,11 +117,15 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(productionProofModeWorkflow).not.toContain('Verify candidate ProofMode runtime with Playwright');
 
     expect(operationalAuthority.proofContextSemantics).toEqual({
+      legacyPreMergeProofModeContexts: [
+        'Verify live ProofMode MCP with Playwright',
+        'Verify production ProofMode MCP with Playwright',
+      ],
       preMergeCandidateContext: 'Verify candidate ProofMode runtime with Playwright',
       preMergeCandidateScope: 'founder-authorized immutable-preview exact-SHA Playwright proof',
       postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
       postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
-      rulesetMigration: 'replace the pre-merge production ProofMode requirement with the candidate ProofMode runtime context; keep production verification post-merge/main-only',
+      rulesetMigration: 'replace both legacy pre-merge ProofMode requirements with the candidate ProofMode runtime context; do not require the production ProofMode context before merge; keep production verification post-merge/main-only',
     });
   });
 });
