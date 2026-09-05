@@ -26,6 +26,7 @@ describe('custom prompt shape membrane', () => {
       cat: 'custom',
       platforms: ['chatgpt'],
       versions: { chatgpt: 'Safe body' },
+      repos: [],
     });
   });
 
@@ -56,5 +57,45 @@ describe('custom prompt shape membrane', () => {
     }]);
 
     expect(result.prompts[0].versions.chatgpt).toBe('line 1\n\nline 2');
+  });
+
+  test('canonicalizes repo scope and drops arbitrary imported fields', () => {
+    const result = normalizeCustomPrompts([{
+      id: 'custom-hostile-shape',
+      title: 'Hostile shape',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Safe body' },
+      repos: { includes: 'not-an-array' },
+      authority: { granted: true },
+      __proto_pollution_probe: 'inert',
+    }]);
+
+    expect(result.changed).toBe(true);
+    expect(result.prompts).toEqual([{
+      id: 'custom-hostile-shape',
+      title: 'Hostile shape',
+      sub: '',
+      cat: 'custom',
+      notes: '',
+      emoji: '✨',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Safe body' },
+      repos: [],
+    }]);
+    expect(result.prompts[0]).not.toHaveProperty('authority');
+    expect(result.prompts[0]).not.toHaveProperty('__proto_pollution_probe');
+  });
+
+  test('deduplicates and normalizes valid repo scope', () => {
+    const result = normalizeCustomPrompts([{
+      id: 'custom-repo-scope',
+      title: 'Repo scoped',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Safe body' },
+      repos: [' Bip ', 'bip', 'THINK-TANK', 42],
+    }]);
+
+    expect(result.changed).toBe(true);
+    expect(result.prompts[0].repos).toEqual(['bip', 'think-tank']);
   });
 });
