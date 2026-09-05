@@ -24,10 +24,23 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
     expect(capabilityWorkflow).not.toContain('CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}');
   });
 
-  it('keeps privileged Access admin work manual and scoped to the requested immutable target', () => {
+  it('fails closed when a manual dispatch does not prove the selected ref owns the intended exact head', () => {
+    expect(capabilityWorkflow).toContain('expected_head_sha:');
+    expect(capabilityWorkflow).toContain('EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}');
+    expect(capabilityWorkflow).toContain('name: Verify manual dispatch identity');
+    expect(capabilityWorkflow).toContain('DISPATCH_SHA: ${{ github.sha }}');
+    expect(capabilityWorkflow).toContain('if [ "$EXPECTED_HEAD_SHA" != "$DISPATCH_SHA" ]; then');
+    expect(capabilityWorkflow).toContain('Manual proof identity mismatch:');
+    expect(capabilityWorkflow).toContain("const raw = process.argv[1].trim();");
+    expect(capabilityWorkflow).toContain('base_url: ${{ steps.guard.outputs.base_url }}');
+    expect(capabilityWorkflow).toContain('needs: dispatch-identity');
+  });
+
+  it('keeps privileged Access admin work manual and scoped to the normalized immutable target', () => {
     expect(capabilityWorkflow).toContain("if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}");
     expect(capabilityWorkflow).toContain('mode: ${{ inputs.access_mode }}');
-    expect(capabilityWorkflow).toContain('target_url: ${{ inputs.base_url }}');
+    expect(capabilityWorkflow).toContain('target_url: ${{ needs.dispatch-identity.outputs.base_url }}');
+    expect(capabilityWorkflow).not.toContain('target_url: ${{ inputs.base_url }}');
     expect(capabilityWorkflow).not.toContain('github.event.pull_request.number == 143');
     expect(capabilityWorkflow).not.toContain('https://0a541f03-chief-ai.mcgill-raylene.workers.dev');
   });
