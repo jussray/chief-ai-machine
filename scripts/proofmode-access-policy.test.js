@@ -379,18 +379,25 @@ describe('ProofMode workflow credential boundaries', () => {
   it.each([
     ['ProofMode MCP', proofWorkflow, 'Run live ProofMode MCP Playwright proof'],
     ['Chief capability plan', chiefWorkflow, 'Run live Chief capability-plan Playwright proof'],
-  ])('keeps %s Access secrets behind the protected trusted-base runtime proof', (_name, workflow, liveStepName) => {
+  ])('keeps %s PR events secretless and reserves Access secrets for founder-authorized manual proof', (_name, workflow, liveStepName) => {
     expect(workflow).toContain('environment: proofmode-access-admin');
-    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha || 'main' }}");
+    expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
+    expect(workflow).toContain('PR-authored workflow code is not permitted to enter proofmode-access-admin');
+    expect(workflow).toContain('DISPATCH_ACTOR: ${{ github.actor }}');
+    expect(workflow).toContain('REPOSITORY_OWNER: ${{ github.repository_owner }}');
+    expect(workflow).toContain('github.event.pull_request.number || github.run_id');
 
-    const headCheckout = workflow.indexOf('name: Check out exact requested head');
-    const trustedCheckout = workflow.indexOf('name: Check out trusted base runtime proof source');
+    const prGate = workflow.indexOf('  pr-runtime-gate:');
+    const runtimeProof = workflow.indexOf('  runtime-proof:');
     const firstAccessSecret = workflow.indexOf('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
     const liveStep = workflow.indexOf(`name: ${liveStepName}`);
 
-    expect(headCheckout).toBeGreaterThanOrEqual(0);
-    expect(trustedCheckout).toBeGreaterThan(headCheckout);
-    expect(firstAccessSecret).toBeGreaterThan(trustedCheckout);
-    expect(liveStep).toBeGreaterThan(trustedCheckout);
+    expect(prGate).toBeGreaterThanOrEqual(0);
+    expect(runtimeProof).toBeGreaterThan(prGate);
+    expect(firstAccessSecret).toBeGreaterThan(runtimeProof);
+    expect(liveStep).toBeGreaterThan(runtimeProof);
+
+    const beforeRuntimeProof = workflow.slice(0, runtimeProof);
+    expect(beforeRuntimeProof).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
   });
 });
