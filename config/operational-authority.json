@@ -67,6 +67,7 @@
     "preMergeCandidateIntegrationId": null,
     "preMergeCandidateProducerTrust": "external-github-app-check-required",
     "preMergeCandidateWorkflowProvenance": "must-not-be-pr-authored-github-actions-only",
+    "preMergeCandidateProducerEvidence": "exact-head-check-run-app-identity-required",
     "preMergeCandidateRulesetId": 20818149,
     "preMergeCandidateRulesetName": "Chief AI main exact-head gate",
     "preMergeCandidateRulesetMustHaveNoBypassActors": true,
@@ -76,7 +77,7 @@
     "postMergeOnlyDeploymentEnvironments": [
       "Cloudflare Production"
     ],
-    "rulesetMigration": "HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed and its integration ID is recorded here; remove any post-merge-only production deployment environment from pre-merge required deployments; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only"
+    "rulesetMigration": "HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed on the exact candidate SHA and its integration ID is recorded here; require exact-head check-run app-identity evidence for that producer; remove any post-merge-only production deployment environment from pre-merge required deployments; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only"
   },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
