@@ -1,4 +1,4 @@
-/* global localStorage, navigator, window */
+/* global document, localStorage, navigator, window */
 import { test, expect } from '@playwright/test';
 
 const ORIGIN = 'http://127.0.0.1:4173';
