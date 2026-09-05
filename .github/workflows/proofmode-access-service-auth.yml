@@ -1,55 +1,158 @@
 name: ProofMode Access Service Auth Admin
 
-# Privileged Access inspection/repair is reusable-only; the trusted caller decides when a manual dispatch may invoke it.
+# ATTACK 2000 trust boundary:
+# repository_dispatch always executes the workflow from the default branch.
+# Candidate refs may never call this workflow or receive protected provider secrets.
 on:
-  workflow_call:
-    inputs:
-      mode:
-        description: "Check or repair the specific ProofMode CI Service Auth policy"
-        required: true
-        type: string
-      target_url:
-        description: "Exact immutable Chief preview origin to inspect"
-        required: true
-        type: string
+  repository_dispatch:
+    types: [proofmode_access_admin]
 
 permissions:
   contents: read
 
 concurrency:
-  group: proofmode-access-service-auth-admin-${{ github.ref }}
+  group: proofmode-access-service-auth-admin
   cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  access-policy:
-    name: Verify or repair ProofMode Access Service Auth
+  dispatch-identity:
+    name: Verify trusted admin dispatch identity
     runs-on: ubuntu-22.04
-    timeout-minutes: 5
-    environment: proofmode-access-admin
+    timeout-minutes: 3
+    outputs:
+      mode: ${{ steps.guard.outputs.mode }}
+      target_url: ${{ steps.guard.outputs.target_url }}
     steps:
-      - name: Check out immutable admin workflow source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
-          persist-credentials: false
-
-      - name: Record trusted admin source
+      - name: Bind dispatch to current protected main
+        id: guard
         shell: bash
         env:
-          TRUSTED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
-          TRUSTED_WORKFLOW_SHA: ${{ job.workflow_sha }}
-          TRUSTED_WORKFLOW_REF: ${{ job.workflow_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.sha }}
+          EXPECTED_MAIN_SHA: ${{ github.event.client_payload.expected_main_sha }}
+          REQUESTED_MODE: ${{ github.event.client_payload.mode }}
+          REQUESTED_TARGET_URL: ${{ github.event.client_payload.target_url }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" != "repository_dispatch" ] || [ "$EVENT_REF" != "refs/heads/main" ]; then
+            printf 'Privileged Access administration must execute from default-branch repository_dispatch. event=%s ref=%s\n' "$EVENT_NAME" "$EVENT_REF" >&2
+            exit 1
+          fi
+
+          if ! printf '%s' "$EXPECTED_MAIN_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            printf 'expected_main_sha must be an exact 40-character commit SHA.\n' >&2
+            exit 1
+          fi
+          if [ "$EXPECTED_MAIN_SHA" != "$WORKFLOW_SHA" ]; then
+            printf 'Privileged source is stale: expected_main=%s workflow_sha=%s.\n' "$EXPECTED_MAIN_SHA" "$WORKFLOW_SHA" >&2
+            exit 1
+          fi
+
+          current="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const data = JSON.parse(raw);
+                process.stdout.write(data?.commit?.sha || "");
+              });
+            ')"
+          if [ -z "$current" ] || [ "$current" != "$WORKFLOW_SHA" ]; then
+            printf 'Privileged source no longer equals current main: workflow_sha=%s current_main=%s.\n' "$WORKFLOW_SHA" "$current" >&2
+            exit 1
+          fi
+
+          case "$REQUESTED_MODE" in
+            check) ;;
+            repair)
+              if [ "$DISPATCH_ACTOR" != "$REPOSITORY_OWNER" ]; then
+                printf 'Access repair is repository-owner only: actor=%s owner=%s.\n' "$DISPATCH_ACTOR" "$REPOSITORY_OWNER" >&2
+                exit 1
+              fi
+              ;;
+            *)
+              printf 'mode must be check or repair.\n' >&2
+              exit 1
+              ;;
+          esac
+
+          normalized="$(node -e '
+            const raw = process.argv[1]?.trim() || "";
+            try {
+              const url = new URL(raw);
+              const host = url.hostname.toLowerCase();
+              if (
+                url.protocol !== "https:"
+                || url.username
+                || url.password
+                || url.search
+                || url.hash
+                || url.pathname !== "/"
+                || !/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host)
+              ) process.exit(1);
+              process.stdout.write(url.origin);
+            } catch {
+              process.exit(1);
+            }
+          ' "$REQUESTED_TARGET_URL")" || {
+            printf 'target_url must be one immutable Chief workers.dev preview origin.\n' >&2
+            exit 1
+          }
+
+          printf 'mode=%s\n' "$REQUESTED_MODE" >> "$GITHUB_OUTPUT"
+          printf 'target_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
+          printf 'Trusted admin dispatch bound to current main %s; mode=%s actor=%s.\n' "$WORKFLOW_SHA" "$REQUESTED_MODE" "$DISPATCH_ACTOR"
+
+  access-policy:
+    name: Verify or repair ProofMode Access Service Auth
+    needs: dispatch-identity
+    runs-on: ubuntu-22.04
+    timeout-minutes: 7
+    environment: proofmode-access-admin
+    steps:
+      - name: Check out exact trusted main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Reconfirm trusted source before provider access
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           actual="$(git rev-parse HEAD)"
-          printf 'trusted_admin_workflow=%s\ntrusted_admin_source=%s\ntrusted_admin_ref=%s\n' \
-            "$TRUSTED_WORKFLOW_REPOSITORY" "$actual" "$TRUSTED_WORKFLOW_REF"
-          test "$TRUSTED_WORKFLOW_REPOSITORY" = "$GITHUB_REPOSITORY"
-          test -n "$TRUSTED_WORKFLOW_SHA"
-          test "$actual" = "$TRUSTED_WORKFLOW_SHA"
+          test "$actual" = "$GITHUB_SHA"
+          current="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const data = JSON.parse(raw);
+                process.stdout.write(data?.commit?.sha || "");
+              });
+            ')"
+          if [ "$current" != "$GITHUB_SHA" ]; then
+            printf 'Main moved before provider access: workflow_sha=%s current_main=%s.\n' "$GITHUB_SHA" "$current" >&2
+            exit 1
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -59,8 +162,8 @@ jobs:
       - name: Check or repair exact Service Auth policy
         shell: bash
         env:
-          PROOFMODE_ACCESS_MODE: ${{ inputs.mode }}
-          PROOFMODE_ACCESS_TARGET_URL: ${{ inputs.target_url }}
+          PROOFMODE_ACCESS_MODE: ${{ needs.dispatch-identity.outputs.mode }}
+          PROOFMODE_ACCESS_TARGET_URL: ${{ needs.dispatch-identity.outputs.target_url }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_ACCESS_ADMIN_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_ADMIN_API_TOKEN }}
           CLOUDFLARE_WORKERS_READ_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_READ_API_TOKEN }}
