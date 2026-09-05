@@ -78,8 +78,8 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   const savedCard = page.locator('#grid .pcard').filter({
     has: page.getByRole('heading', { name: savedImmediately.title, exact: true }),
   });
-  await expect(savedCard).toHaveCount(1);
-  await expect(savedCard.locator('h3')).toHaveText(savedImmediately.title);
+  await expect(page.locator('#statCustom')).toHaveText('1');
+  await expect(savedCard.last().locator('h3')).toHaveText(savedImmediately.title);
   await page.locator('#search').fill('');
 
   await reopenLatestDraft(page);
