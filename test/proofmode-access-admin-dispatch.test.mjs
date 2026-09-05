@@ -22,7 +22,7 @@ const operationalAuthority = JSON.parse(readFileSync(
   'utf8',
 ));
 
-const TRUSTED_ADMIN_SHA = '988e2ac70d5d8d0c1988a373aae419c2f9b63b59';
+const TRUSTED_ADMIN_SHA = 'c1acda4363099b7233d5857e8d2e4c97163ef42d';
 const TRUSTED_ADMIN_CALL = `uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@${TRUSTED_ADMIN_SHA}`;
 
 describe('ProofMode Access admin dispatch bootstrap', () => {
@@ -125,6 +125,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
       preMergeCandidateIntegrationId: null,
       preMergeCandidateProducerTrust: 'external-github-app-check-required',
       preMergeCandidateWorkflowProvenance: 'must-not-be-pr-authored-github-actions-only',
+      preMergeCandidateProducerEvidence: 'exact-head-check-run-app-identity-required',
       preMergeCandidateRulesetId: 20818149,
       preMergeCandidateRulesetName: 'Chief AI main exact-head gate',
       preMergeCandidateRulesetMustHaveNoBypassActors: true,
@@ -132,7 +133,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
       postMergeProductionContext: 'Verify production ProofMode MCP with Playwright',
       postMergeProductionScope: 'current-main canonical-production exact-SHA Playwright proof',
       postMergeOnlyDeploymentEnvironments: ['Cloudflare Production'],
-      rulesetMigration: 'HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed and its integration ID is recorded here; remove any post-merge-only production deployment environment from pre-merge required deployments; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only',
+      rulesetMigration: 'HOLD: do not install the candidate ProofMode status requirement until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed on the exact candidate SHA and its integration ID is recorded here; require exact-head check-run app-identity evidence for that producer; remove any post-merge-only production deployment environment from pre-merge required deployments; then remove both legacy pre-merge ProofMode requirements from governance boundary, require the externally produced candidate runtime context in Chief AI main exact-head gate (ruleset 20818149), keep zero bypass actors, and keep production verification post-merge/main-only',
     });
   });
 });
