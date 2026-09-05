@@ -144,6 +144,31 @@ describe('ProofMode account-wide Cloudflare Access observation', () => {
     });
   });
 
+  it('keeps renamed preview_worker identity ahead of account-wide scope without relying on app display name', async () => {
+    const apps = [
+      {
+        id: 'app-specific-preview-renamed',
+        name: 'Renamed by administrator',
+        destinations: [{ type: 'preview_worker', worker_id: 'chief-ai' }],
+      },
+      {
+        id: 'app-all-preview',
+        name: 'Protect all Worker previews',
+        destinations: [{ type: 'all_preview_workers' }],
+      },
+    ];
+    const { fetchImpl } = cloudflareFixture({
+      apps,
+      policiesByApp: { 'app-specific-preview-renamed': [EXACT_POLICY] },
+    });
+
+    await expect(ensureProofModeAccessPolicy(input(fetchImpl))).resolves.toMatchObject({
+      appId: 'app-specific-preview-renamed',
+      scope: 'preview_worker',
+      changed: false,
+    });
+  });
+
   it('keeps all_preview_workers ahead of all_workers for immutable preview traffic', async () => {
     const apps = [
       {
