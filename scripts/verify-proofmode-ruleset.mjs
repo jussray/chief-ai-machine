@@ -99,15 +99,15 @@ export function validateProofModeRulesetMigration({
 
   const requiredByRuleset = activeDefaultBranchRulesets.map((ruleset) => {
     const checks = requiredStatusChecks(ruleset);
-    const bypassActorCount = Array.isArray(ruleset?.bypass_actors)
-      ? ruleset.bypass_actors.length
-      : null;
+    const bypassActorsObservable = Array.isArray(ruleset?.bypass_actors);
+    const bypassActorCount = bypassActorsObservable ? ruleset.bypass_actors.length : null;
     return {
       id: ruleset.id ?? null,
       name: clean(ruleset.name) || null,
       contexts: [...new Set(checks.map((check) => check.context))],
       checks,
       bypassActorCount,
+      bypassActorState: bypassActorsObservable ? 'observed' : 'unobservable',
     };
   });
 
@@ -132,6 +132,7 @@ export function validateProofModeRulesetMigration({
         name: ruleset.name,
         integrationId: check.integrationId,
         bypassActorCount: ruleset.bypassActorCount,
+        bypassActorState: ruleset.bypassActorState,
       }))
   ));
 
@@ -179,8 +180,21 @@ export function validateProofModeRulesetMigration({
     });
   }
 
+  const unobservableBypassOccurrences = candidateMustHaveNoBypassActors
+    ? authoritativeOccurrences.filter((entry) => entry.bypassActorCount === null)
+    : [];
+  if (unobservableBypassOccurrences.length > 0) {
+    violations.push({
+      classification: 'candidate-proofmode-bypass-state-unobservable',
+      context: candidateContext,
+      expectedRulesetId: candidateRulesetId,
+      reason: 'ruleset response did not expose bypass_actors; trusted administration readback is required',
+      observed: unobservableBypassOccurrences,
+    });
+  }
+
   const bypassableOccurrences = candidateMustHaveNoBypassActors
-    ? authoritativeOccurrences.filter((entry) => entry.bypassActorCount !== 0)
+    ? authoritativeOccurrences.filter((entry) => Number.isInteger(entry.bypassActorCount) && entry.bypassActorCount > 0)
     : [];
   if (bypassableOccurrences.length > 0) {
     violations.push({
@@ -271,13 +285,17 @@ export async function writeProofModeRulesetReport({
     schemaVersion: 1,
     project: config?.project || null,
     repository: repo,
-    observedRulesets: rulesets.map((ruleset) => ({
-      id: ruleset?.id ?? null,
-      name: clean(ruleset?.name) || null,
-      enforcement: clean(ruleset?.enforcement) || null,
-      target: clean(ruleset?.target) || null,
-      bypassActorCount: Array.isArray(ruleset?.bypass_actors) ? ruleset.bypass_actors.length : null,
-    })),
+    observedRulesets: rulesets.map((ruleset) => {
+      const bypassActorsObservable = Array.isArray(ruleset?.bypass_actors);
+      return {
+        id: ruleset?.id ?? null,
+        name: clean(ruleset?.name) || null,
+        enforcement: clean(ruleset?.enforcement) || null,
+        target: clean(ruleset?.target) || null,
+        bypassActorCount: bypassActorsObservable ? ruleset.bypass_actors.length : null,
+        bypassActorState: bypassActorsObservable ? 'observed' : 'unobservable',
+      };
+    }),
     ...validation,
   };
 
