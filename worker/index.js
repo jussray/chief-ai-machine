@@ -1,7 +1,7 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleProofModeMcp } from './proofmode-mcp.js';
+import { handleChiefMcp } from './chief-mcp.js';
 
 function getReleaseSha(env) {
   const candidates = [
@@ -31,7 +31,7 @@ export default {
     }
 
     if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request, env);
+      return handleChiefMcp(request, env);
     }
 
     if (url.pathname === '/api/chief/capability-plan') {
