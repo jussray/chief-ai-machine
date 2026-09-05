@@ -7,6 +7,16 @@ const workflow = readFileSync(
   'utf8',
 );
 
+const capabilityWorkflow = readFileSync(
+  resolve(process.cwd(), '.github/workflows/chief-capability-plan-playwright.yml'),
+  'utf8',
+);
+
+const governanceWorkflow = readFileSync(
+  resolve(process.cwd(), '.github/workflows/governance-boundary-required-receipts.yml'),
+  'utf8',
+);
+
 const productionWorkflow = readFileSync(
   resolve(process.cwd(), '.github/workflows/proofmode-production-playwright.yml'),
   'utf8',
@@ -31,6 +41,30 @@ describe('ProofMode required-check contract', () => {
     expect(workflow).toContain('git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA"');
     expect(workflow).toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
     expect(workflow).toContain('fetch-depth: 0');
+  });
+
+  it('keeps Cloudflare Access credentials out of pull-request-authored proof jobs', () => {
+    const privilegedOnlyId = "CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}";
+    const privilegedOnlySecret = "CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}";
+    const unsafeId = 'CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}';
+    const unsafeSecret = 'CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}';
+
+    for (const candidate of [workflow, capabilityWorkflow, governanceWorkflow]) {
+      expect(candidate).toContain(privilegedOnlyId);
+      expect(candidate).toContain(privilegedOnlySecret);
+      expect(candidate).not.toContain(unsafeId);
+      expect(candidate).not.toContain(unsafeSecret);
+    }
+  });
+
+  it('classifies Access interception without telling PR runs to configure secrets', () => {
+    for (const candidate of [workflow, capabilityWorkflow]) {
+      expect(candidate).toContain('privileged service auth is intentionally unavailable on pull_request');
+      expect(candidate).toContain('Cloudflare Access rejected the configured service token');
+      expect(candidate).not.toContain('configure the service-token secret pair for this repository/environment');
+    }
+    expect(governanceWorkflow).toContain('privileged service auth is intentionally unavailable on pull_request');
+    expect(governanceWorkflow).toContain('configured service token was not accepted by the effective Access policy');
   });
 
   it('keeps production ProofMode verification post-merge only', () => {
