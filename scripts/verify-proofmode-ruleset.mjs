@@ -18,22 +18,37 @@ export function rulesetTargetsDefaultBranch(ruleset, defaultBranch = 'main') {
   return include.includes('~DEFAULT_BRANCH') || include.includes(exactRef);
 }
 
-export function requiredStatusContexts(ruleset) {
+export function requiredStatusChecks(ruleset) {
   const rules = Array.isArray(ruleset?.rules) ? ruleset.rules : [];
-  const contexts = [];
+  const checks = [];
 
   for (const rule of rules) {
     if (rule?.type !== 'required_status_checks') continue;
-    const checks = Array.isArray(rule?.parameters?.required_status_checks)
+    const required = Array.isArray(rule?.parameters?.required_status_checks)
       ? rule.parameters.required_status_checks
       : [];
-    for (const check of checks) {
+    for (const check of required) {
       const context = clean(check?.context);
-      if (context) contexts.push(context);
+      if (!context) continue;
+      const integrationId = Number(check?.integration_id);
+      checks.push({
+        context,
+        integrationId: Number.isSafeInteger(integrationId) && integrationId > 0 ? integrationId : null,
+      });
     }
   }
 
-  return [...new Set(contexts)];
+  const seen = new Set();
+  return checks.filter((check) => {
+    const key = `${check.context}\u0000${check.integrationId ?? 'unbound'}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function requiredStatusContexts(ruleset) {
+  return [...new Set(requiredStatusChecks(ruleset).map((check) => check.context))];
 }
 
 export function validateProofModeRulesetMigration({
@@ -49,6 +64,8 @@ export function validateProofModeRulesetMigration({
     ? semantics.legacyPreMergeProofModeContexts.map(clean).filter(Boolean)
     : [];
   const candidateContext = clean(semantics?.preMergeCandidateContext);
+  const candidateIntegrationId = Number(semantics?.preMergeCandidateIntegrationId);
+  const candidateIntegrationValid = Number.isSafeInteger(candidateIntegrationId) && candidateIntegrationId > 0;
   const violations = [];
 
   if (activeDefaultBranchRulesets.length === 0) {
@@ -59,19 +76,24 @@ export function validateProofModeRulesetMigration({
     });
   }
 
-  if (legacyContexts.length === 0 || !candidateContext) {
+  if (legacyContexts.length === 0 || !candidateContext || !candidateIntegrationValid) {
     violations.push({
       classification: 'proofmode-ruleset-contract-incomplete',
       legacyContexts,
       candidateContext: candidateContext || null,
+      candidateIntegrationId: candidateIntegrationValid ? candidateIntegrationId : null,
     });
   }
 
-  const requiredByRuleset = activeDefaultBranchRulesets.map((ruleset) => ({
-    id: ruleset.id ?? null,
-    name: clean(ruleset.name) || null,
-    contexts: requiredStatusContexts(ruleset),
-  }));
+  const requiredByRuleset = activeDefaultBranchRulesets.map((ruleset) => {
+    const checks = requiredStatusChecks(ruleset);
+    return {
+      id: ruleset.id ?? null,
+      name: clean(ruleset.name) || null,
+      contexts: [...new Set(checks.map((check) => check.context))],
+      checks,
+    };
+  });
 
   for (const legacyContext of legacyContexts) {
     const blockers = requiredByRuleset
@@ -86,20 +108,46 @@ export function validateProofModeRulesetMigration({
     }
   }
 
-  const candidateRulesets = requiredByRuleset
-    .filter((ruleset) => ruleset.contexts.includes(candidateContext))
-    .map(({ id, name }) => ({ id, name }));
-  if (candidateContext && candidateRulesets.length === 0) {
+  const candidateOccurrences = requiredByRuleset.flatMap((ruleset) => (
+    ruleset.checks
+      .filter((check) => check.context === candidateContext)
+      .map((check) => ({
+        id: ruleset.id,
+        name: ruleset.name,
+        integrationId: check.integrationId,
+      }))
+  ));
+
+  if (candidateContext && candidateOccurrences.length === 0) {
     violations.push({
       classification: 'candidate-proofmode-context-not-required',
       context: candidateContext,
     });
   }
 
+  const integrationMismatches = candidateIntegrationValid
+    ? candidateOccurrences.filter((entry) => entry.integrationId !== candidateIntegrationId)
+    : [];
+  if (integrationMismatches.length > 0) {
+    violations.push({
+      classification: 'candidate-proofmode-integration-mismatch',
+      context: candidateContext,
+      expectedIntegrationId: candidateIntegrationId,
+      observed: integrationMismatches,
+    });
+  }
+
+  const candidateRulesets = candidateIntegrationValid
+    ? candidateOccurrences
+      .filter((entry) => entry.integrationId === candidateIntegrationId)
+      .map(({ id, name }) => ({ id, name }))
+    : [];
+
   return {
     defaultBranch,
     legacyContexts,
     candidateContext: candidateContext || null,
+    candidateIntegrationId: candidateIntegrationValid ? candidateIntegrationId : null,
     activeDefaultBranchRulesets: requiredByRuleset,
     candidateRulesets,
     violations,
