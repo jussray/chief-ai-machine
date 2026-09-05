@@ -50,7 +50,7 @@ describe('ProofMode Access admin dispatch bootstrap', () => {
       'CLOUDFLARE_ACCESS_ADMIN_API_TOKEN',
       'CLOUDFLARE_ACCESS_CLIENT_ID',
     ]) {
-      expect(accessAdminWorkflow).toContain(`${secret}: ${{ secrets.${secret} }}`);
+      expect(accessAdminWorkflow).toContain(`${secret}: \${{ secrets.${secret} }}`);
     }
     expect(accessAdminWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
   });
