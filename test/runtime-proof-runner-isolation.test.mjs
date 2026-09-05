@@ -7,27 +7,39 @@ const workflows = [
 ];
 
 describe('credential-bearing runtime proof runner isolation', () => {
-  it.each(workflows)('%s keeps PR-head execution and Access secrets in separate jobs', (_name, relativePath) => {
+  it.each(workflows)('%s keeps PR execution secretless and privileged runtime proof manual-only', (_name, relativePath) => {
     const workflow = readFileSync(new globalThis.URL(relativePath, import.meta.url), 'utf8');
     const sourceStart = workflow.indexOf('  source-contract:');
+    const prGateStart = workflow.indexOf('  pr-runtime-gate:');
     const runtimeStart = workflow.indexOf('  runtime-proof:');
-    const sourceSection = workflow.slice(sourceStart, runtimeStart);
+    const sourceSection = workflow.slice(sourceStart, prGateStart);
+    const prGateSection = workflow.slice(prGateStart, runtimeStart);
     const runtimeSection = workflow.slice(runtimeStart);
 
     expect(sourceStart).toBeGreaterThanOrEqual(0);
-    expect(runtimeStart).toBeGreaterThan(sourceStart);
+    expect(prGateStart).toBeGreaterThan(sourceStart);
+    expect(runtimeStart).toBeGreaterThan(prGateStart);
+
     expect(sourceSection).toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
     expect(sourceSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(sourceSection).not.toContain('environment: proofmode-access-admin');
 
-    expect(runtimeSection).toMatch(/needs:(?: source-contract|\n(?:\s+- [^\n]+\n)*\s+- source-contract)/);
+    expect(prGateSection).toContain("github.event_name == 'pull_request'");
+    expect(prGateSection).toContain('PR-authored workflow code is not permitted to enter proofmode-access-admin');
+    expect(prGateSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+    expect(prGateSection).not.toContain('environment: proofmode-access-admin');
+
+    expect(runtimeSection).toMatch(/needs:\n(?:\s+- [^\n]+\n)*\s+- source-contract/);
+    expect(runtimeSection).toContain("github.event_name == 'workflow_dispatch'");
     expect(runtimeSection).toContain('environment: proofmode-access-admin');
-    expect(runtimeSection).toContain("ref: ${{ github.event.pull_request.base.sha || 'main' }}");
+    expect(runtimeSection).toContain('TRUSTED_BASE_SHA');
+    expect(runtimeSection).toContain('ref: ${{ env.TRUSTED_BASE_SHA }}');
+    expect(runtimeSection).toContain('Reacquire current main before privileged');
     expect(runtimeSection).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
 
-    const trustedCheckout = runtimeSection.indexOf('name: Check out trusted base runtime proof source');
-    const firstShell = runtimeSection.indexOf('shell: bash');
+    const trustedCheckout = runtimeSection.search(/name: Check out immutable trusted .*browser-proof source/);
+    const firstAccessSecret = runtimeSection.indexOf('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
     expect(trustedCheckout).toBeGreaterThanOrEqual(0);
-    expect(firstShell).toBeGreaterThan(trustedCheckout);
+    expect(firstAccessSecret).toBeGreaterThan(trustedCheckout);
   });
 });
