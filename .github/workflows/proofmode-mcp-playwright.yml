@@ -64,6 +64,11 @@ jobs:
                   reason=proofmode-runtime-path-changed
                   break
                   ;;
+                .github/workflows/proofmode-mcp-playwright.yml|.github/workflows/proofmode-production-playwright.yml)
+                  applicable=true
+                  reason=proofmode-proof-workflow-changed
+                  break
+                  ;;
               esac
             done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
           fi
