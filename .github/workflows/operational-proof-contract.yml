@@ -46,16 +46,23 @@ jobs:
         run: npm ci
 
       - name: Test operational contracts
-        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs
+        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs
 
       - name: Enforce immutable workflow authority
         run: node scripts/verify-operational-authority.mjs
 
-      - name: Retain operational authority receipt
+      - name: Observe live GitHub ProofMode ruleset authority
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verify-proofmode-ruleset.mjs
+
+      - name: Retain operational authority receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: operational-authority-${{ env.EXPECTED_HEAD_SHA }}
-          path: artifacts/operational-authority-report.json
+          path: |
+            artifacts/operational-authority-report.json
+            artifacts/proofmode-ruleset-report.json
           if-no-files-found: error
           retention-days: 30
