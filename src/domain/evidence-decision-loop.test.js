@@ -59,4 +59,73 @@ describe('Evidence Decision Loop v1', () => {
     expect(result.selfAuthorize).toBe(false);
     expect(result.founderReviewRequired).toBe(true);
   });
+
+  it('treats a different answer as an investigation trigger instead of an automatic error', () => {
+    const result = evaluateEvidenceDecision({
+      subjectFingerprint: fingerprint,
+      evidence: [evidence('execution')],
+      divergence: {
+        observed: true,
+        assumptions: ['The request uses a different definition of success.'],
+        falsifier: 'Primary-source evidence proves both parties used the same definition.',
+      },
+    });
+
+    expect(result.divergence.disposition).toBe('TEST_ALTERNATIVE');
+    expect(result.divergence.reconstructable).toBe(true);
+    expect(result.recommendation).toBe('INVESTIGATE_DIVERGENCE');
+    expect(result.invariants.differenceIsNotAutomaticallyError).toBe(true);
+  });
+
+  it('does not upgrade an alternative reasoning path without verified resolution evidence', () => {
+    const result = evaluateEvidenceDecision({
+      subjectFingerprint: fingerprint,
+      divergence: {
+        observed: true,
+        assumptions: ['A hidden variable changes the applicable rule.'],
+        falsifier: 'The hidden variable is absent.',
+        resolution: 'candidate',
+        resolutionEvidence: [{ state: 'OBSERVED', ref: 'https://example.com/observation' }],
+      },
+    });
+
+    expect(result.divergence.disposition).toBe('TEST_ALTERNATIVE');
+    expect(result.divergence.resolution).toBe('unresolved');
+    expect(result.divergence.verifiedResolution).toBe(false);
+  });
+
+  it('allows verified evidence to resolve divergence without self-authorizing action', () => {
+    const result = evaluateEvidenceDecision({
+      subjectFingerprint: fingerprint,
+      divergence: {
+        observed: true,
+        assumptions: ['A hidden variable changes the applicable rule.'],
+        falsifier: 'The hidden variable is absent.',
+        resolution: 'both-contextual',
+        resolutionEvidence: [{ state: 'VERIFIED', ref: 'https://example.com/primary-proof' }],
+      },
+      consequentialAction: true,
+    });
+
+    expect(result.divergence.disposition).toBe('RESOLVED');
+    expect(result.divergence.resolution).toBe('both-contextual');
+    expect(result.selfAuthorize).toBe(false);
+    expect(result.founderReviewRequired).toBe(true);
+  });
+
+  it('rejects reasoning paths that attempt to cross safety or authority boundaries', () => {
+    const result = evaluateEvidenceDecision({
+      subjectFingerprint: fingerprint,
+      divergence: {
+        observed: true,
+        assumptions: ['Bypassing the authority check would make the candidate answer work.'],
+        falsifier: 'The authority boundary is actually optional.',
+        authorityViolation: true,
+      },
+    });
+
+    expect(result.divergence.disposition).toBe('REJECTED_BOUNDARY');
+    expect(result.divergence.boundaryBlocked).toBe(true);
+    expect(result.invariants.safetyAndAuthorityCannotBeReasonedAround).toBe(true);
+  });
 });
