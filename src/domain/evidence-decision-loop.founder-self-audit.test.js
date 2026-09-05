@@ -35,6 +35,7 @@ function reviewInput(overrides = {}) {
     founderActor: founder,
     lastPusher: founder,
     founderAuthorityExplicit: true,
+    founderAuthorityHeadSha: head,
     ...overrides,
   };
 }
@@ -91,13 +92,73 @@ describe('Founder Self-Audit exact-head gate', () => {
         allowedMergeMethods: ['squash', 'rebase'],
       },
       founderSelfAudit: acceptedFounderAudit(),
-      independentApproval: { approved: true, reviewer: founder },
+      independentApproval: { approved: true, reviewer: founder, reviewedHeadSha: head },
     }));
 
     expect(result.founderSelfAuditSatisfied).toBe(true);
     expect(result.independentApprovalSatisfied).toBe(false);
     expect(result.disposition).toBe('WAIT_INDEPENDENT_APPROVAL');
     expect(result.mergeAllowed).toBe(false);
+  });
+
+  it('expires founder merge authority after head movement', () => {
+    const result = evaluateMergeReview(reviewInput({
+      founderSelfAudit: acceptedFounderAudit(),
+      founderAuthorityHeadSha: 'old-head',
+    }));
+
+    expect(result.founderAuthorityHeadMatches).toBe(false);
+    expect(result.founderAuthoritySatisfied).toBe(false);
+    expect(result.disposition).toBe('WAIT_FOUNDER_AUTHORITY');
+    expect(result.mergeAllowed).toBe(false);
+  });
+
+  it('expires independent last-push approval after head movement', () => {
+    const result = evaluateMergeReview(reviewInput({
+      rules: {
+        founderSelfAuditRequired: true,
+        codeScanningRequired: false,
+        requireLastPushApproval: true,
+        requiredLinearHistory: true,
+        allowedMergeMethods: ['squash', 'rebase'],
+      },
+      founderSelfAudit: acceptedFounderAudit(),
+      independentApproval: {
+        approved: true,
+        reviewer: 'independent-reviewer',
+        reviewedHeadSha: 'old-head',
+      },
+    }));
+
+    expect(result.independentApprovalHeadMatches).toBe(false);
+    expect(result.independentApprovalSatisfied).toBe(false);
+    expect(result.disposition).toBe('WAIT_INDEPENDENT_APPROVAL');
+    expect(result.mergeAllowed).toBe(false);
+  });
+
+  it('accepts independent last-push approval only when it is bound to the current head', () => {
+    const result = evaluateMergeReview(reviewInput({
+      rules: {
+        founderSelfAuditRequired: true,
+        codeScanningRequired: false,
+        requireLastPushApproval: true,
+        requiredLinearHistory: true,
+        allowedMergeMethods: ['squash', 'rebase'],
+      },
+      founderSelfAudit: acceptedFounderAudit(),
+      independentApproval: {
+        approved: true,
+        reviewer: 'independent-reviewer',
+        reviewedHeadSha: head,
+      },
+    }));
+
+    expect(result.independentApprovalHeadMatches).toBe(true);
+    expect(result.independentApprovalSatisfied).toBe(true);
+    expect(result.founderAuthorityHeadMatches).toBe(true);
+    expect(result.founderAuthoritySatisfied).toBe(true);
+    expect(result.disposition).toBe('READY');
+    expect(result.mergeAllowed).toBe(true);
   });
 
   it('treats REVISE or HOLD as a failed self-audit gate even when every evidence checkbox is true', () => {
