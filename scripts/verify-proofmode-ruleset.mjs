@@ -66,6 +66,10 @@ export function validateProofModeRulesetMigration({
   const candidateContext = clean(semantics?.preMergeCandidateContext);
   const candidateIntegrationId = Number(semantics?.preMergeCandidateIntegrationId);
   const candidateIntegrationValid = Number.isSafeInteger(candidateIntegrationId) && candidateIntegrationId > 0;
+  const candidateRulesetId = Number(semantics?.preMergeCandidateRulesetId);
+  const candidateRulesetValid = Number.isSafeInteger(candidateRulesetId) && candidateRulesetId > 0;
+  const candidateRulesetName = clean(semantics?.preMergeCandidateRulesetName) || null;
+  const candidateMustHaveNoBypassActors = semantics?.preMergeCandidateRulesetMustHaveNoBypassActors === true;
   const violations = [];
 
   if (activeDefaultBranchRulesets.length === 0) {
@@ -76,22 +80,34 @@ export function validateProofModeRulesetMigration({
     });
   }
 
-  if (legacyContexts.length === 0 || !candidateContext || !candidateIntegrationValid) {
+  if (
+    legacyContexts.length === 0
+    || !candidateContext
+    || !candidateIntegrationValid
+    || !candidateRulesetValid
+    || !candidateMustHaveNoBypassActors
+  ) {
     violations.push({
       classification: 'proofmode-ruleset-contract-incomplete',
       legacyContexts,
       candidateContext: candidateContext || null,
       candidateIntegrationId: candidateIntegrationValid ? candidateIntegrationId : null,
+      candidateRulesetId: candidateRulesetValid ? candidateRulesetId : null,
+      candidateRulesetMustHaveNoBypassActors: candidateMustHaveNoBypassActors,
     });
   }
 
   const requiredByRuleset = activeDefaultBranchRulesets.map((ruleset) => {
     const checks = requiredStatusChecks(ruleset);
+    const bypassActorCount = Array.isArray(ruleset?.bypass_actors)
+      ? ruleset.bypass_actors.length
+      : null;
     return {
       id: ruleset.id ?? null,
       name: clean(ruleset.name) || null,
       contexts: [...new Set(checks.map((check) => check.context))],
       checks,
+      bypassActorCount,
     };
   });
 
@@ -115,6 +131,7 @@ export function validateProofModeRulesetMigration({
         id: ruleset.id,
         name: ruleset.name,
         integrationId: check.integrationId,
+        bypassActorCount: ruleset.bypassActorCount,
       }))
   ));
 
@@ -137,9 +154,49 @@ export function validateProofModeRulesetMigration({
     });
   }
 
-  const candidateRulesets = candidateIntegrationValid
-    ? candidateOccurrences
-      .filter((entry) => entry.integrationId === candidateIntegrationId)
+  const rulesetMismatches = candidateRulesetValid
+    ? candidateOccurrences.filter((entry) => entry.id !== candidateRulesetId)
+    : [];
+  if (rulesetMismatches.length > 0) {
+    violations.push({
+      classification: 'candidate-proofmode-ruleset-mismatch',
+      context: candidateContext,
+      expectedRulesetId: candidateRulesetId,
+      expectedRulesetName: candidateRulesetName,
+      observed: rulesetMismatches,
+    });
+  }
+
+  const authoritativeOccurrences = candidateRulesetValid
+    ? candidateOccurrences.filter((entry) => entry.id === candidateRulesetId)
+    : [];
+  if (candidateContext && candidateRulesetValid && authoritativeOccurrences.length === 0) {
+    violations.push({
+      classification: 'candidate-proofmode-authoritative-ruleset-not-required',
+      context: candidateContext,
+      expectedRulesetId: candidateRulesetId,
+      expectedRulesetName: candidateRulesetName,
+    });
+  }
+
+  const bypassableOccurrences = candidateMustHaveNoBypassActors
+    ? authoritativeOccurrences.filter((entry) => entry.bypassActorCount !== 0)
+    : [];
+  if (bypassableOccurrences.length > 0) {
+    violations.push({
+      classification: 'candidate-proofmode-ruleset-bypassable',
+      context: candidateContext,
+      expectedRulesetId: candidateRulesetId,
+      observed: bypassableOccurrences,
+    });
+  }
+
+  const candidateRulesets = candidateIntegrationValid && candidateRulesetValid
+    ? authoritativeOccurrences
+      .filter((entry) => (
+        entry.integrationId === candidateIntegrationId
+        && entry.bypassActorCount === 0
+      ))
       .map(({ id, name }) => ({ id, name }))
     : [];
 
@@ -148,6 +205,9 @@ export function validateProofModeRulesetMigration({
     legacyContexts,
     candidateContext: candidateContext || null,
     candidateIntegrationId: candidateIntegrationValid ? candidateIntegrationId : null,
+    candidateRulesetId: candidateRulesetValid ? candidateRulesetId : null,
+    candidateRulesetName,
+    candidateRulesetMustHaveNoBypassActors: candidateMustHaveNoBypassActors,
     activeDefaultBranchRulesets: requiredByRuleset,
     candidateRulesets,
     violations,
@@ -216,6 +276,7 @@ export async function writeProofModeRulesetReport({
       name: clean(ruleset?.name) || null,
       enforcement: clean(ruleset?.enforcement) || null,
       target: clean(ruleset?.target) || null,
+      bypassActorCount: Array.isArray(ruleset?.bypass_actors) ? ruleset.bypass_actors.length : null,
     })),
     ...validation,
   };
