@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -46,15 +47,27 @@ jobs:
         run: npm ci
 
       - name: Test operational contracts
-        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs
+        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-candidate-producer-evidence.test.mjs
 
       - name: Enforce immutable workflow authority
         run: node scripts/verify-operational-authority.mjs
 
-      - name: Observe live GitHub ProofMode ruleset authority
+      - name: Observe live governance and candidate producer authority
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/verify-proofmode-ruleset.mjs
+        run: |
+          set +e
+          node scripts/verify-proofmode-ruleset.mjs
+          ruleset_status=$?
+          node scripts/verify-candidate-producer-evidence.mjs
+          producer_status=$?
+          set -e
+
+          if [ "$ruleset_status" -ne 0 ] || [ "$producer_status" -ne 0 ]; then
+            printf 'Operational authority remains blocked: ruleset_status=%s producer_status=%s\n' "$ruleset_status" "$producer_status" >&2
+            exit 1
+          fi
 
       - name: Retain operational authority receipts
         if: always()
@@ -64,5 +77,6 @@ jobs:
           path: |
             artifacts/operational-authority-report.json
             artifacts/proofmode-ruleset-report.json
+            artifacts/candidate-producer-evidence-report.json
           if-no-files-found: error
           retention-days: 30
