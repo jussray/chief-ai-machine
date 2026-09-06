@@ -26,6 +26,17 @@ function same(left, right) {
   return JSON.stringify(stable(left)) === JSON.stringify(stable(right));
 }
 
+function mutableState(ruleset) {
+  return {
+    name: ruleset?.name,
+    target: ruleset?.target,
+    enforcement: ruleset?.enforcement,
+    bypass_actors: ruleset?.bypass_actors,
+    conditions: ruleset?.conditions,
+    rules: ruleset?.rules,
+  };
+}
+
 function rulesOfType(ruleset, type) {
   return (Array.isArray(ruleset?.rules) ? ruleset.rules : []).filter((rule) => rule?.type === type);
 }
@@ -60,7 +71,8 @@ function allowedDeltaOnly(observed, desired) {
   if (!desired || typeof desired !== 'object') return false;
 
   const normalized = clone(desired);
-  const observedDeployments = rulesOfType(observed, 'required_deployments')[0];
+  const observedMutable = mutableState(observed);
+  const observedDeployments = rulesOfType(observedMutable, 'required_deployments')[0];
   const desiredDeployments = rulesOfType(normalized, 'required_deployments')[0];
 
   if (!observedDeployments || !desiredDeployments) return false;
@@ -69,7 +81,7 @@ function allowedDeltaOnly(observed, desired) {
     observedDeployments.parameters?.required_deployment_environments || [],
   );
 
-  return same(normalized, observed);
+  return same(normalized, observedMutable);
 }
 
 function attack(id, claim, passed, evidence) {
