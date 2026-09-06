@@ -93,6 +93,30 @@
       "proofmode-access-admin"
     ],
     "acceptedPreMergeDeploymentPlacementDoesNotUpgradeTruthPlane": true,
+    "attack3000": {
+      "contract": "chief/attack3000@v1",
+      "purpose": "operational-realizability",
+      "pressureDepth": 3000,
+      "literalExternalActionsClaimed": 0,
+      "ruleset208Mode": "use-as-is",
+      "rulesetMutationAllowed": false,
+      "requiredOutcomeChain": [
+        "external-candidate-producer-bound-to-exact-head",
+        "trusted-provider-readback",
+        "proofmode-access-admin-deployment-evidence",
+        "exact-runtime-version",
+        "protected-playwright",
+        "fresh-founder-review"
+      ],
+      "forbiddenShortcuts": [
+        "weaken-ruleset-208",
+        "dummy-deployment-or-check-receipt",
+        "candidate-secret-escalation",
+        "provider-build-as-runtime-or-outcome-truth"
+      ],
+      "failClosedWhenUnrealizable": true,
+      "architectureGreenIsNotOutcomeGreen": true
+    },
     "privilegedBootstrap": {
       "state": "BLOCKED_UNTIL_TRUSTED_MAIN_CARRIER",
       "adminWorkflowPath": ".github/workflows/proofmode-access-service-auth.yml",
