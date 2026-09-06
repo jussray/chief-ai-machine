@@ -5,6 +5,10 @@ const workflow = readFileSync(
   new URL('../.github/workflows/operational-proof-contract.yml', import.meta.url),
   'utf8',
 );
+const ledgerManifest = JSON.parse(readFileSync(
+  new URL('../.control-room/test-ledger.manifest.json', import.meta.url),
+  'utf8',
+));
 
 describe('Operational Proof source-only trust boundary', () => {
   it('never grants candidate-controlled Actions check-read authority', () => {
@@ -17,6 +21,12 @@ describe('Operational Proof source-only trust boundary', () => {
   it('never emits the legacy operational authority context from GitHub Actions', () => {
     expect(workflow).not.toContain('name: Verify operational authority');
     expect(workflow).toContain('name: Verify operational source contract');
+  });
+
+  it('keeps the repository ledger on source evidence without resurrecting Actions-owned operational authority', () => {
+    const requiredChecks = ledgerManifest?.policy?.requiredChecks || [];
+    expect(requiredChecks).toContain('Verify operational source contract');
+    expect(requiredChecks).not.toContain('Verify operational authority');
   });
 
   it('does not pretend a pull_request_target trust root can bootstrap from this PR', () => {
