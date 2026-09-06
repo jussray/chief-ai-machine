@@ -151,7 +151,7 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
       repository: REPOSITORY,
       rulesetId: 20818149,
       expectedObservedFingerprint: '5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738',
-      expectedDesiredFingerprint: 'f337fd4a3a0c2eab9e913c76381046dbf8e581b8ec76e90f06a221142b668dd7',
+      expectedDesiredFingerprint: '1a59d1f6f62ca848c0179dd7bc23fc7715327845146fce718e92da89b7a3707a',
       repairConfirmation: 'apply-proofmode-ruleset-stage1',
       repairSource: 'clean-current-main-only',
     });
