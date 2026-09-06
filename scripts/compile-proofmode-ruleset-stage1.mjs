@@ -18,6 +18,7 @@ const REQUIRED_BASELINE_CONTEXTS = Object.freeze([
 ]);
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
+const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -89,7 +90,7 @@ function desiredRules(ruleset) {
         },
       };
     }
-    return structuredClone(rule);
+    return clone(rule);
   });
 }
 
@@ -209,8 +210,8 @@ export function compileProofModeRulesetStage1({
     name: observed.name,
     target: observed.target,
     enforcement: observed.enforcement,
-    bypass_actors: structuredClone(observed.bypass_actors),
-    conditions: structuredClone(observed.conditions),
+    bypass_actors: clone(observed.bypass_actors),
+    conditions: clone(observed.conditions),
     rules,
   };
   const review = currentReviewPolicy({ ...observed, rules });
