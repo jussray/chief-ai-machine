@@ -7,11 +7,9 @@ import { compileProofModeRulesetStage1 } from './compile-proofmode-ruleset-stage
 const REPOSITORY = 'jussray/chief-ai-machine';
 const RULESET_ID = 20818149;
 const MAIN_BRANCH = 'main';
-const API_VERSION = '2026-03-10';
 const SOURCE_API_VERSION = '2022-11-28';
 const PINNED_EXPECTED_OBSERVED_FINGERPRINT = '5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738';
-const PINNED_EXPECTED_DESIRED_FINGERPRINT = '1a59d1f6f62ca848c0179dd7bc23fc7715327845146fce718e92da89b7a3707a';
-const REPAIR_CONFIRMATION = 'apply-proofmode-ruleset-stage1';
+const PINNED_EXPECTED_DESIRED_FINGERPRINT = PINNED_EXPECTED_OBSERVED_FINGERPRINT;
 const DEFAULT_OUTPUT_PATH = 'artifacts/proofmode/ruleset-stage1-apply.json';
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -36,20 +34,16 @@ const EXPECTED_DESIRED_FINGERPRINT = assertFingerprint(
 async function githubJson({
   fetchImpl,
   token,
-  method = 'GET',
   url,
-  body = null,
-  apiVersion = API_VERSION,
+  apiVersion = SOURCE_API_VERSION,
 }) {
   const response = await fetchImpl(url, {
-    method,
+    method: 'GET',
     headers: {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
       'X-GitHub-Api-Version': apiVersion,
     },
-    body: body == null ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
   let payload = null;
@@ -61,7 +55,7 @@ async function githubJson({
     }
   }
   if (!response.ok) {
-    throw new Error(`GitHub ruleset ${method} failed (${response.status}): ${JSON.stringify(payload)}`);
+    throw new Error(`GitHub ruleset GET failed (${response.status}): ${JSON.stringify(payload)}`);
   }
   return payload;
 }
@@ -71,41 +65,6 @@ function writeReceipt(outputPath, receipt) {
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
   return absolute;
-}
-
-function compileAndRequirePinnedState(ruleset, phase) {
-  const compiled = compileProofModeRulesetStage1({ ruleset, repository: REPOSITORY });
-
-  if (compiled.status === 'blocked') {
-    throw new Error(`${phase}: stage-1 compiler blocked live ruleset: ${JSON.stringify(compiled.violations)}`);
-  }
-
-  if (compiled.status === 'already-compliant') {
-    if (
-      compiled.observedFingerprint !== EXPECTED_DESIRED_FINGERPRINT
-      || compiled.desiredFingerprint !== EXPECTED_DESIRED_FINGERPRINT
-    ) {
-      throw new Error(
-        `${phase}: compliant ruleset does not equal the pinned desired fingerprint. observed=${compiled.observedFingerprint} desired=${compiled.desiredFingerprint} expected=${EXPECTED_DESIRED_FINGERPRINT}`,
-      );
-    }
-    return { disposition: 'already-applied', compiled };
-  }
-
-  if (compiled.status !== 'ready' || !compiled.mutation) {
-    throw new Error(`${phase}: unexpected stage-1 compiler disposition: ${compiled.status}`);
-  }
-  if (compiled.observedFingerprint !== EXPECTED_OBSERVED_FINGERPRINT) {
-    throw new Error(
-      `${phase}: live ruleset drifted. observed=${compiled.observedFingerprint} expected=${EXPECTED_OBSERVED_FINGERPRINT}`,
-    );
-  }
-  if (compiled.desiredFingerprint !== EXPECTED_DESIRED_FINGERPRINT) {
-    throw new Error(
-      `${phase}: compiled desired ruleset drifted. desired=${compiled.desiredFingerprint} expected=${EXPECTED_DESIRED_FINGERPRINT}`,
-    );
-  }
-  return { disposition: 'ready', compiled };
 }
 
 function defaultGitProbe() {
@@ -145,15 +104,10 @@ export async function verifyTrustedRulesetRepairSource({
   }
 
   const branchUrl = `https://api.github.com/repos/${REPOSITORY}/branches/${MAIN_BRANCH}`;
-  const branch = await githubJson({
-    fetchImpl,
-    token,
-    url: branchUrl,
-    apiVersion: SOURCE_API_VERSION,
-  });
+  const branch = await githubJson({ fetchImpl, token, url: branchUrl });
   const currentMainSha = clean(branch?.commit?.sha).toLowerCase();
   if (!/^[0-9a-f]{40}$/.test(currentMainSha)) {
-    throw new Error('Could not re-observe current main SHA before ruleset repair.');
+    throw new Error('Could not re-observe current main SHA.');
   }
   if (localHead !== currentMainSha) {
     throw new Error(
@@ -169,9 +123,9 @@ export async function verifyTrustedRulesetRepairSource({
   };
 }
 
-function alreadyAppliedReceipt({ mode, compiled, sourceAuthority = null }) {
+function verifiedCurrentReceipt({ mode, compiled }) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     stage: 'proofmode-ruleset-stage1-apply',
     repository: REPOSITORY,
     rulesetId: RULESET_ID,
@@ -184,47 +138,27 @@ function alreadyAppliedReceipt({ mode, compiled, sourceAuthority = null }) {
     observedFingerprint: compiled.observedFingerprint,
     desiredFingerprint: compiled.desiredFingerprint,
     verifiedFingerprint: compiled.observedFingerprint,
-    sourceSha: sourceAuthority?.sourceSha || null,
+    sourceSha: null,
+    authority: 'founder-approved-live-ruleset',
   };
-}
-
-function attachMutationState(error, mutationState) {
-  const wrapped = error instanceof Error ? error : new Error(String(error));
-  wrapped.proofmodeMutationState = {
-    mutationAttempted: mutationState.mutationAttempted === true,
-    providerAccepted: mutationState.providerAccepted === true,
-    sourceSha: clean(mutationState.sourceSha) || null,
-  };
-  return wrapped;
 }
 
 export function buildProofModeRulesetStage1FailureReceipt({
   env = process.env,
   error,
 } = {}) {
-  const mutationState = error && typeof error === 'object'
-    ? error.proofmodeMutationState
-    : null;
-  const mutationAttempted = mutationState?.mutationAttempted === true;
-  const providerAccepted = mutationState?.providerAccepted === true;
-  const status = providerAccepted
-    ? 'accepted-unverified'
-    : mutationAttempted
-      ? 'outcome-unknown'
-      : 'blocked';
-
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     stage: 'proofmode-ruleset-stage1-apply',
     repository: REPOSITORY,
     rulesetId: RULESET_ID,
     mode: clean(env.PROOFMODE_RULESET_MODE || 'check').toLowerCase(),
-    status,
-    mutationAttempted,
-    providerAccepted,
-    mutated: providerAccepted ? true : mutationAttempted ? null : false,
+    status: 'blocked',
+    mutationAttempted: false,
+    providerAccepted: false,
+    mutated: false,
     outcomeVerified: false,
-    sourceSha: clean(mutationState?.sourceSha) || null,
+    sourceSha: null,
     error: error instanceof Error ? error.message : String(error),
   };
 }
@@ -232,7 +166,6 @@ export function buildProofModeRulesetStage1FailureReceipt({
 export async function applyProofModeRulesetStage1({
   env = process.env,
   fetchImpl = globalThis.fetch,
-  repairSourceVerifier = verifyTrustedRulesetRepairSource,
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required.');
 
@@ -251,100 +184,24 @@ export async function applyProofModeRulesetStage1({
 
   const apiUrl = `https://api.github.com/repos/${REPOSITORY}/rulesets/${RULESET_ID}`;
   const observedRuleset = await githubJson({ fetchImpl, token, url: apiUrl });
-  const initial = compileAndRequirePinnedState(observedRuleset, 'initial-observation');
+  const compiled = compileProofModeRulesetStage1({ ruleset: observedRuleset, repository: REPOSITORY });
 
-  if (initial.disposition === 'already-applied') {
-    return alreadyAppliedReceipt({ mode, compiled: initial.compiled });
+  if (compiled.status === 'blocked') {
+    throw new Error(`stage-1 validator blocked live ruleset: ${JSON.stringify(compiled.violations)}`);
+  }
+  if (compiled.status !== 'already-compliant' || compiled.mutation !== null) {
+    throw new Error(`unexpected stage-1 validator disposition: ${compiled.status}`);
+  }
+  if (
+    compiled.observedFingerprint !== EXPECTED_OBSERVED_FINGERPRINT
+    || compiled.desiredFingerprint !== EXPECTED_DESIRED_FINGERPRINT
+  ) {
+    throw new Error(
+      `live ruleset fingerprint drifted. observed=${compiled.observedFingerprint} desired=${compiled.desiredFingerprint} expected=${EXPECTED_OBSERVED_FINGERPRINT}`,
+    );
   }
 
-  const baseReceipt = {
-    schemaVersion: 2,
-    stage: 'proofmode-ruleset-stage1-apply',
-    repository: REPOSITORY,
-    rulesetId: RULESET_ID,
-    mode,
-    observedFingerprint: initial.compiled.observedFingerprint,
-    desiredFingerprint: initial.compiled.desiredFingerprint,
-  };
-
-  if (mode === 'check') {
-    return {
-      ...baseReceipt,
-      status: 'ready',
-      mutationAttempted: false,
-      providerAccepted: false,
-      mutated: false,
-      outcomeVerified: false,
-      verifiedFingerprint: null,
-      sourceSha: null,
-    };
-  }
-
-  if (clean(env.PROOFMODE_RULESET_REPAIR_CONFIRMATION) !== REPAIR_CONFIRMATION) {
-    throw new Error(`Repair requires PROOFMODE_RULESET_REPAIR_CONFIRMATION=${REPAIR_CONFIRMATION}.`);
-  }
-
-  const sourceAuthority = await repairSourceVerifier({ fetchImpl, token });
-
-  // GitHub does not document conditional PUT support for this endpoint. Re-observe
-  // immediately before the unsafe method and refuse to overwrite any drift we can see.
-  const preMutationRuleset = await githubJson({ fetchImpl, token, url: apiUrl });
-  const preMutation = compileAndRequirePinnedState(preMutationRuleset, 'pre-mutation-reobservation');
-  if (preMutation.disposition === 'already-applied') {
-    return alreadyAppliedReceipt({
-      mode,
-      compiled: preMutation.compiled,
-      sourceAuthority,
-    });
-  }
-
-  let mutationAttempted = false;
-  let providerAccepted = false;
-  try {
-    mutationAttempted = true;
-    const acceptedRuleset = await githubJson({
-      fetchImpl,
-      token,
-      method: preMutation.compiled.mutation.method,
-      url: apiUrl,
-      apiVersion: preMutation.compiled.mutation.apiVersion,
-      body: preMutation.compiled.mutation.body,
-    });
-    providerAccepted = true;
-
-    if (acceptedRuleset && typeof acceptedRuleset === 'object' && !Array.isArray(acceptedRuleset)) {
-      const accepted = compileAndRequirePinnedState(acceptedRuleset, 'provider-accepted-response');
-      if (accepted.disposition !== 'already-applied') {
-        throw new Error(
-          `GitHub accepted the stage-1 PUT but did not return the pinned desired state. disposition=${accepted.disposition}`,
-        );
-      }
-    }
-
-    const verifiedRuleset = await githubJson({ fetchImpl, token, url: apiUrl });
-    const verified = compileAndRequirePinnedState(verifiedRuleset, 'post-mutation-readback');
-    if (verified.disposition !== 'already-applied') {
-      throw new Error(`Stage-1 readback is not the pinned desired state. disposition=${verified.disposition}`);
-    }
-
-    return {
-      ...baseReceipt,
-      status: 'verified-applied',
-      mutationAttempted: true,
-      providerAccepted: true,
-      mutated: true,
-      outcomeVerified: true,
-      preMutationFingerprint: preMutation.compiled.observedFingerprint,
-      verifiedFingerprint: verified.compiled.observedFingerprint,
-      sourceSha: sourceAuthority.sourceSha,
-    };
-  } catch (error) {
-    throw attachMutationState(error, {
-      mutationAttempted,
-      providerAccepted,
-      sourceSha: sourceAuthority.sourceSha,
-    });
-  }
+  return verifiedCurrentReceipt({ mode, compiled });
 }
 
 export async function runProofModeRulesetStage1Cli(env = process.env) {
@@ -367,7 +224,7 @@ export const PROOFMODE_RULESET_STAGE1 = Object.freeze({
   rulesetId: RULESET_ID,
   expectedObservedFingerprint: EXPECTED_OBSERVED_FINGERPRINT,
   expectedDesiredFingerprint: EXPECTED_DESIRED_FINGERPRINT,
-  repairConfirmation: REPAIR_CONFIRMATION,
+  mutationPolicy: 'disabled-current-ruleset-approved',
   repairSource: 'clean-current-main-only',
 });
 
