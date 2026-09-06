@@ -1,6 +1,7 @@
 import { sha256Hex } from '../src/domain/capability-plan.js';
 import { buildFounderContentProposal } from '../src/domain/founder-content-brain.js';
 import { buildFounderContentStrategy } from '../src/domain/founder-content-strategy.js';
+import { attachV4AdvisoryLearningToCurrentStrategyInput } from '../src/domain/founder-content-v4-advisory.js';
 
 const ROUTE = '/api/chief/founder-content-proposal';
 const HANDOFF_CONTRACT = 'chief-ai/founder-content-handoff@v1';
@@ -120,7 +121,10 @@ export async function handleChiefFounderContentProposal(request) {
   }
 
   try {
-    const strategy = buildFounderContentStrategy(input.strategy);
+    const strategyInput = input.v4_advisory_handoff === undefined
+      ? input.strategy
+      : attachV4AdvisoryLearningToCurrentStrategyInput(input.strategy, input.v4_advisory_handoff);
+    const strategy = buildFounderContentStrategy(strategyInput);
     const proposal = buildFounderContentProposal(input.proposal);
     validatePair(strategy, proposal);
     const handoff = buildHandoff(strategy, proposal);
