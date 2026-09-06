@@ -65,50 +65,30 @@ function liveCarrier() {
   };
 }
 
-function rule(receipt, type) {
-  return receipt.mutation.body.rules.find((entry) => entry.type === type);
-}
+describe('ProofMode ruleset stage1 approved-carrier validator', () => {
+  it('accepts the founder-approved live ruleset without proposing a mutation', () => {
+    const receipt = compileProofModeRulesetStage1({ ruleset: liveCarrier() });
 
-describe('ProofMode ruleset stage1 migration compiler', () => {
-  it('compiles only the post-merge deployment repair while preserving founder review authority', () => {
-    const observed = liveCarrier();
-    const receipt = compileProofModeRulesetStage1({ ruleset: observed });
-
-    expect(receipt.status).toBe('ready');
+    expect(receipt.status).toBe('already-compliant');
     expect(receipt.rulesetId).toBe(20818149);
-    expect(receipt.mutation).toMatchObject({
-      method: 'PUT',
-      apiVersion: '2026-03-10',
-      path: '/repos/jussray/chief-ai-machine/rulesets/20818149',
-    });
+    expect(receipt.mutation).toBeNull();
     expect(receipt.observedFingerprint).toMatch(/^[0-9a-f]{64}$/);
-    expect(receipt.desiredFingerprint).toMatch(/^[0-9a-f]{64}$/);
-    expect(receipt.observedFingerprint).not.toBe(receipt.desiredFingerprint);
-
-    const pullRequest = rule(receipt, 'pull_request');
-    expect(pullRequest).toEqual(observed.rules.find((entry) => entry.type === 'pull_request'));
+    expect(receipt.desiredFingerprint).toBe(receipt.observedFingerprint);
     expect(receipt.reviewAuthority).toEqual({
       reviewer: 'founder',
       githubSelfApprovalRequired: false,
       githubLastPusherApprovalRequired: false,
       finalReviewRequiredBeforeMergeDecision: true,
     });
-
-    expect(rule(receipt, 'required_deployments').parameters.required_deployment_environments)
-      .toEqual(['proofmode-access-admin']);
-    expect(rule(receipt, 'required_status_checks'))
-      .toEqual(observed.rules.find((entry) => entry.type === 'required_status_checks'));
-    expect(receipt.mutation.body.conditions).toEqual(observed.conditions);
-    expect(receipt.mutation.body.bypass_actors).toEqual([]);
     expect(receipt.invariants).toEqual({
       zeroBypassActorsPreserved: true,
       conditionsPreserved: true,
       statusChecksPreserved: true,
-      protectedAdminDeploymentPreserved: true,
+      requiredDeploymentsPreserved: true,
       reservedCandidateContextRemainsUnbound: true,
-      postMergeProductionDeploymentRemoved: true,
       founderReviewAuthorityPreserved: true,
-      selfApprovalDependencyAvoided: true,
+      liveRulesetAcceptedAsAuthority: true,
+      mutationRequired: false,
     });
   });
 
@@ -140,7 +120,7 @@ describe('ProofMode ruleset stage1 migration compiler', () => {
       .toContainEqual(expect.objectContaining({ classification: 'ruleset-default-branch-target-mismatch' }));
   });
 
-  it('refuses to mutate after candidate authority appears or baseline checks drift', () => {
+  it('fails closed if candidate authority appears or baseline checks drift', () => {
     const premature = liveCarrier();
     premature.rules.find((entry) => entry.type === 'required_status_checks')
       .parameters.required_status_checks.push({ context: 'Verify candidate ProofMode runtime with Playwright', integration_id: 999 });
@@ -169,14 +149,20 @@ describe('ProofMode ruleset stage1 migration compiler', () => {
       .toContainEqual(expect.objectContaining({ classification: 'founder-review-model-drift' }));
   });
 
-  it('is idempotent after stage1 is already satisfied', () => {
-    const fixed = liveCarrier();
-    fixed.rules.find((entry) => entry.type === 'required_deployments')
+  it('fails closed if either approved deployment requirement is removed or an extra one appears', () => {
+    const missing = liveCarrier();
+    missing.rules.find((entry) => entry.type === 'required_deployments')
       .parameters.required_deployment_environments = ['proofmode-access-admin'];
+    expect(compileProofModeRulesetStage1({ ruleset: missing }).violations)
+      .toContainEqual(expect.objectContaining({
+        classification: 'required-deployment-missing',
+        environment: 'Cloudflare Production',
+      }));
 
-    const receipt = compileProofModeRulesetStage1({ ruleset: fixed });
-    expect(receipt.status).toBe('already-compliant');
-    expect(receipt.mutation).toBeNull();
-    expect(receipt.observedFingerprint).toBe(receipt.desiredFingerprint);
+    const extra = liveCarrier();
+    extra.rules.find((entry) => entry.type === 'required_deployments')
+      .parameters.required_deployment_environments.push('unapproved-environment');
+    expect(compileProofModeRulesetStage1({ ruleset: extra }).violations)
+      .toContainEqual(expect.objectContaining({ classification: 'required-deployment-topology-drift' }));
   });
 });
