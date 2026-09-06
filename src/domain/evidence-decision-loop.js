@@ -19,6 +19,7 @@ export const DIVERGENCE_RESOLUTIONS = Object.freeze([
 export const MERGE_REVIEW_DISPOSITIONS = Object.freeze([
   'NOT_APPLICABLE',
   'REOBSERVE',
+  'GOVERNANCE_DEADLOCK',
   'WAIT_REQUIRED_CHECKS',
   'WAIT_CODE_SCANNING',
   'WAIT_REQUIRED_DEPLOYMENTS',
@@ -121,6 +122,12 @@ function successfulCheckNames(checkRuns, headSha) {
   );
 }
 
+function uniqueNames(values) {
+  return Array.isArray(values)
+    ? [...new Set(values.filter((name) => typeof name === 'string' && name.trim()))]
+    : [];
+}
+
 export function evaluateMergeReview(mergeReview = {}) {
   const requested = mergeReview?.requested === true;
   if (!requested) {
@@ -131,6 +138,9 @@ export function evaluateMergeReview(mergeReview = {}) {
       recommendedMergeMethod: null,
       selfAuthorize: false,
       bypassSuggested: false,
+      governanceDeadlock: false,
+      governanceDeadlockReasons: [],
+      safeRulesetDelta: null,
       missingRequiredChecks: [],
       codeScanningSatisfied: false,
       missingRequiredDeployments: [],
@@ -152,9 +162,7 @@ export function evaluateMergeReview(mergeReview = {}) {
   const headMatchesReview = Boolean(currentHeadSha && reviewedHeadSha && currentHeadSha === reviewedHeadSha);
   const checkRuns = normalizeCheckRuns(mergeReview.checkRuns);
   const successfulChecks = successfulCheckNames(checkRuns, currentHeadSha);
-  const requiredChecks = Array.isArray(mergeReview.requiredChecks)
-    ? [...new Set(mergeReview.requiredChecks.filter((name) => typeof name === 'string' && name.trim()))]
-    : [];
+  const requiredChecks = uniqueNames(mergeReview.requiredChecks);
   const missingRequiredChecks = requiredChecks.filter((name) => !successfulChecks.has(name));
 
   const codeScanningRequired = mergeReview.rules?.codeScanningRequired === true;
@@ -163,9 +171,7 @@ export function evaluateMergeReview(mergeReview = {}) {
     : 'CodeQL';
   const codeScanningSatisfied = !codeScanningRequired || successfulChecks.has(codeScanningTool);
 
-  const requiredDeployments = Array.isArray(mergeReview.rules?.requiredDeployments)
-    ? [...new Set(mergeReview.rules.requiredDeployments.filter((name) => typeof name === 'string' && name.trim()))]
-    : [];
+  const requiredDeployments = uniqueNames(mergeReview.rules?.requiredDeployments);
   const deploymentStatuses = Array.isArray(mergeReview.deploymentStatuses) ? mergeReview.deploymentStatuses : [];
   const successfulDeployments = new Set(
     deploymentStatuses
@@ -229,6 +235,44 @@ export function evaluateMergeReview(mergeReview = {}) {
       && independentApprovalHeadMatches,
   );
 
+  const postMergeOnlyChecks = uniqueNames(mergeReview.rules?.postMergeOnlyChecks);
+  const postMergeOnlyDeployments = uniqueNames(mergeReview.rules?.postMergeOnlyDeployments);
+  const impossibleRequiredChecks = requiredChecks.filter((name) => postMergeOnlyChecks.includes(name));
+  const impossibleRequiredDeployments = requiredDeployments.filter((name) => postMergeOnlyDeployments.includes(name));
+  const soleFounderMode = mergeReview.rules?.soleFounderMode === true;
+  const independentReviewAvailable = mergeReview.rules?.independentReviewAvailable !== false;
+  const lastPushApprovalDeadlock = Boolean(
+    requireLastPushApproval
+      && soleFounderMode
+      && !independentReviewAvailable
+      && founderSelfAuditRequired,
+  );
+  const governanceDeadlockReasons = [];
+  if (impossibleRequiredChecks.length > 0) {
+    governanceDeadlockReasons.push('post-merge-only check is required before merge');
+  }
+  if (impossibleRequiredDeployments.length > 0) {
+    governanceDeadlockReasons.push('post-merge-only deployment is required before merge');
+  }
+  if (lastPushApprovalDeadlock) {
+    governanceDeadlockReasons.push('sole-founder last-push approval has no independent satisfier');
+  }
+  const governanceDeadlock = governanceDeadlockReasons.length > 0;
+  const safeRulesetDelta = governanceDeadlock ? {
+    removePreMergeRequiredChecks: impossibleRequiredChecks,
+    preservePreMergeRequiredChecks: requiredChecks.filter((name) => !impossibleRequiredChecks.includes(name)),
+    moveToPostMergeChecks: impossibleRequiredChecks,
+    removePreMergeRequiredDeployments: impossibleRequiredDeployments,
+    preservePreMergeRequiredDeployments: requiredDeployments.filter((name) => !impossibleRequiredDeployments.includes(name)),
+    moveToPostMergeDeployments: impossibleRequiredDeployments,
+    disableLastPushApproval: lastPushApprovalDeadlock,
+    replacementReviewGate: lastPushApprovalDeadlock
+      ? 'founder-self-audit-plus-explicit-current-head-founder-authority'
+      : null,
+    weakenProofSemantics: false,
+    bypassRequired: false,
+  } : null;
+
   const founderAuthorityHeadSha = typeof mergeReview.founderAuthorityHeadSha === 'string'
     ? mergeReview.founderAuthorityHeadSha.trim()
     : '';
@@ -266,6 +310,7 @@ export function evaluateMergeReview(mergeReview = {}) {
 
   let disposition = 'READY';
   if (!headMatchesReview) disposition = 'REOBSERVE';
+  else if (governanceDeadlock) disposition = 'GOVERNANCE_DEADLOCK';
   else if (missingRequiredChecks.length > 0) disposition = 'WAIT_REQUIRED_CHECKS';
   else if (!codeScanningSatisfied) disposition = 'WAIT_CODE_SCANNING';
   else if (!requiredDeploymentsSatisfied) disposition = 'WAIT_REQUIRED_DEPLOYMENTS';
@@ -281,14 +326,22 @@ export function evaluateMergeReview(mergeReview = {}) {
     recommendedMergeMethod,
     selfAuthorize: false,
     bypassSuggested: false,
+    governanceDeadlock,
+    governanceDeadlockReasons,
+    safeRulesetDelta,
     currentHeadSha,
     reviewedHeadSha,
     headMatchesReview,
+    requiredChecks,
+    postMergeOnlyChecks,
+    impossibleRequiredChecks,
     missingRequiredChecks,
     codeScanningRequired,
     codeScanningTool,
     codeScanningSatisfied,
     requiredDeployments,
+    postMergeOnlyDeployments,
+    impossibleRequiredDeployments,
     missingRequiredDeployments,
     requiredDeploymentsSatisfied,
     founderSelfAuditRequired,
@@ -300,6 +353,9 @@ export function evaluateMergeReview(mergeReview = {}) {
     founderSelfAuditCoverageSatisfied,
     founderSelfAuditSatisfied,
     requireLastPushApproval,
+    soleFounderMode,
+    independentReviewAvailable,
+    lastPushApprovalDeadlock,
     lastPusher,
     reviewer,
     independentApprovalReviewedHeadSha,
@@ -410,6 +466,9 @@ export function evaluateEvidenceDecision(input = {}) {
       requiredChecksMustMaterializeOnReviewedHead: true,
       codeScanningIsSeparateMergeEvidence: true,
       requiredDeploymentsAreSeparateMergeEvidence: true,
+      postMergeProofCannotBeRequiredPreMerge: true,
+      soleFounderGovernanceMustRemainSatisfiable: true,
+      governanceDeadlockNeverImpliesBypass: true,
       founderSelfAuditIsBoundToExactHead: true,
       founderSelfAuditDoesNotGrantMergeAuthority: true,
       independentApprovalCannotBeSelfSatisfied: true,
