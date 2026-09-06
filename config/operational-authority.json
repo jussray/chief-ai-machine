@@ -25,6 +25,38 @@
     "neverRequestSecretsInChat": true,
     "unknownOrMissingAuthorityFailsClosed": true
   },
+  "mergeGovernance": {
+    "preMergeGateMustBeSatisfiableWithoutProductionMutation": true,
+    "postMergeOnlyChecks": [
+      "Verify production ProofMode MCP with Playwright"
+    ],
+    "postMergeOnlyDeployments": [
+      "Cloudflare Production"
+    ],
+    "soleFounderMode": true,
+    "independentReviewAvailable": false,
+    "soleFounderReviewReplacement": [
+      "founder self-audit bound to exact current head",
+      "explicit founder merge authority bound to exact current head"
+    ],
+    "rulesetRepair": {
+      "removeFromPreMergeRequiredChecks": [
+        "Verify production ProofMode MCP with Playwright"
+      ],
+      "moveToPostMergeChecks": [
+        "Verify production ProofMode MCP with Playwright"
+      ],
+      "removeFromPreMergeRequiredDeployments": [
+        "Cloudflare Production"
+      ],
+      "moveToPostMergeDeployments": [
+        "Cloudflare Production"
+      ],
+      "disableUnsatisfiableLastPushApprovalWhenNoIndependentReviewerExists": true,
+      "preserveProofSemantics": true,
+      "allowRulesetBypass": false
+    }
+  },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
     "futureYou": "advisory-only",
@@ -43,15 +75,19 @@
     "runtime_json_missing_sha",
     "runtime_sha_mismatch",
     "repository_check_failure",
+    "governance_deadlock",
     "exact_runtime_green"
   ],
   "mergeGate": [
     "re-audit exact main immediately before merge",
     "exact candidate head is immutable and unchanged",
     "repository quality checks are green",
+    "pre-merge rules are satisfiable without requiring post-merge production truth",
     "provider build for exact candidate SHA is green when provider runtime is in scope",
     "immutable preview runtime returns JSON with exact candidate SHA when runtime is in scope",
     "Playwright executes against the exact runtime witness and passes when UI or runtime changes",
+    "founder self-audit is bound to the exact current head when sole-founder review applies",
+    "explicit founder merge authority is bound to the exact current head",
     "no unresolved blocking review thread remains"
   ],
   "postMergeGate": [
@@ -60,6 +96,7 @@
     "canonical production origin resolves when runtime is in scope",
     "canonical /version returns JSON with exact merged SHA when runtime is in scope",
     "canonical browser and API Playwright proof passes when UI or runtime changes",
+    "Verify production ProofMode MCP with Playwright completes on merged main when ProofMode runtime is in scope",
     "only then may production truth be represented as verified"
   ]
 }
