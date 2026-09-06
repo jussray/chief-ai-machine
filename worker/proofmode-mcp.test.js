@@ -30,7 +30,13 @@ function evidenceFixture() {
     readme: '# App',
     paths: ['package.json', 'src/index.js', 'src/api.js', 'src/ui.js', 'test/app.test.js'],
     treeTruncated: false,
-    workflows: [{ name: 'CI tests', conclusion: 'success', url: 'https://github.com/acme/app/actions/runs/1' }],
+    workflows: [{
+      name: 'CI tests',
+      conclusion: 'success',
+      event: 'push',
+      headSha: '0123456789abcdef0123456789abcdef01234567',
+      url: 'https://github.com/acme/app/actions/runs/1',
+    }],
     deployments: [],
   };
 }
@@ -72,6 +78,7 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.protocolVersion).toBe('2025-06-18');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
     expect(payload.result.instructions).toContain('juss-proof/v1');
+    expect(payload.result.instructions).toContain('anonymously');
   });
 
   it('lists only the read-only repository audit tool without credential inputs', async () => {
@@ -84,6 +91,21 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
     expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
+    expect(payload.result.tools[0].annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  it('advertises only POST when rejecting GET', async () => {
+    const response = await handleProofModeMcp(
+      new Request('https://proofmode.example/mcp', { method: 'GET' }),
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get('Allow')).toBe('POST');
   });
 
   it('calls the audit tool without mutation capability and emits a federated receipt', async () => {
@@ -145,13 +167,13 @@ describe('ProofMode MCP transport', () => {
     );
   });
 
-  it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
+  it('does not forward Worker GitHub credentials into public repository evidence reads', async () => {
     const evidence = evidenceFixture();
     const deps = {
-      loadPublicRepositoryEvidence: async ({ owner, repo, token }) => {
-        expect(owner).toBe('acme');
-        expect(repo).toBe('app');
-        expect(token).toBe('server-secret');
+      loadPublicRepositoryEvidence: async (args) => {
+        expect(args.owner).toBe('acme');
+        expect(args.repo).toBe('app');
+        expect(args).not.toHaveProperty('token');
         return evidence;
       },
       classifyRepositoryEvidence: classifier,
@@ -173,10 +195,66 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.structuredContent.repository).toBe('acme/app');
   });
 
+  it('rejects unsupported caller arguments before any provider access', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', token: 'caller-secret' },
+        },
+      }),
+      deps,
+    );
+
+    const payload = await json(response);
+    expect(payload.error).toMatchObject({ code: -32602 });
+    expect(providerCalls).toBe(0);
+  });
+
+  it('rejects malformed acknowledgements before any provider access', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', acknowledges: ['not-a-receipt-id'] },
+        },
+      }),
+      deps,
+    );
+
+    const payload = await json(response);
+    expect(payload.error).toMatchObject({ code: -32602 });
+    expect(providerCalls).toBe(0);
+  });
+
   it('rejects browser cross-origin requests', async () => {
     const response = await handleProofModeMcp(
       mcpRequest(
-        { jsonrpc: '2.0', id: 5, method: 'tools/list' },
+        { jsonrpc: '2.0', id: 7, method: 'tools/list' },
         { Origin: 'https://attacker.example' },
       ),
     );

@@ -1,10 +1,18 @@
 import { classifyRepositoryEvidence } from '../plugins/proofmode/src/audit.js';
-import { loadPublicRepositoryEvidence } from '../plugins/proofmode/src/github.js';
+import { loadPublicRepositoryEvidence, ProofModeGitHubError } from '../plugins/proofmode/src/github.js';
 import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
+const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
+const SAFE_TOOL_ERROR_MESSAGES = Object.freeze({
+  repository_unavailable: 'Repository or ref is not publicly available to ProofMode.',
+  source_rate_limited: 'GitHub rate-limited the public evidence request.',
+  source_forbidden: 'GitHub refused the anonymous public evidence request.',
+  source_error: 'GitHub public evidence request failed.',
+});
 
 const TOOL = {
   name: 'audit_repository',
@@ -30,6 +38,12 @@ const TOOL = {
     },
     required: ['owner', 'repo'],
     additionalProperties: false,
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
   },
 };
 
@@ -71,6 +85,58 @@ function validateProtocolHeader(request) {
   return !version || SUPPORTED_PROTOCOLS.has(version);
 }
 
+function validateToolArguments(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { error: 'audit_repository arguments must be an object.' };
+  }
+
+  if (Object.keys(value).some((key) => !TOOL_ARGUMENT_KEYS.has(key))) {
+    return { error: 'audit_repository received unsupported arguments.' };
+  }
+
+  const owner = typeof value.owner === 'string' ? value.owner.trim() : '';
+  const repo = typeof value.repo === 'string' ? value.repo.trim() : '';
+  if (!owner || !repo) {
+    return { error: 'audit_repository requires non-empty owner and repo strings.' };
+  }
+
+  let ref;
+  if (Object.prototype.hasOwnProperty.call(value, 'ref')) {
+    ref = typeof value.ref === 'string' ? value.ref.trim() : '';
+    if (!ref) return { error: 'audit_repository ref must be a non-empty string when provided.' };
+  }
+
+  let acknowledges;
+  if (Object.prototype.hasOwnProperty.call(value, 'acknowledges')) {
+    if (!Array.isArray(value.acknowledges) || value.acknowledges.length > 50) {
+      return { error: 'audit_repository acknowledges must be an array of at most 50 receipt IDs.' };
+    }
+
+    const seen = new Set();
+    acknowledges = [];
+    for (const receiptId of value.acknowledges) {
+      if (typeof receiptId !== 'string' || !RECEIPT_ID.test(receiptId)) {
+        return { error: 'audit_repository acknowledges contains an invalid receipt ID.' };
+      }
+      const canonical = receiptId.toLowerCase();
+      if (seen.has(canonical)) {
+        return { error: 'audit_repository acknowledges must not contain duplicate receipt IDs.' };
+      }
+      seen.add(canonical);
+      acknowledges.push(canonical);
+    }
+  }
+
+  return {
+    args: {
+      owner,
+      repo,
+      ...(ref ? { ref } : {}),
+      ...(acknowledges ? { acknowledges } : {}),
+    },
+  };
+}
+
 function toolResult(report, proofReceipt) {
   const structuredContent = { ...report, proofReceipt };
   return {
@@ -81,10 +147,13 @@ function toolResult(report, proofReceipt) {
 }
 
 function toolError(error) {
-  const message = error instanceof Error ? error.message : 'ProofMode audit failed.';
-  const errorCode = typeof error?.code === 'string' && error.code
-    ? error.code
-    : 'audit_failed';
+  const suppliedCode = typeof error?.code === 'string' ? error.code : '';
+  const safeProviderError = error instanceof ProofModeGitHubError
+    && Object.prototype.hasOwnProperty.call(SAFE_TOOL_ERROR_MESSAGES, suppliedCode);
+  const errorCode = safeProviderError ? suppliedCode : 'audit_failed';
+  const message = safeProviderError
+    ? SAFE_TOOL_ERROR_MESSAGES[suppliedCode]
+    : 'ProofMode audit failed without exposing internal details.';
   return {
     content: [{ type: 'text', text: message }],
     structuredContent: { errorCode, message },
@@ -92,17 +161,16 @@ function toolError(error) {
   };
 }
 
-function resolveContext(envOrDeps, maybeDeps) {
+function resolveDeps(envOrDeps, maybeDeps) {
   const looksLikeDeps =
     envOrDeps
     && typeof envOrDeps.loadPublicRepositoryEvidence === 'function'
     && typeof envOrDeps.classifyRepositoryEvidence === 'function';
 
-  if (looksLikeDeps) return { env: {}, deps: envOrDeps };
-  return { env: envOrDeps || {}, deps: maybeDeps || DEFAULT_DEPS };
+  return looksLikeDeps ? envOrDeps : (maybeDeps || DEFAULT_DEPS);
 }
 
-async function dispatch(message, deps, env) {
+async function dispatch(message, deps) {
   const { id, method, params } = message;
 
   if (method === 'initialize') {
@@ -113,7 +181,7 @@ async function dispatch(message, deps, env) {
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
       instructions:
-        'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
+        'ProofMode is read-only. It audits public GitHub repository evidence anonymously, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
     });
   }
 
@@ -128,22 +196,15 @@ async function dispatch(message, deps, env) {
       return jsonRpcError(id, -32602, `Unknown tool: ${params?.name || 'missing'}`);
     }
 
-    const args = params?.arguments || {};
-    if (typeof args.owner !== 'string' || !args.owner.trim() || typeof args.repo !== 'string' || !args.repo.trim()) {
-      return jsonRpcError(id, -32602, 'audit_repository requires non-empty owner and repo strings.');
-    }
-    if (args.acknowledges !== undefined && !Array.isArray(args.acknowledges)) {
-      return jsonRpcError(id, -32602, 'audit_repository acknowledges must be an array of receipt IDs.');
-    }
+    const validation = validateToolArguments(params?.arguments ?? {});
+    if (validation.error) return jsonRpcError(id, -32602, validation.error);
+    const args = validation.args;
 
     try {
       const evidence = await deps.loadPublicRepositoryEvidence({
-        owner: args.owner.trim(),
-        repo: args.repo.trim(),
-        ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
-        token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
-          ? env.PROOFMODE_GITHUB_TOKEN
-          : undefined,
+        owner: args.owner,
+        repo: args.repo,
+        ref: args.ref,
       });
       const report = deps.classifyRepositoryEvidence(evidence);
       const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
@@ -157,7 +218,7 @@ async function dispatch(message, deps, env) {
 }
 
 export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
-  const { env, deps } = resolveContext(envOrDeps, maybeDeps);
+  const deps = resolveDeps(envOrDeps, maybeDeps);
 
   if (!validateOrigin(request)) {
     return jsonResponse(jsonRpcError(null, -32000, 'Origin not allowed.'), 403);
@@ -167,12 +228,8 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return jsonResponse(jsonRpcError(null, -32600, 'Unsupported MCP-Protocol-Version.'), 400);
   }
 
-  if (request.method === 'GET') {
-    return new Response(null, { status: 405, headers: { Allow: 'POST, GET' } });
-  }
-
   if (request.method !== 'POST') {
-    return new Response(null, { status: 405, headers: { Allow: 'POST, GET' } });
+    return new Response(null, { status: 405, headers: { Allow: 'POST' } });
   }
 
   let message;
@@ -193,5 +250,5 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return new Response(null, { status: 202 });
   }
 
-  return jsonResponse(await dispatch(message, deps, env));
+  return jsonResponse(await dispatch(message, deps));
 }

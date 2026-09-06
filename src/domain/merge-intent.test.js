@@ -127,6 +127,91 @@ describe('merge intent gate', () => {
     expect(decision.nextGate).toContain('all independent source, review, proof, and provider gates still apply');
   });
 
+  it('fails closed when machine current truth names a predecessor head', () => {
+    const currentHead = '8e3d606d837caaa4bd295cfd2643d9c84635cffd';
+    const staleHead = '34d01ab1bb365839289a3f83f507d5af99781eda';
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'fix(proofmode): harden exact-head evidence and MCP proof',
+      body: [
+        '<!-- chief-current-truth:start -->',
+        '## CURRENT TRUTH',
+        `- live_head: \`fix/proofmode-main-audit-20260828@${staleHead}\``,
+        '- merge_intent: **BLOCKED / explicit-do-not-merge / INTENTIONAL**',
+        '<!-- chief-current-truth:end -->',
+        '',
+        '**DO NOT MERGE YET.**',
+      ].join('\n'),
+      isDraft: false,
+      headSha: currentHead,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: false,
+      reasons: ['current_truth_stale'],
+    });
+    expect(decision.reasons).not.toContain('explicit-do-not-merge');
+    expect(decision.nextGate).toContain('exact current PR head');
+  });
+
+  it('fails closed on malformed machine current truth without inheriting body directives', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'fix(governance): current receipt validation',
+      body: [
+        '<!-- chief-current-truth:start -->',
+        '## CURRENT TRUTH',
+        '- live_head: `fix/proofmode-main-audit-20260828@not-a-sha`',
+        '**DO NOT MERGE YET.**',
+        '<!-- chief-current-truth:end -->',
+      ].join('\n'),
+      isDraft: false,
+      headSha: '8e3d606d837caaa4bd295cfd2643d9c84635cffd',
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: false,
+      reasons: ['current_truth_invalid'],
+    });
+    expect(decision.reasons).not.toContain('explicit-do-not-merge');
+  });
+
+  it('evaluates directives normally when machine current truth matches the authoritative head', () => {
+    const headSha = '34d01ab1bb365839289a3f83f507d5af99781eda';
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'fix(proofmode): harden exact-head evidence and MCP proof',
+      body: [
+        '<!-- chief-current-truth:start -->',
+        '## CURRENT TRUTH',
+        `- live_head: \`fix/proofmode-main-audit-20260828@${headSha}\``,
+        '**DO NOT MERGE YET.**',
+        '<!-- chief-current-truth:end -->',
+      ].join('\n'),
+      isDraft: false,
+      headSha,
+    });
+
+    expect(decision.mergeIntentClear).toBe(false);
+    expect(decision.reasons).toContain('explicit-do-not-merge');
+    expect(decision.reasons).not.toContain('current_truth_stale');
+  });
+
+  it('preserves legacy body evaluation when no machine current truth block exists', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'feat: current candidate',
+      body: 'MERGE BLOCKED until independent review lands.',
+      isDraft: false,
+      headSha: '8e3d606d837caaa4bd295cfd2643d9c84635cffd',
+    });
+
+    expect(decision.mergeIntentClear).toBe(false);
+    expect(decision.reasons).toContain('merge-blocked');
+  });
+
   it('does not block working-branch integration', () => {
     const decision = evaluateMergeIntent({
       baseRef: 'feat/current-main-working-branch',

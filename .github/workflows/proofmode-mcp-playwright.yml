@@ -2,51 +2,39 @@ name: ProofMode MCP Playwright
 
 on:
   pull_request:
-    branches:
-      - main
-    paths:
-      - "worker/proofmode-mcp.js"
-      - "worker/index.js"
-      - "wrangler.jsonc"
-      - "e2e/proofmode-mcp.pw.mjs"
-      - ".github/workflows/proofmode-mcp-playwright.yml"
-  workflow_dispatch:
-    inputs:
-      base_url:
-        description: "Cloudflare Worker base URL to verify"
-        required: true
-        type: string
+    branches: [main]
+  repository_dispatch:
+    types: [proofmode_candidate_runtime_evidence]
 
 permissions:
   contents: read
   checks: read
 
 concurrency:
-  group: proofmode-mcp-playwright-${{ github.event.pull_request.number || github.ref }}
+  group: proofmode-mcp-playwright-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.client_payload.expected_head_sha || github.sha }}
 
 jobs:
-  verify:
-    name: Verify live ProofMode MCP with Playwright
+  source-contract:
+    name: Verify ProofMode source contract
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Check out exact requested head
+      - name: Check out exact candidate head without credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
 
-      - name: Record and verify exact head
+      - name: Verify exact candidate head
         shell: bash
         run: |
+          set -euo pipefail
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
@@ -54,146 +42,172 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: "24"
+          node-version: '24'
           cache: npm
 
-      - name: Resolve exact Cloudflare commit preview
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run ProofMode served MCP contract
+        run: npm run verify:proofmode
+
+  pr-runtime-gate:
+    name: Verify live ProofMode MCP with Playwright
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: source-contract
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed before protected runtime evidence
         run: |
-          if [ -n "$MANUAL_BASE_URL" ]; then
-            printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
-          for attempt in {1..45}; do
-            checks="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$api" || true)"
-
-            preview="$(printf '%s' "$checks" | node -e '
-              let input = "";
-              process.stdin.setEncoding("utf8");
-              process.stdin.on("data", (chunk) => { input += chunk; });
-              process.stdin.on("end", () => {
-                if (!input) return;
-                const data = JSON.parse(input);
-                const run = data.check_runs?.find((item) =>
-                  item.name === "Workers Builds: chief-ai"
-                  && item.status === "completed"
-                  && item.conclusion === "success"
-                );
-                const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
-                if (match) process.stdout.write(match[1]);
-              });
-            ')"
-
-            if [ -n "$preview" ]; then
-              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
-              printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          printf 'No successful Cloudflare commit preview found for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'Candidate-authored workflow code is source-only and cannot enter proofmode-access-admin. Trusted runtime evidence must originate from current-main repository_dispatch source.\n' >&2
           exit 1
 
-      - name: Install locked application dependencies
+  dispatch-identity:
+    name: Verify trusted ProofMode runtime dispatch identity
+    if: ${{ github.event_name == 'repository_dispatch' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    outputs:
+      candidate_sha: ${{ steps.guard.outputs.candidate_sha }}
+      base_url: ${{ steps.guard.outputs.base_url }}
+    steps:
+      - name: Bind trusted evaluator to current main and immutable candidate
+        id: guard
+        shell: bash
+        env:
+          EVENT_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.sha }}
+          EXPECTED_MAIN_SHA: ${{ github.event.client_payload.expected_main_sha }}
+          CANDIDATE_SHA: ${{ github.event.client_payload.expected_head_sha }}
+          CANDIDATE_BASE_URL: ${{ github.event.client_payload.base_url }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_REF" != "refs/heads/main" ]; then
+            printf 'Trusted ProofMode evidence must execute on default main. ref=%s\n' "$EVENT_REF" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$EXPECTED_MAIN_SHA" | grep -Eq '^[0-9a-fA-F]{40}$' \
+             || ! printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            printf 'expected_main_sha and expected_head_sha must be exact 40-character SHAs.\n' >&2
+            exit 1
+          fi
+          if [ "$EXPECTED_MAIN_SHA" != "$WORKFLOW_SHA" ]; then
+            printf 'Trusted evaluator is stale: expected_main=%s workflow_sha=%s.\n' "$EXPECTED_MAIN_SHA" "$WORKFLOW_SHA" >&2
+            exit 1
+          fi
+          current="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>process.stdout.write(JSON.parse(r)?.commit?.sha||""))')"
+          if [ -z "$current" ] || [ "$current" != "$WORKFLOW_SHA" ]; then
+            printf 'Current main moved: workflow_sha=%s current_main=%s.\n' "$WORKFLOW_SHA" "$current" >&2
+            exit 1
+          fi
+          normalized="$(node -e '
+            const raw = process.argv[1]?.trim() || "";
+            try {
+              const url = new URL(raw);
+              const host = url.hostname.toLowerCase();
+              if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/" || !/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host)) process.exit(1);
+              process.stdout.write(url.origin);
+            } catch { process.exit(1); }
+          ' "$CANDIDATE_BASE_URL")" || {
+            printf 'base_url must be one immutable Chief workers.dev preview origin.\n' >&2
+            exit 1
+          }
+          printf 'candidate_sha=%s\n' "$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+          printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
+
+  trusted-runtime-evidence:
+    # Deliberately NOT the reserved external candidate-authority context.
+    name: ProofMode trusted runtime evidence
+    if: ${{ github.event_name == 'repository_dispatch' }}
+    needs: dispatch-identity
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    environment: proofmode-access-admin
+    steps:
+      - name: Check out exact current-main evaluator source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Reconfirm evaluator source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          current="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e 'let r="";process.stdin.on("data",c=>r+=c);process.stdin.on("end",()=>process.stdout.write(JSON.parse(r)?.commit?.sha||""))')"
+          test "$current" = "$GITHUB_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install trusted evaluator dependencies
         run: npm ci
+
+      - name: Run trusted ProofMode source contract
+        run: npm run verify:proofmode
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Verify immutable preview serves exact head
+      - name: Verify immutable preview serves candidate SHA
         shell: bash
+        env:
+          CANDIDATE_SHA: ${{ needs.dispatch-identity.outputs.candidate_sha }}
+          BASE_URL: ${{ needs.dispatch-identity.outputs.base_url }}
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
-          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
-            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
-            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_ID"
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
+          body="$RUNNER_TEMP/proofmode-version.json"
+          status="$(curl --silent --show-error \
+            -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
+            -o "$body" -w '%{http_code}' "$BASE_URL/version" || true)"
+          actual="$(node -e 'const fs=require("node:fs");try{process.stdout.write(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).sha||"")}catch{}' "$body")"
+          if [ "$status" != "200" ] || [ "$actual" != "$CANDIDATE_SHA" ]; then
+            printf 'Candidate runtime mismatch: status=%s expected=%s actual=%s.\n' "$status" "$CANDIDATE_SHA" "$actual" >&2
             exit 1
           fi
+          printf 'PROOFMODE_BASE_URL=%s\n' "$BASE_URL" >> "$GITHUB_ENV"
 
-          access_headers=()
-          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
-            access_headers+=(
-              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"
-              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"
-            )
-          fi
-
-          headers="$RUNNER_TEMP/proofmode-version.headers"
-          body_file="$RUNNER_TEMP/proofmode-version.body"
-          status="000"
-
-          for attempt in {1..10}; do
-            status="$(curl --silent --show-error \
-              "${access_headers[@]}" \
-              --dump-header "$headers" \
-              --output "$body_file" \
-              --write-out '%{http_code}' \
-              "$PROOFMODE_BASE_URL/version" || true)"
-            if grep -Fq "$EXPECTED_HEAD_SHA" "$body_file" 2>/dev/null; then
-              printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          printf 'Observed HTTP status: %s\n' "$status" >&2
-          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
-          if [ -n "$location" ]; then
-            printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
-          fi
-          if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
-          fi
-          exit 1
-
-      - name: Run live ProofMode MCP Playwright proof
+      - name: Run trusted ProofMode Playwright witness
         env:
           PLAYWRIGHT_HTML_OPEN: never
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
-          cat > playwright.proofmode-mcp.config.mjs <<'EOF'
+          cat > playwright.proofmode-trusted.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-
-          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-            ? {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              }
-            : {};
-
           export default defineConfig({
             testDir: './e2e',
             testMatch: /proofmode-mcp\.pw\.mjs$/,
-            fullyParallel: false,
             retries: 0,
             workers: 1,
-            outputDir: './test-results/proofmode-mcp',
-            reporter: [
-              ['line'],
-              ['html', { outputFolder: './playwright-report/proofmode-mcp', open: 'never' }],
-            ],
-            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
+            use: { extraHTTPHeaders: {
+              'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+              'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+            } },
           });
           EOF
-          npx playwright test --config=playwright.proofmode-mcp.config.mjs
-
-      - name: Retain Playwright report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: proofmode-mcp-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            playwright-report/proofmode-mcp
-            test-results/proofmode-mcp
-          if-no-files-found: warn
-          retention-days: 14
+          npx playwright test --config=playwright.proofmode-trusted.config.mjs

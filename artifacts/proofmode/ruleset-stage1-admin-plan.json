@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 3,
+  "stage": "proofmode-ruleset-stage1-admin-plan",
+  "repository": "jussray/chief-ai-machine",
+  "rulesetId": 20818149,
+  "status": "founder-approved-current-ruleset",
+  "authority": {
+    "reviewAuthority": "founder",
+    "candidateCodeMayMutate": false,
+    "candidateCodeRole": "observe-and-verify-only",
+    "githubSelfApprovalRequired": false,
+    "githubLastPusherApprovalRequired": false,
+    "rulesetMutationRequired": false
+  },
+  "approvedState": {
+    "fingerprint": "5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738",
+    "zeroBypassActorsRequired": true,
+    "founderReviewTopology": {
+      "requiredApprovingReviewCount": 0,
+      "dismissStaleReviewsOnPush": false,
+      "requireLastPushApproval": false,
+      "requiredReviewThreadResolution": true
+    },
+    "requiredDeployments": [
+      "Cloudflare Production",
+      "proofmode-access-admin"
+    ],
+    "requiredStatusChecks": [
+      "Typecheck",
+      "Lint",
+      "Unit Tests",
+      "SonarQube – Founder Intelligence",
+      "Verify test-ledger contract"
+    ],
+    "reservedCandidateContextRequired": false
+  },
+  "mutation": null,
+  "verification": {
+    "desiredFingerprint": "5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738",
+    "reobserveBeforeMergeDecision": true,
+    "failClosedOnFingerprintDrift": true,
+    "zeroBypassActorsRequired": true,
+    "founderReviewTopologyPreserved": true,
+    "requiredDeploymentsPreserved": true
+  }
+}

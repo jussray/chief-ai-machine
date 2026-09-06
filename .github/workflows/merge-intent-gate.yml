@@ -49,6 +49,7 @@ jobs:
             title: process.env.PR_TITLE,
             body: process.env.PR_BODY,
             isDraft: process.env.PR_DRAFT === 'true',
+            headSha: process.env.PR_HEAD_SHA,
           });
 
           console.log(JSON.stringify({

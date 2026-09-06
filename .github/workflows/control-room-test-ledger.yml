@@ -3,6 +3,7 @@ name: Control Room Test Ledger
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
   push:
     branches: [main]
   workflow_dispatch:
@@ -17,6 +18,7 @@ env:
   CONTROL_ROOM_LEDGER_SELF_CHECK: Publish exact-head test ledger
   CONTROL_ROOM_TEST_LEDGER_PATH: artifacts/control-room-test-ledger.json
   CONTROL_ROOM_LEDGER_POLICY_PATH: .control-room/test-ledger.manifest.json
+  PR_CURRENT_TRUTH_PATH: artifacts/pr-current-truth.json
 
 concurrency:
   group: control-room-test-ledger-${{ github.event.pull_request.number || github.ref }}
@@ -47,13 +49,21 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Verify PR current-truth receipt
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/pr-current-truth.mjs --enforce
       - name: Run ledger and operator contracts
-        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs
+        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs scripts/pr-current-truth.test.mjs
 
   publish-ledger:
     name: Publish exact-head test ledger
     needs: ledger-contract
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
@@ -73,6 +83,15 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
+      - name: Materialize PR current-truth receipt
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/pr-current-truth.mjs
       - name: Observe repository-authoritative exact-head checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -96,6 +115,16 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -f "$PR_CURRENT_TRUTH_PATH" ]; then
+            {
+              echo
+              echo '## PR Current Truth Receipt'
+              echo
+              echo '```json'
+              cat "$PR_CURRENT_TRUTH_PATH"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload repository-local truth receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -104,5 +133,6 @@ jobs:
           path: |
             artifacts/control-room-test-ledger.json
             artifacts/operator-truth-summary.json
+            artifacts/pr-current-truth.json
           if-no-files-found: error
           retention-days: 30

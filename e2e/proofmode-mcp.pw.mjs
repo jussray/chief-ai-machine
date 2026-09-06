@@ -56,6 +56,19 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.tools).toHaveLength(1);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
+    expect(payload.result.tools[0].annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  test('rejects GET while advertising only POST for the legacy transport', async ({ request }) => {
+    const response = await request.get(`${baseURL}/mcp`);
+    expect(response.status()).toBe(405);
+    expect(response.headers().allow).toBe('POST');
   });
 
   test('audits the exact public repository head without mutation capability', async ({ request }) => {
@@ -75,9 +88,31 @@ test.describe('ProofMode live MCP runtime', () => {
 
     expect(response.status()).toBe(200);
     const payload = await response.json();
+    const result = payload.result.structuredContent;
+    const receipt = result.proofReceipt;
+
     expect(payload.result.isError).toBe(false);
-    expect(payload.result.structuredContent.repository).toBe('jussray/chief-ai-machine');
-    expect(payload.result.structuredContent.headSha).toBe(expectedHead);
-    expect(payload.result.structuredContent.layers.find((layer) => layer.layer === 'verified').state).toBe('not_proven');
+    expect(result.repository).toBe('jussray/chief-ai-machine');
+    expect(result.headSha).toBe(expectedHead);
+    expect(result.layers.find((layer) => layer.layer === 'verified').state).toBe('not_proven');
+    expect(receipt).toMatchObject({
+      schema: 'juss-proof/v1',
+      project: 'jussray/chief-ai-machine',
+      operation: 'repository_evidence_audit',
+      state: expect.stringMatching(/^(inferred|unknown)$/),
+      exactTarget: {
+        repository: 'jussray/chief-ai-machine',
+        sha: expectedHead,
+      },
+    });
+    expect(receipt.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'proofmode_layer',
+          name: 'verified: not_proven',
+          state: 'unknown',
+        }),
+      ]),
+    );
   });
 });

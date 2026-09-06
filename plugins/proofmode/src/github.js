@@ -12,15 +12,12 @@ function encode(value) {
   return encodeURIComponent(value);
 }
 
-function githubHeaders(token) {
-  const headers = {
+function githubHeaders() {
+  return {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "proofmode-plugin/0.1.0",
   };
-  const normalizedToken = typeof token === "string" ? token.trim() : "";
-  if (normalizedToken) headers.Authorization = `Bearer ${normalizedToken}`;
-  return headers;
 }
 
 function responseHeader(response, name) {
@@ -41,30 +38,29 @@ function isRateLimited(response) {
 function rejectNonPublicRepository(metadata) {
   const visibility = metadata?.visibility;
   const privateFlag = metadata?.private;
-  const explicitlyNonPublic = privateFlag === true
-    || (typeof visibility === "string" && visibility !== "public");
-  if (!explicitlyNonPublic) return;
+  const positivelyPublic = privateFlag === false && visibility === "public";
+  if (positivelyPublic) return;
   throw new ProofModeGitHubError(
     "repository_unavailable",
-    "Repository or ref was not found or is not publicly readable. ProofMode v0.1 does not access private repositories.",
+    "Repository or ref was not found or is not positively established as public. ProofMode v0.1 does not access private, internal, or ambiguous-visibility repositories.",
   );
 }
 
-async function githubJson(path, token) {
+async function githubJson(path) {
   const response = await fetch(`${API}${path}`, {
-    headers: githubHeaders(token),
+    headers: githubHeaders(),
   });
   if (response.status === 404) throw new ProofModeGitHubError("repository_unavailable", "Repository or ref was not found or is not publicly readable. ProofMode v0.1 does not access private repositories.");
-  if (response.status === 401) throw new ProofModeGitHubError("source_auth_failed", "GitHub rejected ProofMode's server credential. Verify that the token is valid and has not expired or been revoked.");
-  if (isRateLimited(response)) throw new ProofModeGitHubError("source_rate_limited", "GitHub rate-limited the evidence request. Retry after the provider quota recovers.");
-  if (response.status === 403) throw new ProofModeGitHubError("source_forbidden", "GitHub refused the evidence request. If a server token is configured, verify repository access and read-only Contents, Actions, and Deployments permissions.");
-  if (!response.ok) throw new ProofModeGitHubError("source_error", `GitHub evidence request failed with HTTP ${response.status}.`);
+  if (response.status === 401) throw new ProofModeGitHubError("source_forbidden", "GitHub rejected the anonymous public evidence request.");
+  if (isRateLimited(response)) throw new ProofModeGitHubError("source_rate_limited", "GitHub rate-limited the public evidence request. Retry after the anonymous provider quota recovers.");
+  if (response.status === 403) throw new ProofModeGitHubError("source_forbidden", "GitHub refused the anonymous public evidence request.");
+  if (!response.ok) throw new ProofModeGitHubError("source_error", `GitHub public evidence request failed with HTTP ${response.status}.`);
   return response.json();
 }
 
-async function optionalGitHubJson(path, fallback, token) {
+async function optionalGitHubJson(path, fallback) {
   try {
-    return await githubJson(path, token);
+    return await githubJson(path);
   } catch (error) {
     if (error instanceof ProofModeGitHubError && error.code === "repository_unavailable") return fallback;
     throw error;
@@ -82,26 +78,31 @@ function decodeReadme(payload) {
   }
 }
 
-export async function loadPublicRepositoryEvidence({ owner, repo, ref, token }) {
+export async function loadPublicRepositoryEvidence({ owner, repo, ref }) {
   const repoPath = `/repos/${encode(owner)}/${encode(repo)}`;
-  const metadata = await githubJson(repoPath, token);
+
+  // v0.1 performs every repository evidence read without a GitHub credential.
+  // This is intentionally stricter than a public-first authenticated flow: if a
+  // repository becomes private at any point, anonymous follow-up reads fail closed
+  // instead of allowing a privileged server token to cross the public-only boundary.
+  const metadata = await githubJson(repoPath);
   rejectNonPublicRepository(metadata);
 
   const resolvedRef = ref?.trim() || metadata.default_branch;
-  const commit = await githubJson(`${repoPath}/commits/${encode(resolvedRef)}`, token);
+  const commit = await githubJson(`${repoPath}/commits/${encode(resolvedRef)}`);
   const headSha = commit.sha;
   const treeSha = commit.commit?.tree?.sha;
   if (!treeSha) throw new ProofModeGitHubError("source_error", "GitHub did not return a tree for the requested ref.");
 
   const [tree, readme, workflowRuns, deployments] = await Promise.all([
-    githubJson(`${repoPath}/git/trees/${encode(treeSha)}?recursive=1`, token),
-    optionalGitHubJson(`${repoPath}/readme?ref=${encode(resolvedRef)}`, null, token),
-    optionalGitHubJson(`${repoPath}/actions/runs?head_sha=${encode(headSha)}&per_page=20`, { workflow_runs: [] }, token),
-    optionalGitHubJson(`${repoPath}/deployments?sha=${encode(headSha)}&per_page=10`, [], token),
+    githubJson(`${repoPath}/git/trees/${encode(treeSha)}?recursive=1`),
+    optionalGitHubJson(`${repoPath}/readme?ref=${encode(resolvedRef)}`, null),
+    optionalGitHubJson(`${repoPath}/actions/runs?head_sha=${encode(headSha)}&per_page=20`, { workflow_runs: [] }),
+    optionalGitHubJson(`${repoPath}/deployments?sha=${encode(headSha)}&per_page=10`, []),
   ]);
 
   const deploymentEvidence = await Promise.all(deployments.slice(0, 5).map(async (deployment) => {
-    const statuses = await optionalGitHubJson(`${repoPath}/deployments/${deployment.id}/statuses?per_page=1`, [], token);
+    const statuses = await optionalGitHubJson(`${repoPath}/deployments/${deployment.id}/statuses?per_page=1`, []);
     return { environment: deployment.environment || "unspecified", latestState: statuses[0]?.state || "unknown" };
   }));
 
@@ -115,7 +116,14 @@ export async function loadPublicRepositoryEvidence({ owner, repo, ref, token }) 
     readme: decodeReadme(readme),
     paths: Array.isArray(tree.tree) ? tree.tree.filter((item) => item.type === "blob").map((item) => item.path) : [],
     treeTruncated: Boolean(tree.truncated),
-    workflows: Array.isArray(workflowRuns.workflow_runs) ? workflowRuns.workflow_runs.map((run) => ({ name: run.name || "Unnamed workflow", conclusion: run.conclusion || "unknown", url: run.html_url })) : [],
+    workflows: Array.isArray(workflowRuns.workflow_runs) ? workflowRuns.workflow_runs.map((run) => ({
+      name: run.name || "Unnamed workflow",
+      conclusion: run.conclusion || "unknown",
+      event: run.event || "unknown",
+      headSha: run.head_sha || "",
+      headBranch: run.head_branch || "",
+      url: run.html_url,
+    })) : [],
     deployments: deploymentEvidence,
   };
 }

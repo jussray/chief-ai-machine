@@ -9,7 +9,7 @@ const WORKFLOW_PATH = /^\.github\/workflows\//i;
 const DEPLOY_PATH = /(^|\/)(wrangler\.(toml|jsonc?)|vercel\.json|netlify\.toml|fly\.toml|Dockerfile|docker-compose\.ya?ml|cloudbuild\.ya?ml)$|(^|\/)(deploy|deployment|release)[^/]*\.(ya?ml|json|toml)$/i;
 const RELEASE_MARKER_PATH = /(^|\/)\.well-known\/|release[-_.]?marker|release\.json$|version\.json$|^VERSION$/i;
 const CLAIM_LINE = /\b(production|deployed|live|verified|tested|passing|integrated|implemented|launch|release)\b/i;
-const TEST_WORKFLOW = /\b(test|ci|verify|lint|build|quality|gate|check)\b/i;
+const TEST_WORKFLOW = /\b(test|tests|testing|unit|integration|e2e|playwright|vitest|jest|pytest)\b/i;
 
 function githubFileUrl(input, path) {
   return `https://github.com/${encodeURIComponent(input.owner)}/${encodeURIComponent(
@@ -45,17 +45,26 @@ function readmeClaims(input) {
     .slice(0, 8);
 }
 
+function isExactHeadTestWorkflow(run, headSha) {
+  const event = typeof run?.event === "string" ? run.event.toLowerCase() : "unknown";
+  if (event === "pull_request_target") return false;
+  if (typeof run?.headSha !== "string" || !run.headSha || run.headSha !== headSha) return false;
+  return run?.conclusion === "success" && TEST_WORKFLOW.test(run?.name || "");
+}
+
 export function classifyRepositoryEvidence(input) {
   const paths = input.paths || [];
   const claims = readmeClaims(input);
-  const codePaths = paths.filter((path) => SOURCE_DIRS.test(path) || CODE_FILE.test(path));
+  const codePaths = paths.filter(
+    (path) => !TEST_PATH.test(path) && (SOURCE_DIRS.test(path) || CODE_FILE.test(path))
+  );
   const manifests = paths.filter((path) => MANIFEST.test(path));
   const testPaths = paths.filter((path) => TEST_PATH.test(path));
   const workflowPaths = paths.filter((path) => WORKFLOW_PATH.test(path));
   const deployPaths = paths.filter((path) => DEPLOY_PATH.test(path));
   const markerPaths = paths.filter((path) => RELEASE_MARKER_PATH.test(path));
-  const successfulWorkflows = (input.workflows || []).filter(
-    (run) => run.conclusion === "success" && TEST_WORKFLOW.test(run.name || "")
+  const successfulWorkflows = (input.workflows || []).filter((run) =>
+    isExactHeadTestWorkflow(run, input.headSha)
   );
   const successfulDeployments = (input.deployments || []).filter((deployment) =>
     ["success", "active"].includes(deployment.latestState)
@@ -83,7 +92,7 @@ export function classifyRepositoryEvidence(input) {
       ? layer(
           "implemented",
           "supported",
-          `Repository structure contains implementation source plus a project manifest (${codePaths.length} code artifacts detected).`,
+          `Repository structure contains implementation source plus a project manifest (${codePaths.length} non-test code artifacts detected).`,
           implementedItems
         )
       : codePaths.length > 0 || manifests.length > 0
@@ -102,7 +111,11 @@ export function classifyRepositoryEvidence(input) {
   const testedItems = [
     ...testPaths.slice(0, 4).map((path) => evidence("test artifact", path, githubFileUrl(input, path))),
     ...successfulWorkflows.slice(0, 4).map((run) =>
-      evidence("exact-head workflow", `${run.name}: success`, run.url)
+      evidence(
+        "exact-head test workflow",
+        `${run.name}: success${run.event ? ` (${run.event})` : ""}`,
+        run.url
+      )
     ),
   ];
   const tested =
@@ -110,14 +123,14 @@ export function classifyRepositoryEvidence(input) {
       ? layer(
           "tested",
           "supported",
-          "Test artifacts exist and at least one test/verification-style GitHub Actions workflow succeeded for the exact audited commit.",
+          "Test artifacts exist and at least one explicitly test-oriented GitHub Actions workflow succeeded for the exact audited commit. Eligible workflow evidence must carry an exact matching head SHA, and pull_request_target runs are excluded because they execute in base-branch context and can misattribute unrelated PR evidence to the audited SHA.",
           testedItems
         )
       : testPaths.length > 0 || successfulWorkflows.length > 0 || workflowPaths.length > 0
         ? layer(
             "tested",
             "partial",
-            "Testing machinery exists, but ProofMode could not pair test artifacts with a successful verification-style workflow on the exact audited commit.",
+            "Testing machinery exists, but ProofMode could not pair test artifacts with a successful explicitly test-oriented workflow carrying exact matching head provenance for the audited commit. Generic lint, build, quality, gate, check, CI, or verification workflow names are not treated as proof that tests actually ran.",
             testedItems.length
               ? testedItems
               : workflowPaths.slice(0, 6).map((path) => evidence("workflow", path, githubFileUrl(input, path)))
@@ -125,7 +138,7 @@ export function classifyRepositoryEvidence(input) {
         : layer(
             "tested",
             "not_proven",
-            "No repository test artifacts or exact-head verification workflow evidence was found."
+            "No repository test artifacts or exact-head test workflow evidence was found."
           );
 
   const deployedItems = [
@@ -172,7 +185,7 @@ export function classifyRepositoryEvidence(input) {
 
   const nextChecks = [];
   if (tested.state !== "supported") {
-    nextChecks.push("Record a successful test/verification workflow for the exact commit being evaluated.");
+    nextChecks.push("Record a successful explicitly test-oriented workflow with exact matching head provenance for the commit being evaluated, or add richer job-level evidence showing that tests actually ran.");
   }
   if (deployed.state === "not_proven") {
     nextChecks.push("Provide deployment evidence tied to the exact audited commit.");
@@ -195,6 +208,9 @@ export function classifyRepositoryEvidence(input) {
     limitations: [
       "Public GitHub repository evidence only in v0.1.",
       "No live runtime probing is performed in v0.1.",
+      "Workflow evidence without an exact matching head SHA is not accepted as exact-head test proof.",
+      "Generic successful lint, build, quality, gate, check, CI, or verification workflow names do not by themselves prove that tests ran.",
+      "pull_request_target workflows are not accepted as exact-head test proof because their head SHA represents base-branch context.",
       "A supported layer means the stated evidence threshold was met; it is not a universal production-readiness certification.",
     ],
   };

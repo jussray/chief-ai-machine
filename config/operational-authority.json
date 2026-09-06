@@ -6,6 +6,39 @@
     "branch": "main",
     "refType": "exact-commit-sha"
   },
+  "truthMode": {
+    "contract": "chief/truthmode@v1",
+    "mode": "read-only-claim-adjudication",
+    "proofPlanes": [
+      "repository",
+      "tests",
+      "ci",
+      "deployment",
+      "runtime",
+      "provider",
+      "customer-outcome"
+    ],
+    "classifications": [
+      "VERIFIED",
+      "INFERRED",
+      "RISK",
+      "UNKNOWN",
+      "BLOCKED",
+      "HISTORICAL"
+    ],
+    "rules": {
+      "evidenceOutranksConfidence": true,
+      "proofPlanesMayNotUpgradeOneAnother": true,
+      "historicalTruthIsImmutable": true,
+      "currentTruthRequiresReobservation": true,
+      "unknownOrMissingEvidenceFailsClosed": true,
+      "cannotGrantExecutionAuthority": true,
+      "cannotGrantMergeAuthority": true,
+      "cannotGrantDeployAuthority": true,
+      "cannotGrantProviderMutationAuthority": true,
+      "cannotGrantPublicationAuthority": true
+    }
+  },
   "workflowRules": {
     "auditExactMainBeforeEdits": true,
     "auditExactMainBeforeMerge": true,
@@ -23,7 +56,87 @@
     "publicProductionClaimRequiresSeparateEvidenceBackedChange": true,
     "providerMutationRequiresExplicitFounderGate": true,
     "neverRequestSecretsInChat": true,
-    "unknownOrMissingAuthorityFailsClosed": true
+    "unknownOrMissingAuthorityFailsClosed": true,
+    "candidateAuthoredWorkflowsMayConsumeProtectedSecrets": false,
+    "candidateAuthoredWorkflowsMayEnterProtectedEnvironment": false,
+    "privilegedWorkflowSourceMustEqualCurrentMain": true,
+    "stalePrivilegedWorkflowSourceFailsClosed": true,
+    "secretBearingWorkflowDispatchForbidden": true,
+    "providerAdminUsesDefaultBranchRepositoryDispatch": true
+  },
+  "proofContextSemantics": {
+    "legacyPreMergeProofModeContexts": [
+      "Redacted provider receipt",
+      "Verify exact Chief runtime with Playwright",
+      "Verify live Chief capability plan with Playwright",
+      "Verify live ProofMode MCP with Playwright",
+      "Verify operational authority",
+      "Verify production ProofMode MCP with Playwright"
+    ],
+    "preMergeCandidateContext": "Verify candidate ProofMode runtime with Playwright",
+    "preMergeCandidateIntegrationId": null,
+    "preMergeCandidateProducerTrust": "external-github-app-check-required",
+    "preMergeCandidateWorkflowProvenance": "must-not-be-pr-authored-github-actions-only",
+    "preMergeCandidateProducerEvidence": "exact-head-check-run-app-identity-required",
+    "preMergeCandidateRulesetId": 20818149,
+    "preMergeCandidateRulesetName": "Chief AI main exact-head gate",
+    "preMergeCandidateRulesetMustHaveNoBypassActors": true,
+    "preMergeCandidateReviewPolicy": {
+      "requiredApprovingReviewCount": 0,
+      "dismissStaleReviewsOnPush": false,
+      "requireLastPushApproval": false,
+      "requiredReviewThreadResolution": true
+    },
+    "preMergeCandidateScope": "founder-authorized immutable-preview exact-SHA Playwright proof",
+    "acceptedPreMergeDeploymentEnvironments": [
+      "Cloudflare Production",
+      "proofmode-access-admin"
+    ],
+    "acceptedPreMergeDeploymentPlacementDoesNotUpgradeTruthPlane": true,
+    "attack3000": {
+      "contract": "chief/attack3000@v1",
+      "purpose": "operational-realizability",
+      "pressureDepth": 3000,
+      "literalExternalActionsClaimed": 0,
+      "ruleset208Mode": "use-as-is",
+      "rulesetMutationAllowed": false,
+      "requiredOutcomeChain": [
+        "external-candidate-producer-bound-to-exact-head",
+        "trusted-provider-readback",
+        "proofmode-access-admin-deployment-evidence",
+        "exact-runtime-version",
+        "protected-playwright",
+        "fresh-founder-review"
+      ],
+      "forbiddenShortcuts": [
+        "weaken-ruleset-208",
+        "dummy-deployment-or-check-receipt",
+        "candidate-secret-escalation",
+        "provider-build-as-runtime-or-outcome-truth"
+      ],
+      "failClosedWhenUnrealizable": true,
+      "architectureGreenIsNotOutcomeGreen": true
+    },
+    "privilegedBootstrap": {
+      "state": "BLOCKED_UNTIL_TRUSTED_MAIN_CARRIER",
+      "adminWorkflowPath": ".github/workflows/proofmode-access-service-auth.yml",
+      "trustedAdminWorkflowSha": null,
+      "trustedSourceRule": "exact-current-main-only",
+      "trigger": "repository_dispatch",
+      "candidateWorkflowMayInvokeAdmin": false,
+      "candidateWorkflowMayReadProtectedSecrets": false,
+      "activationRequires": [
+        "admin workflow exists on protected main",
+        "admin workflow run GITHUB_SHA equals current main exactly",
+        "repository_dispatch executes default-branch workflow source",
+        "repair requires explicit repository-owner authorization",
+        "provider evidence is re-observed after every main movement"
+      ]
+    },
+    "postMergeProductionContext": "Verify production ProofMode MCP with Playwright",
+    "postMergeProductionScope": "current-main canonical-production exact-SHA Playwright proof",
+    "postMergeOnlyDeploymentEnvironments": [],
+    "rulesetMigration": "HOLD: NO-MUTATION. Ruleset 20818149 is founder-approved exactly as observed and candidate code may not modify it. Its current review topology and required deployments are accepted governance placement and do not upgrade deployment acceptance into runtime or production outcome truth. Continue to fail closed until an external GitHub App/check producer unavailable to PR-authored GitHub Actions is observed on the exact candidate SHA, while also preserving the missing trusted-main privileged carrier and conflicting legacy requirements in any other active default-branch ruleset, including ruleset 21261587, as independent blockers. Re-observe every active ruleset before merge; do not manufacture green checks, use bypass authority, or send protected secrets to candidate-authored workflows."
   },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
@@ -32,26 +145,7 @@
     "runtimeFacts": "provider-evidence-authoritative",
     "executionAuthorization": "bind-to-current-intent-and-exact-proposal"
   },
-  "workflowAuthorityWaivers": [
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/checkout@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/setup-node@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/upload-artifact@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    }
-  ],
+  "workflowAuthorityWaivers": [],
   "failureTaxonomy": [
     "startup_failure",
     "provider_build_failure",
@@ -71,6 +165,7 @@
     "provider build for exact candidate SHA is green when provider runtime is in scope",
     "immutable preview runtime returns JSON with exact candidate SHA when runtime is in scope",
     "Playwright executes against the exact runtime witness and passes when UI or runtime changes",
+    "founder final review is current for the exact final head under the configured GitHub review topology",
     "no unresolved blocking review thread remains"
   ],
   "postMergeGate": [
