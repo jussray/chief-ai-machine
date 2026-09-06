@@ -232,7 +232,7 @@ export function compileProofModeRulesetStage1({
     rules,
   };
   const attackTen = evaluateUltrathinkAttackTenRulesetStage1({
-    observedRuleset: before,
+    observedRuleset: observed,
     desiredRuleset: desired,
   });
   const desiredDeployments = requiredDeployments({ ...observed, rules });
