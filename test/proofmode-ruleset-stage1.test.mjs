@@ -70,7 +70,7 @@ function rule(receipt, type) {
 }
 
 describe('ProofMode ruleset stage1 migration compiler', () => {
-  it('compiles only the narrow review + post-merge deployment repair while preserving unrelated authority', () => {
+  it('compiles only the post-merge deployment repair while preserving founder review authority', () => {
     const observed = liveCarrier();
     const receipt = compileProofModeRulesetStage1({ ruleset: observed });
 
@@ -86,14 +86,13 @@ describe('ProofMode ruleset stage1 migration compiler', () => {
     expect(receipt.observedFingerprint).not.toBe(receipt.desiredFingerprint);
 
     const pullRequest = rule(receipt, 'pull_request');
-    expect(pullRequest.parameters).toMatchObject({
-      required_approving_review_count: 1,
-      dismiss_stale_reviews_on_push: true,
-      require_last_push_approval: true,
-      required_review_thread_resolution: true,
-      require_extra_approval_for_unattributed_changes: true,
+    expect(pullRequest).toEqual(observed.rules.find((entry) => entry.type === 'pull_request'));
+    expect(receipt.reviewAuthority).toEqual({
+      reviewer: 'founder',
+      githubSelfApprovalRequired: false,
+      githubLastPusherApprovalRequired: false,
+      finalReviewRequiredBeforeMergeDecision: true,
     });
-    expect(pullRequest.parameters.allowed_merge_methods).toEqual(['merge', 'squash', 'rebase']);
 
     expect(rule(receipt, 'required_deployments').parameters.required_deployment_environments)
       .toEqual(['proofmode-access-admin']);
@@ -108,7 +107,8 @@ describe('ProofMode ruleset stage1 migration compiler', () => {
       protectedAdminDeploymentPreserved: true,
       reservedCandidateContextRemainsUnbound: true,
       postMergeProductionDeploymentRemoved: true,
-      finalHeadReviewAuthorityStrengthened: true,
+      founderReviewAuthorityPreserved: true,
+      selfApprovalDependencyAvoided: true,
     });
   });
 
@@ -155,13 +155,22 @@ describe('ProofMode ruleset stage1 migration compiler', () => {
     expect(classifications).toContain('baseline-required-status-missing');
   });
 
-  it('is idempotent after stage1 is already satisfied', () => {
-    const fixed = liveCarrier();
-    const pullRequest = fixed.rules.find((entry) => entry.type === 'pull_request');
+  it('fails closed if GitHub review settings drift into a second-reviewer requirement', () => {
+    const drifted = liveCarrier();
+    const pullRequest = drifted.rules.find((entry) => entry.type === 'pull_request');
     pullRequest.parameters.required_approving_review_count = 1;
     pullRequest.parameters.dismiss_stale_reviews_on_push = true;
     pullRequest.parameters.require_last_push_approval = true;
-    pullRequest.parameters.required_review_thread_resolution = true;
+
+    const receipt = compileProofModeRulesetStage1({ ruleset: drifted });
+    expect(receipt.status).toBe('blocked');
+    expect(receipt.mutation).toBeNull();
+    expect(receipt.violations)
+      .toContainEqual(expect.objectContaining({ classification: 'founder-review-model-drift' }));
+  });
+
+  it('is idempotent after stage1 is already satisfied', () => {
+    const fixed = liveCarrier();
     fixed.rules.find((entry) => entry.type === 'required_deployments')
       .parameters.required_deployment_environments = ['proofmode-access-admin'];
 
