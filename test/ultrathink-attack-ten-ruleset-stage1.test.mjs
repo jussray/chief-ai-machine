@@ -66,29 +66,36 @@ function liveCarrier() {
   };
 }
 
+function mutableState(ruleset) {
+  return {
+    name: ruleset.name,
+    target: ruleset.target,
+    enforcement: ruleset.enforcement,
+    bypass_actors: ruleset.bypass_actors,
+    conditions: ruleset.conditions,
+    rules: ruleset.rules,
+  };
+}
+
 describe('ULTRATHINK Attack Ten stage1 governance gate', () => {
-  it('requires all ten falsifiers to pass before the compiler emits a ready mutation', () => {
+  it('passes all ten falsifiers when the founder-approved live ruleset is preserved exactly', () => {
     const receipt = compileProofModeRulesetStage1({ ruleset: liveCarrier() });
 
-    expect(receipt.status).toBe('ready');
+    expect(receipt.status).toBe('already-compliant');
     expect(receipt.attackTen).toMatchObject({
-      protocol: 'ultrathink-attack-ten/ruleset-stage1@v1',
+      protocol: 'ultrathink-attack-ten/ruleset-stage1@v2',
       status: 'passed',
       passedCount: 10,
       attackCount: 10,
     });
     expect(receipt.attackTen.attacks).toHaveLength(10);
     expect(receipt.attackTen.attacks.every((entry) => entry.status === 'passed')).toBe(true);
-    expect(receipt.mutation).not.toBeNull();
-    expect(receipt.mutation.body.rules.find((entry) => entry.type === 'pull_request'))
-      .toEqual(liveCarrier().rules.find((entry) => entry.type === 'pull_request'));
+    expect(receipt.mutation).toBeNull();
   });
 
-  it('falsifies a proposal that changes unrelated authority even when the deployment repair is present', () => {
+  it('falsifies any desired state that changes unrelated authority', () => {
     const observed = liveCarrier();
-    const compiled = compileProofModeRulesetStage1({ ruleset: observed });
-    const drifted = JSON.parse(JSON.stringify(compiled.mutation.body));
-
+    const drifted = JSON.parse(JSON.stringify(mutableState(observed)));
     drifted.conditions.ref_name.include.push('refs/heads/unrelated-authority-expansion');
     drifted.rules.find((entry) => entry.type === 'required_status_checks')
       .parameters.required_status_checks.push({ context: 'Unapproved authority context' });
@@ -99,37 +106,27 @@ describe('ULTRATHINK Attack Ten stage1 governance gate', () => {
     });
 
     expect(attackTen.status).toBe('failed');
-    expect(attackTen.attackCount).toBe(10);
     expect(attackTen.attacks)
       .toContainEqual(expect.objectContaining({
-        id: 'ATK-09-proposal-preserves-unrelated-authority',
-        status: 'failed',
-      }));
-    expect(attackTen.attacks)
-      .toContainEqual(expect.objectContaining({
-        id: 'ATK-10-founder-review-compatible-delta',
+        id: 'ATK-10-no-governance-mutation',
         status: 'failed',
       }));
   });
 
-  it('fails closed when a proposal introduces a second-reviewer topology', () => {
+  it('fails closed when founder review topology drifts', () => {
     const observed = liveCarrier();
-    const compiled = compileProofModeRulesetStage1({ ruleset: observed });
-    const drifted = JSON.parse(JSON.stringify(compiled.mutation.body));
-    const review = drifted.rules.find((entry) => entry.type === 'pull_request').parameters;
+    const review = observed.rules.find((entry) => entry.type === 'pull_request').parameters;
     review.required_approving_review_count = 1;
     review.dismiss_stale_reviews_on_push = true;
     review.require_last_push_approval = true;
 
-    const attackTen = evaluateUltrathinkAttackTenRulesetStage1({
-      observedRuleset: observed,
-      desiredRuleset: drifted,
-    });
+    const receipt = compileProofModeRulesetStage1({ ruleset: observed });
 
-    expect(attackTen.status).toBe('failed');
-    expect(attackTen.attacks)
+    expect(receipt.status).toBe('blocked');
+    expect(receipt.attackTen.status).toBe('failed');
+    expect(receipt.attackTen.attacks)
       .toContainEqual(expect.objectContaining({
-        id: 'ATK-10-founder-review-compatible-delta',
+        id: 'ATK-09-founder-review-topology-intact',
         status: 'failed',
       }));
   });
