@@ -141,6 +141,7 @@ export function evaluateMergeReview(mergeReview = {}) {
       governanceDeadlock: false,
       governanceDeadlockReasons: [],
       safeRulesetDelta: null,
+      rulesetMutationSuggested: false,
       missingRequiredChecks: [],
       codeScanningSatisfied: false,
       missingRequiredDeployments: [],
@@ -258,7 +259,8 @@ export function evaluateMergeReview(mergeReview = {}) {
     governanceDeadlockReasons.push('sole-founder last-push approval has no independent satisfier');
   }
   const governanceDeadlock = governanceDeadlockReasons.length > 0;
-  const safeRulesetDelta = governanceDeadlock ? {
+  const rulesetMode = mergeReview.rules?.rulesetMode === 'as-is' ? 'as-is' : 'repairable';
+  const safeRulesetDelta = governanceDeadlock && rulesetMode !== 'as-is' ? {
     removePreMergeRequiredChecks: impossibleRequiredChecks,
     preservePreMergeRequiredChecks: requiredChecks.filter((name) => !impossibleRequiredChecks.includes(name)),
     moveToPostMergeChecks: impossibleRequiredChecks,
@@ -272,6 +274,7 @@ export function evaluateMergeReview(mergeReview = {}) {
     weakenProofSemantics: false,
     bypassRequired: false,
   } : null;
+  const rulesetMutationSuggested = Boolean(safeRulesetDelta);
 
   const founderAuthorityHeadSha = typeof mergeReview.founderAuthorityHeadSha === 'string'
     ? mergeReview.founderAuthorityHeadSha.trim()
@@ -328,7 +331,9 @@ export function evaluateMergeReview(mergeReview = {}) {
     bypassSuggested: false,
     governanceDeadlock,
     governanceDeadlockReasons,
+    rulesetMode,
     safeRulesetDelta,
+    rulesetMutationSuggested,
     currentHeadSha,
     reviewedHeadSha,
     headMatchesReview,
@@ -469,6 +474,7 @@ export function evaluateEvidenceDecision(input = {}) {
       postMergeProofCannotBeRequiredPreMerge: true,
       soleFounderGovernanceMustRemainSatisfiable: true,
       governanceDeadlockNeverImpliesBypass: true,
+      asIsRulesetModeNeverSuggestsMutation: true,
       founderSelfAuditIsBoundToExactHead: true,
       founderSelfAuditDoesNotGrantMergeAuthority: true,
       independentApprovalCannotBeSelfSatisfied: true,
