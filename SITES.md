@@ -42,6 +42,14 @@ Before material planning, editing, publication, deployment, cross-repository coo
 
 Stricter repository-local rules always win.
 
+## Public-face source
+
+For a public Chief AI explanation, use `PUBLIC_FACE.md` as the canonical public copy source and `public-face.html` as the crawlable reference rendering. These files are deliberately narrower than the founder application.
+
+Do not treat `index.html`, browser-local Company Brain state, Prompt Drafts, saved prompts, imported snapshots, internal logs, or provider responses as public Site source material merely because they are present in the repository or browser UI.
+
+The public face must preserve the current product-truth boundary, Chief/FCR authority split, prototype status, and the distinction between recorded Site identity and independently verified publication state.
+
 ## Read contract
 
 A Site may render public-safe Chief AI state only from the canonical repository and current evidence. It must distinguish recommendation from authority, source from runtime, execution from outcome, and current from historical/stale/superseded/unknown evidence.
