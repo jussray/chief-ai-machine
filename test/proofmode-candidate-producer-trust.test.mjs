@@ -4,6 +4,14 @@ import { validateProofModeRulesetMigration } from '../scripts/verify-proofmode-r
 
 const GITHUB_ACTIONS_INTEGRATION_ID = 15368;
 const EXTERNAL_GITHUB_APP_INTEGRATION_ID = 424242;
+const LEGACY_PRE_MERGE_CONTEXTS = [
+  'Redacted provider receipt',
+  'Verify exact Chief runtime with Playwright',
+  'Verify live Chief capability plan with Playwright',
+  'Verify live ProofMode MCP with Playwright',
+  'Verify operational authority',
+  'Verify production ProofMode MCP with Playwright',
+];
 
 function loadSemantics() {
   const config = JSON.parse(fs.readFileSync(new globalThis.URL('../config/operational-authority.json', import.meta.url), 'utf8'));
@@ -59,6 +67,12 @@ describe('ProofMode candidate producer trust root', () => {
     expect(semantics.rulesetMigration).toContain('external GitHub App/check producer');
   });
 
+  it('records every current legacy pre-merge authority context instead of hiding ruleset 21261587 blockers', () => {
+    const semantics = loadSemantics();
+
+    expect(semantics.legacyPreMergeProofModeContexts).toEqual(LEGACY_PRE_MERGE_CONTEXTS);
+  });
+
   it('fails closed if GitHub Actions 15368 is restored as the sole candidate producer', () => {
     const semantics = {
       ...loadSemantics(),
@@ -80,7 +94,7 @@ describe('ProofMode candidate producer trust root', () => {
     ]));
   });
 
-  it('allows a distinct external GitHub App only when the same no-bypass carrier, provenance contract, and fresh-review authority are preserved', () => {
+  it('allows a distinct external GitHub App only when the same no-bypass carrier, provenance contract, and configured review authority are preserved', () => {
     const semantics = {
       ...loadSemantics(),
       preMergeCandidateIntegrationId: EXTERNAL_GITHUB_APP_INTEGRATION_ID,
