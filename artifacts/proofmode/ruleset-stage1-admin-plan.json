@@ -1,148 +1,46 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "stage": "proofmode-ruleset-stage1-admin-plan",
   "repository": "jussray/chief-ai-machine",
   "rulesetId": 20818149,
-  "status": "ready-for-repository-admin-application",
+  "status": "founder-approved-current-ruleset",
   "authority": {
     "reviewAuthority": "founder",
-    "preMergeMutationAuthority": "repository-admin-surface-only",
-    "independenceIsSurfaceNotPerson": true,
-    "sameFounderMayOperateAdminSurface": true,
     "candidateCodeMayMutate": false,
-    "candidateCodeRole": "compile-and-verify-only",
-    "repositoryRepairScriptRole": "post-merge-clean-current-main-only",
+    "candidateCodeRole": "observe-and-verify-only",
     "githubSelfApprovalRequired": false,
-    "githubLastPusherApprovalRequired": false
+    "githubLastPusherApprovalRequired": false,
+    "rulesetMutationRequired": false
   },
-  "preconditions": {
-    "observedFingerprint": "5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738",
+  "approvedState": {
+    "fingerprint": "5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738",
     "zeroBypassActorsRequired": true,
-    "founderReviewTopologyRequired": {
+    "founderReviewTopology": {
       "requiredApprovingReviewCount": 0,
       "dismissStaleReviewsOnPush": false,
       "requireLastPushApproval": false,
       "requiredReviewThreadResolution": true
     },
-    "reobserveImmediatelyBeforeMutation": true,
-    "abortOnAnyFingerprintDrift": true
+    "requiredDeployments": [
+      "Cloudflare Production",
+      "proofmode-access-admin"
+    ],
+    "requiredStatusChecks": [
+      "Typecheck",
+      "Lint",
+      "Unit Tests",
+      "SonarQube – Founder Intelligence",
+      "Verify test-ledger contract"
+    ],
+    "reservedCandidateContextRequired": false
   },
-  "mutation": {
-    "method": "PUT",
-    "apiVersion": "2026-03-10",
-    "path": "/repos/jussray/chief-ai-machine/rulesets/20818149",
-    "body": {
-      "name": "Chief AI main exact-head gate",
-      "target": "branch",
-      "enforcement": "active",
-      "bypass_actors": [],
-      "conditions": {
-        "ref_name": {
-          "exclude": [],
-          "include": [
-            "~DEFAULT_BRANCH"
-          ]
-        }
-      },
-      "rules": [
-        {
-          "type": "deletion"
-        },
-        {
-          "type": "non_fast_forward"
-        },
-        {
-          "type": "pull_request",
-          "parameters": {
-            "required_approving_review_count": 0,
-            "dismiss_stale_reviews_on_push": false,
-            "required_reviewers": [],
-            "require_code_owner_review": false,
-            "require_last_push_approval": false,
-            "required_review_thread_resolution": true,
-            "require_extra_approval_for_unattributed_changes": true,
-            "allowed_merge_methods": [
-              "merge",
-              "squash",
-              "rebase"
-            ]
-          }
-        },
-        {
-          "type": "required_status_checks",
-          "parameters": {
-            "strict_required_status_checks_policy": false,
-            "do_not_enforce_on_create": false,
-            "required_status_checks": [
-              {
-                "context": "Typecheck"
-              },
-              {
-                "context": "Lint"
-              },
-              {
-                "context": "Unit Tests"
-              },
-              {
-                "context": "SonarQube – Founder Intelligence"
-              },
-              {
-                "context": "Verify test-ledger contract"
-              }
-            ]
-          }
-        },
-        {
-          "type": "required_linear_history"
-        },
-        {
-          "type": "copilot_code_review",
-          "parameters": {
-            "review_on_push": false,
-            "review_draft_pull_requests": true
-          }
-        },
-        {
-          "type": "code_quality",
-          "parameters": {
-            "severity": "errors"
-          }
-        },
-        {
-          "type": "code_scanning",
-          "parameters": {
-            "code_scanning_tools": [
-              {
-                "tool": "CodeQL",
-                "security_alerts_threshold": "high_or_higher",
-                "alerts_threshold": "errors"
-              }
-            ]
-          }
-        },
-        {
-          "type": "code_coverage",
-          "parameters": {
-            "minimum_coverage": null,
-            "max_coverage_drop": null
-          }
-        },
-        {
-          "type": "required_deployments",
-          "parameters": {
-            "required_deployment_environments": [
-              "proofmode-access-admin"
-            ]
-          }
-        }
-      ]
-    }
-  },
+  "mutation": null,
   "verification": {
-    "desiredFingerprint": "1a59d1f6f62ca848c0179dd7bc23fc7715327845146fce718e92da89b7a3707a",
+    "desiredFingerprint": "5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738",
+    "reobserveBeforeMergeDecision": true,
+    "failClosedOnFingerprintDrift": true,
     "zeroBypassActorsRequired": true,
     "founderReviewTopologyPreserved": true,
-    "independentReadbackRequired": true,
-    "ambiguousWriteOutcome": "reconcile-by-readback-before-retry"
+    "requiredDeploymentsPreserved": true
   }
 }
