@@ -1,8 +1,10 @@
 const RULESET_ID = 20818149;
 const RULESET_NAME = 'Chief AI main exact-head gate';
 const RESERVED_CANDIDATE_CONTEXT = 'Verify candidate ProofMode runtime with Playwright';
-const POST_MERGE_ONLY_DEPLOYMENT = 'Cloudflare Production';
-const PRESERVED_ADMIN_DEPLOYMENT = 'proofmode-access-admin';
+const REQUIRED_DEPLOYMENTS = Object.freeze([
+  'Cloudflare Production',
+  'proofmode-access-admin',
+]);
 const REQUIRED_BASELINE_CONTEXTS = Object.freeze([
   'Typecheck',
   'Lint',
@@ -12,7 +14,6 @@ const REQUIRED_BASELINE_CONTEXTS = Object.freeze([
 ]);
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
-const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -67,23 +68,6 @@ function reviewPolicy(ruleset) {
   return rules[0]?.parameters || {};
 }
 
-function allowedDeltaOnly(observed, desired) {
-  if (!desired || typeof desired !== 'object') return false;
-
-  const normalized = clone(desired);
-  const observedMutable = mutableState(observed);
-  const observedDeployments = rulesOfType(observedMutable, 'required_deployments')[0];
-  const desiredDeployments = rulesOfType(normalized, 'required_deployments')[0];
-
-  if (!observedDeployments || !desiredDeployments) return false;
-
-  desiredDeployments.parameters.required_deployment_environments = clone(
-    observedDeployments.parameters?.required_deployment_environments || [],
-  );
-
-  return same(normalized, observedMutable);
-}
-
 function attack(id, claim, passed, evidence) {
   return {
     id,
@@ -120,19 +104,19 @@ export function evaluateUltrathinkAttackTenRulesetStage1({
   const attacks = [
     attack(
       'ATK-01-carrier-identity',
-      'The proposal targets only the zero-bypass Chief exact-head ruleset carrier.',
+      'The approved governance object is the Chief exact-head ruleset carrier.',
       observed.id === RULESET_ID && clean(observed.name) === RULESET_NAME,
       { observedId: observed.id ?? null, observedName: clean(observed.name) || null },
     ),
     attack(
       'ATK-02-active-branch-carrier',
-      'The carrier is an active branch ruleset rather than an inert or differently scoped object.',
+      'The carrier is an active branch ruleset.',
       observed.target === 'branch' && observed.enforcement === 'active',
       { target: observed.target ?? null, enforcement: observed.enforcement ?? null },
     ),
     attack(
       'ATK-03-default-branch-scope',
-      'The carrier still protects the default branch and does not exclude it.',
+      'The carrier protects the default branch and does not exclude it.',
       includes.includes('~DEFAULT_BRANCH') && !excludes.includes('~DEFAULT_BRANCH'),
       { include: includes, exclude: excludes },
     ),
@@ -147,7 +131,7 @@ export function evaluateUltrathinkAttackTenRulesetStage1({
     ),
     attack(
       'ATK-05-single-authority-rules',
-      'Exactly one pull-request rule and one required-deployments rule exist, avoiding ambiguous mutation targets.',
+      'Exactly one pull-request rule and one required-deployments rule exist.',
       rulesOfType(observed, 'pull_request').length === 1
         && rulesOfType(observed, 'required_deployments').length === 1,
       {
@@ -157,7 +141,7 @@ export function evaluateUltrathinkAttackTenRulesetStage1({
     ),
     attack(
       'ATK-06-baseline-checks-intact',
-      'Every baseline source/proof context remains present before governance is changed.',
+      'Every baseline source/proof context remains present.',
       REQUIRED_BASELINE_CONTEXTS.every((context) => observedContexts.includes(context)),
       {
         required: REQUIRED_BASELINE_CONTEXTS,
@@ -166,61 +150,53 @@ export function evaluateUltrathinkAttackTenRulesetStage1({
     ),
     attack(
       'ATK-07-candidate-authority-unbound',
-      'The reserved candidate runtime context is not prematurely promoted to required authority.',
+      'The reserved candidate runtime context is not prematurely promoted.',
       !observedContexts.includes(RESERVED_CANDIDATE_CONTEXT),
       { reservedContext: RESERVED_CANDIDATE_CONTEXT, observed: observedContexts },
     ),
     attack(
-      'ATK-08-admin-deployment-preserved',
-      'The protected proofmode-access-admin deployment remains required before any stage-1 proposal is emitted.',
-      observedDeployments.includes(PRESERVED_ADMIN_DEPLOYMENT),
-      { required: PRESERVED_ADMIN_DEPLOYMENT, observed: observedDeployments },
+      'ATK-08-required-deployments-intact',
+      'Both founder-approved deployment requirements remain present and no extra deployment gate appears.',
+      REQUIRED_DEPLOYMENTS.every((name) => observedDeployments.includes(name))
+        && observedDeployments.every((name) => REQUIRED_DEPLOYMENTS.includes(name)),
+      { required: REQUIRED_DEPLOYMENTS, observed: observedDeployments },
     ),
     attack(
-      'ATK-09-proposal-preserves-unrelated-authority',
-      'The desired proposal preserves conditions, bypass actors, required status checks, and pull-request review topology exactly.',
-      Boolean(desired)
-        && same(desired.conditions, observed.conditions)
-        && same(desired.bypass_actors, observed.bypass_actors)
-        && same(statusChecks(desired), statusChecks(observed))
-        && same(desiredReview, observedReview),
+      'ATK-09-founder-review-topology-intact',
+      'Founder review remains the authority model without a second-reviewer or last-pusher requirement.',
+      Number(observedReview?.required_approving_review_count) === 0
+        && observedReview?.dismiss_stale_reviews_on_push !== true
+        && observedReview?.require_last_push_approval !== true
+        && observedReview?.required_review_thread_resolution === true,
       {
-        proposalPresent: Boolean(desired),
-        conditionsPreserved: Boolean(desired) && same(desired.conditions, observed.conditions),
-        bypassPreserved: Boolean(desired) && same(desired.bypass_actors, observed.bypass_actors),
-        statusChecksPreserved: Boolean(desired) && same(statusChecks(desired), statusChecks(observed)),
-        reviewTopologyPreserved: Boolean(desired) && same(desiredReview, observedReview),
+        requiredApprovingReviewCount: Number(observedReview?.required_approving_review_count),
+        dismissStaleReviewsOnPush: observedReview?.dismiss_stale_reviews_on_push === true,
+        requireLastPushApproval: observedReview?.require_last_push_approval === true,
+        requiredReviewThreadResolution: observedReview?.required_review_thread_resolution === true,
       },
     ),
     attack(
-      'ATK-10-founder-review-compatible-delta',
-      'The only mutation delta removes the post-merge-only production deployment while preserving founder review authority and admin protection.',
+      'ATK-10-no-governance-mutation',
+      'The accepted desired state is byte-semantically identical to the observed mutable ruleset state.',
       Boolean(desired)
-        && allowedDeltaOnly(observed, desired)
-        && Number(observedReview?.required_approving_review_count) === 0
-        && observedReview?.dismiss_stale_reviews_on_push !== true
-        && observedReview?.require_last_push_approval !== true
-        && observedReview?.required_review_thread_resolution === true
+        && same(desired, mutableState(observed))
         && same(desiredReview, observedReview)
-        && !desiredDeployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
-        && desiredDeployments.includes(PRESERVED_ADMIN_DEPLOYMENT)
-        && !desiredContexts.includes(RESERVED_CANDIDATE_CONTEXT),
+        && same(desiredContexts, observedContexts)
+        && same(desiredDeployments, observedDeployments),
       {
-        proposalPresent: Boolean(desired),
-        allowedDeltaOnly: Boolean(desired) && allowedDeltaOnly(observed, desired),
-        founderReviewCompatible: Number(observedReview?.required_approving_review_count) === 0
-          && observedReview?.require_last_push_approval !== true,
+        desiredPresent: Boolean(desired),
+        mutableStatePreserved: Boolean(desired) && same(desired, mutableState(observed)),
         reviewTopologyPreserved: Boolean(desired) && same(desiredReview, observedReview),
-        deployments: desiredDeployments,
-        reservedCandidateContextRequired: desiredContexts.includes(RESERVED_CANDIDATE_CONTEXT),
+        deploymentsPreserved: Boolean(desired) && same(desiredDeployments, observedDeployments),
+        statusContextsPreserved: Boolean(desired) && same(desiredContexts, observedContexts),
       },
     ),
   ];
 
   const passedCount = attacks.filter((item) => item.status === 'passed').length;
   return {
-    schemaVersion: 1,
-    protocol: 'ultrathink-attack-ten/ruleset-stage1@v1',
+    schemaVersion: 2,
+    protocol: 'ultrathink-attack-ten/ruleset-stage1@v2',
     status: passedCount === attacks.length ? 'passed' : 'failed',
     passedCount,
     attackCount: attacks.length,
