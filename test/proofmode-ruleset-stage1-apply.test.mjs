@@ -237,7 +237,7 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
 
   it('fails closed when live state drifts between initial observation and pre-mutation re-observation', async () => {
     const { observed } = fixture();
-    const drifted = structuredClone(observed);
+    const drifted = JSON.parse(JSON.stringify(observed));
     drifted.rules.push({ type: 'creation' });
     const methods = [];
     const queue = [response(observed), response(drifted)];
