@@ -89,19 +89,26 @@ export function pullRequestReviewPolicy(ruleset) {
 function expectedReviewPolicy(semantics) {
   const configured = semantics?.preMergeCandidateReviewPolicy;
   if (!configured || typeof configured !== 'object' || Array.isArray(configured)) return null;
+
   const count = Number(configured.requiredApprovingReviewCount);
-  if (!Number.isSafeInteger(count) || count < 1) return null;
-  if (
-    configured.dismissStaleReviewsOnPush !== true
-    || configured.requireLastPushApproval !== true
-    || configured.requiredReviewThreadResolution !== true
-  ) return null;
+  if (!Number.isSafeInteger(count) || count < 0) return null;
+
+  const booleanKeys = [
+    'dismissStaleReviewsOnPush',
+    'requireLastPushApproval',
+    'requiredReviewThreadResolution',
+  ];
+  if (booleanKeys.some((key) => typeof configured[key] !== 'boolean')) return null;
+
+  // Resolved review threads remain a minimum invariant even when the founder-approved
+  // topology intentionally requires zero GitHub approvals and no last-push approval.
+  if (configured.requiredReviewThreadResolution !== true) return null;
 
   return {
     requiredApprovingReviewCount: count,
-    dismissStaleReviewsOnPush: true,
-    requireLastPushApproval: true,
-    requiredReviewThreadResolution: true,
+    dismissStaleReviewsOnPush: configured.dismissStaleReviewsOnPush,
+    requireLastPushApproval: configured.requireLastPushApproval,
+    requiredReviewThreadResolution: configured.requiredReviewThreadResolution,
   };
 }
 
@@ -109,7 +116,7 @@ function reviewPolicyMeets(actual, expected) {
   if (!actual || !expected) return false;
   return (
     Number.isInteger(actual.requiredApprovingReviewCount)
-    && actual.requiredApprovingReviewCount >= expected.requiredApprovingReviewCount
+    && actual.requiredApprovingReviewCount === expected.requiredApprovingReviewCount
     && actual.dismissStaleReviewsOnPush === expected.dismissStaleReviewsOnPush
     && actual.requireLastPushApproval === expected.requireLastPushApproval
     && actual.requiredReviewThreadResolution === expected.requiredReviewThreadResolution
@@ -228,7 +235,7 @@ export function validateProofModeRulesetMigration({
       expectedRulesetName: candidateRulesetName,
       expected: candidateReviewPolicy,
       observed: weakReviewCarriers.map(({ id, name, reviewPolicy }) => ({ id, name, reviewPolicy })),
-      reason: 'the zero-bypass candidate carrier must require a fresh approval on the final push and resolved review threads',
+      reason: 'the zero-bypass candidate carrier review policy must match the founder-approved configured topology and keep review threads resolved',
     });
   }
 
