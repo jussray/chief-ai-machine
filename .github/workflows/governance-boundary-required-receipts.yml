@@ -178,7 +178,7 @@ jobs:
 
       - name: Install pinned Wrangler for pull-request runtime proof
         if: steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
-        run: npm install --no-save --package-lock=false --no-audit --no-fund wrangler@4.129.0
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
 
       - name: Require exact-head Cloudflare build materialization
         if: steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
