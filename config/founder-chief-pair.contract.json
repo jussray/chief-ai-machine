@@ -1,9 +1,15 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-08-09.1",
+  "contractVersion": "2026-08-19.1",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
+  },
+  "candidatePairing": {
+    "schema": "juss/founder-chief-pair-candidate@v1",
+    "founderControlRoomPullRequest": 735,
+    "chiefAIPullRequest": 129,
+    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority."
   },
   "roles": {
     "controlRoom": [
@@ -77,9 +83,9 @@
     "reconciliation",
     "correction and audit trail"
   ],
-  "automatedPostingAuthorization": "Founder standing approval applies only to posts inside an approved automated publishing class that pass the Public Communication Truth Contract and all required posting controls. Out-of-class or high-consequence communications require fresh founder approval.",
+  "automatedPostingAuthorization": "Founder standing approval applies only to posts inside an approved automated publishing class that pass the Public Communication Truth Contract and all required posting controls, and it never weakens a stricter executable authority contract. A route without authoritative execution-time standing-approval readback is fail-closed. Current first-party LinkedIn direct publication requires fresh exact Current You approval bound to the exact proposal and public payload. Out-of-class or high-consequence communications require fresh founder approval.",
   "postingTruthBoundary": "A draft, scheduler acceptance, workflow trigger, or model response does not prove publication. A publication claim requires an observable platform artifact, reconciliation, and recorded evidence.",
-  "postingApprovalPolicy": "Per-post founder approval is not required for compliant posts inside the approved automated publishing class. Financial commitments, contracts, payments, fundraising terms, legal positions, crisis communications, admissions of liability, political statements, and other high-consequence communications remain outside standing authorization unless separately approved.",
+  "postingApprovalPolicy": "Per-post founder approval may be omitted only when an active route both belongs to an approved automated publishing class and can reread authoritative standing approval at execution. Authentication, model output, caller-supplied approval JSON, scheduler state, or analytics do not create that authority. The current first-party direct-publish route requires fresh exact-proposal approval. Financial commitments, contracts, payments, fundraising terms, legal positions, crisis communications, admissions of liability, political statements, and other high-consequence communications remain outside standing authorization unless separately approved.",
   "accountingDisclaimer": "These are internal controls inspired by sound accounting practice and do not represent an external audit or formal GAAP opinion.",
   "driftPolicy": "A material change to either repository requires counterpart review. Unresolved mismatch is pair drift and blocks a complete-state claim.",
   "runtimeTruthBoundary": "Passing this static contract proves repository policy alignment only. It does not prove deployed or runtime behavior."
