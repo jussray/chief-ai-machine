@@ -7,9 +7,10 @@ import { evaluateUltrathinkAttackTenRulesetStage1 } from './ultrathink-attack-te
 const RULESET_ID = 20818149;
 const RULESET_NAME = 'Chief AI main exact-head gate';
 const RESERVED_CANDIDATE_CONTEXT = 'Verify candidate ProofMode runtime with Playwright';
-const POST_MERGE_ONLY_DEPLOYMENT = 'Cloudflare Production';
-const PRESERVED_ADMIN_DEPLOYMENT = 'proofmode-access-admin';
-const API_VERSION = '2026-03-10';
+const REQUIRED_DEPLOYMENTS = Object.freeze([
+  'Cloudflare Production',
+  'proofmode-access-admin',
+]);
 const REQUIRED_BASELINE_CONTEXTS = Object.freeze([
   'Typecheck',
   'Lint',
@@ -71,24 +72,6 @@ function currentReviewPolicy(ruleset) {
   };
 }
 
-function desiredRules(ruleset) {
-  return ruleset.rules.map((rule) => {
-    if (rule?.type === 'required_deployments') {
-      const current = Array.isArray(rule?.parameters?.required_deployment_environments)
-        ? rule.parameters.required_deployment_environments
-        : [];
-      return {
-        ...rule,
-        parameters: {
-          ...(rule.parameters || {}),
-          required_deployment_environments: current.filter((name) => name !== POST_MERGE_ONLY_DEPLOYMENT),
-        },
-      };
-    }
-    return clone(rule);
-  });
-}
-
 function mutableState(ruleset) {
   return {
     name: ruleset.name,
@@ -138,7 +121,7 @@ export function compileProofModeRulesetStage1({
   if (!Array.isArray(observed.bypass_actors)) {
     violations.push({
       classification: 'ruleset-bypass-state-unobservable',
-      reason: 'trusted administration readback must expose bypass_actors before compiling a mutation',
+      reason: 'trusted administration readback must expose bypass_actors before accepting the live carrier',
     });
   } else if (observed.bypass_actors.length !== 0) {
     violations.push({
@@ -176,7 +159,7 @@ export function compileProofModeRulesetStage1({
       classification: 'founder-review-model-drift',
       expected: FOUNDER_REVIEW_POLICY,
       observed: review,
-      reason: 'The founder is the reviewer for the current operating model; GitHub self-approval or last-pusher approval cannot be used as the authority gate.',
+      reason: 'The founder is the reviewer for the current operating model; GitHub self-approval or last-pusher approval is not the authority gate.',
     });
   }
 
@@ -193,82 +176,67 @@ export function compileProofModeRulesetStage1({
     violations.push({
       classification: 'reserved-candidate-context-already-required',
       context: RESERVED_CANDIDATE_CONTEXT,
-      reason: 'stage1 must not bind candidate authority before the external producer is independently observed',
+      reason: 'candidate authority remains unbound until the external producer is independently observed',
     });
   }
 
   const deployments = requiredDeployments(observed);
-  if (!deployments.includes(PRESERVED_ADMIN_DEPLOYMENT)) {
+  for (const environment of REQUIRED_DEPLOYMENTS) {
+    if (!deployments.includes(environment)) {
+      violations.push({
+        classification: 'required-deployment-missing',
+        environment,
+      });
+    }
+  }
+  const unexpectedDeployments = deployments.filter((environment) => !REQUIRED_DEPLOYMENTS.includes(environment));
+  if (unexpectedDeployments.length > 0) {
     violations.push({
-      classification: 'protected-admin-deployment-missing',
-      environment: PRESERVED_ADMIN_DEPLOYMENT,
+      classification: 'required-deployment-topology-drift',
+      expected: REQUIRED_DEPLOYMENTS,
+      observed: deployments,
+      unexpected: unexpectedDeployments,
     });
   }
 
-  if (violations.length > 0) {
-    return {
-      schemaVersion: 1,
-      stage: 'proofmode-ruleset-stage1',
-      rulesetId: RULESET_ID,
-      repository: repo || null,
-      status: 'blocked',
-      violations,
-      attackTen: evaluateUltrathinkAttackTenRulesetStage1({
-        observedRuleset: observed,
-        desiredRuleset: null,
-      }),
-      mutation: null,
-    };
-  }
-
   const before = mutableState(observed);
-  const rules = desiredRules(observed);
-  const desired = {
-    name: observed.name,
-    target: observed.target,
-    enforcement: observed.enforcement,
-    bypass_actors: clone(observed.bypass_actors),
-    conditions: clone(observed.conditions),
-    rules,
-  };
+  const desired = clone(before);
   const attackTen = evaluateUltrathinkAttackTenRulesetStage1({
     observedRuleset: observed,
     desiredRuleset: desired,
   });
-  const desiredDeployments = requiredDeployments({ ...observed, rules });
-  const alreadyCompliant = (
-    !desiredDeployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
-    && !deployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
-  );
 
-  if (attackTen.status !== 'passed') {
-    return {
-      schemaVersion: 1,
-      stage: 'proofmode-ruleset-stage1',
-      rulesetId: RULESET_ID,
-      rulesetName: RULESET_NAME,
-      repository: repo,
-      status: 'blocked',
-      observedFingerprint: fingerprint(before),
-      desiredFingerprint: fingerprint(desired),
-      violations: [{
+  if (violations.length > 0 || attackTen.status !== 'passed') {
+    const attackViolation = attackTen.status === 'passed'
+      ? []
+      : [{
         classification: 'ultrathink-attack-ten-failed',
         failedAttacks: attackTen.attacks
           .filter((item) => item.status === 'failed')
           .map((item) => item.id),
-      }],
+      }];
+    return {
+      schemaVersion: 2,
+      stage: 'proofmode-ruleset-stage1',
+      rulesetId: RULESET_ID,
+      rulesetName: RULESET_NAME,
+      repository: repo || null,
+      status: 'blocked',
+      observedFingerprint: fingerprint(before),
+      desiredFingerprint: fingerprint(desired),
+      violations: [...violations, ...attackViolation],
       attackTen,
       mutation: null,
     };
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     stage: 'proofmode-ruleset-stage1',
     rulesetId: RULESET_ID,
     rulesetName: RULESET_NAME,
     repository: repo,
-    status: alreadyCompliant ? 'already-compliant' : 'ready',
+    status: 'already-compliant',
     observedFingerprint: fingerprint(before),
     desiredFingerprint: fingerprint(desired),
     attackTen,
@@ -282,19 +250,13 @@ export function compileProofModeRulesetStage1({
       zeroBypassActorsPreserved: true,
       conditionsPreserved: true,
       statusChecksPreserved: true,
-      protectedAdminDeploymentPreserved: true,
+      requiredDeploymentsPreserved: true,
       reservedCandidateContextRemainsUnbound: true,
-      postMergeProductionDeploymentRemoved: true,
       founderReviewAuthorityPreserved: true,
-      selfApprovalDependencyAvoided: true,
+      liveRulesetAcceptedAsAuthority: true,
+      mutationRequired: false,
     },
-    mutation: alreadyCompliant ? null : {
-      method: 'PUT',
-      apiVersion: API_VERSION,
-      path: `/repos/${repo}/rulesets/${RULESET_ID}`,
-      expectedObservedFingerprint: fingerprint(before),
-      body: desired,
-    },
+    mutation: null,
   };
 }
 
