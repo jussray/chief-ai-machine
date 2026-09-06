@@ -17,6 +17,12 @@ const REQUIRED_BASELINE_CONTEXTS = Object.freeze([
   'SonarQube – Founder Intelligence',
   'Verify test-ledger contract',
 ]);
+const FOUNDER_REVIEW_POLICY = Object.freeze({
+  requiredApprovingReviewCount: 0,
+  dismissStaleReviewsOnPush: false,
+  requireLastPushApproval: false,
+  requiredReviewThreadResolution: true,
+});
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -67,18 +73,6 @@ function currentReviewPolicy(ruleset) {
 
 function desiredRules(ruleset) {
   return ruleset.rules.map((rule) => {
-    if (rule?.type === 'pull_request') {
-      return {
-        ...rule,
-        parameters: {
-          ...(rule.parameters || {}),
-          required_approving_review_count: 1,
-          dismiss_stale_reviews_on_push: true,
-          require_last_push_approval: true,
-          required_review_thread_resolution: true,
-        },
-      };
-    }
     if (rule?.type === 'required_deployments') {
       const current = Array.isArray(rule?.parameters?.required_deployment_environments)
         ? rule.parameters.required_deployment_environments
@@ -168,6 +162,24 @@ export function compileProofModeRulesetStage1({
     });
   }
 
+  const review = currentReviewPolicy(observed);
+  if (
+    review
+    && (
+      review.requiredApprovingReviewCount !== FOUNDER_REVIEW_POLICY.requiredApprovingReviewCount
+      || review.dismissStaleReviewsOnPush !== FOUNDER_REVIEW_POLICY.dismissStaleReviewsOnPush
+      || review.requireLastPushApproval !== FOUNDER_REVIEW_POLICY.requireLastPushApproval
+      || review.requiredReviewThreadResolution !== FOUNDER_REVIEW_POLICY.requiredReviewThreadResolution
+    )
+  ) {
+    violations.push({
+      classification: 'founder-review-model-drift',
+      expected: FOUNDER_REVIEW_POLICY,
+      observed: review,
+      reason: 'The founder is the reviewer for the current operating model; GitHub self-approval or last-pusher approval cannot be used as the authority gate.',
+    });
+  }
+
   const contexts = requiredStatusContexts(observed);
   for (const context of REQUIRED_BASELINE_CONTEXTS) {
     if (!contexts.includes(context)) {
@@ -223,14 +235,9 @@ export function compileProofModeRulesetStage1({
     observedRuleset: before,
     desiredRuleset: desired,
   });
-  const review = currentReviewPolicy({ ...observed, rules });
   const desiredDeployments = requiredDeployments({ ...observed, rules });
   const alreadyCompliant = (
     !desiredDeployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
-    && review?.requiredApprovingReviewCount >= 1
-    && review?.dismissStaleReviewsOnPush === true
-    && review?.requireLastPushApproval === true
-    && review?.requiredReviewThreadResolution === true
     && !deployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
   );
 
@@ -265,6 +272,12 @@ export function compileProofModeRulesetStage1({
     observedFingerprint: fingerprint(before),
     desiredFingerprint: fingerprint(desired),
     attackTen,
+    reviewAuthority: {
+      reviewer: 'founder',
+      githubSelfApprovalRequired: false,
+      githubLastPusherApprovalRequired: false,
+      finalReviewRequiredBeforeMergeDecision: true,
+    },
     invariants: {
       zeroBypassActorsPreserved: true,
       conditionsPreserved: true,
@@ -272,7 +285,8 @@ export function compileProofModeRulesetStage1({
       protectedAdminDeploymentPreserved: true,
       reservedCandidateContextRemainsUnbound: true,
       postMergeProductionDeploymentRemoved: true,
-      finalHeadReviewAuthorityStrengthened: true,
+      founderReviewAuthorityPreserved: true,
+      selfApprovalDependencyAvoided: true,
     },
     mutation: alreadyCompliant ? null : {
       method: 'PUT',
