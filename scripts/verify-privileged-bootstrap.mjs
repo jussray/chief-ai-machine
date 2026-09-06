@@ -5,8 +5,98 @@ import { fileURLToPath } from 'node:url';
 const OLD_UNTRUSTED_PIN = 'c1acda4363099b7233d5857e8d2e4c97163ef42d';
 const RESERVED_CANDIDATE_CONTEXT = 'Verify candidate ProofMode runtime with Playwright';
 const PROTECTED_ENVIRONMENT = 'environment: proofmode-access-admin';
+const ATTACK_3000_CONTRACT = 'chief/attack3000@v1';
+const ATTACK_3000_REQUIRED_CHAIN = Object.freeze([
+  'external-candidate-producer-bound-to-exact-head',
+  'trusted-provider-readback',
+  'proofmode-access-admin-deployment-evidence',
+  'exact-runtime-version',
+  'protected-playwright',
+  'fresh-founder-review',
+]);
+const ATTACK_3000_FORBIDDEN_SHORTCUTS = Object.freeze([
+  'weaken-ruleset-208',
+  'dummy-deployment-or-check-receipt',
+  'candidate-secret-escalation',
+  'provider-build-as-runtime-or-outcome-truth',
+]);
+const SHA_40 = /^[0-9a-f]{40}$/i;
 
 const read = (rootDir, relativePath) => fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
+
+function sameStringSet(actual, expected) {
+  if (!Array.isArray(actual) || actual.length !== expected.length) return false;
+  return expected.every((value) => actual.includes(value));
+}
+
+export function evaluateAttack3000({ semantics, bootstrap } = {}) {
+  const config = semantics?.attack3000 || {};
+  const contractViolations = [];
+  const requireValue = (rule, actual, expected) => {
+    if (actual !== expected) contractViolations.push({ rule, expected, actual: actual ?? null });
+  };
+
+  requireValue('contract', config.contract, ATTACK_3000_CONTRACT);
+  requireValue('purpose', config.purpose, 'operational-realizability');
+  requireValue('pressureDepth', config.pressureDepth, 3000);
+  requireValue('literalExternalActionsClaimed', config.literalExternalActionsClaimed, 0);
+  requireValue('ruleset208Mode', config.ruleset208Mode, 'use-as-is');
+  requireValue('rulesetMutationAllowed', config.rulesetMutationAllowed, false);
+  requireValue('failClosedWhenUnrealizable', config.failClosedWhenUnrealizable, true);
+  requireValue('architectureGreenIsNotOutcomeGreen', config.architectureGreenIsNotOutcomeGreen, true);
+
+  if (!sameStringSet(config.requiredOutcomeChain, ATTACK_3000_REQUIRED_CHAIN)) {
+    contractViolations.push({
+      rule: 'requiredOutcomeChain',
+      expected: ATTACK_3000_REQUIRED_CHAIN,
+      actual: Array.isArray(config.requiredOutcomeChain) ? config.requiredOutcomeChain : null,
+    });
+  }
+  if (!sameStringSet(config.forbiddenShortcuts, ATTACK_3000_FORBIDDEN_SHORTCUTS)) {
+    contractViolations.push({
+      rule: 'forbiddenShortcuts',
+      expected: ATTACK_3000_FORBIDDEN_SHORTCUTS,
+      actual: Array.isArray(config.forbiddenShortcuts) ? config.forbiddenShortcuts : null,
+    });
+  }
+
+  const blockers = [];
+  const trustedMainCarrierActive = bootstrap?.state === 'ACTIVE_TRUSTED_MAIN_CARRIER'
+    && SHA_40.test(String(bootstrap?.trustedAdminWorkflowSha || ''));
+  if (!trustedMainCarrierActive) blockers.push('trusted-main-privileged-carrier-not-active');
+
+  if (!Number.isInteger(semantics?.preMergeCandidateIntegrationId)) {
+    blockers.push('external-candidate-runtime-producer-unbound');
+  }
+
+  const protectedDeploymentModeled = Array.isArray(semantics?.acceptedPreMergeDeploymentEnvironments)
+    && semantics.acceptedPreMergeDeploymentEnvironments.includes('proofmode-access-admin');
+  if (!protectedDeploymentModeled) blockers.push('proofmode-access-admin-deployment-not-modeled');
+
+  let operationalState = 'READY_FOR_LIVE_PROOF';
+  if (contractViolations.length > 0) operationalState = 'INVALID';
+  else if (blockers.length > 0) operationalState = 'BLOCKED';
+
+  return {
+    contract: config.contract || null,
+    purpose: config.purpose || null,
+    pressureDepth: config.pressureDepth ?? null,
+    literalExternalActionsClaimed: config.literalExternalActionsClaimed ?? null,
+    operationalState,
+    sourceContractValid: contractViolations.length === 0,
+    blockers,
+    contractViolations,
+    requiredOutcomeChain: ATTACK_3000_REQUIRED_CHAIN,
+    forbiddenShortcuts: ATTACK_3000_FORBIDDEN_SHORTCUTS,
+    ruleset208Mode: config.ruleset208Mode || null,
+    rulesetMutationSuggested: false,
+    bypassSuggested: false,
+    candidateSecretEscalationSuggested: false,
+    dummyReceiptAllowed: false,
+    providerBuildCanSatisfyRuntimeTruth: false,
+    liveProofStillRequired: true,
+  };
+}
 
 export function evaluatePrivilegedBootstrap({ authority, workflows } = {}) {
   const violations = [];
@@ -112,12 +202,22 @@ export function evaluatePrivilegedBootstrap({ authority, workflows } = {}) {
     violations.push({ classification: 'production-current-main-guard-missing' });
   }
 
+  const attack3000 = evaluateAttack3000({ semantics, bootstrap });
+  for (const violation of attack3000.contractViolations) {
+    violations.push({ classification: 'attack3000-contract-mismatch', ...violation });
+  }
+
+  const sourceContractValid = violations.length === 0;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     state: bootstrap.state || null,
     trustedAdminWorkflowSha: bootstrap.trustedAdminWorkflowSha ?? null,
     violations,
-    ok: violations.length === 0,
+    attack3000: {
+      ...attack3000,
+      architectureSecure: sourceContractValid,
+    },
+    ok: sourceContractValid,
   };
 }
 
