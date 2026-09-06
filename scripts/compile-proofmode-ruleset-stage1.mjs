@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evaluateUltrathinkAttackTenRulesetStage1 } from './ultrathink-attack-ten-ruleset-stage1.mjs';
 
 const RULESET_ID = 20818149;
 const RULESET_NAME = 'Chief AI main exact-head gate';
@@ -200,6 +201,10 @@ export function compileProofModeRulesetStage1({
       repository: repo || null,
       status: 'blocked',
       violations,
+      attackTen: evaluateUltrathinkAttackTenRulesetStage1({
+        observedRuleset: observed,
+        desiredRuleset: null,
+      }),
       mutation: null,
     };
   }
@@ -214,6 +219,10 @@ export function compileProofModeRulesetStage1({
     conditions: clone(observed.conditions),
     rules,
   };
+  const attackTen = evaluateUltrathinkAttackTenRulesetStage1({
+    observedRuleset: before,
+    desiredRuleset: desired,
+  });
   const review = currentReviewPolicy({ ...observed, rules });
   const desiredDeployments = requiredDeployments({ ...observed, rules });
   const alreadyCompliant = (
@@ -225,6 +234,27 @@ export function compileProofModeRulesetStage1({
     && !deployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
   );
 
+  if (attackTen.status !== 'passed') {
+    return {
+      schemaVersion: 1,
+      stage: 'proofmode-ruleset-stage1',
+      rulesetId: RULESET_ID,
+      rulesetName: RULESET_NAME,
+      repository: repo,
+      status: 'blocked',
+      observedFingerprint: fingerprint(before),
+      desiredFingerprint: fingerprint(desired),
+      violations: [{
+        classification: 'ultrathink-attack-ten-failed',
+        failedAttacks: attackTen.attacks
+          .filter((item) => item.status === 'failed')
+          .map((item) => item.id),
+      }],
+      attackTen,
+      mutation: null,
+    };
+  }
+
   return {
     schemaVersion: 1,
     stage: 'proofmode-ruleset-stage1',
@@ -234,6 +264,7 @@ export function compileProofModeRulesetStage1({
     status: alreadyCompliant ? 'already-compliant' : 'ready',
     observedFingerprint: fingerprint(before),
     desiredFingerprint: fingerprint(desired),
+    attackTen,
     invariants: {
       zeroBypassActorsPreserved: true,
       conditionsPreserved: true,
