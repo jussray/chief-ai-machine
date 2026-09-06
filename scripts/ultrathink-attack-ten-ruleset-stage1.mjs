@@ -60,22 +60,11 @@ function allowedDeltaOnly(observed, desired) {
   if (!desired || typeof desired !== 'object') return false;
 
   const normalized = clone(desired);
-  const observedPr = rulesOfType(observed, 'pull_request')[0];
-  const desiredPr = rulesOfType(normalized, 'pull_request')[0];
   const observedDeployments = rulesOfType(observed, 'required_deployments')[0];
   const desiredDeployments = rulesOfType(normalized, 'required_deployments')[0];
 
-  if (!observedPr || !desiredPr || !observedDeployments || !desiredDeployments) return false;
+  if (!observedDeployments || !desiredDeployments) return false;
 
-  const reviewKeys = [
-    'required_approving_review_count',
-    'dismiss_stale_reviews_on_push',
-    'require_last_push_approval',
-    'required_review_thread_resolution',
-  ];
-  for (const key of reviewKeys) {
-    desiredPr.parameters[key] = observedPr.parameters?.[key];
-  }
   desiredDeployments.parameters.required_deployment_environments = clone(
     observedDeployments.parameters?.required_deployment_environments || [],
   );
@@ -111,6 +100,7 @@ export function evaluateUltrathinkAttackTenRulesetStage1({
     : [];
   const observedContexts = statusContexts(observed);
   const observedDeployments = deployments(observed);
+  const observedReview = reviewPolicy(observed);
   const desiredContexts = desired ? statusContexts(desired) : [];
   const desiredDeployments = desired ? deployments(desired) : [];
   const desiredReview = desired ? reviewPolicy(desired) : null;
@@ -176,39 +166,39 @@ export function evaluateUltrathinkAttackTenRulesetStage1({
     ),
     attack(
       'ATK-09-proposal-preserves-unrelated-authority',
-      'The desired proposal preserves conditions, bypass actors, and required status checks exactly.',
+      'The desired proposal preserves conditions, bypass actors, required status checks, and pull-request review topology exactly.',
       Boolean(desired)
         && same(desired.conditions, observed.conditions)
         && same(desired.bypass_actors, observed.bypass_actors)
-        && same(statusChecks(desired), statusChecks(observed)),
+        && same(statusChecks(desired), statusChecks(observed))
+        && same(desiredReview, observedReview),
       {
         proposalPresent: Boolean(desired),
         conditionsPreserved: Boolean(desired) && same(desired.conditions, observed.conditions),
         bypassPreserved: Boolean(desired) && same(desired.bypass_actors, observed.bypass_actors),
         statusChecksPreserved: Boolean(desired) && same(statusChecks(desired), statusChecks(observed)),
+        reviewTopologyPreserved: Boolean(desired) && same(desiredReview, observedReview),
       },
     ),
     attack(
-      'ATK-10-narrow-strengthening-delta',
-      'The only mutation delta strengthens final-head review authority and removes the post-merge-only production deployment while retaining admin protection.',
+      'ATK-10-founder-review-compatible-delta',
+      'The only mutation delta removes the post-merge-only production deployment while preserving founder review authority and admin protection.',
       Boolean(desired)
         && allowedDeltaOnly(observed, desired)
-        && Number(desiredReview?.required_approving_review_count) === 1
-        && desiredReview?.dismiss_stale_reviews_on_push === true
-        && desiredReview?.require_last_push_approval === true
-        && desiredReview?.required_review_thread_resolution === true
+        && Number(observedReview?.required_approving_review_count) === 0
+        && observedReview?.dismiss_stale_reviews_on_push !== true
+        && observedReview?.require_last_push_approval !== true
+        && observedReview?.required_review_thread_resolution === true
+        && same(desiredReview, observedReview)
         && !desiredDeployments.includes(POST_MERGE_ONLY_DEPLOYMENT)
         && desiredDeployments.includes(PRESERVED_ADMIN_DEPLOYMENT)
         && !desiredContexts.includes(RESERVED_CANDIDATE_CONTEXT),
       {
         proposalPresent: Boolean(desired),
         allowedDeltaOnly: Boolean(desired) && allowedDeltaOnly(observed, desired),
-        review: desiredReview ? {
-          requiredApprovingReviewCount: Number(desiredReview.required_approving_review_count),
-          dismissStaleReviewsOnPush: desiredReview.dismiss_stale_reviews_on_push === true,
-          requireLastPushApproval: desiredReview.require_last_push_approval === true,
-          requiredReviewThreadResolution: desiredReview.required_review_thread_resolution === true,
-        } : null,
+        founderReviewCompatible: Number(observedReview?.required_approving_review_count) === 0
+          && observedReview?.require_last_push_approval !== true,
+        reviewTopologyPreserved: Boolean(desired) && same(desiredReview, observedReview),
         deployments: desiredDeployments,
         reservedCandidateContextRequired: desiredContexts.includes(RESERVED_CANDIDATE_CONTEXT),
       },
