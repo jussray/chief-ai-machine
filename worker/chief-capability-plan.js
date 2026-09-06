@@ -2,11 +2,12 @@ import {
   createExecutionHandoffReceipt,
   resolveCapabilities,
 } from '../src/domain/capability-registry.js';
-import { createCapabilityPlan } from '../src/domain/capability-plan.js';
+import { createCapabilityPlan, sha256Hex } from '../src/domain/capability-plan.js';
 import { createConnectionHandoff } from '../src/domain/connection-requests.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
 import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
+import { evaluateTrustTransition } from '../src/domain/trust-transition-v1.js';
 
 const ROUTE = '/api/chief/capability-plan';
 
@@ -71,6 +72,54 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
   });
 }
 
+function createTrustTransitionProposal(capabilityPlan, goalPlan) {
+  const trustTransition = evaluateTrustTransition({
+    intent: {
+      goal: goalPlan.goal,
+    },
+    proposedAction: {
+      action: 'execute_capability_plan',
+      target: capabilityPlan.planHash,
+      parametersHash: capabilityPlan.planHash,
+      idempotencyKey: `chief-capability-plan:${capabilityPlan.planHash}`,
+    },
+    consequence: 'consequential',
+    authority: {
+      granted: false,
+      grantId: '',
+      action: 'execute_capability_plan',
+      target: capabilityPlan.planHash,
+      scope: ['execute-approved-capability-plan'],
+      reusable: false,
+    },
+    recovery: {
+      mode: 'correction',
+      checkpoint: goalPlan.rollback,
+      acknowledged: true,
+    },
+    runtimeFingerprint: sha256Hex(capabilityPlan.expectedHeadSha),
+  });
+
+  if (!trustTransition.valid || trustTransition.disposition !== 'awaiting_authority' || trustTransition.executionAllowed) {
+    throw new Error('Trust transition proposal failed closed before Founder Control Room authority review.');
+  }
+
+  return {
+    contract: trustTransition.contract,
+    phase: 'proposal',
+    transitionFingerprint: trustTransition.transitionFingerprint,
+    authorityFingerprint: trustTransition.authorityFingerprint,
+    continuityCookie: trustTransition.continuityCookie,
+    authorityGranted: trustTransition.authorityGranted,
+    executionAllowed: trustTransition.executionAllowed,
+    disposition: trustTransition.disposition,
+    currentTruthState: trustTransition.currentTruthState,
+    selfAuthorize: trustTransition.selfAuthorize,
+    attack1000: trustTransition.attack1000,
+    invariants: trustTransition.invariants,
+  };
+}
+
 export async function handleChiefCapabilityPlan(request) {
   const url = new URL(request.url);
   if (url.pathname !== ROUTE) {
@@ -106,6 +155,7 @@ export async function handleChiefCapabilityPlan(request) {
     const connectionHandoff = createConnectionHandoff(input.connectionRequests);
     // Chief describes the remote founder-control handoff; it never resolves approval itself.
     const founderControl = founderControlHandoff(capabilityPlan);
+    const trustTransition = createTrustTransitionProposal(capabilityPlan, input.goalPlan);
 
     return json({
       data: {
@@ -114,6 +164,7 @@ export async function handleChiefCapabilityPlan(request) {
         connectionHandoff,
         outcomeFeedback,
         founderControl,
+        trustTransition,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
@@ -128,7 +179,7 @@ export async function handleChiefCapabilityPlan(request) {
           rawCredentialsReturned: false,
           connectionResolver: '/mcp/vault/resolve',
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, and bind an explicit founder decision relayed from FCR, ChatGPT, Claude, or Perplexity before n8n or Zapier may execute the exact approved proposal.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, bind the TrustTransition fingerprint/cookie to explicit founder authority, and only then allow n8n or Zapier to execute the exact approved proposal.',
         },
       },
       meta: meta(),

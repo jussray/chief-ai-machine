@@ -89,6 +89,28 @@ describe('Chief capability-plan proposal API', () => {
         capabilities: ['inspect_repos'],
       }],
     });
+    expect(body.data.trustTransition).toMatchObject({
+      contract: 'juss/trust-transition@v1',
+      phase: 'proposal',
+      authorityGranted: false,
+      executionAllowed: false,
+      disposition: 'awaiting_authority',
+      currentTruthState: 'unknown',
+      selfAuthorize: false,
+      attack1000: {
+        pressureBudget: 1000,
+        literalExternalActionsClaimed: 0,
+      },
+      invariants: {
+        providerAcceptanceIsNotOutcome: true,
+        staleCookieCannotRenewAuthority: true,
+        proposalCannotSelfGrantAuthority: true,
+        authorityGrantMovementPreservesTransitionSubject: true,
+      },
+    });
+    expect(body.data.trustTransition.transitionFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.data.trustTransition.authorityFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.data.trustTransition.continuityCookie).toMatch(/^[0-9a-f]{64}$/);
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,

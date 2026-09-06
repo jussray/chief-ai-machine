@@ -69,7 +69,7 @@ test.describe('Chief capability-plan live runtime', () => {
     await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
   });
 
-  test('returns a proposal-only plan plus a credential-free FCR connection handoff', async ({ request }) => {
+  test('returns a proposal-only plan plus a fingerprinted, credential-free FCR handoff', async ({ request }) => {
     const input = proposalInput();
     const response = await request.post(`${baseURL}/api/chief/capability-plan`, {
       headers: { 'Content-Type': 'application/json' },
@@ -117,6 +117,28 @@ test.describe('Chief capability-plan live runtime', () => {
       executionAuthorized: false,
       receiptRequiredAfterExecution: true,
     });
+    expect(body.data.trustTransition).toMatchObject({
+      contract: 'juss/trust-transition@v1',
+      phase: 'proposal',
+      authorityGranted: false,
+      executionAllowed: false,
+      disposition: 'awaiting_authority',
+      currentTruthState: 'unknown',
+      selfAuthorize: false,
+      attack1000: {
+        pressureBudget: 1000,
+        literalExternalActionsClaimed: 0,
+      },
+      invariants: {
+        providerAcceptanceIsNotOutcome: true,
+        staleCookieCannotRenewAuthority: true,
+        proposalCannotSelfGrantAuthority: true,
+        authorityGrantMovementPreservesTransitionSubject: true,
+      },
+    });
+    expect(body.data.trustTransition.transitionFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.data.trustTransition.authorityFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.data.trustTransition.continuityCookie).toMatch(/^[0-9a-f]{64}$/);
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,
@@ -172,6 +194,8 @@ test.describe('Chief capability-plan live runtime', () => {
     expect(body.data.capabilityPlan.requestedAuthority).toBe('reason');
     expect(body.data.capabilityPlan.routingReason).toContain('Submitted prior outcome recommends review');
     expect(body.data.capabilityPlan.routingReason).toContain('Source trust remains submitted-unverified');
+    expect(body.data.trustTransition.authorityGranted).toBe(false);
+    expect(body.data.trustTransition.executionAllowed).toBe(false);
   });
 
   test('fails closed for a capability absent from the submitted snapshot', async ({ request }) => {
