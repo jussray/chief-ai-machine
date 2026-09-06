@@ -2,16 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { compileProofModeRulesetStage1 } from '../scripts/compile-proofmode-ruleset-stage1.mjs';
 import {
   applyProofModeRulesetStage1,
+  buildProofModeRulesetStage1FailureReceipt,
   PROOFMODE_RULESET_STAGE1,
+  verifyTrustedRulesetRepairSource,
 } from '../scripts/apply-proofmode-ruleset-stage1.mjs';
 
 const REPOSITORY = 'jussray/chief-ai-machine';
+const TRUSTED_SOURCE_SHA = 'a'.repeat(40);
 
 function baselineRuleset() {
   return {
     id: 20818149,
     name: 'Chief AI main exact-head gate',
     target: 'branch',
+    source_type: 'Repository',
+    source: REPOSITORY,
     enforcement: 'active',
     bypass_actors: [],
     conditions: {
@@ -21,6 +26,8 @@ function baselineRuleset() {
       },
     },
     rules: [
+      { type: 'deletion' },
+      { type: 'non_fast_forward' },
       {
         type: 'pull_request',
         parameters: {
@@ -48,6 +55,39 @@ function baselineRuleset() {
           ],
         },
       },
+      { type: 'required_linear_history' },
+      {
+        type: 'copilot_code_review',
+        parameters: {
+          review_on_push: false,
+          review_draft_pull_requests: true,
+        },
+      },
+      {
+        type: 'code_quality',
+        parameters: {
+          severity: 'errors',
+        },
+      },
+      {
+        type: 'code_scanning',
+        parameters: {
+          code_scanning_tools: [
+            {
+              tool: 'CodeQL',
+              security_alerts_threshold: 'high_or_higher',
+              alerts_threshold: 'errors',
+            },
+          ],
+        },
+      },
+      {
+        type: 'code_coverage',
+        parameters: {
+          minimum_coverage: null,
+          max_coverage_drop: null,
+        },
+      },
       {
         type: 'required_deployments',
         parameters: {
@@ -67,20 +107,29 @@ function fixture() {
     compiled,
     compliant: {
       id: observed.id,
+      source_type: 'Repository',
+      source: REPOSITORY,
       ...compiled.mutation.body,
     },
   };
 }
 
-function envFor(compiled, overrides = {}) {
+function envFor(overrides = {}) {
   return {
     GITHUB_REPOSITORY: REPOSITORY,
     GITHUB_RULESET_ADMIN_TOKEN: 'admin-secret-token',
     PROOFMODE_RULESET_MODE: 'check',
-    PROOFMODE_RULESET_EXPECTED_OBSERVED_FINGERPRINT: compiled.observedFingerprint,
-    PROOFMODE_RULESET_EXPECTED_DESIRED_FINGERPRINT: compiled.desiredFingerprint,
     ...overrides,
   };
+}
+
+function trustedRepairSource() {
+  return Promise.resolve({
+    branch: 'main',
+    sourceSha: TRUSTED_SOURCE_SHA,
+    currentMainSha: TRUSTED_SOURCE_SHA,
+    cleanCheckout: true,
+  });
 }
 
 function response(payload, status = 200) {
@@ -94,13 +143,17 @@ function response(payload, status = 200) {
 }
 
 describe('ProofMode ruleset stage-1 executable admin repair', () => {
-  it('pins the production carrier and prepared stage-1 fingerprints', () => {
+  it('pins the production carrier, fingerprints, and repair source policy in source', () => {
+    const { compiled } = fixture();
+    expect(compiled.observedFingerprint).toBe(PROOFMODE_RULESET_STAGE1.expectedObservedFingerprint);
+    expect(compiled.desiredFingerprint).toBe(PROOFMODE_RULESET_STAGE1.expectedDesiredFingerprint);
     expect(PROOFMODE_RULESET_STAGE1).toEqual({
       repository: REPOSITORY,
       rulesetId: 20818149,
       expectedObservedFingerprint: '5758b4b5aba90895fc3639c4afff2459bc479a13293dc4a589a7829bc0345738',
       expectedDesiredFingerprint: 'f337fd4a3a0c2eab9e913c76381046dbf8e581b8ec76e90f06a221142b668dd7',
       repairConfirmation: 'apply-proofmode-ruleset-stage1',
+      repairSource: 'clean-current-main-only',
     });
   });
 
@@ -108,7 +161,7 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
     const { observed, compiled } = fixture();
     const calls = [];
     const receipt = await applyProofModeRulesetStage1({
-      env: envFor(compiled),
+      env: envFor(),
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
         return response(observed);
@@ -117,7 +170,10 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
 
     expect(receipt).toEqual(expect.objectContaining({
       status: 'ready',
+      mutationAttempted: false,
+      providerAccepted: false,
       mutated: false,
+      outcomeVerified: false,
       observedFingerprint: compiled.observedFingerprint,
       desiredFingerprint: compiled.desiredFingerprint,
       verifiedFingerprint: null,
@@ -127,15 +183,35 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
     expect(JSON.stringify(receipt)).not.toContain('admin-secret-token');
   });
 
-  it('repair mode performs exactly one PUT and requires verified readback', async () => {
+  it('does not allow environment variables to redefine the pinned fingerprints', async () => {
+    const { observed, compiled } = fixture();
+    const receipt = await applyProofModeRulesetStage1({
+      env: envFor({
+        PROOFMODE_RULESET_EXPECTED_OBSERVED_FINGERPRINT: '0'.repeat(64),
+        PROOFMODE_RULESET_EXPECTED_DESIRED_FINGERPRINT: '1'.repeat(64),
+      }),
+      fetchImpl: async () => response(observed),
+    });
+    expect(receipt.observedFingerprint).toBe(compiled.observedFingerprint);
+    expect(receipt.desiredFingerprint).toBe(compiled.desiredFingerprint);
+    expect(receipt.status).toBe('ready');
+  });
+
+  it('repair performs source proof, a second preflight, one PUT, and verified readback', async () => {
     const { observed, compiled, compliant } = fixture();
     const calls = [];
-    const queue = [response(observed), response(compliant), response(compliant)];
+    const queue = [
+      response(observed),
+      response(observed),
+      response(compliant),
+      response(compliant),
+    ];
     const receipt = await applyProofModeRulesetStage1({
-      env: envFor(compiled, {
+      env: envFor({
         PROOFMODE_RULESET_MODE: 'repair',
         PROOFMODE_RULESET_REPAIR_CONFIRMATION: 'apply-proofmode-ruleset-stage1',
       }),
+      repairSourceVerifier: trustedRepairSource,
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
         const next = queue.shift();
@@ -144,38 +220,51 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
       },
     });
 
-    expect(calls.map((call) => call.options.method)).toEqual(['GET', 'PUT', 'GET']);
-    expect(calls[1].url).toBe('https://api.github.com/repos/jussray/chief-ai-machine/rulesets/20818149');
-    expect(JSON.parse(calls[1].options.body)).toEqual(compiled.mutation.body);
+    expect(calls.map((call) => call.options.method)).toEqual(['GET', 'GET', 'PUT', 'GET']);
+    expect(calls[2].url).toBe('https://api.github.com/repos/jussray/chief-ai-machine/rulesets/20818149');
+    expect(JSON.parse(calls[2].options.body)).toEqual(compiled.mutation.body);
     expect(receipt).toEqual(expect.objectContaining({
       status: 'verified-applied',
+      mutationAttempted: true,
+      providerAccepted: true,
       mutated: true,
+      outcomeVerified: true,
+      preMutationFingerprint: compiled.observedFingerprint,
       verifiedFingerprint: compiled.desiredFingerprint,
+      sourceSha: TRUSTED_SOURCE_SHA,
     }));
   });
 
-  it('fails closed on live fingerprint drift before any PUT', async () => {
-    const { observed, compiled } = fixture();
+  it('fails closed when live state drifts between initial observation and pre-mutation re-observation', async () => {
+    const { observed } = fixture();
+    const drifted = structuredClone(observed);
+    drifted.rules.push({ type: 'creation' });
     const methods = [];
+    const queue = [response(observed), response(drifted)];
+
     await expect(applyProofModeRulesetStage1({
-      env: envFor(compiled, {
+      env: envFor({
         PROOFMODE_RULESET_MODE: 'repair',
         PROOFMODE_RULESET_REPAIR_CONFIRMATION: 'apply-proofmode-ruleset-stage1',
-        PROOFMODE_RULESET_EXPECTED_OBSERVED_FINGERPRINT: '0'.repeat(64),
       }),
+      repairSourceVerifier: trustedRepairSource,
       fetchImpl: async (_url, options) => {
         methods.push(options.method);
-        return response(observed);
+        return queue.shift();
       },
-    })).rejects.toThrow(/drifted before stage 1/);
-    expect(methods).toEqual(['GET']);
+    })).rejects.toThrow(/pre-mutation-reobservation: live ruleset drifted/);
+
+    expect(methods).toEqual(['GET', 'GET']);
   });
 
-  it('refuses repair without the exact explicit confirmation', async () => {
-    const { observed, compiled } = fixture();
+  it('refuses repair without the exact explicit confirmation before source or mutation access', async () => {
+    const { observed } = fixture();
     const methods = [];
     await expect(applyProofModeRulesetStage1({
-      env: envFor(compiled, { PROOFMODE_RULESET_MODE: 'repair' }),
+      env: envFor({ PROOFMODE_RULESET_MODE: 'repair' }),
+      repairSourceVerifier: async () => {
+        throw new Error('source verifier should not run');
+      },
       fetchImpl: async (_url, options) => {
         methods.push(options.method);
         return response(observed);
@@ -184,11 +273,14 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
     expect(methods).toEqual(['GET']);
   });
 
-  it('accepts an already-applied desired state without issuing PUT', async () => {
+  it('accepts an already-applied desired state without source proof or PUT', async () => {
     const { compiled, compliant } = fixture();
     const methods = [];
     const receipt = await applyProofModeRulesetStage1({
-      env: envFor(compiled, { PROOFMODE_RULESET_MODE: 'repair' }),
+      env: envFor({ PROOFMODE_RULESET_MODE: 'repair' }),
+      repairSourceVerifier: async () => {
+        throw new Error('source verifier should not run');
+      },
       fetchImpl: async (_url, options) => {
         methods.push(options.method);
         return response(compliant);
@@ -196,16 +288,134 @@ describe('ProofMode ruleset stage-1 executable admin repair', () => {
     });
     expect(receipt).toEqual(expect.objectContaining({
       status: 'already-applied',
+      mutationAttempted: false,
+      providerAccepted: false,
       mutated: false,
+      outcomeVerified: true,
       verifiedFingerprint: compiled.desiredFingerprint,
     }));
     expect(methods).toEqual(['GET']);
   });
 
+  it('requires a clean checkout whose local HEAD equals current main before repair', async () => {
+    const fetchCalls = [];
+    const fetchImpl = async (url, options) => {
+      fetchCalls.push({ url, options });
+      return response({ commit: { sha: TRUSTED_SOURCE_SHA } });
+    };
+
+    await expect(verifyTrustedRulesetRepairSource({
+      fetchImpl,
+      token: 'admin-secret-token',
+      gitProbe: async () => ({
+        head: TRUSTED_SOURCE_SHA,
+        cleanCheckout: false,
+      }),
+    })).rejects.toThrow(/checkout must be clean/);
+    expect(fetchCalls).toHaveLength(0);
+
+    await expect(verifyTrustedRulesetRepairSource({
+      fetchImpl,
+      token: 'admin-secret-token',
+      gitProbe: async () => ({
+        head: 'b'.repeat(40),
+        cleanCheckout: true,
+      }),
+    })).rejects.toThrow(/not current protected main/);
+    expect(fetchCalls).toHaveLength(1);
+
+    const trusted = await verifyTrustedRulesetRepairSource({
+      fetchImpl,
+      token: 'admin-secret-token',
+      gitProbe: async () => ({
+        head: TRUSTED_SOURCE_SHA,
+        cleanCheckout: true,
+      }),
+    });
+    expect(trusted).toEqual({
+      branch: 'main',
+      sourceSha: TRUSTED_SOURCE_SHA,
+      currentMainSha: TRUSTED_SOURCE_SHA,
+      cleanCheckout: true,
+    });
+  });
+
+  it('records outcome unknown instead of false non-mutation when PUT transport fails', async () => {
+    const { observed } = fixture();
+    const methods = [];
+    let thrown;
+    try {
+      await applyProofModeRulesetStage1({
+        env: envFor({
+          PROOFMODE_RULESET_MODE: 'repair',
+          PROOFMODE_RULESET_REPAIR_CONFIRMATION: 'apply-proofmode-ruleset-stage1',
+        }),
+        repairSourceVerifier: trustedRepairSource,
+        fetchImpl: async (_url, options) => {
+          methods.push(options.method);
+          if (methods.length <= 2) return response(observed);
+          throw new Error('connection lost after write started');
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(methods).toEqual(['GET', 'GET', 'PUT']);
+    const failure = buildProofModeRulesetStage1FailureReceipt({
+      env: envFor({ PROOFMODE_RULESET_MODE: 'repair' }),
+      error: thrown,
+    });
+    expect(failure).toEqual(expect.objectContaining({
+      status: 'outcome-unknown',
+      mutationAttempted: true,
+      providerAccepted: false,
+      mutated: null,
+      outcomeVerified: false,
+      sourceSha: TRUSTED_SOURCE_SHA,
+    }));
+  });
+
+  it('records provider acceptance without claiming verified outcome when post-write verification fails', async () => {
+    const { observed, compliant } = fixture();
+    const methods = [];
+    let thrown;
+    try {
+      await applyProofModeRulesetStage1({
+        env: envFor({
+          PROOFMODE_RULESET_MODE: 'repair',
+          PROOFMODE_RULESET_REPAIR_CONFIRMATION: 'apply-proofmode-ruleset-stage1',
+        }),
+        repairSourceVerifier: trustedRepairSource,
+        fetchImpl: async (_url, options) => {
+          methods.push(options.method);
+          if (methods.length <= 2) return response(observed);
+          if (methods.length === 3) return response(compliant);
+          throw new Error('readback unavailable');
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(methods).toEqual(['GET', 'GET', 'PUT', 'GET']);
+    const failure = buildProofModeRulesetStage1FailureReceipt({
+      env: envFor({ PROOFMODE_RULESET_MODE: 'repair' }),
+      error: thrown,
+    });
+    expect(failure).toEqual(expect.objectContaining({
+      status: 'accepted-unverified',
+      mutationAttempted: true,
+      providerAccepted: true,
+      mutated: true,
+      outcomeVerified: false,
+      sourceSha: TRUSTED_SOURCE_SHA,
+    }));
+  });
+
   it('refuses to retarget the admin primitive to another repository', async () => {
-    const { compiled } = fixture();
     await expect(applyProofModeRulesetStage1({
-      env: envFor(compiled, { GITHUB_REPOSITORY: 'someone/else' }),
+      env: envFor({ GITHUB_REPOSITORY: 'someone/else' }),
       fetchImpl: async () => response({}),
     })).rejects.toThrow(/pinned to jussray\/chief-ai-machine/);
   });
