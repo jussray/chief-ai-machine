@@ -48,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Test operational source contracts
-        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-ruleset-pagination.test.mjs test/proofmode-ruleset-stage1.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/proofmode-candidate-ordering.test.mjs test/privileged-bootstrap-provenance.test.mjs test/operational-proof-trust-root.test.mjs
+        run: npx vitest run test/operational-authority.test.mjs test/operator-truth-summary.test.mjs test/proofmode-ruleset-authority.test.mjs test/proofmode-ruleset-pagination.test.mjs test/proofmode-ruleset-stage1.test.mjs test/proofmode-ruleset-stage1-apply.test.mjs test/proofmode-candidate-producer-evidence.test.mjs test/proofmode-candidate-ordering.test.mjs test/privileged-bootstrap-provenance.test.mjs test/operational-proof-trust-root.test.mjs
 
       - name: Enforce privileged bootstrap provenance
         run: node scripts/verify-privileged-bootstrap.mjs
