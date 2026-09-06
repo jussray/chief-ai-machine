@@ -163,6 +163,88 @@ describe('Evidence Decision Loop v1', () => {
     expect(result.mergeAllowed).toBe(false);
   });
 
+  it('classifies post-merge proof required before merge as a governance deadlock', () => {
+    const result = evaluateMergeReview({
+      requested: true,
+      currentHeadSha: fingerprint,
+      reviewedHeadSha: fingerprint,
+      requiredChecks: REQUIRED_MERGE_CHECKS,
+      checkRuns: [
+        ...REQUIRED_MERGE_CHECKS.slice(0, -1).map((name) => successfulCheck(name)),
+        successfulCheck('CodeQL'),
+      ],
+      rules: {
+        codeScanningRequired: true,
+        codeScanningTool: 'CodeQL',
+        requiredDeployments: ['Cloudflare Production', 'proofmode-access-admin'],
+        postMergeOnlyChecks: ['Verify production ProofMode MCP with Playwright'],
+        postMergeOnlyDeployments: ['Cloudflare Production'],
+      },
+      deploymentStatuses: [
+        { environment: 'proofmode-access-admin', headSha: fingerprint, state: 'success' },
+      ],
+      founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
+    });
+
+    expect(result.disposition).toBe('GOVERNANCE_DEADLOCK');
+    expect(result.governanceDeadlock).toBe(true);
+    expect(result.impossibleRequiredChecks).toEqual(['Verify production ProofMode MCP with Playwright']);
+    expect(result.impossibleRequiredDeployments).toEqual(['Cloudflare Production']);
+    expect(result.safeRulesetDelta).toMatchObject({
+      removePreMergeRequiredChecks: ['Verify production ProofMode MCP with Playwright'],
+      moveToPostMergeChecks: ['Verify production ProofMode MCP with Playwright'],
+      removePreMergeRequiredDeployments: ['Cloudflare Production'],
+      moveToPostMergeDeployments: ['Cloudflare Production'],
+      weakenProofSemantics: false,
+      bypassRequired: false,
+    });
+    expect(result.mergeAllowed).toBe(false);
+    expect(result.bypassSuggested).toBe(false);
+  });
+
+  it('classifies impossible sole-founder last-push approval as a governance deadlock', () => {
+    const result = evaluateMergeReview({
+      requested: true,
+      currentHeadSha: fingerprint,
+      reviewedHeadSha: fingerprint,
+      requiredChecks: [],
+      checkRuns: [],
+      rules: {
+        codeScanningRequired: false,
+        founderSelfAuditRequired: true,
+        requireLastPushApproval: true,
+        soleFounderMode: true,
+        independentReviewAvailable: false,
+      },
+      founderActor: 'jussray',
+      founderSelfAudit: {
+        completed: true,
+        reviewer: 'jussray',
+        reviewedHeadSha: fingerprint,
+        disposition: 'ACCEPT',
+        diffReviewed: true,
+        requiredChecksReviewed: true,
+        codeScanningReviewed: true,
+        runtimeEvidenceReviewed: true,
+        knownRisksReviewed: true,
+      },
+      lastPusher: 'jussray',
+      founderAuthorityExplicit: true,
+      founderAuthorityHeadSha: fingerprint,
+    });
+
+    expect(result.disposition).toBe('GOVERNANCE_DEADLOCK');
+    expect(result.lastPushApprovalDeadlock).toBe(true);
+    expect(result.safeRulesetDelta).toMatchObject({
+      disableLastPushApproval: true,
+      replacementReviewGate: 'founder-self-audit-plus-explicit-current-head-founder-authority',
+      weakenProofSemantics: false,
+      bypassRequired: false,
+    });
+    expect(result.mergeAllowed).toBe(false);
+  });
+
   it('treats CodeQL as separate merge evidence even when required status checks are green', () => {
     const result = evaluateMergeReview({
       requested: true,
