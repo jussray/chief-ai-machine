@@ -80,12 +80,14 @@ describe('ULTRATHINK Attack Ten stage1 governance gate', () => {
     expect(receipt.attackTen.attacks).toHaveLength(10);
     expect(receipt.attackTen.attacks.every((entry) => entry.status === 'passed')).toBe(true);
     expect(receipt.mutation).not.toBeNull();
+    expect(receipt.mutation.body.rules.find((entry) => entry.type === 'pull_request'))
+      .toEqual(liveCarrier().rules.find((entry) => entry.type === 'pull_request'));
   });
 
-  it('falsifies a proposal that changes unrelated authority even when the intended review repair is present', () => {
+  it('falsifies a proposal that changes unrelated authority even when the deployment repair is present', () => {
     const observed = liveCarrier();
     const compiled = compileProofModeRulesetStage1({ ruleset: observed });
-    const drifted = structuredClone(compiled.mutation.body);
+    const drifted = JSON.parse(JSON.stringify(compiled.mutation.body));
 
     drifted.conditions.ref_name.include.push('refs/heads/unrelated-authority-expansion');
     drifted.rules.find((entry) => entry.type === 'required_status_checks')
@@ -105,7 +107,29 @@ describe('ULTRATHINK Attack Ten stage1 governance gate', () => {
       }));
     expect(attackTen.attacks)
       .toContainEqual(expect.objectContaining({
-        id: 'ATK-10-narrow-strengthening-delta',
+        id: 'ATK-10-founder-review-compatible-delta',
+        status: 'failed',
+      }));
+  });
+
+  it('fails closed when a proposal introduces a second-reviewer topology', () => {
+    const observed = liveCarrier();
+    const compiled = compileProofModeRulesetStage1({ ruleset: observed });
+    const drifted = JSON.parse(JSON.stringify(compiled.mutation.body));
+    const review = drifted.rules.find((entry) => entry.type === 'pull_request').parameters;
+    review.required_approving_review_count = 1;
+    review.dismiss_stale_reviews_on_push = true;
+    review.require_last_push_approval = true;
+
+    const attackTen = evaluateUltrathinkAttackTenRulesetStage1({
+      observedRuleset: observed,
+      desiredRuleset: drifted,
+    });
+
+    expect(attackTen.status).toBe('failed');
+    expect(attackTen.attacks)
+      .toContainEqual(expect.objectContaining({
+        id: 'ATK-10-founder-review-compatible-delta',
         status: 'failed',
       }));
   });
