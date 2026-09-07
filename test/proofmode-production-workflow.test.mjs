@@ -13,8 +13,33 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('expected_sha:');
     expect(workflow).toContain('authorize_production:');
     expect(workflow).not.toContain('pull_request:');
-    expect(workflow).toContain("test \"$EXPECTED_HEAD_SHA\" = \"$GITHUB_SHA\"");
+    expect(workflow).toContain('test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"');
     expect(workflow).toContain("if: github.event_name == 'workflow_dispatch'");
+  });
+
+  it('authenticates founder identity and makes production authority one-shot', () => {
+    expect(workflow).toContain('REPOSITORY_OWNER: ${{ github.repository_owner }}');
+    expect(workflow).toContain('TRIGGERING_ACTOR: ${{ github.triggering_actor }}');
+    expect(workflow).toContain('test "$GITHUB_ACTOR" = "$REPOSITORY_OWNER"');
+    expect(workflow).toContain('test "$TRIGGERING_ACTOR" = "$REPOSITORY_OWNER"');
+    expect(workflow).toContain('test "$GITHUB_RUN_ATTEMPT" = "1"');
+    expect(workflow).toContain('Bind authenticated founder authority to one exact dispatch');
+  });
+
+  it('requires the exact-head pre-production proof packet before promotion', () => {
+    expect(workflow).toContain('Require exact-head pre-production proof packet');
+    expect(workflow).toContain('"Typecheck"');
+    expect(workflow).toContain('"Lint"');
+    expect(workflow).toContain('"Unit Tests"');
+    expect(workflow).toContain('"CodeQL"');
+    expect(workflow).toContain('"Verify exact Chief runtime with Playwright"');
+    expect(workflow).toContain('"Verify live Chief capability plan with Playwright"');
+    expect(workflow).toContain('"Verify live ProofMode MCP with Playwright"');
+    expect(workflow).toContain('"Verify operational authority"');
+    expect(workflow).toContain('"Workers Builds: chief-ai"');
+    expect(workflow).toContain('run.head_sha === process.env.EXPECTED_HEAD_SHA');
+    expect(workflow).toContain('run.status === "completed"');
+    expect(workflow).toContain('run.conclusion === "success"');
   });
 
   it('materializes both required deployment environments only through live proof', () => {
