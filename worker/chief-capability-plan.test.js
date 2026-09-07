@@ -93,6 +93,7 @@ describe('Chief capability-plan proposal API', () => {
       contract: 'juss/trust-transition@v1',
       phase: 'proposal',
       authorityGranted: false,
+      authorityAuthenticated: false,
       executionAllowed: false,
       disposition: 'awaiting_authority',
       currentTruthState: 'unknown',
@@ -104,6 +105,8 @@ describe('Chief capability-plan proposal API', () => {
       invariants: {
         providerAcceptanceIsNotOutcome: true,
         staleCookieCannotRenewAuthority: true,
+        continuityCookieDoesNotAuthenticate: true,
+        authorityAuthenticationRequiredForExecution: true,
         proposalCannotSelfGrantAuthority: true,
         authorityGrantMovementPreservesTransitionSubject: true,
       },
