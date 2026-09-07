@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const workflow = readFileSync(
-  new URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
+  new globalThis.URL('../.github/workflows/proofmode-access-service-auth.yml', import.meta.url),
   'utf8',
 );
 

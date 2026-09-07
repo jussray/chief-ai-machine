@@ -31,7 +31,7 @@ function cloudflareFixture({ apps, workers = [WORKER], policiesByApp = {} }) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     calls.push({ url, method: init.method || 'GET' });
-    const parsed = new URL(url);
+    const parsed = new globalThis.URL(url);
     if (parsed.pathname.endsWith('/access/service_tokens')) return response([TOKEN]);
     if (parsed.pathname.endsWith('/access/apps')) return response(apps);
     if (parsed.pathname.endsWith('/workers/workers')) return response(workers);
