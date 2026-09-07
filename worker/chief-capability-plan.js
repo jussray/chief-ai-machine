@@ -86,6 +86,7 @@ function createTrustTransitionProposal(capabilityPlan, goalPlan) {
     consequence: 'consequential',
     authority: {
       granted: false,
+      authenticated: false,
       grantId: '',
       action: 'execute_capability_plan',
       target: capabilityPlan.planHash,
@@ -111,6 +112,7 @@ function createTrustTransitionProposal(capabilityPlan, goalPlan) {
     authorityFingerprint: trustTransition.authorityFingerprint,
     continuityCookie: trustTransition.continuityCookie,
     authorityGranted: trustTransition.authorityGranted,
+    authorityAuthenticated: trustTransition.authorityAuthenticated,
     executionAllowed: trustTransition.executionAllowed,
     disposition: trustTransition.disposition,
     currentTruthState: trustTransition.currentTruthState,
