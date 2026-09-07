@@ -22,6 +22,7 @@ function mission(overrides = {}) {
     consequence: 'consequential',
     authority: {
       granted: true,
+      authenticated: true,
       grantId: 'grant-123',
       action: 'publish_collection',
       target: 'fall-2026-test',
@@ -70,6 +71,7 @@ describe('TrustTransitionV1', () => {
     const proposal = mission({
       authority: {
         granted: false,
+        authenticated: false,
         grantId: '',
         action: base.proposedAction.action,
         target: base.proposedAction.target,
@@ -81,6 +83,7 @@ describe('TrustTransitionV1', () => {
     const result = evaluateTrustTransition(proposal);
     expect(result.valid).toBe(true);
     expect(result.authorityGranted).toBe(false);
+    expect(result.authorityAuthenticated).toBe(false);
     expect(result.executionAllowed).toBe(false);
     expect(result.disposition).toBe('awaiting_authority');
     expect(result.selfAuthorize).toBe(false);
@@ -92,6 +95,7 @@ describe('TrustTransitionV1', () => {
     const pending = mission({
       authority: {
         granted: false,
+        authenticated: false,
         grantId: '',
         action: granted.proposedAction.action,
         target: granted.proposedAction.target,
@@ -122,6 +126,48 @@ describe('TrustTransitionV1', () => {
     expect(result.valid).toBe(false);
     expect(result.executionAllowed).toBe(false);
     expect(result.errors).toContain('granted authority requires authority.grantId');
+  });
+
+  it('does not let a grant id, fingerprint, or continuity cookie authenticate authority', () => {
+    const base = mission();
+    const correlatedOnly = mission({
+      authority: {
+        ...base.authority,
+        authenticated: false,
+      },
+    });
+
+    const first = evaluateTrustTransition(correlatedOnly);
+    const replay = evaluateTrustTransition({
+      ...correlatedOnly,
+      expectedTransitionFingerprint: first.transitionFingerprint,
+      expectedContinuityCookie: first.continuityCookie,
+    });
+
+    expect(replay.valid).toBe(true);
+    expect(replay.authorityGranted).toBe(true);
+    expect(replay.authorityAuthenticated).toBe(false);
+    expect(replay.executionAllowed).toBe(false);
+    expect(replay.disposition).toBe('awaiting_authority_authentication');
+    expect(replay.invariants.continuityCookieDoesNotAuthenticate).toBe(true);
+    expect(replay.invariants.authorityAuthenticationRequiredForExecution).toBe(true);
+  });
+
+  it('rejects impossible authenticated-before-granted authority state', () => {
+    const base = mission();
+    const input = mission({
+      authority: {
+        ...base.authority,
+        granted: false,
+        authenticated: true,
+        grantId: '',
+      },
+    });
+
+    const result = evaluateTrustTransition(input);
+    expect(result.valid).toBe(false);
+    expect(result.executionAllowed).toBe(false);
+    expect(result.errors).toContain('authority cannot be authenticated before it is granted');
   });
 
   it('requires runtime identity for consequential transitions so cookies cannot float across runtimes', () => {
@@ -181,6 +227,7 @@ describe('TrustTransitionV1', () => {
     const input = mission({
       authority: {
         granted: true,
+        authenticated: true,
         grantId: 'grant-123',
         action: 'publish_collection',
         target: '*',
@@ -229,11 +276,12 @@ describe('TrustTransitionV1', () => {
     expect(result.evidenceDecision.recommendation).toBe('MEASURE');
   });
 
-  it('blocks execution evidence that tries to appear before authority exists', () => {
+  it('blocks execution evidence that tries to appear before authenticated authority exists', () => {
     const granted = mission();
     const pending = mission({
       authority: {
         granted: false,
+        authenticated: false,
         grantId: '',
         action: granted.proposedAction.action,
         target: granted.proposedAction.target,
@@ -250,7 +298,7 @@ describe('TrustTransitionV1', () => {
     expect(result.valid).toBe(false);
     expect(result.disposition).toBe('blocked');
     expect(result.executionAllowed).toBe(false);
-    expect(result.errors).toContain('execution or outcome evidence cannot verify before scoped authority is granted');
+    expect(result.errors).toContain('execution or outcome evidence cannot verify before scoped authority is authenticated');
   });
 
   it('requires an independent outcome witness', () => {
@@ -307,5 +355,7 @@ describe('TrustTransitionV1', () => {
     expect(result.attack1000.pressureBudget).toBe(1000);
     expect(result.attack1000.literalExternalActionsClaimed).toBe(0);
     expect(result.invariants.workflowTokensCannotExpandAuthority).toBe(true);
+    expect(result.invariants.continuityCookieDoesNotAuthenticate).toBe(true);
+    expect(result.invariants.authorityAuthenticationRequiredForExecution).toBe(true);
   });
 });
