@@ -106,6 +106,6 @@ describe('ProofMode production governance workflow', () => {
     expect(bridge).toContain('proofmode-production-authority.mjs discover');
     expect(bridge).toContain('/actions/workflows/proofmode-production-playwright.yml/dispatches');
     expect(bridge).toContain('authorize_production: true');
-    expect(bridge).toContain('cancel-in-progress: false');
+    expect(bridge).toContain('cancel-in-progress: true');
   });
 });
