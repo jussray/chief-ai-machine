@@ -93,7 +93,7 @@ describe('ProofMode production governance workflow', () => {
   it('classifies Access redirects before checking runtime identity', () => {
     expect(workflow).toContain("--write-out '%{http_code}'");
     expect(workflow).toContain(
-      'Protected preview returned HTTP %s; Cloudflare Access service-token policy/binding did not grant direct access',
+      'Protected preview returned HTTP %s redirect; Cloudflare Access service-token policy/binding did not grant direct access',
     );
     expect(workflow).toContain('Protected preview returned HTTP 200 but /version exposed no release sha');
     expect(workflow).toContain('Protected preview release sha mismatch');
