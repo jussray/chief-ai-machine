@@ -121,6 +121,7 @@ test.describe('Chief capability-plan live runtime', () => {
       contract: 'juss/trust-transition@v1',
       phase: 'proposal',
       authorityGranted: false,
+      authorityAuthenticated: false,
       executionAllowed: false,
       disposition: 'awaiting_authority',
       currentTruthState: 'unknown',
@@ -132,6 +133,8 @@ test.describe('Chief capability-plan live runtime', () => {
       invariants: {
         providerAcceptanceIsNotOutcome: true,
         staleCookieCannotRenewAuthority: true,
+        continuityCookieDoesNotAuthenticate: true,
+        authorityAuthenticationRequiredForExecution: true,
         proposalCannotSelfGrantAuthority: true,
         authorityGrantMovementPreservesTransitionSubject: true,
       },
@@ -195,6 +198,7 @@ test.describe('Chief capability-plan live runtime', () => {
     expect(body.data.capabilityPlan.routingReason).toContain('Submitted prior outcome recommends review');
     expect(body.data.capabilityPlan.routingReason).toContain('Source trust remains submitted-unverified');
     expect(body.data.trustTransition.authorityGranted).toBe(false);
+    expect(body.data.trustTransition.authorityAuthenticated).toBe(false);
     expect(body.data.trustTransition.executionAllowed).toBe(false);
   });
 
