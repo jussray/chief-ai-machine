@@ -3,11 +3,16 @@ import process from 'node:process';
 export const AUTHORITY_MARKER =
   'PRODUCTION_ACTION_AUTHORIZED / EXACT_HEAD_BOUND / ONE_SHOT / MERGE_HOLD.';
 export const CONSUMPTION_PREFIX = 'proofmode-production-authority-consumed:v1';
+export const BRIDGE_WORKFLOW_PATH = '.github/workflows/proofmode-production-authority-bridge.yml';
 
 function requireValue(env, name) {
   const value = String(env[name] ?? '').trim();
   if (!value) throw new Error(`Missing ${name}`);
   return value;
+}
+
+function optionalValue(env, name) {
+  return String(env[name] ?? '').trim();
 }
 
 function requirePositiveInteger(value, label) {
@@ -21,7 +26,41 @@ export function consumptionMarker(receipt, sha) {
   return `<!-- ${CONSUMPTION_PREFIX} receipt=${receipt} sha=${sha} -->`;
 }
 
-export function assertAuthoritySnapshot({ pr, review, comments = [], env }) {
+export function assertBridgeActivation({ activation, env, authorityPr, expectedSha }) {
+  const activationRunId = requirePositiveInteger(
+    requireValue(env, 'ACTIVATION_RUN_ID'),
+    'ACTIVATION_RUN_ID',
+  );
+  const repositoryOwner = requireValue(env, 'REPOSITORY_OWNER');
+  const repository = requireValue(env, 'GITHUB_REPOSITORY');
+
+  if (!activation || String(activation.id) !== activationRunId) {
+    throw new Error('Activation run mismatch');
+  }
+  if (activation.path !== BRIDGE_WORKFLOW_PATH) throw new Error('Activation workflow mismatch');
+  if (activation.event !== 'pull_request') throw new Error('Activation event is not a pull request');
+  if (!['in_progress', 'completed'].includes(activation.status)) {
+    throw new Error('Activation run is not active or completed');
+  }
+  if (String(activation.run_attempt) !== '1') throw new Error('Activation reruns cannot mint authority');
+  if (activation.actor?.login !== repositoryOwner) throw new Error('Activation actor is not founder');
+  if (activation.triggering_actor?.login !== repositoryOwner) {
+    throw new Error('Activation triggering actor is not founder');
+  }
+  if (activation.repository?.full_name !== repository) throw new Error('Activation repository mismatch');
+  if (activation.head_repository?.full_name !== repository) {
+    throw new Error('Activation head repository mismatch');
+  }
+  if (activation.head_sha !== expectedSha) throw new Error('Activation exact head mismatch');
+  const prMatch = (activation.pull_requests || []).some((item) =>
+    String(item.number) === String(authorityPr)
+    && item.head?.sha === expectedSha
+  );
+  if (!prMatch) throw new Error('Activation PR/head binding mismatch');
+  return true;
+}
+
+export function assertAuthoritySnapshot({ pr, review, comments = [], activation = null, env }) {
   const expectedSha = requireValue(env, 'EXPECTED_HEAD_SHA');
   const repositoryOwner = requireValue(env, 'REPOSITORY_OWNER');
   const actor = requireValue(env, 'GITHUB_ACTOR');
@@ -35,11 +74,16 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], env }) {
   );
 
   if (authorizeProduction !== 'true') throw new Error('Production authorization flag is not true');
-  if (actor !== repositoryOwner) throw new Error('Workflow actor is not the repository owner');
-  if (triggeringActor !== repositoryOwner) {
-    throw new Error('Triggering actor is not the repository owner');
-  }
   if (runAttempt !== '1') throw new Error('Workflow reruns cannot reuse production authority');
+
+  const directFounder = actor === repositoryOwner && triggeringActor === repositoryOwner;
+  const activationRunId = optionalValue(env, 'ACTIVATION_RUN_ID');
+  const bridgeFounder = activationRunId
+    ? assertBridgeActivation({ activation, env, authorityPr, expectedSha })
+    : false;
+  if (!directFounder && !bridgeFounder) {
+    throw new Error('Execution is not authenticated by founder actor or founder bridge activation');
+  }
 
   if (!pr || String(pr.number) !== authorityPr) throw new Error('Authority PR mismatch');
   if (pr.state !== 'open') throw new Error('Authority PR must remain open');
@@ -69,6 +113,7 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], env }) {
     authorityPr,
     authorityReceipt,
     consumedMarker: consumed,
+    authenticatedBy: directFounder ? 'direct-founder' : 'founder-bridge',
   };
 }
 
@@ -110,19 +155,17 @@ export async function loadAuthoritySnapshot(env = process.env, fetchImpl = globa
     requireValue(env, 'AUTHORITY_RECEIPT'),
     'AUTHORITY_RECEIPT',
   );
+  const activationRunId = optionalValue(env, 'ACTIVATION_RUN_ID');
 
-  const pr = await requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}`);
-  const review = await requestJson(
-    fetchImpl,
-    env,
-    `/repos/${repository}/pulls/${authorityPr}/reviews/${authorityReceipt}`,
-  );
-  const comments = await listAll(
-    fetchImpl,
-    env,
-    `/repos/${repository}/issues/${authorityPr}/comments`,
-  );
-  return { pr, review, comments };
+  const [pr, review, comments, activation] = await Promise.all([
+    requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}`),
+    requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}/reviews/${authorityReceipt}`),
+    listAll(fetchImpl, env, `/repos/${repository}/issues/${authorityPr}/comments`),
+    activationRunId
+      ? requestJson(fetchImpl, env, `/repos/${repository}/actions/runs/${requirePositiveInteger(activationRunId, 'ACTIVATION_RUN_ID')}`)
+      : Promise.resolve(null),
+  ]);
+  return { pr, review, comments, activation };
 }
 
 export async function validateAuthority(env = process.env, fetchImpl = globalThis.fetch) {
@@ -133,11 +176,14 @@ export async function validateAuthority(env = process.env, fetchImpl = globalThi
 export async function discoverAuthority(env = process.env, fetchImpl = globalThis.fetch) {
   const repository = requireValue(env, 'GITHUB_REPOSITORY');
   const repositoryOwner = requireValue(env, 'REPOSITORY_OWNER');
+  const triggeringActor = requireValue(env, 'TRIGGERING_ACTOR');
   const expectedSha = requireValue(env, 'EXPECTED_HEAD_SHA');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
   const actor = requireValue(env, 'GITHUB_ACTOR');
 
-  if (actor !== repositoryOwner) throw new Error('Bridge actor is not the repository owner');
+  if (actor !== repositoryOwner || triggeringActor !== repositoryOwner) {
+    throw new Error('Authority bridge was not founder-triggered');
+  }
 
   const pr = await requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}`);
   if (pr.state !== 'open') throw new Error('Authority PR must remain open');
@@ -153,22 +199,22 @@ export async function discoverAuthority(env = process.env, fetchImpl = globalThi
   ]);
 
   const candidates = reviews
-    .filter((review) =>
-      review.user?.login === repositoryOwner
-      && review.author_association === 'OWNER'
-      && review.commit_id === expectedSha
-      && String(review.body ?? '').includes(
+    .filter((item) =>
+      item.user?.login === repositoryOwner
+      && item.author_association === 'OWNER'
+      && item.commit_id === expectedSha
+      && String(item.body ?? '').includes(
         `Founder production-proof authority granted for exact head \`${expectedSha}\`.`,
       )
-      && String(review.body ?? '').includes(AUTHORITY_MARKER)
+      && String(item.body ?? '').includes(AUTHORITY_MARKER)
     )
     .sort((a, b) => {
       const time = String(b.submitted_at ?? '').localeCompare(String(a.submitted_at ?? ''));
       return time || Number(b.id) - Number(a.id);
     });
 
-  const receipt = candidates.find((review) => {
-    const marker = consumptionMarker(String(review.id), expectedSha);
+  const receipt = candidates.find((item) => {
+    const marker = consumptionMarker(String(item.id), expectedSha);
     return !comments.some((comment) => String(comment.body ?? '').includes(marker));
   });
 
@@ -182,6 +228,7 @@ export async function consumeAuthority(env = process.env, fetchImpl = globalThis
   const body = [
     validated.consumedMarker,
     `Production authority receipt \`${validated.authorityReceipt}\` consumed for exact head \`${validated.expectedSha}\`.`,
+    `Authenticated by: ${validated.authenticatedBy}.`,
     'This marker prevents a second new dispatch from reusing the same one-shot founder authority.',
   ].join('\n\n');
 

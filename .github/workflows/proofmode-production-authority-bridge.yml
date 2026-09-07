@@ -19,12 +19,14 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
   AUTHORITY_PR: ${{ github.event.pull_request.number }}
   REPOSITORY_OWNER: ${{ github.repository_owner }}
+  TRIGGERING_ACTOR: ${{ github.triggering_actor }}
 
 jobs:
   dispatch:
     name: Dispatch founder-authorized production proof
     if: >-
       github.actor == github.repository_owner
+      && github.triggering_actor == github.repository_owner
       && github.event.pull_request.user.login == github.repository_owner
       && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-22.04
@@ -61,6 +63,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ACTIVATION_RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -71,6 +74,7 @@ jobs:
                 expected_sha: process.env.EXPECTED_HEAD_SHA,
                 authority_pr: process.env.AUTHORITY_PR,
                 authority_receipt: process.env.AUTHORITY_RECEIPT,
+                activation_run_id: process.env.ACTIVATION_RUN_ID,
                 authorize_production: true,
               },
             };
@@ -84,5 +88,5 @@ jobs:
             -H "Content-Type: application/json" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/proofmode-production-playwright.yml/dispatches" \
             --data "$payload"
-          printf 'Dispatched one-shot production proof for %s using receipt %s\n' \
-            "$EXPECTED_HEAD_SHA" "$AUTHORITY_RECEIPT"
+          printf 'Dispatched one-shot production proof for %s using receipt %s via activation run %s\n' \
+            "$EXPECTED_HEAD_SHA" "$AUTHORITY_RECEIPT" "$ACTIVATION_RUN_ID"

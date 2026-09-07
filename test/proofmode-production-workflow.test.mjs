@@ -21,6 +21,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('expected_sha:');
     expect(workflow).toContain('authority_pr:');
     expect(workflow).toContain('authority_receipt:');
+    expect(workflow).toContain('activation_run_id:');
     expect(workflow).toContain('authorize_production:');
     expect(workflow).not.toContain('pull_request:');
     expect(workflow).toContain('test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"');
@@ -36,6 +37,17 @@ describe('ProofMode production governance workflow', () => {
     expect(authorityScript).toContain(
       'PRODUCTION_ACTION_AUTHORIZED / EXACT_HEAD_BOUND / ONE_SHOT / MERGE_HOLD.',
     );
+  });
+
+  it('authenticates a workflow-to-workflow dispatch through exact founder bridge run metadata', () => {
+    expect(bridge).toContain('activation_run_id: process.env.ACTIVATION_RUN_ID');
+    expect(workflow).toContain("ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}");
+    expect(authorityScript).toContain("activation.path !== BRIDGE_WORKFLOW_PATH");
+    expect(authorityScript).toContain("activation.event !== 'pull_request'");
+    expect(authorityScript).toContain('activation.actor?.login !== repositoryOwner');
+    expect(authorityScript).toContain('activation.triggering_actor?.login !== repositoryOwner');
+    expect(authorityScript).toContain('activation.head_sha !== expectedSha');
+    expect(authorityScript).toContain("authenticatedBy: directFounder ? 'direct-founder' : 'founder-bridge'");
   });
 
   it('rejects reruns and brand-new dispatch replay of the same authority receipt', () => {
@@ -101,6 +113,7 @@ describe('ProofMode production governance workflow', () => {
   it('adds a founder-only PR bridge that can dispatch through GitHub without weakening the production gate', () => {
     expect(bridge).toContain('ready_for_review');
     expect(bridge).toContain('github.actor == github.repository_owner');
+    expect(bridge).toContain('github.triggering_actor == github.repository_owner');
     expect(bridge).toContain('github.event.pull_request.user.login == github.repository_owner');
     expect(bridge).toContain('github.event.pull_request.head.repo.full_name == github.repository');
     expect(bridge).toContain('proofmode-production-authority.mjs discover');

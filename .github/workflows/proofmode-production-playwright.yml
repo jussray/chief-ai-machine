@@ -18,6 +18,11 @@ on:
         description: "GitHub pull-request review ID granting one-shot production authority"
         required: true
         type: string
+      activation_run_id:
+        description: "Optional founder-triggered authority bridge run ID"
+        required: false
+        default: ""
+        type: string
       authorize_production:
         description: "Founder authorization to promote this exact candidate to Chief production"
         required: true
@@ -36,6 +41,7 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
   AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
   AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
+  ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}
   PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
 
 jobs:
@@ -45,6 +51,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
+      actions: read
       contents: read
       issues: read
       pull-requests: read
@@ -190,6 +197,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     permissions:
+      actions: read
       checks: read
       contents: read
       deployments: write

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUTHORITY_MARKER,
+  BRIDGE_WORKFLOW_PATH,
   assertAuthoritySnapshot,
   consumptionMarker,
 } from '../scripts/proofmode-production-authority.mjs';
@@ -15,6 +16,7 @@ const baseEnv = {
   AUTHORIZE_PRODUCTION: 'true',
   AUTHORITY_PR: '145',
   AUTHORITY_RECEIPT: '5129412189',
+  ACTIVATION_RUN_ID: '',
   GITHUB_REPOSITORY: 'jussray/chief-ai-machine',
 };
 const pr = {
@@ -36,6 +38,19 @@ const review = {
     AUTHORITY_MARKER,
   ].join('\n'),
 };
+const activation = {
+  id: 777,
+  path: BRIDGE_WORKFLOW_PATH,
+  event: 'pull_request',
+  status: 'in_progress',
+  run_attempt: 1,
+  actor: { login: 'jussray' },
+  triggering_actor: { login: 'jussray' },
+  repository: { full_name: 'jussray/chief-ai-machine' },
+  head_repository: { full_name: 'jussray/chief-ai-machine' },
+  head_sha: sha,
+  pull_requests: [{ number: 145, head: { sha } }],
+};
 
 describe('production authority receipt', () => {
   it('accepts an unconsumed owner-authored receipt on the exact open PR head', () => {
@@ -45,7 +60,65 @@ describe('production authority receipt', () => {
       expectedSha: sha,
       authorityPr: '145',
       authorityReceipt: '5129412189',
+      authenticatedBy: 'direct-founder',
     });
+  });
+
+  it('accepts a bot-dispatched child only when exact founder bridge activation is proven', () => {
+    expect(
+      assertAuthoritySnapshot({
+        pr,
+        review,
+        comments: [],
+        activation,
+        env: {
+          ...baseEnv,
+          GITHUB_ACTOR: 'github-actions[bot]',
+          TRIGGERING_ACTOR: 'github-actions[bot]',
+          ACTIVATION_RUN_ID: '777',
+        },
+      }),
+    ).toMatchObject({ authenticatedBy: 'founder-bridge' });
+  });
+
+  it('rejects bot execution without a founder activation witness', () => {
+    expect(() =>
+      assertAuthoritySnapshot({
+        pr,
+        review,
+        comments: [],
+        env: {
+          ...baseEnv,
+          GITHUB_ACTOR: 'github-actions[bot]',
+          TRIGGERING_ACTOR: 'github-actions[bot]',
+        },
+      }),
+    ).toThrow('Execution is not authenticated by founder actor or founder bridge activation');
+  });
+
+  it('rejects an activation from the wrong workflow, actor, PR, or SHA', () => {
+    const bridgeEnv = {
+      ...baseEnv,
+      GITHUB_ACTOR: 'github-actions[bot]',
+      TRIGGERING_ACTOR: 'github-actions[bot]',
+      ACTIVATION_RUN_ID: '777',
+    };
+    expect(() => assertAuthoritySnapshot({
+      pr, review, comments: [], env: bridgeEnv,
+      activation: { ...activation, path: '.github/workflows/other.yml' },
+    })).toThrow('Activation workflow mismatch');
+    expect(() => assertAuthoritySnapshot({
+      pr, review, comments: [], env: bridgeEnv,
+      activation: { ...activation, actor: { login: 'someone-else' } },
+    })).toThrow('Activation actor is not founder');
+    expect(() => assertAuthoritySnapshot({
+      pr, review, comments: [], env: bridgeEnv,
+      activation: { ...activation, pull_requests: [{ number: 146, head: { sha } }] },
+    })).toThrow('Activation PR/head binding mismatch');
+    expect(() => assertAuthoritySnapshot({
+      pr, review, comments: [], env: bridgeEnv,
+      activation: { ...activation, head_sha: 'b'.repeat(40) },
+    })).toThrow('Activation exact head mismatch');
   });
 
   it('rejects head movement', () => {
@@ -68,26 +141,6 @@ describe('production authority receipt', () => {
         env: baseEnv,
       }),
     ).toThrow('Authority receipt is stale');
-  });
-
-  it('rejects a non-owner actor or triggering actor', () => {
-    expect(() =>
-      assertAuthoritySnapshot({
-        pr,
-        review,
-        comments: [],
-        env: { ...baseEnv, GITHUB_ACTOR: 'someone-else' },
-      }),
-    ).toThrow('Workflow actor is not the repository owner');
-
-    expect(() =>
-      assertAuthoritySnapshot({
-        pr,
-        review,
-        comments: [],
-        env: { ...baseEnv, TRIGGERING_ACTOR: 'someone-else' },
-      }),
-    ).toThrow('Triggering actor is not the repository owner');
   });
 
   it('rejects workflow reruns', () => {
