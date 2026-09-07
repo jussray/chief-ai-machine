@@ -134,10 +134,29 @@ jobs:
           set -euo pipefail
           test -n "$CLOUDFLARE_ACCESS_CLIENT_ID"
           test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
-          body="$(curl --fail --silent --show-error \
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
             -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
             -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
             "$PROOFMODE_PREVIEW_URL/version")"
+          case "$status" in
+            200)
+              ;;
+            3??)
+              printf 'Protected preview returned HTTP %s redirect; Cloudflare Access service-token policy/binding did not grant direct access\n' \
+                "$status" >&2
+              exit 1
+              ;;
+            *)
+              printf 'Protected preview returned HTTP %s before runtime identity could be verified\n' \
+                "$status" >&2
+              exit 1
+              ;;
+          esac
+          body="$(cat "$response_file")"
           actual="$(printf '%s' "$body" | node -e '
             let raw = "";
             process.stdin.on("data", (chunk) => { raw += chunk; });
@@ -146,7 +165,15 @@ jobs:
               catch { process.stdout.write(""); }
             });
           ')"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
+          if [ -z "$actual" ]; then
+            printf 'Protected preview returned HTTP 200 but /version exposed no release sha\n' >&2
+            exit 1
+          fi
+          if [ "$actual" != "$EXPECTED_HEAD_SHA" ]; then
+            printf 'Protected preview release sha mismatch: expected %s, observed %s\n' \
+              "$EXPECTED_HEAD_SHA" "$actual" >&2
+            exit 1
+          fi
 
       - name: Run protected ProofMode MCP Playwright proof
         env:
@@ -345,15 +372,6 @@ jobs:
             });
           '
 
-      - name: Consume founder authority before production mutation
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          node scripts/proofmode-production-authority.mjs consume
-
       - name: Promote exact prebuilt version to Chief production
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -426,3 +444,39 @@ jobs:
             test-results/proofmode-production
           if-no-files-found: error
           retention-days: 14
+
+  finalize-authority:
+    name: Consume one-shot founder authority after attempted execution
+    needs: [protected-access, verify]
+    if: always() && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    env:
+      REPOSITORY_OWNER: ${{ github.repository_owner }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
+    steps:
+      - name: Check out exact attempted head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+
+      - name: Consume attempted one-shot authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          node scripts/proofmode-production-authority.mjs consume

@@ -54,7 +54,9 @@ describe('ProofMode production governance workflow', () => {
     expect(authorityScript).toContain("runAttempt !== '1'");
     expect(authorityScript).toContain('Authority receipt has already been consumed');
     expect(authorityScript).toContain('proofmode-production-authority-consumed:v1');
-    expect(workflow).toContain('Consume founder authority before production mutation');
+    expect(workflow).toContain('finalize-authority:');
+    expect(workflow).toContain('Consume attempted one-shot authority');
+    expect(workflow).not.toContain('Consume founder authority before production mutation');
     expect(workflow).toContain('cancel-in-progress: false');
     expect(workflow).toContain('inputs.authority_receipt');
   });
@@ -86,6 +88,24 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('Verify protected preview serves exact head');
     expect(workflow).toContain('Wait for production runtime to serve exact head');
     expect(workflow).toContain('Verify production ProofMode MCP with Playwright');
+  });
+
+  it('classifies Access redirects before checking runtime identity', () => {
+    expect(workflow).toContain("--write-out '%{http_code}'");
+    expect(workflow).toContain(
+      'Protected preview returned HTTP %s; Cloudflare Access service-token policy/binding did not grant direct access',
+    );
+    expect(workflow).toContain('Protected preview returned HTTP 200 but /version exposed no release sha');
+    expect(workflow).toContain('Protected preview release sha mismatch');
+  });
+
+  it('consumes one-shot authority after every attempted dispatched execution', () => {
+    expect(workflow).toContain('finalize-authority:');
+    expect(workflow).toContain('needs: [protected-access, verify]');
+    expect(workflow).toContain("if: always() && github.event_name == 'workflow_dispatch'");
+    expect(workflow).toContain('Consume attempted one-shot authority');
+    expect(workflow).toContain('issues: write');
+    expect(workflow).toContain('node scripts/proofmode-production-authority.mjs consume');
   });
 
   it('promotes the exact prebuilt Cloudflare version instead of rebuilding or weakening governance', () => {
