@@ -59,6 +59,7 @@ function normalizeTransitionInput(input = {}) {
     consequence: clean(input.consequence, 40).toLowerCase(),
     authority: {
       granted: authority.granted === true,
+      authenticated: authority.authenticated === true,
       grantId: clean(authority.grantId, 500),
       action: clean(authority.action, 200),
       target: clean(authority.target, 500),
@@ -92,6 +93,7 @@ export function fingerprintAuthority(authority = {}) {
     TRUST_TRANSITION_CONTRACT,
     'authority-receipt',
     normalized.granted,
+    normalized.authenticated,
     normalized.grantId || null,
     fingerprintAuthorityScope(normalized),
   ]));
@@ -133,6 +135,9 @@ function validateCore(normalized) {
   if (!normalized.proposedAction.action) errors.push('proposedAction.action is required');
   if (!normalized.proposedAction.target) errors.push('proposedAction.target is required');
   if (!CONSEQUENCES.has(normalized.consequence)) errors.push('consequence is invalid');
+  if (normalized.authority.authenticated && !normalized.authority.granted) {
+    errors.push('authority cannot be authenticated before it is granted');
+  }
   if (normalized.authority.granted && !normalized.authority.grantId) {
     errors.push('granted authority requires authority.grantId');
   }
@@ -217,14 +222,19 @@ export function evaluateTrustTransition(input = {}) {
     consequentialAction: normalized.consequence !== 'routine',
   });
 
-  if (!normalized.authority.granted && (evidenceDecision.executionVerified || evidenceDecision.outcomeVerified)) {
-    errors.push('execution or outcome evidence cannot verify before scoped authority is granted');
+  if ((!normalized.authority.granted || !normalized.authority.authenticated)
+    && (evidenceDecision.executionVerified || evidenceDecision.outcomeVerified)) {
+    errors.push('execution or outcome evidence cannot verify before scoped authority is authenticated');
   }
 
   const historicalOutcomeVerified = input.historicalVerification?.outcomeVerified === true
     && Boolean(normalizeHash(input.historicalVerification?.evidenceFingerprint));
 
-  let disposition = normalized.authority.granted ? 'authorized' : 'awaiting_authority';
+  let disposition = normalized.authority.granted
+    ? normalized.authority.authenticated
+      ? 'authorized'
+      : 'awaiting_authority_authentication'
+    : 'awaiting_authority';
   if (errors.length) disposition = 'blocked';
   else if (subjectDrifted || cookieExpired) disposition = 'unknown';
   else if (evidenceDecision.outcomeVerified) disposition = 'verified';
@@ -239,6 +249,7 @@ export function evaluateTrustTransition(input = {}) {
   const executionAllowed = Boolean(
     errors.length === 0
       && normalized.authority.granted
+      && normalized.authority.authenticated
       && !subjectDrifted
       && !cookieExpired
       && !evidenceDecision.executionVerified
@@ -255,6 +266,7 @@ export function evaluateTrustTransition(input = {}) {
     subjectDrifted,
     cookieExpired,
     authorityGranted: normalized.authority.granted,
+    authorityAuthenticated: normalized.authority.authenticated,
     executionAllowed,
     disposition,
     currentTruthState,
@@ -275,6 +287,8 @@ export function evaluateTrustTransition(input = {}) {
       consequentialAuthorityIsOneTime: true,
       recoveryKnownBeforeConsequence: true,
       staleCookieCannotRenewAuthority: true,
+      continuityCookieDoesNotAuthenticate: true,
+      authorityAuthenticationRequiredForExecution: true,
       outcomeRequiresIndependentWitness: true,
       historicalVerificationIsNotRewrittenByStaleness: true,
       workflowTokensCannotExpandAuthority: true,
