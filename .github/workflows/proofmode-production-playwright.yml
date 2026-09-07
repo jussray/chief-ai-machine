@@ -10,6 +10,14 @@ on:
         description: "Exact candidate SHA authorized for production proof"
         required: true
         type: string
+      authority_pr:
+        description: "PR number carrying the founder authority receipt"
+        required: true
+        type: string
+      authority_receipt:
+        description: "GitHub pull-request review ID granting one-shot production authority"
+        required: true
+        type: string
       authorize_production:
         description: "Founder authorization to promote this exact candidate to Chief production"
         required: true
@@ -18,16 +26,16 @@ on:
 
 permissions:
   contents: read
-  checks: read
-  deployments: write
 
 concurrency:
-  group: proofmode-production-playwright-${{ github.ref }}
-  cancel-in-progress: true
+  group: proofmode-production-authority-${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || github.sha }}
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+  AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
+  AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
   PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
 
 jobs:
@@ -36,6 +44,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     environment:
       name: proofmode-access-admin
     env:
@@ -43,6 +55,7 @@ jobs:
       CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
     steps:
       - name: Check out exact authorized head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -50,25 +63,20 @@ jobs:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
 
-      - name: Bind authenticated founder authority to one exact dispatch
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "${{ inputs.authorize_production }}" = "true"
-          test -n "$EXPECTED_HEAD_SHA"
-          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
-          test "$GITHUB_ACTOR" = "$REPOSITORY_OWNER"
-          test "$TRIGGERING_ACTOR" = "$REPOSITORY_OWNER"
-          test "$GITHUB_RUN_ATTEMPT" = "1"
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
-          printf 'Founder-authenticated one-shot exact head: %s\n' "$EXPECTED_HEAD_SHA"
-
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
+
+      - name: Bind authenticated founder authority to exact receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          node scripts/proofmode-production-authority.mjs validate
 
       - name: Install locked application dependencies
         run: npm ci
@@ -77,9 +85,9 @@ jobs:
         run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Resolve exact-head immutable Cloudflare preview
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
           for attempt in {1..90}; do
@@ -88,7 +96,6 @@ jobs:
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
-
             preview="$(printf '%s' "$checks" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
@@ -105,10 +112,8 @@ jobs:
                 } catch {}
               });
             ')"
-
             if [ -n "$preview" ]; then
               printf 'PROOFMODE_PREVIEW_URL=%s\n' "$preview" >> "$GITHUB_ENV"
-              printf 'Resolved exact-head preview for %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
             sleep 2
@@ -135,7 +140,6 @@ jobs:
             });
           ')"
           test "$actual" = "$EXPECTED_HEAD_SHA"
-          printf 'Protected preview serves exact head %s\n' "$EXPECTED_HEAD_SHA"
 
       - name: Run protected ProofMode MCP Playwright proof
         env:
@@ -182,9 +186,15 @@ jobs:
   verify:
     name: Verify production ProofMode MCP with Playwright
     needs: protected-access
-    if: always() && (github.event_name != 'workflow_dispatch' || needs.protected-access.result == 'success')
+    if: always() && (github.event_name == 'push' || needs.protected-access.result == 'success')
     runs-on: ubuntu-22.04
     timeout-minutes: 20
+    permissions:
+      checks: read
+      contents: read
+      deployments: write
+      issues: write
+      pull-requests: read
     environment:
       name: Cloudflare Production
     env:
@@ -192,6 +202,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      AUTHORIZE_PRODUCTION: ${{ github.event_name == 'workflow_dispatch' && inputs.authorize_production || 'false' }}
     steps:
       - name: Check out exact workflow source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -199,27 +210,29 @@ jobs:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
 
-      - name: Resolve expected production head
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$EXPECTED_HEAD_SHA"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            test "${{ inputs.authorize_production }}" = "true"
-            test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
-            test "$GITHUB_ACTOR" = "$REPOSITORY_OWNER"
-            test "$TRIGGERING_ACTOR" = "$REPOSITORY_OWNER"
-            test "$GITHUB_RUN_ATTEMPT" = "1"
-          fi
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
-          printf 'Expected production head: %s\n' "$EXPECTED_HEAD_SHA"
-
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
+
+      - name: Revalidate one-shot founder authority
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          node scripts/proofmode-production-authority.mjs validate
+
+      - name: Resolve expected production head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_HEAD_SHA"
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
 
       - name: Install locked application dependencies
         run: npm ci
@@ -228,9 +241,9 @@ jobs:
         run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
 
       - name: Resolve exact-head Cloudflare build and Version ID
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
           for attempt in {1..90}; do
@@ -239,7 +252,6 @@ jobs:
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
-
             result="$(printf '%s' "$checks" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
@@ -263,12 +275,10 @@ jobs:
                 }
               });
             ')"
-
             state="${result%%|*}"
             version_id="${result#*|}"
             if [ "$state" = "success" ] && [ -n "$version_id" ]; then
               printf 'CLOUDFLARE_VERSION_ID=%s\n' "$version_id" >> "$GITHUB_ENV"
-              printf 'Exact-head Cloudflare build is green with Version ID %s\n' "$version_id"
               exit 0
             fi
             if [ "$state" = "failure" ]; then
@@ -285,9 +295,9 @@ jobs:
           exit 1
 
       - name: Require exact-head pre-production proof packet
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
           checks="$(curl --fail --silent --show-error \
@@ -324,25 +334,29 @@ jobs:
                 console.error(`Pre-production proof packet incomplete for ${process.env.EXPECTED_HEAD_SHA}: ${missing.join(", ")}`);
                 process.exit(1);
               }
-              console.log(`Pre-production proof packet is green for ${process.env.EXPECTED_HEAD_SHA}.`);
             });
           '
+
+      - name: Consume founder authority before production mutation
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/proofmode-production-authority.mjs consume
 
       - name: Promote exact prebuilt version to Chief production
         if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ inputs.authorize_production }}" = "true"
-          test "$GITHUB_ACTOR" = "$REPOSITORY_OWNER"
-          test "$TRIGGERING_ACTOR" = "$REPOSITORY_OWNER"
-          test "$GITHUB_RUN_ATTEMPT" = "1"
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_VERSION_ID"
           npx wrangler versions deploy "$CLOUDFLARE_VERSION_ID@100%" \
             --name chief-ai \
-            --message "Founder-authorized exact-head $EXPECTED_HEAD_SHA" \
+            --message "Founder-authorized exact-head $EXPECTED_HEAD_SHA receipt $AUTHORITY_RECEIPT" \
             -y
 
       - name: Wait for production runtime to serve exact head
@@ -360,11 +374,11 @@ jobs:
               });
             ')"
             if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
-              printf 'Production runtime is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
             if [ "$attempt" -eq 90 ]; then
-              printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
+              printf 'Production runtime never served expected head %s; last observed %s\n' \
+                "$EXPECTED_HEAD_SHA" "$actual" >&2
               exit 1
             fi
             sleep 2

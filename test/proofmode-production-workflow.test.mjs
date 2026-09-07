@@ -6,24 +6,50 @@ const workflow = readFileSync(
   new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
   'utf8',
 );
+const bridge = readFileSync(
+  new URL('../.github/workflows/proofmode-production-authority-bridge.yml', import.meta.url),
+  'utf8',
+);
+const authorityScript = readFileSync(
+  new URL('../scripts/proofmode-production-authority.mjs', import.meta.url),
+  'utf8',
+);
 
 describe('ProofMode production governance workflow', () => {
   it('keeps production mutation founder-dispatched and exact-head bound', () => {
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('expected_sha:');
+    expect(workflow).toContain('authority_pr:');
+    expect(workflow).toContain('authority_receipt:');
     expect(workflow).toContain('authorize_production:');
     expect(workflow).not.toContain('pull_request:');
     expect(workflow).toContain('test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"');
     expect(workflow).toContain("if: github.event_name == 'workflow_dispatch'");
   });
 
-  it('authenticates founder identity and makes production authority one-shot', () => {
-    expect(workflow).toContain('REPOSITORY_OWNER: ${{ github.repository_owner }}');
-    expect(workflow).toContain('TRIGGERING_ACTOR: ${{ github.triggering_actor }}');
-    expect(workflow).toContain('test "$GITHUB_ACTOR" = "$REPOSITORY_OWNER"');
-    expect(workflow).toContain('test "$TRIGGERING_ACTOR" = "$REPOSITORY_OWNER"');
-    expect(workflow).toContain('test "$GITHUB_RUN_ATTEMPT" = "1"');
-    expect(workflow).toContain('Bind authenticated founder authority to one exact dispatch');
+  it('binds authority to a durable exact-head GitHub review receipt', () => {
+    expect(workflow).toContain('proofmode-production-authority.mjs validate');
+    expect(authorityScript).toContain('review.commit_id !== expectedSha');
+    expect(authorityScript).toContain("review.author_association !== 'OWNER'");
+    expect(authorityScript).toContain('Authority receipt is not founder-authored');
+    expect(authorityScript).toContain('Authority PR head moved');
+    expect(authorityScript).toContain(
+      'PRODUCTION_ACTION_AUTHORIZED / EXACT_HEAD_BOUND / ONE_SHOT / MERGE_HOLD.',
+    );
+  });
+
+  it('rejects reruns and brand-new dispatch replay of the same authority receipt', () => {
+    expect(authorityScript).toContain("runAttempt !== '1'");
+    expect(authorityScript).toContain('Authority receipt has already been consumed');
+    expect(authorityScript).toContain('proofmode-production-authority-consumed:v1');
+    expect(workflow).toContain('Consume founder authority before production mutation');
+    expect(workflow).toContain('cancel-in-progress: false');
+    expect(workflow).toContain('inputs.authority_receipt');
+  });
+
+  it('never cancels an in-flight production mutation to start a newer proof', () => {
+    expect(workflow).toContain('cancel-in-progress: false');
+    expect(workflow).not.toContain('cancel-in-progress: true');
   });
 
   it('requires the exact-head pre-production proof packet before promotion', () => {
@@ -70,5 +96,16 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('CF-Access-Client-Secret');
     expect(workflow).toContain('npx playwright test --config=playwright.proofmode-access.config.mjs');
     expect(workflow).toContain('npx playwright test --config=playwright.proofmode-production.config.mjs');
+  });
+
+  it('adds a founder-only PR bridge that can dispatch through GitHub without weakening the production gate', () => {
+    expect(bridge).toContain('ready_for_review');
+    expect(bridge).toContain('github.actor == github.repository_owner');
+    expect(bridge).toContain('github.event.pull_request.user.login == github.repository_owner');
+    expect(bridge).toContain('github.event.pull_request.head.repo.full_name == github.repository');
+    expect(bridge).toContain('proofmode-production-authority.mjs discover');
+    expect(bridge).toContain('/actions/workflows/proofmode-production-playwright.yml/dispatches');
+    expect(bridge).toContain('authorize_production: true');
+    expect(bridge).toContain('cancel-in-progress: false');
   });
 });
