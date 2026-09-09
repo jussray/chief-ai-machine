@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('PromptOS stays lazy, filters 5K recipes, and compiles concrete founder context', async ({ page }) => {
+test('PromptOS stays lazy, identifies its canonical peer product, and compiles concrete project context', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.locator('.promptos-card')).toHaveCount(0);
@@ -9,6 +9,11 @@ test('PromptOS stays lazy, filters 5K recipes, and compiles concrete founder con
   await page.locator('[data-page="promptos"]:visible').click();
 
   await expect(page.locator('#page-promptos')).toHaveClass(/on/);
+  await expect(page.locator('#page-promptos .crumb')).toContainText('PromptOS');
+  await expect(page.locator('#page-promptos .crumb')).toContainText('via');
+  await expect(page.locator('#page-promptos .crumb')).toContainText('chief-ai');
+  await expect(page.locator('#page-promptos .page-head')).toContainText('jussray/promptos');
+  await expect(page.locator('#page-promptos .page-head')).toContainText('peer integration');
   await expect(page.locator('#promptosTotal')).toHaveText('5,000');
   await expect(page.locator('#promptosCandidateTotal')).toHaveText('5,940');
   await expect(page.locator('.promptos-card')).toHaveCount(24);
@@ -20,11 +25,11 @@ test('PromptOS stays lazy, filters 5K recipes, and compiles concrete founder con
   await expect(page.locator('#promptosDialog')).toBeVisible();
 
   const values = {
-    repoName: 'chief-ai-machine',
-    branchOrPr: 'fix/promptos-catalog-runtime',
+    repoName: 'founder-control-room',
+    branchOrPr: 'main',
     commitHead: 'test-head-sha',
-    stack: 'native ESM + Vitest',
-    goal: 'Ship the smallest verified PromptOS runtime slice',
+    stack: 'TypeScript + Playwright',
+    goal: 'Compile a portable PromptOS mission without making Chief the owner',
   };
 
   for (const [key, value] of Object.entries(values)) {
