@@ -74,6 +74,33 @@ describe('ProofMode Access hardening', () => {
     );
   });
 
+  it('rejects an Everyone bypass even when the exact service-token policy also exists', async () => {
+    const app = {
+      id: 'app-exact',
+      name: 'ProofMode exact immutable preview',
+      destinations: [{ type: 'public', uri: `${HOST}/*` }],
+    };
+    const fetchImpl = routeFetch({
+      apps: [app],
+      policies: [
+        {
+          id: 'policy-exact',
+          decision: 'non_identity',
+          include: [{ service_token: { token_id: SERVICE_ID } }],
+        },
+        {
+          id: 'policy-bypass',
+          decision: 'bypass',
+          include: [{ everyone: {} }],
+        },
+      ],
+    });
+
+    await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
+      'Everyone/Bypass policy',
+    );
+  });
+
   it('rejects required paths that resolve to different public Access applications', async () => {
     const versionApp = {
       id: 'app-version',
@@ -90,6 +117,35 @@ describe('ProofMode Access hardening', () => {
     await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
       'Multiple public Access applications match required ProofMode paths',
     );
+  });
+
+  it('preserves path case when resolving public Access coverage', async () => {
+    const uppercaseOnly = {
+      id: 'app-uppercase',
+      name: 'Uppercase paths only',
+      destinations: [
+        { type: 'public', uri: `${HOST}/VERSION` },
+        { type: 'public', uri: `${HOST}/MCP` },
+      ],
+    };
+    const fetchImpl = routeFetch({ apps: [uppercaseOnly] });
+
+    await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
+      'Could not resolve a Worker-specific or account-wide Access application',
+    );
+  });
+
+  it('rejects alternate ports on immutable preview targets before provider access', async () => {
+    const fetchImpl = vi.fn();
+
+    await expect(ensureProofModeAccessPolicy({
+      ...args,
+      targetUrl: `${TARGET}:8443/`,
+      fetchImpl,
+    })).rejects.toThrow(
+      'PROOFMODE_ACCESS_TARGET_URL must be the origin of one immutable Chief workers.dev preview',
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('rejects mixed public and Worker coverage instead of assuming one effective app', async () => {
