@@ -56,7 +56,17 @@ function unwrap(result, label) {
 }
 
 function hasSpecificServiceToken(policy, serviceTokenId) {
-  if (policy?.decision !== 'non_identity' || !Array.isArray(policy.include) || policy.include.length !== 1) {
+  const hasExtraRequire = policy?.require !== undefined
+    && (!Array.isArray(policy.require) || policy.require.length > 0);
+  const hasExtraExclude = policy?.exclude !== undefined
+    && (!Array.isArray(policy.exclude) || policy.exclude.length > 0);
+  if (
+    policy?.decision !== 'non_identity'
+    || !Array.isArray(policy.include)
+    || policy.include.length !== 1
+    || hasExtraRequire
+    || hasExtraExclude
+  ) {
     return false;
   }
   const [rule] = policy.include;
