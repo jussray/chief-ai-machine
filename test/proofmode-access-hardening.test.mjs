@@ -74,6 +74,33 @@ describe('ProofMode Access hardening', () => {
     );
   });
 
+  it('rejects exact service-token includes when require or exclude adds another condition', async () => {
+    const app = {
+      id: 'app-exact',
+      name: 'ProofMode exact immutable preview',
+      destinations: [{ type: 'public', uri: `${HOST}/*` }],
+    };
+
+    for (const extraSelectors of [
+      { require: [{ email_domain: { domain: 'example.com' } }] },
+      { exclude: [{ service_token: { token_id: SERVICE_ID } }] },
+    ]) {
+      const fetchImpl = routeFetch({
+        apps: [app],
+        policies: [{
+          id: 'policy-conditioned',
+          decision: 'non_identity',
+          include: [{ service_token: { token_id: SERVICE_ID } }],
+          ...extraSelectors,
+        }],
+      });
+
+      await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
+        'No matching Cloudflare Access Service Auth policy exists',
+      );
+    }
+  });
+
   it('rejects an Everyone bypass even when the exact service-token policy also exists', async () => {
     const app = {
       id: 'app-exact',
