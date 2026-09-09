@@ -70,7 +70,7 @@ describe('ProofMode Access hardening', () => {
     });
 
     await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
-      'No matching Cloudflare Access Service Auth policy exists',
+      'parallel Service Auth or bypass grant',
     );
   });
 
@@ -96,7 +96,7 @@ describe('ProofMode Access hardening', () => {
       });
 
       await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
-        'No matching Cloudflare Access Service Auth policy exists',
+        'parallel Service Auth or bypass grant',
       );
     }
   });
