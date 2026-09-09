@@ -128,6 +128,68 @@ describe('ProofMode Access hardening', () => {
     );
   });
 
+  it('rejects any parallel non-identity or bypass grant beside the exact service-token policy', async () => {
+    const app = {
+      id: 'app-exact',
+      name: 'ProofMode exact immutable preview',
+      destinations: [{ type: 'public', uri: `${HOST}/*` }],
+    };
+
+    for (const parallelPolicy of [
+      {
+        id: 'policy-any-token',
+        decision: 'non_identity',
+        include: [{ any_valid_service_token: {} }],
+      },
+      {
+        id: 'policy-other-token',
+        decision: 'non_identity',
+        include: [{ service_token: { token_id: 'service-token-2' } }],
+      },
+      {
+        id: 'policy-ip-bypass',
+        decision: 'bypass',
+        include: [{ ip: { ip: '203.0.113.0/24' } }],
+      },
+    ]) {
+      const fetchImpl = routeFetch({
+        apps: [app],
+        policies: [
+          {
+            id: 'policy-exact',
+            decision: 'non_identity',
+            include: [{ service_token: { token_id: SERVICE_ID } }],
+          },
+          parallelPolicy,
+        ],
+      });
+
+      await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
+        'parallel Service Auth or bypass grant',
+      );
+    }
+  });
+
+  it('rejects parallel grant policies before repair instead of creating another grant', async () => {
+    const app = {
+      id: 'app-exact',
+      name: 'ProofMode exact immutable preview',
+      destinations: [{ type: 'public', uri: `${HOST}/*` }],
+    };
+    const fetchImpl = routeFetch({
+      apps: [app],
+      policies: [{
+        id: 'policy-other-token',
+        decision: 'non_identity',
+        include: [{ service_token: { token_id: 'service-token-2' } }],
+      }],
+    });
+
+    await expect(ensureProofModeAccessPolicy({ ...args, mode: 'repair', fetchImpl })).rejects.toThrow(
+      'parallel Service Auth or bypass grant',
+    );
+  });
+
   it('rejects required paths that resolve to different public Access applications', async () => {
     const versionApp = {
       id: 'app-version',
