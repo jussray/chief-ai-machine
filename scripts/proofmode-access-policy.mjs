@@ -87,6 +87,10 @@ function hasEveryoneBypass(policy) {
   ));
 }
 
+function isIndependentGrantPolicy(policy) {
+  return policy?.decision === 'non_identity' || policy?.decision === 'bypass';
+}
+
 async function cloudflareJson(fetchImpl, apiToken, path, init = {}) {
   const response = await fetchImpl(`${API}${path}`, {
     ...init,
@@ -404,6 +408,12 @@ export async function ensureProofModeAccessPolicy({
   }
 
   const exact = policies.find((policy) => hasSpecificServiceToken(policy, serviceId));
+  const parallelGrant = policies.find((policy) => policy !== exact && isIndependentGrantPolicy(policy));
+  if (parallelGrant) {
+    throw new Error(
+      'Effective Access application contains a parallel Service Auth or bypass grant; refusing to certify or repair an exact single-token boundary.',
+    );
+  }
   if (exact) {
     return {
       state: 'configured',
