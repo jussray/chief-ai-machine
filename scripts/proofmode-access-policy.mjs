@@ -31,6 +31,7 @@ function validateTargetUrl(raw) {
     url.protocol !== 'https:'
     || url.username
     || url.password
+    || url.port
     || url.search
     || url.hash
     || url.pathname !== '/'
@@ -64,6 +65,16 @@ function hasSpecificServiceToken(policy, serviceTokenId) {
     && !Array.isArray(rule)
     && Object.keys(rule).length === 1
     && rule?.service_token?.token_id === serviceTokenId;
+}
+
+function hasEveryoneBypass(policy) {
+  if (policy?.decision !== 'bypass' || !Array.isArray(policy.include)) return false;
+  return policy.include.some((rule) => (
+    rule
+    && typeof rule === 'object'
+    && !Array.isArray(rule)
+    && Object.prototype.hasOwnProperty.call(rule, 'everyone')
+  ));
 }
 
 async function cloudflareJson(fetchImpl, apiToken, path, init = {}) {
@@ -110,15 +121,19 @@ async function listAll(fetchImpl, apiToken, path, label) {
   throw new Error(`${label} exceeded the bounded pagination limit.`);
 }
 
-function globToRegExp(pattern) {
+function globToRegExp(pattern, flags = '') {
   const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-  return new RegExp(`^${escaped}$`, 'i');
+  return new RegExp(`^${escaped}$`, flags);
 }
 
 function normalizePublicUri(raw) {
-  let value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
-  value = value.replace(/^https?:\/\//, '');
-  return value.replace(/^\/+/, '');
+  let value = typeof raw === 'string' ? raw.trim() : '';
+  value = value.replace(/^https?:\/\//i, '');
+  value = value.replace(/^\/+/, '');
+  const slashIndex = value.indexOf('/');
+  const hostname = (slashIndex === -1 ? value : value.slice(0, slashIndex)).toLowerCase();
+  const path = slashIndex === -1 ? '' : value.slice(slashIndex);
+  return `${hostname}${path}`;
 }
 
 function publicUriMatchesPath(uri, hostname, path) {
@@ -126,7 +141,7 @@ function publicUriMatchesPath(uri, hostname, path) {
   if (!pattern) return false;
   const hostWidePattern = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern;
   if (!hostWidePattern.includes('/')) {
-    return globToRegExp(hostWidePattern).test(hostname);
+    return globToRegExp(hostWidePattern, 'i').test(hostname);
   }
   return globToRegExp(pattern).test(`${hostname}${path}`);
 }
@@ -373,6 +388,11 @@ export async function ensureProofModeAccessPolicy({
   const policyPath = `/accounts/${encodeURIComponent(account)}/access/apps/${encodeURIComponent(appId)}/policies`;
 
   const policies = await listAll(fetchImpl, token, policyPath, 'List Access application policies');
+  const unsafeBypass = policies.find((policy) => hasEveryoneBypass(policy));
+  if (unsafeBypass) {
+    throw new Error('Effective Access application contains an Everyone/Bypass policy; refusing to certify or repair Service Auth while public bypass remains possible.');
+  }
+
   const exact = policies.find((policy) => hasSpecificServiceToken(policy, serviceId));
   if (exact) {
     return {
