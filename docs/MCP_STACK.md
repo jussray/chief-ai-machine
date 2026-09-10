@@ -1,6 +1,6 @@
 # Chief AI Machine MCP stack
 
-Last reviewed: 2026-09-05
+Last reviewed: 2026-09-10
 
 Chief AI Machine has its own MCP identity. It is not a duplicate Founder Control Room and it is no longer presented as only its ProofMode subsystem.
 
@@ -61,7 +61,7 @@ Chief owns:
 - capability-plan composition;
 - reasoning/synthesis;
 - proposal handoff;
-- non-authorizing repository/documentation evidence used to improve a proposal.
+- non-authorizing repository/documentation/database evidence used to improve a proposal.
 
 The canonical cross-system shape is therefore:
 
@@ -115,6 +115,23 @@ Example:
 }
 ```
 
+## Supabase evidence subsystem
+
+Chief development may inspect the founder-provided Supabase project through the official hosted MCP endpoint, but only as bounded supporting evidence.
+
+Canonical project binding:
+
+- project ref: `lghpwoktsytutssjiwgy`;
+- endpoint: `https://mcp.supabase.com/mcp`;
+- project-scoped mode is required;
+- `read_only=true` is required;
+- enabled feature groups are limited to `database,docs`;
+- no Supabase access token, service-role key, or database credential is committed in repository config.
+
+This connector does **not** make Supabase Chief's authority plane and does not imply that browser-local prompt state has been promoted to a durable product backend. Database observations are evidence inputs only. They cannot mint founder approval, provider mutation, merge, deploy, publication, execution, or verified-outcome authority.
+
+Any future removal of read-only mode, project-ref change, feature-set expansion, or credential-bearing automation requires a separately reviewed authority change and rollback plan.
+
 ## Capability-plan MCP example
 
 ```json
@@ -140,12 +157,13 @@ The returned object is explicitly `juss/chief-mcp-capability-proposal@v1` and ca
 | --- | --- | --- |
 | `founder-control-room` | Governed portfolio truth, authority, evidence, and connection brokerage | Credential-free source config; live auth remains provider/runtime state |
 | `github` | Repository, pull requests, Actions, code scanning, and secret scanning | Selected toolsets; lockdown enabled while public |
+| `supabase` | Read-only Chief project database/documentation evidence | Exact project `lghpwoktsytutssjiwgy`; project-scoped; `read_only=true`; only `database,docs`; no committed token |
 | `context7` | Current public dependency documentation | Documentation evidence only |
 | `playwright` | Exact-head browser/runtime verification | Pinned package, isolated Chromium profile, synthetic fixtures only |
 
 ## Privacy and authority boundary
 
-Do not send private Se'kret Bip, Juss Beautiful Hair, L99, Think Tank, customer, vendor, teen, parent, payment, credential, or unreleased strategy content through Context7 or public repository fixtures.
+Do not send private Se'kret Bip, Juss Beautiful Hair, L99, Think Tank, customer, vendor, teen, parent, payment, credential, or unreleased strategy content through Context7 or public repository fixtures. Supabase inspection must stay within the exact Chief project, use the narrowest read-only query needed for the named investigation, and avoid unrelated personal or secret data.
 
 The Chief MCP accepts no caller credential as an authority argument. Raw tokens, API keys, private keys, secret references, provider approval IDs, or caller-minted founder approval fields must not become a path for increasing authority.
 
