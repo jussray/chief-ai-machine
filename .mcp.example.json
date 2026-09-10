@@ -12,6 +12,10 @@
         "X-MCP-Lockdown": "true"
       }
     },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_CHIEF_PROJECT_REF&read_only=true&features=database,docs"
+    },
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
