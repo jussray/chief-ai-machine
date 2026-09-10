@@ -17,6 +17,9 @@ on:
       - "src/domain/founder-content-strategy.js"
       - "src/domain/founder-content-strategy.test.js"
       - "src/domain/founder-content-strategy.redteam.test.js"
+      - "src/domain/founder-content-v4-advisory.js"
+      - "src/ultrathink/v4-advisory-handoff.v0.ts"
+      - "test/ultrathink/v4-advisory-handoff.v0.test.ts"
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
@@ -243,6 +246,43 @@ jobs:
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Add trusted V4 advisory runtime assertion
+        shell: bash
+        run: |
+          cat >> e2e/chief-founder-content-proposal.pw.mjs <<'EOF'
+
+          test('consumes the V4 advisory handoff on the deployed candidate without retaining raw hashes', async ({ request }) => {
+            const input = proposalInput();
+            const subjectHash = '2'.repeat(64);
+            const observationHash = '3'.repeat(64);
+            const learningHash = '574d690c6a08c34f69519434a62bf69cca31d77cd6c86522c03c1057c059c5ba';
+            input.v4_advisory_handoff = {
+              schema: 'ultrathink/v4-advisory-handoff@v0',
+              evidenceLevel: 'ATTESTED',
+              subjectHash,
+              observationHash,
+              learningHash,
+            };
+
+            const response = await request.post(`${baseURL}/api/chief/founder-content-proposal`, {
+              headers: { 'Content-Type': 'application/json' },
+              data: input,
+            });
+
+            expect(response.status()).toBe(200);
+            const body = await response.json();
+            expect(body.data.strategy.history.learning_signal_hashes).toContain(learningHash);
+            const encoded = JSON.stringify(body);
+            expect(encoded).not.toContain(subjectHash);
+            expect(encoded).not.toContain(observationHash);
+            expect(body.data.governanceBoundary).toMatchObject({
+              executionAuthorized: false,
+              publishAuthorized: false,
+              strategyAdvisoryOnly: true,
+            });
+          });
+          EOF
 
       - name: Verify immutable preview serves exact head
         shell: bash
