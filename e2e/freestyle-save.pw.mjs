@@ -47,6 +47,25 @@ test.beforeEach(async ({ context, page }) => {
   await page.reload();
 });
 
+test('protected control-mode names do not steer Freestyle routing', async ({ page }) => {
+  await openPage(page, 'freestyle');
+
+  const request = 'Create a strategy roadmap for this product';
+  await page.locator('#fsAsk').fill(request);
+  await page.locator('#fsGenerate').click();
+  await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
+  const baselineTitle = await page.locator('#fsTitle').innerText();
+  const baselineBody = await page.locator('#fsBody').innerText();
+
+  await page.locator('#fsAsk').fill(
+    '/goalfix ULTRATHINK truthmode /confess redteam attackten lindymode OODA proofmode L99 ' + request,
+  );
+  await page.locator('#fsGenerate').click();
+
+  await expect(page.locator('#fsTitle')).toHaveText(baselineTitle);
+  await expect(page.locator('#fsBody')).toHaveText(baselineBody);
+});
+
 test('Freestyle save, reopen, provider switch, copy, and reload remain governed', async ({ page }, testInfo) => {
   await openPage(page, 'freestyle');
 
