@@ -18,6 +18,7 @@ import {
 
 const repo = 'jussray/example';
 const baseRepo = { full_name: repo };
+const clone = (value) => JSON.parse(JSON.stringify(value));
 function pr(number, baseRef, headRef, state = 'open', headRepo = baseRepo, body = '') {
   return { number, state, body, base: { ref: baseRef, repo: baseRepo }, head: { ref: headRef, sha: String(number).padStart(40, '0'), repo: headRepo } };
 }
@@ -63,9 +64,9 @@ test('AT21 fork head names cannot authorize traversal into a local stack', () =>
 });
 test('AT22 metadata snapshots fail closed on concurrent body or head movement', () => {
   const first = pr(3, 'main', 'feature', 'open', baseRepo, 'first');
-  const same = structuredClone(first);
-  const bodyMoved = { ...structuredClone(first), body: 'changed' };
-  const headMoved = structuredClone(first);
+  const same = clone(first);
+  const bodyMoved = { ...clone(first), body: 'changed' };
+  const headMoved = clone(first);
   headMoved.head.sha = 'f'.repeat(40);
   assert.equal(samePullSnapshot(first, same), true);
   assert.equal(samePullSnapshot(first, bodyMoved), false);
