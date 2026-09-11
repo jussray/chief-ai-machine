@@ -4,6 +4,7 @@ import path from 'node:path';
 export const START_MARKER = '<!-- pr-continuity:start -->';
 export const END_MARKER = '<!-- pr-continuity:end -->';
 export const SCHEMA = 'juss/pr-continuity@v1';
+export const CONTINUITY_GATE_NAME = 'PR Continuity Exact-Head Gate';
 
 export const isCurrentCompareStatus = (status) => status === 'ahead' || status === 'identical';
 export function classifyCompareStatus(status) {
@@ -46,7 +47,18 @@ export function continuityBlock(v) {
     END_MARKER,
   ].join('\n');
 }
-export function collectRolloverOrder(pulls, rootRef = 'main') {
+
+export const sameRepositoryPull = (pr, repository) => pr?.head?.repo?.full_name === repository && pr?.base?.repo?.full_name === repository;
+export function samePullSnapshot(expected, actual) {
+  return Boolean(
+    expected
+    && actual
+    && expected.number === actual.number
+    && expected.head?.sha === actual.head?.sha
+    && (expected.body || '') === (actual.body || ''),
+  );
+}
+export function collectRolloverOrder(pulls, rootRef = 'main', repository = '') {
   const queue = [rootRef], visitedRefs = new Set(), seenPulls = new Set(), order = [];
   while (queue.length) {
     const baseRef = queue.shift();
@@ -54,6 +66,7 @@ export function collectRolloverOrder(pulls, rootRef = 'main') {
     visitedRefs.add(baseRef);
     for (const pr of pulls) {
       if (pr.state !== 'open' || pr.base?.ref !== baseRef || seenPulls.has(pr.number)) continue;
+      if (repository && !sameRepositoryPull(pr, repository)) continue;
       seenPulls.add(pr.number);
       order.push(pr.number);
       if (pr.head?.ref) queue.push(pr.head.ref);
@@ -61,7 +74,6 @@ export function collectRolloverOrder(pulls, rootRef = 'main') {
   }
   return order;
 }
-export const sameRepositoryPull = (pr, repository) => pr?.head?.repo?.full_name === repository && pr?.base?.repo?.full_name === repository;
 
 const env = (name, fallback = '') => process.env[name] || fallback;
 const artifactPath = () => env('ARTIFACT_PATH', 'artifacts/pr-continuity.json');
@@ -103,10 +115,17 @@ async function listOpenPulls(repo) {
   throw new Error('PULL_PAGINATION_LIMIT_EXCEEDED');
 }
 async function patchBody(repo, pr, block) {
+  const live = await getPull(repo, pr.number);
+  if (!samePullSnapshot(pr, live)) return { updated: false, blocked: true, reason: 'METADATA_RACE' };
+
   let next;
-  try { next = replaceManagedBlock(pr.body || '', block); }
+  try { next = replaceManagedBlock(live.body || '', block); }
   catch (error) { return { updated: false, blocked: true, reason: error.message }; }
-  if (next === (pr.body || '')) return { updated: false, blocked: false };
+  if (next === (live.body || '')) return { updated: false, blocked: false };
+
+  const beforePatch = await getPull(repo, pr.number);
+  if (!samePullSnapshot(live, beforePatch)) return { updated: false, blocked: true, reason: 'METADATA_RACE' };
+
   await github(`/repos/${repo}/pulls/${pr.number}`, { method: 'PATCH', body: { body: next } });
   return { updated: true, blocked: false };
 }
@@ -117,12 +136,26 @@ function blockFor(repo, pr, rootBaseRef, rootBaseSha, continuityState, proofStat
     continuityState, proofState,
   });
 }
+async function publishHeadFailure(repo, result) {
+  if (!result?.headSha) return;
+  const summary = `Continuity rollover blocked for PR #${result.number}: ${result.state}. Exact-head proof must be reacquired after the block is cleared.`;
+  await github(`/repos/${repo}/check-runs`, {
+    method: 'POST',
+    body: {
+      name: CONTINUITY_GATE_NAME,
+      head_sha: result.headSha,
+      status: 'completed',
+      conclusion: 'failure',
+      output: { title: 'PR continuity blocked', summary },
+    },
+  });
+}
 async function updateOnePull(repo, number, rootBaseRef) {
   let pr = await getPull(repo, number);
   const rootBaseSha = await branchSha(repo, rootBaseRef);
   if (!sameRepositoryPull(pr, repo)) {
     const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, 'BLOCKED_FORK', 'BLOCKED'));
-    return { number, state: 'BLOCKED_FORK', headRef: pr.head.ref, metadata };
+    return { number, state: 'BLOCKED_FORK', headRef: pr.head.ref, headSha: pr.head.sha, metadata };
   }
   let status = await compare(repo, pr.base.sha, pr.head.sha);
   if (isCurrentCompareStatus(status)) {
@@ -191,7 +224,7 @@ export async function metadataMode() {
 export async function rolloverMode() {
   const repo = env('GITHUB_REPOSITORY'), rootBaseRef = env('ROOT_BASE_REF', 'main');
   if (!repo) throw new Error('GITHUB_REPOSITORY_REQUIRED');
-  const order = collectRolloverOrder(await listOpenPulls(repo), rootBaseRef), results = [];
+  const order = collectRolloverOrder(await listOpenPulls(repo), rootBaseRef, repo), results = [];
   for (const number of order) results.push(await updateOnePull(repo, number, rootBaseRef));
   const blocked = results.filter((r) => r.state.startsWith('BLOCKED'));
   const receipt = {
@@ -201,7 +234,10 @@ export async function rolloverMode() {
   };
   writeReceipt(receipt);
   console.log(JSON.stringify(receipt));
-  if (blocked.length) throw new Error(`ROLLOVER_BLOCKED: ${blocked.map((r) => `#${r.number}:${r.state}`).join(',')}`);
+  if (blocked.length) {
+    for (const result of blocked) await publishHeadFailure(repo, result);
+    throw new Error(`ROLLOVER_BLOCKED: ${blocked.map((r) => `#${r.number}:${r.state}`).join(',')}`);
+  }
 }
 
 async function main() {
