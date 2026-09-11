@@ -23,6 +23,7 @@ describe('merge intent gate', () => {
     ['## DOWNSTREAM / STALE CANDIDATE', 'stale-candidate'],
     ['## STALE / PROVIDER-BLOCKED CANDIDATE', 'stale-candidate'],
     ['[SUPERSEDED] old candidate', 'superseded'],
+    ['[SUPERSEDED]: replaced by #123', 'superseded'],
     ['This PR is superseded pending rebuild.', 'superseded'],
     ['## VERIFICATION ONLY', 'verification-only'],
     ['MERGE BLOCKED until provider proof', 'merge-blocked'],
