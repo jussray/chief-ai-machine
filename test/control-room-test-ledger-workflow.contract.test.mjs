@@ -33,6 +33,43 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).not.toContain('Chief runtime surface changed; real exact-runtime Playwright proof is required.');
   });
 
+  it('treats deployed SPA assets and asset-policy changes as runtime changes', () => {
+    const runtimeSection = materializer
+      .split('  runtime-applicability:')[1]
+      .split('  capability-plan-applicability:')[0];
+
+    expect(runtimeSection).toContain('index\\.html$');
+    expect(runtimeSection).toContain('styles/');
+    expect(runtimeSection).toContain('src/');
+    expect(runtimeSection).toContain('\\.assetsignore$');
+  });
+
+  it('authenticates Cloudflare check-run provenance instead of trusting the check name alone', () => {
+    const providerSection = materializer
+      .split('  provider-receipt:')[1]
+      .split('  founder-goals-applicability:')[0];
+    const runtimeSection = materializer
+      .split('  runtime-applicability:')[1]
+      .split('  capability-plan-applicability:')[0];
+
+    expect(materializer).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
+    expect(providerSection).toContain('x.app?.id === expectedApp');
+    expect(runtimeSection).toContain('x.app?.id===expectedApp');
+  });
+
+  it('isolates Playwright from candidate package metadata and does not retain Access-authenticated traces', () => {
+    const preamble = materializer.split('concurrency:')[0];
+    const runtimeSection = materializer
+      .split('  runtime-applicability:')[1]
+      .split('  capability-plan-applicability:')[0];
+
+    expect(preamble).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+    expect(runtimeSection).toContain('runner_dir="${RUNNER_TEMP}/chief-runtime-playwright"');
+    expect(runtimeSection).toContain("trace: hasAccess ? 'off' : 'retain-on-failure'");
+    expect(runtimeSection).toContain("steps.access-auth.outputs.enabled != 'true'");
+    expect(runtimeSection).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+  });
+
   it('does not force runtime Playwright for governance-only materializer edits', () => {
     const runtimeSection = materializer
       .split('  runtime-applicability:')[1]
