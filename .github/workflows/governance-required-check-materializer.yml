@@ -11,8 +11,7 @@ permissions:
 env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
   BASE_SHA: ${{ github.event.pull_request.base.sha }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  CLOUDFLARE_CHECK_APP_ID: '85455'
 
 concurrency:
   group: governance-required-check-materializer-${{ github.event.pull_request.number || github.ref }}
@@ -54,9 +53,11 @@ jobs:
                 if (!s) process.exit(1);
                 const d = JSON.parse(s);
                 const expected = process.env.EXPECTED_PROVIDER_SHA;
+                const expectedApp = Number(process.env.CLOUDFLARE_CHECK_APP_ID);
                 const run = (d.check_runs || []).find((x) =>
                   x.name === "Workers Builds: chief-ai"
                   && x.head_sha === expected
+                  && x.app?.id === expectedApp
                   && x.status === "completed"
                   && x.conclusion === "success"
                 );
@@ -162,9 +163,9 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA"
           changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
-            echo 'Chief runtime surface changed; executing real exact-runtime Playwright proof.'
+            echo 'Chief runtime or deployed-asset surface changed; executing real exact-runtime Playwright proof.'
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             echo 'N/A proven from exact-head diff: Chief runtime surface unchanged.'
@@ -175,7 +176,6 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
-          cache: npm
 
       - name: Resolve exact Cloudflare commit preview
         if: steps.runtime-scope.outputs.changed == 'true'
@@ -192,7 +192,8 @@ jobs:
               let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
                 if (!s) return;
                 const d=JSON.parse(s);
-                const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.status==="completed" && x.conclusion==="success");
+                const expectedApp = Number(process.env.CLOUDFLARE_CHECK_APP_ID);
+                const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.app?.id===expectedApp && x.status==="completed" && x.conclusion==="success");
                 const m=String(r?.output?.summary||"").match(/Preview URL:\s*(https:\/\/\S+)/);
                 if (m) process.stdout.write(m[1]);
               });
@@ -204,11 +205,29 @@ jobs:
             fi
             sleep 2
           done
-          echo "No successful exact-head Cloudflare preview found for ${EXPECTED_HEAD_SHA}" >&2
+          echo "No authenticated exact-head Cloudflare preview found for ${EXPECTED_HEAD_SHA}" >&2
           exit 1
 
-      - name: Validate Cloudflare Access service-auth inputs
+      - name: Install isolated Playwright runner
         if: steps.runtime-scope.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_dir="${RUNNER_TEMP}/chief-runtime-playwright"
+          rm -rf "$runner_dir"
+          mkdir -p "$runner_dir"
+          cd "$runner_dir"
+          npm init -y >/dev/null
+          npm install --save-exact --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+          echo "PLAYWRIGHT_RUNNER_DIR=$runner_dir" >> "$GITHUB_ENV"
+
+      - name: Classify Access authentication without retaining credentials
+        if: steps.runtime-scope.outputs.changed == 'true'
+        id: access-auth
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -217,22 +236,23 @@ jobs:
             echo 'Cloudflare Access service auth is incomplete; both credentials must be configured together.' >&2
             exit 1
           fi
-
-      - name: Install isolated Playwright runner
-        if: steps.runtime-scope.outputs.changed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run exact-runtime browser proof
         if: steps.runtime-scope.outputs.changed == 'true'
         env:
           PLAYWRIGHT_HTML_OPEN: never
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
+          cd "$PLAYWRIGHT_RUNNER_DIR"
+          mkdir -p e2e
           cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
           import { test, expect } from '@playwright/test';
 
@@ -256,7 +276,8 @@ jobs:
           cat > playwright.chief-runtime-exact-head.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
 
-          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
+          const hasAccess = Boolean(process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET);
+          const accessHeaders = hasAccess
             ? {
                 'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
                 'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
@@ -274,20 +295,20 @@ jobs:
               ['line'],
               ['html', { outputFolder: './playwright-report/chief-runtime-exact-head', open: 'never' }],
             ],
-            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
+            use: { trace: hasAccess ? 'off' : 'retain-on-failure', extraHTTPHeaders: accessHeaders },
           });
           EOF
 
           npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs
 
-      - name: Retain exact-runtime Playwright report
-        if: always() && steps.runtime-scope.outputs.changed == 'true'
+      - name: Retain exact-runtime Playwright report only when no Access secret was used
+        if: always() && steps.runtime-scope.outputs.changed == 'true' && steps.access-auth.outputs.enabled != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: chief-runtime-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |
-            playwright-report/chief-runtime-exact-head
-            test-results/chief-runtime-exact-head
+            ${{ env.PLAYWRIGHT_RUNNER_DIR }}/playwright-report/chief-runtime-exact-head
+            ${{ env.PLAYWRIGHT_RUNNER_DIR }}/test-results/chief-runtime-exact-head
           if-no-files-found: warn
           retention-days: 14
 
