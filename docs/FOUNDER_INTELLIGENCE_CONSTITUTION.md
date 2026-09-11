@@ -78,6 +78,39 @@ When demand or coordination load is not yet proven, build the seam for future ex
 
 Think from first principles. Question each requirement, remove unnecessary complexity, simplify interfaces and state, shorten the proof loop, and automate only after the simpler path is proven and reversible.
 
+## /ultrathink
+
+Use `/ultrathink` when a material decision, repair, or cross-system blocker needs deeper challenge before action. `/ultrathink` does not create authority and does not replace repository-local skills. It composes the existing founder-intelligence lenses, then routes repository repair through `/goalfix`.
+
+Canonical repair loop:
+
+```text
+Founder intent
+→ Reacquire current truth
+→ Classify consequence
+→ Resolve authority
+→ Attack the premise
+→ Identify the real bottleneck
+→ Choose the smallest reversible move
+→ Verify the real path
+→ Attack the implementation
+→ Update durable evidence
+→ Set one next gate
+```
+
+ULTRATHINK invariants:
+
+- Treat repository/source, build/CI, provider, runtime/browser, and outcome evidence as separate truth planes.
+- A failure before the changed behavior executes must be classified at the boundary where it actually failed before source is changed.
+- Provider authentication and provider administration authority are different. A credential that can pass through a service does not imply permission to mutate that service's policy.
+- Do not spend runs repeatedly probing an unchanged known blocker unless a material dependency or state changed.
+- Do not weaken security, exact-head binding, assertions, Playwright, or required checks to convert blocked proof into green.
+- Do not let stale evidence survive a moved head, moved base, changed provider state, or changed authority boundary.
+- Keep active PRs focused. An unrelated newly discovered root cause gets a separate focused branch, patch, or decision rather than silent scope expansion.
+- Before creating a new governance or repair carrier, inspect active PRs/issues for an existing authoritative carrier and extend it when scope matches. Duplicate carriers create conflicting truth.
+- Stop with `BLOCKED` when the next legitimate action requires missing authority, provider access, approval, or evidence.
+- Preserve Founder Control Room as the single founder operating system. Chief AI, PromptOS, StoryEngine, modes, skills, agents, and future add-ons remain coordinated subsystems serving the founder-intent loop, not separate operating systems.
+
 ## @Juss V10 Twin Core
 
 `@Juss V10` is the founder operating synthesis above the Twin Core. It combines present-founder intent (`Me`), `FutureYou`, strategic challenge lenses, truth, capability, proof, and measured outcomes. The lenses advise; Juss remains the final authority.

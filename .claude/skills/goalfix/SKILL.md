@@ -7,6 +7,12 @@ description: Find the real blocker behind a messy software goal, apply the small
 
 Treat `$ARGUMENTS` as the finish line. Seek, build, fix, and verify without wandering.
 
+## Canonical repair contract
+
+For repository repair, this Claude carrier delegates to the repository-wide `.agents/skills/goalfix/SKILL.md` contract. That contract is authoritative for exact-head reacquisition, proof-plane classification, provider-authority stops, rerun restrictions, durable evidence, and focused-carrier scope. This file may add Claude-specific invocation guidance, but it must not weaken or redefine that canonical repair behavior.
+
+Before any repair, classify the first real failing boundary as `SOURCE`, `BUILD/CI`, `PROVIDER`, `RUNTIME/BROWSER`, or `OUTCOME`. Reacquire the current base and exact head before acting. If the next legitimate mutation requires provider administration or other authority that is unavailable, return `BLOCKED` rather than rewriting source. Do not repeatedly rerun an unchanged known blocker merely to create duplicate evidence.
+
 ## Establish the boundary
 
 State the authoritative repo, target branch, current goal, suspected failure area, first files or logs, and stop condition. Resolve unknowns with narrow inspection.
