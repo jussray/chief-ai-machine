@@ -23,6 +23,7 @@ describe('merge intent gate', () => {
     ['## DOWNSTREAM / STALE CANDIDATE', 'stale-candidate'],
     ['## STALE / PROVIDER-BLOCKED CANDIDATE', 'stale-candidate'],
     ['[SUPERSEDED] old candidate', 'superseded'],
+    ['[SUPERSEDED]: replaced by #123', 'superseded'],
     ['This PR is superseded pending rebuild.', 'superseded'],
     ['## VERIFICATION ONLY', 'verification-only'],
     ['MERGE BLOCKED until provider proof', 'merge-blocked'],
@@ -43,6 +44,26 @@ describe('merge intent gate', () => {
       baseRef: 'main',
       title: 'test(governance): provider preflight',
       body: 'KEEP DRAFT. Passing source checks do not authorize merge.',
+      isDraft: false,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: false,
+    });
+    expect(decision.reasons).toContain('keep-draft');
+  });
+
+  it('blocks numbered keep-draft status directives after provider metadata is flipped ready', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'feat(chief): fingerprint authority handoff to FCR',
+      body: [
+        '## NEXT GATE',
+        '',
+        '1. Obtain fresh independent semantic/security review.',
+        '4. Keep DRAFT until current review/authority gates are satisfied.',
+      ].join('\n'),
       isDraft: false,
     });
 
