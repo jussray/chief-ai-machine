@@ -9,7 +9,7 @@ const BLOCKING_MARKERS = Object.freeze([
   },
   {
     code: 'superseded',
-    pattern: /^(?:\[superseded\](?:\s|$)|(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?superseded(?:\s|[.:;,(]|$))/i,
+    pattern: /^(?:\[superseded\](?:\s|[.:;,(]|$)|(?:(?:this\s+)?(?:pr|pull\s+request|candidate)\s+is\s+)?superseded(?:\s|[.:;,(]|$))/i,
   },
   { code: 'verification-only', pattern: /^verification\s+only\b/i },
   { code: 'merge-blocked', pattern: /^merge\s+blocked\b/i },
