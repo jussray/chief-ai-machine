@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   START_MARKER,
   END_MARKER,
   SCHEMA,
+  CONTINUITY_GATE_NAME,
   isCurrentCompareStatus,
   classifyCompareStatus,
   assertExpectedHead,
@@ -11,12 +13,13 @@ import {
   continuityBlock,
   collectRolloverOrder,
   sameRepositoryPull,
+  samePullSnapshot,
 } from '../scripts/pr-continuity.mjs';
 
 const repo = 'jussray/example';
 const baseRepo = { full_name: repo };
-function pr(number, baseRef, headRef, state = 'open', headRepo = baseRepo) {
-  return { number, state, base: { ref: baseRef, repo: baseRepo }, head: { ref: headRef, repo: headRepo } };
+function pr(number, baseRef, headRef, state = 'open', headRepo = baseRepo, body = '') {
+  return { number, state, body, base: { ref: baseRef, repo: baseRepo }, head: { ref: headRef, sha: String(number).padStart(40, '0'), repo: headRepo } };
 }
 
 test('AT01 identical base/head is current ancestry', () => assert.equal(isCurrentCompareStatus('identical'), true));
@@ -50,7 +53,31 @@ test('AT15 proof subject equals live head', () => {
 });
 test('AT16 receipt explicitly denies merge authority', () => assert.match(continuityBlock({ repository: repo, prNumber: 1, rootBaseRef: 'main', rootBaseSha: '1', baseRef: 'main', baseSha: '1', headRef: 'x', headSha: '2', continuityState: 'CURRENT', proofState: 'SEPARATE' }), /merge_authority: \*\*false\*\*/));
 test('AT17 receipt explicitly denies deploy authority', () => assert.match(continuityBlock({ repository: repo, prNumber: 1, rootBaseRef: 'main', rootBaseSha: '1', baseRef: 'main', baseSha: '1', headRef: 'x', headSha: '2', continuityState: 'CURRENT', proofState: 'SEPARATE' }), /deploy_authority: \*\*false\*\*/));
-test('AT18 stacked dependency graph rolls parent before child', () => assert.deepEqual(collectRolloverOrder([pr(10, 'main', 'parent'), pr(11, 'parent', 'child')]), [10, 11]));
-test('AT19 unrelated stack is excluded', () => assert.deepEqual(collectRolloverOrder([pr(10, 'other', 'child')]), []));
-test('AT20 cyclic malformed stack terminates once per pull', () => assert.deepEqual(collectRolloverOrder([pr(1, 'main', 'a'), pr(2, 'a', 'main')]), [1, 2]));
+test('AT18 stacked dependency graph rolls parent before child', () => assert.deepEqual(collectRolloverOrder([pr(10, 'main', 'parent'), pr(11, 'parent', 'child')], 'main', repo), [10, 11]));
+test('AT19 unrelated stack is excluded', () => assert.deepEqual(collectRolloverOrder([pr(10, 'other', 'child')], 'main', repo), []));
+test('AT20 cyclic malformed stack terminates once per pull', () => assert.deepEqual(collectRolloverOrder([pr(1, 'main', 'a'), pr(2, 'a', 'main')], 'main', repo), [1, 2]));
+test('AT21 fork head names cannot authorize traversal into a local stack', () => {
+  const fork = pr(1, 'main', 'shared-name', 'open', { full_name: 'fork/repo' });
+  const localChild = pr(2, 'shared-name', 'local-child');
+  assert.deepEqual(collectRolloverOrder([fork, localChild], 'main', repo), []);
+});
+test('AT22 metadata snapshots fail closed on concurrent body or head movement', () => {
+  const first = pr(3, 'main', 'feature', 'open', baseRepo, 'first');
+  const same = structuredClone(first);
+  const bodyMoved = { ...structuredClone(first), body: 'changed' };
+  const headMoved = structuredClone(first);
+  headMoved.head.sha = 'f'.repeat(40);
+  assert.equal(samePullSnapshot(first, same), true);
+  assert.equal(samePullSnapshot(first, bodyMoved), false);
+  assert.equal(samePullSnapshot(first, headMoved), false);
+});
+test('AT23 blocked rollover publishes the exact authoritative gate name', () => assert.equal(CONTINUITY_GATE_NAME, 'PR Continuity Exact-Head Gate'));
+test('AT24 workflow separates candidate observation from trusted write authority', () => {
+  const workflow = readFileSync('.github/workflows/pr-continuity.yml', 'utf8');
+  assert.match(workflow, /name: PR Continuity Candidate Observation/);
+  assert.match(workflow, /name: Publish trusted PR continuity exact-head gate/);
+  assert.match(workflow, /github\.event\.pull_request\.base\.ref == 'main'/);
+  assert.match(workflow, /checks: write/);
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+});
 test('schema remains stable', () => assert.equal(SCHEMA, 'juss/pr-continuity@v1'));
