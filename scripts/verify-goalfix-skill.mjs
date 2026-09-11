@@ -3,9 +3,20 @@ import { readFileSync } from 'node:fs';
 const skillPath = new URL('../.agents/skills/goalfix/SKILL.md', import.meta.url);
 const founderPath = new URL('../AGENTS_FOUNDER_INTELLIGENCE.md', import.meta.url);
 const constitutionPath = new URL('../docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md', import.meta.url);
+const claudeGoalfixPath = new URL('../.claude/skills/goalfix/SKILL.md', import.meta.url);
+const claudeChiefPath = new URL('../.claude/skills/juss-chief-ai/SKILL.md', import.meta.url);
 const skill = readFileSync(skillPath, 'utf8');
 const founder = readFileSync(founderPath, 'utf8');
 const constitution = readFileSync(constitutionPath, 'utf8');
+const claudeGoalfix = readFileSync(claudeGoalfixPath, 'utf8');
+const claudeChief = readFileSync(claudeChiefPath, 'utf8');
+
+function portableCommandSurface(text) {
+  const match = text.match(/Portable Juss OS command surface:\s*\n\s*```text\s*\n([\s\S]*?)\n```/);
+  return match?.[1] ?? '';
+}
+
+const portableCommands = portableCommandSurface(founder);
 
 const checks = [
   ['frontmatter name matches directory', /---\nname: goalfix\n/.test(skill)],
@@ -45,6 +56,7 @@ const checks = [
   ['unrelated discovered repair stays out of focused PR', /If a newly discovered fix is unrelated to the active focused PR[\s\S]+separate focused branch or decision/.test(skill)],
   ['related discovered work extends active authoritative carrier', skill.includes('extend that carrier rather than opening a duplicate repair PR')],
   ['founder entrypoint declares portable command surface', founder.includes('Portable Juss OS command surface:')],
+  ['portable command surface is parseable', portableCommands.length > 0],
   ['portable goalfix routes to repo-scoped skill', founder.includes('`/goalfix` routes to the repo-scoped `.agents/skills/goalfix/SKILL.md` contract')],
   ['canonical challenge stack is preserved', /ULTRATHINK[\s\S]+Red Team 1 — premise[\s\S]+Lindy mode[\s\S]+L99[\s\S]+Red Team 2 — implementation[\s\S]+OODA[\s\S]+Proof/.test(founder)],
   ['portable ultrathink composes goalfix', founder.includes('In repository repair, `/ultrathink` composes `/goalfix`; it does not replace it.')],
@@ -64,10 +76,15 @@ const checks = [
   ['constitution forbids spending runs on unchanged blocker', constitution.includes('Do not spend runs repeatedly probing an unchanged known blocker unless a material dependency or state changed.')],
   ['constitution requires existing-carrier discovery', constitution.includes('inspect active PRs/issues for an existing authoritative carrier and extend it when scope matches')],
   ['constitution preserves FCR single-OS cohesion', constitution.includes('Preserve Founder Control Room as the single founder operating system.')],
+  ['Claude goalfix delegates to canonical repair contract', claudeGoalfix.includes('.agents/skills/goalfix/SKILL.md')],
+  ['Claude goalfix classifies proof planes', /`SOURCE`, `BUILD\/CI`, `PROVIDER`, `RUNTIME\/BROWSER`, or `OUTCOME`/.test(claudeGoalfix)],
+  ['Claude goalfix stops on unavailable provider authority', claudeGoalfix.includes('return `BLOCKED` rather than rewriting source')],
+  ['Claude Chief delegates repair mechanics to canonical goalfix', claudeChief.includes('route the repair mechanics through the canonical `.agents/skills/goalfix/SKILL.md` contract')],
+  ['Claude Chief preserves exact-head and proof-plane gates', claudeChief.includes('exact-head reacquisition, proof-plane classification')],
 ];
 
 for (const command of ['/goalfix', '/ultrathink', '/truthmode', '/confess', '/redteam', '/lindymode', '/ooda', '/visualize']) {
-  checks.push([`portable command is present: ${command}`, founder.includes(command)]);
+  checks.push([`portable command is present in command block: ${command}`, portableCommands.split(/\s+/).includes(command)]);
 }
 
 const failed = checks.filter(([, passed]) => !passed);
