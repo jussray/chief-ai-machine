@@ -104,7 +104,9 @@ Fail closed on:
 
 ## Apply intelligence mode
 
-When the founder says `ULTRATHINK`, `steal`, or `steal me too`:
+When the founder says `ULTRATHINK`, `steal`, `steal me too`, or requests repository repair through `/goalfix`, route the repair mechanics through the canonical `.agents/skills/goalfix/SKILL.md` contract. Chief may supply strategy and challenge lenses, but it must not replace that carrier's exact-head reacquisition, proof-plane classification, unchanged-blocker rerun restriction, provider-authority stop, or focused-scope boundary. If those gates require unavailable authority, the result is `BLOCKED`, not a broader patch.
+
+Then apply these intelligence lenses without expanding authority:
 
 1. Extract the mechanism from strong examples, competitors, research, project wins, and failures.
 2. Separate transferable principles from branding, protected expression, private data, proprietary code, and unsupported assumptions. Reuse the mechanism; create an original implementation.
