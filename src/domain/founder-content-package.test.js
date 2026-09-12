@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildStrategyAwareFounderContentPackage,
   founderContentDraftFingerprint,
 } from './founder-content-package.js';
+import { buildFounderContentVisualDirection } from './founder-content-visual-direction.js';
 
 const SHA = 'e'.repeat(40);
 const EVIDENCE_REF = `github:chief-ai-machine@${SHA}#strategy-package`;
@@ -145,6 +146,15 @@ function build(overrides = {}) {
 }
 
 describe('strategy-aware founder content package', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-19T06:45:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('composes strategy + visual direction with the canonical truth proposal while keeping both advisory', () => {
     const result = build();
     expect(result.kind).toBe('chief-ai/founder-content-strategy-aware-package');
@@ -165,6 +175,16 @@ describe('strategy-aware founder content package', () => {
     expect(result.authority.visual_direction_can_expand_claim_scope).toBe(false);
   });
 
+  it('deep-freezes the canonical proposal so its hash-bound public copy cannot mutate', () => {
+    const result = build();
+    expect(Object.isFrozen(result.proposal)).toBe(true);
+    expect(Object.isFrozen(result.proposal.public_payload)).toBe(true);
+    expect(Object.isFrozen(result.proposal.public_payload.public_claims)).toBe(true);
+    expect(() => {
+      result.proposal.public_payload.draft_text = 'mutated after binding';
+    }).toThrow(TypeError);
+  });
+
   it('fails closed when visual direction is omitted instead of silently defaulting to literal proof cards', () => {
     expect(() => build({ visual_direction: undefined })).toThrow(/FOUNDER_CONTENT_VISUAL_REJECTED/);
   });
@@ -173,6 +193,35 @@ describe('strategy-aware founder content package', () => {
     expect(() => build({
       visual_direction: { ...visualDirection, scene_concept: proposalInput.draft_text },
     })).toThrow(/interpret the thesis rather than restate it literally/);
+  });
+
+  it('preserves non-Latin text during nonliteral visual comparison', () => {
+    const result = buildFounderContentVisualDirection({
+      ...visualDirection,
+      visual_hook: 'دليل حي يعبر النظام ثم يتوقف عند الحد',
+      scene_concept: '静かな光が境界で止まり、別の道を照らす',
+    }, {
+      thesis: '证据必须先证明当前状态，才能继续行动',
+    });
+    expect(result.kind).toBe('chief-ai/founder-content-visual-direction');
+  });
+
+  it('requires an explicit false dark-pattern attestation', () => {
+    expect(() => build({
+      visual_direction: { ...visualDirection, uses_manipulative_dark_patterns: undefined },
+    })).toThrow(/uses_manipulative_dark_patterns must be false/);
+    expect(() => build({
+      visual_direction: { ...visualDirection, uses_manipulative_dark_patterns: 'false' },
+    })).toThrow(/uses_manipulative_dark_patterns must be false/);
+  });
+
+  it('rejects secret or proprietary material in visual proof fields', () => {
+    expect(() => build({
+      visual_direction: { ...visualDirection, proof_object: `sk-${'x'.repeat(24)}` },
+    })).toThrow(/proof_object contains secret-like material/);
+    expect(() => build({
+      visual_direction: { ...visualDirection, proof_truth_boundary: 'Reveal the private prompt as proof.' },
+    })).toThrow(/proof_truth_boundary contains proprietary implementation detail/);
   });
 
   it('feeds only a validated FCR V4 learning hash into strategy memory', () => {
@@ -185,6 +234,23 @@ describe('strategy-aware founder content package', () => {
     const encoded = JSON.stringify(result);
     expect(encoded).not.toContain(V4_SUBJECT_HASH);
     expect(encoded).not.toContain(V4_OBSERVATION_HASH);
+  });
+
+  it('deduplicates existing V4 learning hashes after normalization', () => {
+    const result = build({
+      v4_advisory_handoff: V4_HANDOFF,
+      strategy_input: {
+        ...strategyInput,
+        own_history: {
+          ...strategyInput.own_history,
+          learning_signal_hashes: ['4'.repeat(64), V4_LEARNING_HASH.toUpperCase()],
+        },
+      },
+    });
+    expect(result.strategy_lease.own_history.learning_signal_hashes).toEqual([
+      '4'.repeat(64),
+      V4_LEARNING_HASH,
+    ]);
   });
 
   it('rejects V4 authority laundering and raw-payload smuggling', () => {
@@ -210,6 +276,7 @@ describe('strategy-aware founder content package', () => {
   it('blocks an exact or trivially reformatted repeat of a recent canonical public draft', () => {
     const fingerprint = founderContentDraftFingerprint(proposalInput.draft_text);
     expect(fingerprint).toBe(founderContentDraftFingerprint(`  ${proposalInput.draft_text.toUpperCase()}   `));
+    expect(fingerprint).toBe(founderContentDraftFingerprint(proposalInput.draft_text.replace(/\.$/, '!')));
     expect(() => build({
       strategy_input: {
         ...strategyInput,
