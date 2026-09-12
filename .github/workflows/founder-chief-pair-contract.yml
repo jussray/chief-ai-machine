@@ -46,6 +46,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           CHIEF_HEAD_REF: ${{ github.head_ref }}
+          CHIEF_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
 
@@ -68,7 +69,14 @@ jobs:
             main_digest="$(sha256sum "$main_contract" | awk '{print $1}')"
 
             if [ "$local_digest" != "$main_digest" ]; then
+              candidate_chief_pr="$(jq -r '.candidatePairing.chiefAIPullRequest // empty' "$local_contract")"
               candidate_pr="$(jq -r '.candidatePairing.founderControlRoomPullRequest // empty' "$local_contract")"
+
+              if ! printf '%s' "$candidate_chief_pr" | grep -Eq '^[1-9][0-9]*$' || [ "$candidate_chief_pr" != "$CHIEF_PR_NUMBER" ]; then
+                printf 'Pair contract candidate Chief PR must equal the active Chief pull request: contract=%s active=%s\n' \
+                  "$candidate_chief_pr" "$CHIEF_PR_NUMBER" >&2
+                exit 1
+              fi
 
               if printf '%s' "$candidate_pr" | grep -Eq '^[1-9][0-9]*$'; then
                 candidate_json="$(curl --fail --silent --show-error \
