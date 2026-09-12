@@ -11,8 +11,20 @@ const HASH = /^[0-9a-f]{64}$/i;
 
 function normalizedDraft(value) {
   return typeof value === 'string'
-    ? value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+    ? value
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/\p{P}+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
     : '';
+}
+
+function deepFreeze(value, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const child of Object.values(value)) deepFreeze(child, seen);
+  return Object.freeze(value);
 }
 
 export function founderContentDraftFingerprint(value) {
@@ -59,7 +71,7 @@ export function buildStrategyAwareFounderContentPackage(input = {}) {
     ? input.use_context
     : {};
 
-  const proposal = buildFounderContentProposal(proposalInput);
+  const proposal = deepFreeze(buildFounderContentProposal(proposalInput));
   const draftFingerprint = founderContentDraftFingerprint(proposal.public_payload.draft_text);
   if (recentDraftFingerprints(strategyInput).includes(draftFingerprint)) {
     throw new Error(
