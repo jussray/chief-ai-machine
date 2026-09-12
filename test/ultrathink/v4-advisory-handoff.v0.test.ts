@@ -26,7 +26,16 @@ describe("FCR V4 advisory consumption", () => {
         ...handoff,
         evidenceLevel: "VERIFIED_CURRENT",
       }),
-    ).toThrow(/advisory ceiling/);
+    ).toThrow(/ATTESTED ceiling/);
+  });
+
+  it("rejects non-string digest values instead of coercing them", () => {
+    expect(() =>
+      validateV4AdvisoryHandoffV0({
+        ...handoff,
+        subjectHash: 123,
+      }),
+    ).toThrow(/subjectHash must be sha256/);
   });
 
   it("rejects tampered learning hashes", () => {
