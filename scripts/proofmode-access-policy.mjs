@@ -199,17 +199,35 @@ async function resolveWorkerIdentity(fetchImpl, apiToken, accountId, target) {
 
   const worker = matches[0];
   const workerId = required(worker?.id, 'Resolved immutable Cloudflare Worker ID');
-  const previewSuffix = normalizePreviewSuffix(worker?.subdomain?.preview_url_suffix);
-  if (!previewSuffix) {
-    throw new Error('Cloudflare Worker registry did not expose preview_url_suffix for the immutable preview target.');
+  const accountSubdomainResult = unwrap(
+    await cloudflareJson(
+      fetchImpl,
+      apiToken,
+      `/accounts/${encodeURIComponent(accountId)}/workers/subdomain`,
+    ),
+    'Get Workers account subdomain',
+  );
+  const accountSubdomain = normalizePreviewSuffix(accountSubdomainResult?.subdomain);
+  if (!accountSubdomain) {
+    throw new Error('Cloudflare Workers account subdomain endpoint did not return a subdomain.');
   }
+  const previewSuffix = `${target.workerName}.${accountSubdomain}.workers.dev`;
   if (previewSuffix !== target.previewUrlSuffix) {
     throw new Error(
-      `Cloudflare Worker registry preview suffix ${previewSuffix} does not match target ${target.previewUrlSuffix}.`,
+      `Cloudflare Workers account subdomain resolves ${previewSuffix}, which does not match target ${target.previewUrlSuffix}.`,
     );
   }
-  if (worker?.subdomain?.previews_enabled === false) {
-    throw new Error('Cloudflare Worker registry reports preview deployments disabled for the immutable preview target.');
+
+  const workerSubdomainResult = unwrap(
+    await cloudflareJson(
+      fetchImpl,
+      apiToken,
+      `/accounts/${encodeURIComponent(accountId)}/workers/scripts/${encodeURIComponent(target.workerName)}/subdomain`,
+    ),
+    'Get Worker subdomain settings',
+  );
+  if (workerSubdomainResult?.previews_enabled !== true) {
+    throw new Error('Cloudflare Worker subdomain settings report preview deployments disabled for the immutable preview target.');
   }
 
   return { workerId };
@@ -270,7 +288,16 @@ function resolveEffectiveApplication(apps, hostname, workerId, applicationName) 
       throw new Error('Multiple preview_worker Access applications protect the same Chief Worker; refusing to guess precedence.');
     }
     if (previewApps.length === 1) {
-      return { app: previewApps[0], scope: 'preview_worker', repairEligible: true };
+      const selected = previewApps[0];
+      const destinations = Array.isArray(selected?.destinations) ? selected.destinations : [];
+      const exactPreviewOnly = destinations.length === 1
+        && destinations[0]?.type === 'preview_worker'
+        && destinations[0]?.worker_id === immutableWorkerId;
+      return {
+        app: selected,
+        scope: exactPreviewOnly ? 'preview_worker' : 'preview_worker_multi_destination',
+        repairEligible: exactPreviewOnly,
+      };
     }
 
     const workerApps = apps.filter((app) => (app?.destinations || []).some(
@@ -388,7 +415,11 @@ export async function ensureProofModeAccessPolicy({
     'List Access applications',
   );
   let effective = resolveEffectiveApplication(apps, target.hostname, null, appName);
-  if (effective.needsWorkerIdentity) {
+  if (
+    effective.needsWorkerIdentity
+    || effective.scope === 'all_preview_workers'
+    || effective.scope === 'all_workers'
+  ) {
     const identity = await resolveWorkerIdentity(fetchImpl, workerReadToken, account, target);
     effective = resolveEffectiveApplication(apps, target.hostname, identity.workerId, appName);
   }
