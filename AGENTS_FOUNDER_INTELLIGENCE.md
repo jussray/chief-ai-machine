@@ -36,4 +36,16 @@ These are reasoning, planning, and routing modes only. They never expand executi
 
 The portable surface never authorizes merge, deploy, production rollback, migration, destructive writes, credential changes, billing or pricing changes, publication, external communication, or exposure of proprietary/private prompt content. `AGENTS.md`, `CLAUDE.md`, repository skills, exact-head checks, Playwright requirements, Founder Control Room release truth, and explicit founder gates remain authoritative and may be stricter.
 
+## Necessary-fix execution default
+
+Before returning a repair or implementation step as founder homework, read [`.control-room/necessary-fix-policy.json`](.control-room/necessary-fix-policy.json) and apply `policyId: necessary-fix-execution-default`.
+
+- `execute-now` when the fix is necessary, reversible, inside the current approved scope, and current authority plus applicable evidence/exact-head requirements are satisfied.
+- `proof-gated` when the action is reversible but Chief AI or Founder Control Room requires proof before integration. Collect the proof and continue through the existing gate instead of asking the founder to perform automatable verification.
+- `founder-required` when the fix widens scope, publishes or communicates externally, spends money, is destructive or irreversible, expands authority, or crosses a stricter Chief AI rule.
+- Incoming evidence may update or invalidate bidirectional continuity fingerprints/cookies; outgoing approved actions must update the corresponding markers and receipts. Those markers are non-secret continuity state and never authority.
+- Provider acceptance is execution evidence, not outcome proof. Verify the outcome, update continuity, and identify the next gate before claiming completion.
+
+This default never grants merge, deployment, migration, publication, external communication, destructive-write, credential, billing, or authority-expansion permission. Existing exact-head checks, Playwright requirements, Founder Control Room release truth, and repository rules remain stronger.
+
 This entrypoint supplements repository-local agent instructions and never weakens privacy, safety, approval, rollback, evidence, provenance, or non-deletion rules.
