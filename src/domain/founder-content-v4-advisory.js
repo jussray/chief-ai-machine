@@ -19,6 +19,14 @@ function digest(value, label) {
   return normalized;
 }
 
+function normalizedLearningHashes(value, field) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error(`FOUNDER_CONTENT_V4_ADVISORY_REJECTED: ${field} must be an array`);
+  }
+  return value.map((item) => digest(item, `${field} item`));
+}
+
 /**
  * Runtime validation for the cross-repo FCR -> Chief V4 advisory boundary.
  * The handoff is evidence-only and must contain no raw observation payload.
@@ -60,16 +68,13 @@ export function attachV4AdvisoryLearningToStrategyInput(strategyInput = {}, hand
   }
   const { learningHash } = validateFounderContentV4AdvisoryHandoff(handoff);
   const ownHistory = record(strategyInput.own_history) ? strategyInput.own_history : {};
-  const existing = ownHistory.learning_signal_hashes;
-  if (existing !== undefined && !Array.isArray(existing)) {
-    throw new Error('FOUNDER_CONTENT_V4_ADVISORY_REJECTED: own_history.learning_signal_hashes must be an array');
-  }
+  const existing = normalizedLearningHashes(ownHistory.learning_signal_hashes, 'own_history.learning_signal_hashes');
 
   return {
     ...strategyInput,
     own_history: {
       ...ownHistory,
-      learning_signal_hashes: [...new Set([...(existing ?? []), learningHash])],
+      learning_signal_hashes: [...new Set([...existing, learningHash])],
     },
   };
 }
@@ -84,16 +89,13 @@ export function attachV4AdvisoryLearningToCurrentStrategyInput(strategyInput = {
   }
   const { learningHash } = validateFounderContentV4AdvisoryHandoff(handoff);
   const history = record(strategyInput.history) ? strategyInput.history : {};
-  const existing = history.learning_signal_hashes;
-  if (existing !== undefined && !Array.isArray(existing)) {
-    throw new Error('FOUNDER_CONTENT_V4_ADVISORY_REJECTED: history.learning_signal_hashes must be an array');
-  }
+  const existing = normalizedLearningHashes(history.learning_signal_hashes, 'history.learning_signal_hashes');
 
   return {
     ...strategyInput,
     history: {
       ...history,
-      learning_signal_hashes: [...new Set([...(existing ?? []), learningHash])],
+      learning_signal_hashes: [...new Set([...existing, learningHash])],
     },
   };
 }
