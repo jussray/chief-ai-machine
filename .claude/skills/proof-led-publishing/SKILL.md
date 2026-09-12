@@ -83,7 +83,7 @@ Block exact recent hook/frame/proof/closing signatures. Also fingerprint the fin
 
 ### 7. Strategy Lease
 
-Use `src/domain/founder-content-strategy.js` and `src/domain/founder-content-package.js` for the structured path.
+Use `src/domain/founder-content-strategy-lease.js` and `src/domain/founder-content-package.js` for the structured path.
 
 The normal composition rule is:
 
