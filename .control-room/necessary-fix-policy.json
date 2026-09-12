@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "policyId": "necessary-fix-execution-default",
+  "projectId": "chief-ai-machine",
+  "principle": "When a necessary reversible fix is inside the current approved scope and existing authority supports it, implement it in the same loop instead of returning it as founder homework.",
+  "dispositions": {
+    "notNecessary": "not-necessary",
+    "authorizedReversibleInScope": "execute-now",
+    "proofGatedReversible": "proof-gated",
+    "founderBoundaryCrossed": "founder-required"
+  },
+  "founderRequiredWhen": ["scope-expansion","external-publication-or-communication","spend","destructive-change","irreversible-change","authority-expansion"],
+  "truthBoundary": {
+    "doesNotGrantAuthority": true,
+    "requiresCurrentAuthority": true,
+    "requiresExactHeadForRepositoryMutation": true,
+    "verifiedEvidenceAloneDoesNotMutate": true,
+    "providerAcceptanceDoesNotProveOutcome": true,
+    "continuityMarkersAuthorize": false
+  },
+  "continuity": {
+    "bidirectionalFingerprintsAndCookies": true,
+    "incomingEvidenceMayInvalidateStaleState": true,
+    "outgoingApprovedActionsEmitUpdatedMarkersAndReceipts": true
+  },
+  "loop": ["confess-reality","classify-evidence","identify-bottleneck","identify-necessary-fix","check-existing-authority","execute-now-or-proof-gate-or-founder-gate","verify-outcome","update-continuity","next-gate"]
+}
