@@ -5,125 +5,410 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Exact candidate SHA authorized for production proof"
+        required: true
+        type: string
+      authority_pr:
+        description: "PR number carrying the founder authority receipt"
+        required: true
+        type: string
+      authority_receipt:
+        description: "GitHub pull-request review ID granting one-shot production authority"
+        required: true
+        type: string
+      activation_run_id:
+        description: "Optional founder-triggered authority bridge run ID"
+        required: false
+        default: ""
+        type: string
+      authorize_production:
+        description: "Founder authorization to promote this exact candidate to Chief production"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
-  checks: read
 
 concurrency:
-  group: proofmode-production-playwright-${{ github.ref }}
-  cancel-in-progress: true
+  group: proofmode-production-authority-${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || github.sha }}
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+  AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
+  AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
+  ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}
   PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
 
 jobs:
-  verify:
-    name: Verify production ProofMode MCP with Playwright
+  protected-access:
+    name: Verify proofmode-access-admin exact head
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    environment:
+      name: proofmode-access-admin
+    env:
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+      REPOSITORY_OWNER: ${{ github.repository_owner }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
     steps:
-      - name: Check out exact workflow source
-        uses: actions/checkout@v4
+      - name: Check out exact authorized head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.sha }}
-
-      - name: Resolve expected production head
-        shell: bash
-        run: |
-          expected="$GITHUB_SHA"
-          test -n "$expected"
-          printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
-          printf 'Expected production head: %s\n' "$expected"
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
 
-      - name: Wait for exact-head Cloudflare production build
-        shell: bash
+      - name: Bind authenticated founder authority to exact receipt
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          node scripts/proofmode-production-authority.mjs validate
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Resolve exact-head immutable Cloudflare preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
           for attempt in {1..90}; do
             checks="$(curl --fail --silent --show-error \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
+            preview="$(printf '%s' "$checks" | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                try {
+                  const data = JSON.parse(raw);
+                  const run = (data.check_runs || []).find((item) =>
+                    item.name === "Workers Builds: chief-ai"
+                    && item.status === "completed"
+                    && item.conclusion === "success"
+                  );
+                  const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
+                  if (match) process.stdout.write(match[1]);
+                } catch {}
+              });
+            ')"
+            if [ -n "$preview" ]; then
+              printf 'PROOFMODE_PREVIEW_URL=%s\n' "$preview" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 2
+          done
+          printf 'No successful immutable preview found for exact head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          exit 1
 
-            state="$(printf '%s' "$checks" | node -e '
+      - name: Verify protected preview serves exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_ID"
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
+            "$PROOFMODE_PREVIEW_URL/version")"
+          case "$status" in
+            200)
+              ;;
+            3??)
+              printf 'Protected preview returned HTTP %s redirect; Cloudflare Access service-token policy/binding did not grant direct access\n' \
+                "$status" >&2
+              exit 1
+              ;;
+            *)
+              printf 'Protected preview returned HTTP %s before runtime identity could be verified\n' \
+                "$status" >&2
+              exit 1
+              ;;
+          esac
+          body="$(cat "$response_file")"
+          actual="$(printf '%s' "$body" | node -e '
+            let raw = "";
+            process.stdin.on("data", (chunk) => { raw += chunk; });
+            process.stdin.on("end", () => {
+              try { process.stdout.write(JSON.parse(raw).sha || ""); }
+              catch { process.stdout.write(""); }
+            });
+          ')"
+          if [ -z "$actual" ]; then
+            printf 'Protected preview returned HTTP 200 but /version exposed no release sha\n' >&2
+            exit 1
+          fi
+          if [ "$actual" != "$EXPECTED_HEAD_SHA" ]; then
+            printf 'Protected preview release sha mismatch: expected %s, observed %s\n' \
+              "$EXPECTED_HEAD_SHA" "$actual" >&2
+            exit 1
+          fi
+
+      - name: Run protected ProofMode MCP Playwright proof
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        shell: bash
+        run: |
+          cat > playwright.proofmode-access.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './e2e',
+            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            fullyParallel: false,
+            retries: 0,
+            workers: 1,
+            outputDir: './test-results/proofmode-access',
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: './playwright-report/proofmode-access', open: 'never' }],
+            ],
+            use: {
+              baseURL: process.env.PROOFMODE_PREVIEW_URL,
+              trace: 'retain-on-failure',
+              extraHTTPHeaders: {
+                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+              },
+            },
+          });
+          EOF
+          PROOFMODE_BASE_URL="$PROOFMODE_PREVIEW_URL" npx playwright test --config=playwright.proofmode-access.config.mjs
+
+      - name: Retain protected Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: proofmode-access-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            playwright-report/proofmode-access
+            test-results/proofmode-access
+          if-no-files-found: warn
+          retention-days: 14
+
+  verify:
+    name: Verify production ProofMode MCP with Playwright
+    needs: protected-access
+    if: always() && (github.event_name == 'push' || needs.protected-access.result == 'success')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      deployments: write
+      issues: write
+      pull-requests: read
+    environment:
+      name: Cloudflare Production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      REPOSITORY_OWNER: ${{ github.repository_owner }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      AUTHORIZE_PRODUCTION: ${{ github.event_name == 'workflow_dispatch' && inputs.authorize_production || 'false' }}
+    steps:
+      - name: Check out exact workflow source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Revalidate one-shot founder authority
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          node scripts/proofmode-production-authority.mjs validate
+
+      - name: Resolve expected production head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_HEAD_SHA"
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated production proof tools
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
+
+      - name: Resolve exact-head Cloudflare build and Version ID
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..90}; do
+            checks="$(curl --fail --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
+            result="$(printf '%s' "$checks" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
               process.stdin.on("end", () => {
                 try {
                   const data = JSON.parse(raw);
                   const runs = (data.check_runs || []).filter((run) => run.name === "Workers Builds: chief-ai");
-                  if (runs.some((run) => run.status === "completed" && run.conclusion === "success")) {
-                    console.log("success");
+                  const success = runs.find((run) => run.status === "completed" && run.conclusion === "success");
+                  if (success) {
+                    const match = success.output?.summary?.match(/Version ID:\s*([0-9a-f-]+)/i);
+                    console.log(match ? `success|${match[1]}` : "success|");
                     return;
                   }
                   if (runs.some((run) => run.status === "completed" && run.conclusion && run.conclusion !== "success")) {
-                    console.log("failure");
+                    console.log("failure|");
                     return;
                   }
-                  console.log("pending");
+                  console.log("pending|");
                 } catch {
-                  console.log("pending");
+                  console.log("pending|");
                 }
               });
             ')"
-
-            if [ "$state" = "success" ]; then
-              printf 'Cloudflare production build is green for %s\n' "$EXPECTED_HEAD_SHA"
-              break
+            state="${result%%|*}"
+            version_id="${result#*|}"
+            if [ "$state" = "success" ] && [ -n "$version_id" ]; then
+              printf 'CLOUDFLARE_VERSION_ID=%s\n' "$version_id" >> "$GITHUB_ENV"
+              exit 0
             fi
             if [ "$state" = "failure" ]; then
-              printf 'Cloudflare production build failed for %s\n' "$EXPECTED_HEAD_SHA" >&2
+              printf 'Cloudflare build failed for exact head %s\n' "$EXPECTED_HEAD_SHA" >&2
               exit 1
             fi
-            if [ "$attempt" -eq 90 ]; then
-              printf 'Cloudflare production build did not complete for %s\n' "$EXPECTED_HEAD_SHA" >&2
+            if [ "$state" = "success" ] && [ -z "$version_id" ]; then
+              printf 'Cloudflare build succeeded but exposed no Version ID for %s\n' "$EXPECTED_HEAD_SHA" >&2
               exit 1
             fi
             sleep 2
           done
+          printf 'Cloudflare build did not materialize for exact head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          exit 1
+
+      - name: Require exact-head pre-production proof packet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          checks="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?per_page=100")"
+          printf '%s' "$checks" | node -e '
+            let raw = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", (chunk) => { raw += chunk; });
+            process.stdin.on("end", () => {
+              const data = JSON.parse(raw);
+              const required = [
+                "Typecheck",
+                "Lint",
+                "Unit Tests",
+                "CodeQL",
+                "Verify exact Chief runtime with Playwright",
+                "Verify live Chief capability plan with Playwright",
+                "Verify live ProofMode MCP with Playwright",
+                "Verify operational authority",
+                "Workers Builds: chief-ai",
+              ];
+              const missing = required.filter((name) =>
+                !(data.check_runs || []).some((run) =>
+                  run.name === name
+                  && run.head_sha === process.env.EXPECTED_HEAD_SHA
+                  && run.status === "completed"
+                  && run.conclusion === "success"
+                )
+              );
+              if (missing.length) {
+                console.error(`Pre-production proof packet incomplete for ${process.env.EXPECTED_HEAD_SHA}: ${missing.join(", ")}`);
+                process.exit(1);
+              }
+            });
+          '
+
+      - name: Promote exact prebuilt version to Chief production
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_VERSION_ID"
+          npx wrangler versions deploy "$CLOUDFLARE_VERSION_ID@100%" \
+            --name chief-ai \
+            --message "Founder-authorized exact-head $EXPECTED_HEAD_SHA receipt $AUTHORITY_RECEIPT" \
+            -y
 
       - name: Wait for production runtime to serve exact head
         shell: bash
         run: |
+          set -euo pipefail
           for attempt in {1..90}; do
             body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
             actual="$(printf '%s' "$body" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
               process.stdin.on("end", () => {
-                try {
-                  console.log(JSON.parse(raw).sha || "");
-                } catch {
-                  console.log("");
-                }
+                try { process.stdout.write(JSON.parse(raw).sha || ""); }
+                catch { process.stdout.write(""); }
               });
             ')"
             if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
-              printf 'Production runtime is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
             if [ "$attempt" -eq 90 ]; then
-              printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
+              printf 'Production runtime never served expected head %s; last observed %s\n' \
+                "$EXPECTED_HEAD_SHA" "$actual" >&2
               exit 1
             fi
             sleep 2
           done
-
-      - name: Install locked application dependencies
-        run: npm ci
-
-      - name: Install isolated Playwright runner
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Run production ProofMode MCP Playwright proof
         env:
@@ -151,7 +436,7 @@ jobs:
 
       - name: Retain production Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |
@@ -159,3 +444,39 @@ jobs:
             test-results/proofmode-production
           if-no-files-found: error
           retention-days: 14
+
+  finalize-authority:
+    name: Consume one-shot founder authority after attempted execution
+    needs: [protected-access, verify]
+    if: always() && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    env:
+      REPOSITORY_OWNER: ${{ github.repository_owner }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
+    steps:
+      - name: Check out exact attempted head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+
+      - name: Consume attempted one-shot authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          node scripts/proofmode-production-authority.mjs consume

@@ -4,25 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "control-room.manifest.json"
-      - ".control-room/repository.manifest.json"
-      - "scripts/verify-control-room-tests.mjs"
-      - "scripts/generateCatalog.mjs"
-      - "src/main.js"
-      - "src/data/goalfix-v1.js"
-      - "src/modules/freestyle.js"
-      - "src/modules/custom.js"
-      - "src/modules/promptos-ui.js"
-      - "src/domain/evidence-first-prompt.js"
-      - "src/promptos/**"
-      - "styles/promptos.css"
-      - "e2e/freestyle-save.pw.mjs"
-      - "e2e/goalfix-v1.pw.mjs"
-      - "e2e/promptos-catalog.pw.mjs"
-      - "e2e/playwright.freestyle.config.mjs"
-      - ".github/workflows/control-room-contracts.yml"
-      - ".github/workflows/freestyle-save-playwright.yml"
   workflow_dispatch:
 
 permissions:
@@ -35,6 +16,7 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
 
 jobs:
   verify:
@@ -46,6 +28,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Record and verify exact head
@@ -55,22 +38,61 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
+      - name: Determine Freestyle and PromptOS applicability
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          applicable=true
+          reason=manual-dispatch
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            applicable=false
+            reason=no-freestyle-or-promptos-path-changed
+            while IFS= read -r file; do
+              case "$file" in
+                control-room.manifest.json|.control-room/repository.manifest.json|scripts/verify-control-room-tests.mjs|scripts/generateCatalog.mjs|src/main.js|src/data/goalfix-v1.js|src/modules/freestyle.js|src/modules/custom.js|src/modules/promptos-ui.js|src/domain/evidence-first-prompt.js|src/promptos/*|styles/promptos.css|e2e/freestyle-save.pw.mjs|e2e/goalfix-v1.pw.mjs|e2e/promptos-catalog.pw.mjs|e2e/playwright.freestyle.config.mjs|.github/workflows/control-room-contracts.yml|.github/workflows/freestyle-save-playwright.yml)
+                  applicable=true
+                  reason=freestyle-or-promptos-path-changed
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
+          fi
+          printf 'applicable=%s\n' "$applicable" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Freestyle / Goalfix / PromptOS required-check receipt'
+            echo
+            echo "- status: success"
+            if [ "$applicable" = "true" ]; then
+              echo "- applicability: applicable"
+            else
+              echo "- applicability: skipped"
+            fi
+            echo "- reason: $reason"
+            echo "- head: \`$EXPECTED_HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Node
+        if: steps.scope.outputs.applicable == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
 
       - name: Install locked application dependencies
+        if: steps.scope.outputs.applicable == 'true'
         run: npm ci
 
       - name: Install isolated Playwright runner
+        if: steps.scope.outputs.applicable == 'true'
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Install Chromium
+        if: steps.scope.outputs.applicable == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Start static application server
+        if: steps.scope.outputs.applicable == 'true'
         shell: bash
         run: |
           python3 -m http.server 4173 > /tmp/chief-ai-server.log 2>&1 &
@@ -83,15 +105,16 @@ jobs:
           exit 1
 
       - name: Run rendered Freestyle, Goalfix, and PromptOS proof
+        if: steps.scope.outputs.applicable == 'true'
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
 
       - name: Stop static server
-        if: always()
+        if: always() && steps.scope.outputs.applicable == 'true'
         shell: bash
         run: test ! -f /tmp/chief-ai-server.pid || kill "$(cat /tmp/chief-ai-server.pid)" || true
 
       - name: Retain Playwright report and screenshots
-        if: always()
+        if: always() && steps.scope.outputs.applicable == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: freestyle-save-playwright-${{ env.EXPECTED_HEAD_SHA }}
