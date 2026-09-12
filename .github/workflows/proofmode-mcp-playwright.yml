@@ -9,6 +9,8 @@ on:
       - "worker/index.js"
       - "wrangler.jsonc"
       - "e2e/proofmode-mcp.pw.mjs"
+      - "scripts/proofmode-access-policy.mjs"
+      - ".github/workflows/proofmode-access-service-auth.yml"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
