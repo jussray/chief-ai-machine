@@ -1,9 +1,22 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 
 const SOURCE_SHA = 'a'.repeat(40);
 const EVIDENCE_HASH = 'b'.repeat(64);
 const LEARNING_HASH = 'c'.repeat(64);
+const V4_SUBJECT_HASH = '2'.repeat(64);
+const V4_OBSERVATION_HASH = '3'.repeat(64);
+const V4_LEARNING_HASH = createHash('sha256')
+  .update(`ultrathink/v4-advisory-handoff@v0\n${V4_SUBJECT_HASH}\n${V4_OBSERVATION_HASH}\nATTESTED`)
+  .digest('hex');
+const V4_HANDOFF = Object.freeze({
+  schema: 'ultrathink/v4-advisory-handoff@v0',
+  evidenceLevel: 'ATTESTED',
+  subjectHash: V4_SUBJECT_HASH,
+  observationHash: V4_OBSERVATION_HASH,
+  learningHash: V4_LEARNING_HASH,
+});
 const EVIDENCE_REF = `github:jussray/founder-control-room@${SOURCE_SHA}#truth-decay`;
 const EVALUATED_AT = '2026-08-19T07:50:00.000Z';
 
@@ -163,6 +176,64 @@ describe('Chief founder-content proposal API', () => {
       founderControlRoomExactCopyApprovalRequired: true,
       providerReadbackRequiredForPublishedTruth: true,
     });
+  });
+
+  it('consumes a valid FCR V4 advisory handoff as hash-only strategy memory', async () => {
+    const response = await handleChiefFounderContentProposal(request({
+      strategy: strategy(),
+      proposal: proposal(),
+      v4_advisory_handoff: V4_HANDOFF,
+    }));
+
+    expect(response.status).toBe(200);
+    const body = await payload(response);
+    expect(body.data.strategy.history.learning_signal_hashes).toEqual([
+      LEARNING_HASH,
+      V4_LEARNING_HASH,
+    ]);
+    const encoded = JSON.stringify(body);
+    expect(encoded).not.toContain(V4_SUBJECT_HASH);
+    expect(encoded).not.toContain(V4_OBSERVATION_HASH);
+  });
+
+  it('deduplicates a V4 learning hash already present in runtime history', async () => {
+    const response = await handleChiefFounderContentProposal(request({
+      strategy: strategy({
+        history: {
+          ...strategy().history,
+          learning_signal_hashes: [LEARNING_HASH, V4_LEARNING_HASH],
+        },
+      }),
+      proposal: proposal(),
+      v4_advisory_handoff: V4_HANDOFF,
+    }));
+
+    expect(response.status).toBe(200);
+    const body = await payload(response);
+    expect(body.data.strategy.history.learning_signal_hashes).toEqual([
+      LEARNING_HASH,
+      V4_LEARNING_HASH,
+    ]);
+  });
+
+  it('rejects V4 authority laundering, tampering, and raw-payload smuggling on the worker path', async () => {
+    const attempts = [
+      { handoff: { ...V4_HANDOFF, evidenceLevel: 'VERIFIED_CURRENT' }, message: 'ATTESTED ceiling' },
+      { handoff: { ...V4_HANDOFF, learningHash: 'd'.repeat(64) }, message: 'integrity failure' },
+      { handoff: { ...V4_HANDOFF, raw_metrics: { impressions: 999 } }, message: 'non-advisory fields' },
+    ];
+
+    for (const attempt of attempts) {
+      const response = await handleChiefFounderContentProposal(request({
+        strategy: strategy(),
+        proposal: proposal(),
+        v4_advisory_handoff: attempt.handoff,
+      }));
+      expect(response.status).toBe(400);
+      const body = await payload(response);
+      expect(body.error.code).toBe('invalid_founder_content_request');
+      expect(body.error.message).toContain(attempt.message);
+    }
   });
 
   it('rejects a strategy/proposal pair that does not share one story and evaluation boundary', async () => {
