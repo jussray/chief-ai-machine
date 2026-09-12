@@ -27,7 +27,13 @@ function response(result) {
   };
 }
 
-function cloudflareFixture({ apps, workers = [WORKER], policiesByApp = {} }) {
+function cloudflareFixture({
+  apps,
+  workers = [WORKER],
+  policiesByApp = {},
+  accountSubdomain = 'mcgill-raylene',
+  workerSubdomain = { enabled: true, previews_enabled: true },
+}) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     calls.push({ url, method: init.method || 'GET' });
@@ -35,6 +41,8 @@ function cloudflareFixture({ apps, workers = [WORKER], policiesByApp = {} }) {
     if (parsed.pathname.endsWith('/access/service_tokens')) return response([TOKEN]);
     if (parsed.pathname.endsWith('/access/apps')) return response(apps);
     if (parsed.pathname.endsWith('/workers/workers')) return response(workers);
+    if (parsed.pathname.endsWith('/workers/subdomain')) return response({ subdomain: accountSubdomain });
+    if (parsed.pathname.endsWith('/workers/scripts/chief-ai/subdomain')) return response(workerSubdomain);
     const policyMatch = parsed.pathname.match(/\/access\/apps\/([^/]+)\/policies$/);
     if (policyMatch) return response(policiesByApp[decodeURIComponent(policyMatch[1])] || []);
     throw new Error(`Unexpected Cloudflare fixture request: ${parsed.pathname}`);
