@@ -1,18 +1,33 @@
 const CREATIVE_MODES = new Set(['cinematic-proof', 'mythic-founder', 'dream-product', 'character-story', 'product-experience']);
 const FORMS = new Set(['hero-still-4x5', 'short-video-9x16', 'carousel', 'loop-clip', 'product-surface']);
 const EMOTIONS = new Set(['wonder', 'awe', 'tension', 'revelation', 'elegance', 'ambition', 'intimacy', 'inevitability', 'joy', 'safety', 'belonging']);
+const SECRET_LIKE = /(gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._~+/-]{16,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:api|access|auth)[_-]?token\s*[:=]\s*\S+)/i;
+const PRIVATE_DETAIL = /\b(?:system prompt|private prompt|chain[- ]of[- ]thought|raw diff|database password|service[_ -]?role|provider payload|environment variable|secret algorithm|routing weights?|scoring formula)\b/i;
 
 function text(value, max = 360) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
 function norm(value) {
-  return text(value).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return text(value)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function list(value, max = 8) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map((item) => text(item, 160)).filter(Boolean))].slice(0, max);
+}
+
+function scanText(value, field) {
+  const findings = [];
+  if (SECRET_LIKE.test(value)) findings.push(`${field} contains secret-like material`);
+  if (PRIVATE_DETAIL.test(value)) findings.push(`${field} contains proprietary implementation detail`);
+  if (value.includes('```')) findings.push(`${field} contains a code block`);
+  return findings;
 }
 
 function reject(errors) {
@@ -61,7 +76,20 @@ export function buildFounderContentVisualDirection(input = {}, context = {}) {
     errors.push('motion_language is required for moving or interactive media');
   }
   if (input.preserves_human_agency !== true) errors.push('preserves_human_agency must be true');
-  if (input.uses_manipulative_dark_patterns === true) errors.push('uses_manipulative_dark_patterns must be false');
+  if (input.uses_manipulative_dark_patterns !== false) errors.push('uses_manipulative_dark_patterns must be false');
+
+  for (const [field, value] of [
+    ['visual_hook', visualHook],
+    ['scene_concept', sceneConcept],
+    ['motion_language', motionLanguage],
+    ['memory_line', memoryLine],
+    ['human_outcome', humanOutcome],
+    ['proof_object', proofObject],
+    ['proof_truth_boundary', proofTruthBoundary],
+  ]) {
+    if (value) errors.push(...scanText(value, field));
+  }
+
   if (errors.length > 0) reject(errors);
 
   return Object.freeze({
