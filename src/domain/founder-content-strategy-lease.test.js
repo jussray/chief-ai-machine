@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bindStrategyLeaseToProposal,
   buildFounderContentStrategyLease,
@@ -66,6 +66,15 @@ const useContext = {
 };
 
 describe('founder content strategy lease', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-19T06:45:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('creates a current advisory-only strategy receipt without raw post or feed text', () => {
     const lease = buildFounderContentStrategyLease(base);
     expect(lease.kind).toBe('chief-ai/founder-content-strategy-lease');
@@ -103,6 +112,39 @@ describe('founder content strategy lease', () => {
         recent_pattern_signatures: ['Failure Confession | Truth Decay Frame | Exact Version Proof | Builder Invitation'],
       },
     })).toThrow(/repeats an exact recent/);
+  });
+
+  it('preserves complete supported prior signatures before repeat comparison', () => {
+    const long = {
+      hook_pattern: `hook-${'a'.repeat(110)}`,
+      frame_pattern: `frame-${'b'.repeat(109)}`,
+      proof_pattern: `proof-${'c'.repeat(109)}`,
+      closing_pattern: `close-${'d'.repeat(109)}`,
+    };
+    const signature = [long.hook_pattern, long.frame_pattern, long.proof_pattern, long.closing_pattern].join('|');
+    expect(signature.length).toBeGreaterThan(160);
+    expect(() => buildFounderContentStrategyLease({
+      ...base,
+      own_history: {
+        ...base.own_history,
+        recent_pattern_signatures: [signature],
+      },
+      strategy: {
+        ...base.strategy,
+        ...long,
+      },
+    })).toThrow(/repeats an exact recent/);
+  });
+
+  it('deduplicates learning hashes after normalization', () => {
+    const lease = buildFounderContentStrategyLease({
+      ...base,
+      own_history: {
+        ...base.own_history,
+        learning_signal_hashes: ['A'.repeat(64), 'a'.repeat(64)],
+      },
+    });
+    expect(lease.own_history.learning_signal_hashes).toEqual(['a'.repeat(64)]);
   });
 
   it('rejects malformed own-history shape that could fake post memory', () => {
@@ -222,6 +264,14 @@ describe('founder content strategy lease', () => {
     expect(binding.authority.publish_authorized).toBe(false);
   });
 
+  it('rejects a binding timestamp that predates strategy evaluation', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    expect(() => bindStrategyLeaseToProposal(lease, proposal, {
+      ...useContext,
+      bound_at: '2026-08-19T06:39:59.000Z',
+    })).toThrow(/cannot predate strategy evaluation/);
+  });
+
   it('rejects a brag that disappears before the final truth proposal is built', () => {
     const lease = buildFounderContentStrategyLease(base);
     expect(() => bindStrategyLeaseToProposal(lease, {
@@ -238,8 +288,15 @@ describe('founder content strategy lease', () => {
     })).toThrow(/own-post memory changed after lease creation/);
   });
 
+  it('invalidates strategy from the trusted current clock even when bound_at is backdated', () => {
+    const lease = buildFounderContentStrategyLease(base);
+    vi.setSystemTime(new Date('2026-08-20T06:20:00.000Z'));
+    expect(() => bindStrategyLeaseToProposal(lease, proposal, useContext)).toThrow(/strategy lease expired before proposal use/);
+  });
+
   it('invalidates strategy when required current-feed context expires before proposal use', () => {
     const lease = buildFounderContentStrategyLease(base);
+    vi.setSystemTime(new Date('2026-08-20T06:20:00.000Z'));
     expect(() => bindStrategyLeaseToProposal(lease, proposal, {
       ...useContext,
       bound_at: '2026-08-20T06:20:00.000Z',
