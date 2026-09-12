@@ -1,5 +1,5 @@
 /* global Event, FormData */
-import { createGoalPlan, summarizeGoalPlan, validateGoalPlan } from '../domain/goal-plan.js';
+import { createGoalPlan, normalizeGoalPlan, summarizeGoalPlan, validateGoalPlan } from '../domain/goal-plan.js';
 import { showToast } from './ui.js';
 
 export const GOAL_STORAGE_KEY = 'chief-goals-v1';
@@ -7,14 +7,17 @@ export const GOAL_STORAGE_KEY = 'chief-goals-v1';
 function readGoals() {
   try {
     const parsed = JSON.parse(localStorage.getItem(GOAL_STORAGE_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const normalized = parsed.map((goal) => normalizeGoalPlan(goal)).filter(Boolean);
+    if (JSON.stringify(normalized) !== JSON.stringify(parsed)) writeGoals(normalized);
+    return normalized;
   } catch {
     return [];
   }
 }
 
 function writeGoals(goals) {
-  localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(goals));
+  localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(Array.isArray(goals) ? goals : []));
 }
 
 function splitLines(value) {

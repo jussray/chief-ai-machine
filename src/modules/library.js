@@ -1,3 +1,13 @@
+import {
+  CUSTOM_PROMPTS_UPDATED_EVENT,
+  STARRED_PROMPTS_UPDATED_EVENT,
+  migrateLegacyCustomStarIds,
+  normalizeCustomPrompts,
+  readStoredArray,
+  writeCustomPrompts,
+  writeStars,
+} from './prompt-state.js';
+
 export function initLibrary(PROMPTS, modal) {
   const grid = document.getElementById('grid');
   const chips = document.getElementById('chips');
@@ -11,34 +21,78 @@ export function initLibrary(PROMPTS, modal) {
   const repoClear = document.getElementById('repoClear');
   const repoBtns = document.querySelectorAll('[data-repo]');
 
-  let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
-  let custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-  let allPrompts = [...PROMPTS, ...custom.map((c, i) => ({ ...c, id: 'c' + i, cat: c.cat || 'custom' }))];
+  let stars = [];
+  let custom = [];
+  let allPrompts = [];
   let activeFilter = null;
   let activeRepo = null;
   let searchQuery = '';
 
-  const CATS = [...new Set(allPrompts.map(p => p.cat))];
-  const PLATFORMS = [...new Set(allPrompts.flatMap(p => p.platforms || []))];
+  function sameId(a, b) {
+    return String(a) === String(b);
+  }
+
+  function isStarred(id) {
+    return stars.some(starId => sameId(starId, id));
+  }
+
+  function reloadState({ migrate = false } = {}) {
+    const normalized = normalizeCustomPrompts(readStoredArray('chief-custom'));
+    custom = normalized.prompts;
+    if (normalized.changed) writeCustomPrompts(custom);
+
+    stars = readStoredArray('chief-stars');
+    if (migrate) {
+      const migration = migrateLegacyCustomStarIds(custom, stars);
+      stars = migration.stars;
+      if (migration.changed) writeStars(stars);
+    }
+
+    allPrompts = [...PROMPTS, ...custom.map(prompt => ({
+      ...prompt,
+      cat: prompt.cat || 'custom',
+    }))];
+  }
+
+  function categories() {
+    return [...new Set(allPrompts.map(p => p.cat).filter(Boolean))];
+  }
+
+  function platforms() {
+    return [...new Set(allPrompts.flatMap(p => p.platforms || []))];
+  }
 
   function buildChips() {
-    chips.innerHTML = '';
+    chips.replaceChildren();
     const all = document.createElement('button');
     all.className = 'chip' + (!activeFilter ? ' active' : '');
     all.textContent = 'All';
     all.addEventListener('click', () => { activeFilter = null; render(); buildChips(); });
     chips.appendChild(all);
+
     const starChip = document.createElement('button');
     starChip.className = 'chip c-star' + (activeFilter === '__star' ? ' active' : '');
     starChip.textContent = '★ Starred';
-    starChip.addEventListener('click', () => { activeFilter = activeFilter === '__star' ? null : '__star'; render(); buildChips(); });
+    starChip.addEventListener('click', () => {
+      activeFilter = activeFilter === '__star' ? null : '__star';
+      render();
+      buildChips();
+    });
     chips.appendChild(starChip);
-    const sep = document.createElement('div'); sep.className = 'chip-sep'; chips.appendChild(sep);
-    CATS.forEach(cat => {
+
+    const sep = document.createElement('div');
+    sep.className = 'chip-sep';
+    chips.appendChild(sep);
+
+    categories().forEach(cat => {
       const btn = document.createElement('button');
       btn.className = 'chip' + (activeFilter === cat ? ' active' : '');
       btn.textContent = cat;
-      btn.addEventListener('click', () => { activeFilter = activeFilter === cat ? null : cat; render(); buildChips(); });
+      btn.addEventListener('click', () => {
+        activeFilter = activeFilter === cat ? null : cat;
+        render();
+        buildChips();
+      });
       chips.appendChild(btn);
     });
   }
@@ -46,55 +100,118 @@ export function initLibrary(PROMPTS, modal) {
   function filtered() {
     let list = allPrompts;
     if (activeRepo) list = list.filter(p => (p.repos || []).includes(activeRepo));
-    if (activeFilter === '__star') list = list.filter(p => stars.includes(p.id));
+    if (activeFilter === '__star') list = list.filter(p => isStarred(p.id));
     else if (activeFilter) list = list.filter(p => p.cat === activeFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(p => p.title?.toLowerCase().includes(q) || p.sub?.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q) || p.cat?.toLowerCase().includes(q));
+      list = list.filter(p => [
+        p.title,
+        p.sub,
+        p.notes,
+        p.cat,
+        ...(p.platforms || []),
+        ...Object.values(p.versions || {}),
+      ].some(value => String(value || '').toLowerCase().includes(q)));
     }
     return list;
   }
 
   function render() {
     const list = filtered();
-    grid.innerHTML = '';
+    grid.replaceChildren();
     if (!list.length) {
-      grid.innerHTML = '<div class="empty">No prompts match. Try a different filter.</div>';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No prompts match. Try a different filter.';
+      grid.appendChild(empty);
     } else {
       list.forEach(p => grid.appendChild(makeCard(p)));
     }
+
     const count = list.length;
     countPill.textContent = count + ' prompt' + (count !== 1 ? 's' : '');
     navCount.textContent = count;
     statTotal.textContent = allPrompts.length;
-    statStar.textContent = stars.length;
+    statStar.textContent = allPrompts.filter(p => isStarred(p.id)).length;
     statCustom.textContent = custom.length;
-    statPlatforms.textContent = PLATFORMS.length;
+    statPlatforms.textContent = platforms().length;
   }
 
   function makeCard(p) {
     const card = document.createElement('div');
     card.className = 'pcard';
-    const platforms = (p.platforms || []).map(pl => `<span class="badge">${pl}</span>`).join('');
-    const starred = stars.includes(p.id);
-    const vcount = Object.keys(p.versions || {}).length;
-    card.innerHTML = `
-      <div class="top">
-        <span class="emoji">${p.emoji || '💬'}</span>
-        <div style="min-width:0;flex:1"><h3>${p.title}</h3><div class="sub">${p.sub || ''}</div></div>
-        <button class="star-btn ${starred ? 'on' : ''}" data-id="${p.id}">${starred ? '★' : '☆'}</button>
-      </div>
-      <div class="badges"><span class="badge cat">${p.cat}</span>${platforms}</div>
-      ${p.notes ? `<div class="snippet">${p.notes}</div>` : ''}
-      <div class="foot"><span class="kind">${vcount} version${vcount !== 1 ? 's' : ''}</span><button class="mini-btn push">Open →</button></div>`;
-    card.querySelector('.star-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = stars.indexOf(p.id);
-      if (idx === -1) stars.push(p.id); else stars.splice(idx, 1);
-      localStorage.setItem('chief-stars', JSON.stringify(stars));
-      render();
+
+    const top = document.createElement('div');
+    top.className = 'top';
+
+    const emoji = document.createElement('span');
+    emoji.className = 'emoji';
+    emoji.textContent = p.emoji || '💬';
+
+    const textWrap = document.createElement('div');
+    textWrap.style.minWidth = '0';
+    textWrap.style.flex = '1';
+    const title = document.createElement('h3');
+    title.textContent = p.title || 'Untitled';
+    const sub = document.createElement('div');
+    sub.className = 'sub';
+    sub.textContent = p.sub || '';
+    textWrap.append(title, sub);
+
+    const star = document.createElement('button');
+    star.className = 'star-btn' + (isStarred(p.id) ? ' on' : '');
+    star.type = 'button';
+    star.textContent = isStarred(p.id) ? '★' : '☆';
+    star.setAttribute('aria-label', `${isStarred(p.id) ? 'Unstar' : 'Star'} ${p.title || 'prompt'}`);
+
+    top.append(emoji, textWrap, star);
+
+    const badges = document.createElement('div');
+    badges.className = 'badges';
+    const cat = document.createElement('span');
+    cat.className = 'badge cat';
+    cat.textContent = p.cat || 'custom';
+    badges.appendChild(cat);
+    (p.platforms || []).forEach(platform => {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = platform;
+      badges.appendChild(badge);
     });
-    card.querySelector('.mini-btn').addEventListener('click', (e) => { e.stopPropagation(); modal.open(p); });
+
+    card.append(top, badges);
+
+    if (p.notes) {
+      const snippet = document.createElement('div');
+      snippet.className = 'snippet';
+      snippet.textContent = p.notes;
+      card.appendChild(snippet);
+    }
+
+    const foot = document.createElement('div');
+    foot.className = 'foot';
+    const kind = document.createElement('span');
+    kind.className = 'kind';
+    const vcount = Object.keys(p.versions || {}).length;
+    kind.textContent = `${vcount} version${vcount !== 1 ? 's' : ''}`;
+    const open = document.createElement('button');
+    open.className = 'mini-btn push';
+    open.type = 'button';
+    open.textContent = 'Open →';
+    foot.append(kind, open);
+    card.appendChild(foot);
+
+    star.addEventListener('click', (event) => {
+      event.stopPropagation();
+      stars = isStarred(p.id)
+        ? stars.filter(id => !sameId(id, p.id))
+        : [...stars, p.id];
+      writeStars(stars);
+    });
+    open.addEventListener('click', (event) => {
+      event.stopPropagation();
+      modal.open(p);
+    });
     card.addEventListener('click', () => modal.open(p));
     return card;
   }
@@ -106,6 +223,7 @@ export function initLibrary(PROMPTS, modal) {
     repoClear.hidden = !activeRepo;
     render();
   }));
+
   repoClear?.addEventListener('click', () => {
     activeRepo = null;
     repoBtns.forEach(b => b.classList.remove('active'));
@@ -113,7 +231,22 @@ export function initLibrary(PROMPTS, modal) {
     render();
   });
 
-  search?.addEventListener('input', (e) => { searchQuery = e.target.value; render(); });
+  search?.addEventListener('input', (event) => {
+    searchQuery = event.target.value;
+    render();
+  });
+
+  window.addEventListener(CUSTOM_PROMPTS_UPDATED_EVENT, () => {
+    reloadState();
+    buildChips();
+    render();
+  });
+  window.addEventListener(STARRED_PROMPTS_UPDATED_EVENT, () => {
+    reloadState();
+    render();
+  });
+
+  reloadState({ migrate: true });
   buildChips();
   render();
 }

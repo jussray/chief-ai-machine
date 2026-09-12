@@ -161,6 +161,12 @@ Always re-check the repository before relying on this note. When this contract w
 
 Do not describe that state as a secure private production control room. A static demo may be deployed statically, but private prompts, authenticated state, and model execution require a reviewed backend boundary.
 
+## Browser Reality Inspection Routing
+
+Requests to resolve a shared link or report what a live rendered page actually shows route to [`.agents/skills/browser-reality-inspector/SKILL.md`](.agents/skills/browser-reality-inspector/SKILL.md) under `juss/browser-reality@v1`. That capability is read-only: the real rendered page and final URL are authoritative, observations use `VERIFIED` / `INFERRED` / `UNKNOWN` / `BLOCKED`, and authentication, permissions, CAPTCHA, provider, mutation, or scope-expansion boundaries stop the workflow.
+
+Browser-managed first-party session state may be reused in place when appropriate, but cookie/session values may never be inspected, extracted, exported, copied, logged, altered, or synthesized. The deterministic `juss-browser-reality-canonical-json-v1` digest binds sanitized evidence content only; it is never a person/device identity, continuity ID, or cross-site correlator.
+
 ## Evidence Report
 
 For material changes, report exact files changed, behavior changed, tests and checks run, failures/warnings/skips, security and privacy impact, deployment impact, Cloudflare/Control Room evidence when applicable, rollback path, and unresolved risks.

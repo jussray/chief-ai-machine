@@ -9,9 +9,11 @@ const allVersionText = GOALFIX_V1_PROMPTS
   .flatMap(prompt => Object.values(prompt.versions || {}))
   .join('\n');
 
+const continuityChain = 'REACQUIRE → CLASSIFY → REPAIR → ROLL FORWARD → EXPIRE PROOF → VERIFY → PLAYWRIGHT → REVIEW → MERGE GATE → POST-MERGE TRUTH';
+
 describe('Goalfix v1 public prompt pack', () => {
   it('publishes the bounded v1 contract without exposing private FutureYOU/me internals', () => {
-    expect(GOALFIX_V1_PACK_VERSION).toBe('goalfix-public-v1');
+    expect(GOALFIX_V1_PACK_VERSION).toBe('goalfix-public-v1.1');
     expect(GOALFIX_V1_PROMPTS).toHaveLength(3);
     expect(GOALFIX_V1_PRIVATE_BOUNDARY).toContain('FutureYOU/me adaptation logic');
 
@@ -28,15 +30,23 @@ describe('Goalfix v1 public prompt pack', () => {
     }
   });
 
-  it('locks Goalfix v1 to one evidence-led loop instead of option sprawl', () => {
+  it('locks Goalfix to the end-to-end existing-carrier continuity loop', () => {
     const prompt = GOALFIX_V1_PROMPTS.find(item => item.id === 'goalfix-v1-verified-loop');
     const text = prompt.versions.chatgpt;
 
-    for (const required of ['GOAL', 'REALITY', 'BOTTLENECK', 'MOVE', 'PROOF', 'NEXT STATE']) {
+    expect(text).toContain(continuityChain);
+    for (const required of ['REALITY', 'FIX', 'PROOF', 'RISK', 'ROLLBACK', 'NEXT GATE']) {
       expect(text).toContain(required);
     }
-    expect(text).toMatch(/One move, not five options/i);
-    expect(text).toMatch(/Missing or empty evidence is not proof of absence/i);
+    expect(text).toMatch(/preserve the existing PR\/carrier/i);
+    expect(text).toMatch(/same carrier/i);
+    expect(text).toMatch(/Never inherit predecessor green/i);
+    expect(text).toMatch(/metadata-only failure gets a metadata repair/i);
+    expect(text).toMatch(/targeted Playwright/i);
+    expect(text).toMatch(/skipped required checks remain blockers/i);
+    expect(text).toMatch(/expected head SHA/i);
+    expect(text).toMatch(/actual landed merge\/main SHA/i);
+    expect(text).toMatch(/Never weaken rulesets/i);
   });
 
   it('keeps Friend Mode life + build capable without demographic voice inference or fake memory', () => {

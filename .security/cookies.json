@@ -18,6 +18,13 @@
     "authentication or authorization cookies before a server identity boundary exists",
     "model provider credentials or prompts in cookies",
     "tracking or advertising cookies",
-    "labeling client-only state as secure multi-user state"
+    "labeling client-only state as secure multi-user state",
+    "inspecting browser-managed cookie values",
+    "extracting browser-managed cookie values",
+    "exporting browser-managed cookie values",
+    "copying browser-managed cookie values",
+    "logging browser-managed cookie values",
+    "altering browser-managed cookie values",
+    "synthesizing browser-managed cookie values"
   ]
 }
