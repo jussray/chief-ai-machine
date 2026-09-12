@@ -23,6 +23,50 @@ A changed branch head, runtime identity, proposal fingerprint, experiment subjec
 
 Founder-confirmed execution is legitimate source/observation evidence. It is not independent platform or outcome verification unless an independent witness is also present.
 
+## Bidirectional continuity contract
+
+Use `juss/continuity-proof@v1` for every material state transition that depends on continuity.
+
+Continuity fingerprints and proof cookies are **non-secret state markers**, not authority. They must work in both directions:
+
+- **incoming:** compare the prior cookie/fingerprint to current authoritative subject, authority, runtime, evidence, outcome, and approval fingerprints;
+- **invalidate:** if any bound state materially changed, mark the predecessor cookie stale and reobserve instead of carrying green proof forward;
+- **advance:** verified evidence may advance an action only when the founder approval is explicit, bound to the current subject fingerprint, and includes that exact action kind;
+- **outgoing:** after an approved action actually executes and its outcome is verified, emit a fresh proof cookie plus receipt references that supersede the predecessor marker;
+- **never self-authorize:** evidence, fingerprints, cookies, receipts, successful checks, or provider acceptance never create or renew merge/deploy/mutation authority by themselves.
+
+Supported focused action kinds are `merge`, `use`, `implement`, `fix`, `rectify`, `rollback`, and `observe`.
+
+A proof cookie may bind:
+
+- subject fingerprint;
+- authority fingerprint;
+- runtime fingerprint;
+- evidence fingerprint;
+- outcome fingerprint;
+- approval fingerprint;
+- action kind;
+- receipt references;
+- predecessor cookie id.
+
+Do not place credentials, access tokens, client secrets, passwords, API keys, or other secrets inside proof cookies. The executable primitive rejects secret-bearing cookie fields.
+
+For approved repair work, the operational sequence is:
+
+```text
+current authoritative state
+→ incoming fingerprint/cookie
+→ evidence comparison
+→ stale invalidation when needed
+→ exact founder-approved action
+→ execution
+→ independent outcome verification
+→ receipt + refreshed fingerprint/cookie
+→ next gate
+```
+
+If verification fails, update the continuity state to `BLOCKED`, `UNKNOWN`, or stale as applicable. Never preserve a green cookie because a prior run once passed.
+
 ## Divergence review
 
 When a candidate answer, interpretation, model output, review conclusion, or operator judgment differs from the expected answer, do not classify it as wrong merely because it differs.
