@@ -167,7 +167,7 @@ jobs:
         run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
 
   pr-runtime-gate:
-    name: ${{ github.event_name == 'pull_request' && 'Verify live Chief capability plan with Playwright' || 'Verify live Chief capability plan with Playwright (PR gate only)' }}
+    name: Verify live Chief capability plan with Playwright (PR gate only)
     if: ${{ always() && github.event_name == 'pull_request' }}
     needs: source-contract
     runs-on: ubuntu-22.04
