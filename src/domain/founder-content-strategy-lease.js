@@ -100,7 +100,7 @@ function patternSignature(input = {}) {
 }
 
 function normalizePriorPatternSignatures(value) {
-  return list(value, 'own_history.recent_pattern_signatures', { max: 30 }).map((signature, index) => {
+  return list(value, 'own_history.recent_pattern_signatures', { max: 30, itemMax: 520 }).map((signature, index) => {
     const parts = signature.split('|').map(pattern);
     if (parts.length !== 4 || parts.some((part) => !part)) {
       reject([`own_history.recent_pattern_signatures[${index}] must contain hook|frame|proof|closing`]);
@@ -144,8 +144,10 @@ function validateOwnHistory(input = {}, evaluated) {
   const lastPublishedRaw = text(input.last_published_at, 64);
   const lastPublished = lastPublishedRaw ? parseTime(lastPublishedRaw, 'own_history.last_published_at') : null;
   const recentPatternSignatures = normalizePriorPatternSignatures(input.recent_pattern_signatures);
-  const learningSignalHashes = list(input.learning_signal_hashes, 'own_history.learning_signal_hashes', { max: 20, itemMax: 64 })
-    .map((value) => value.toLowerCase());
+  const learningSignalHashes = [...new Set(
+    list(input.learning_signal_hashes, 'own_history.learning_signal_hashes', { max: 20, itemMax: 64 })
+      .map((value) => value.toLowerCase()),
+  )];
   const errors = [];
 
   if (!HASH.test(digest)) errors.push('own_history.history_digest must be sha256');
@@ -357,6 +359,15 @@ export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}, u
   }
 
   const boundAt = parseTime(useContext.bound_at, 'use_context.bound_at');
+  const evaluated = parseTime(strategyLease.evaluated_at, 'strategy_lease.evaluated_at');
+  const nowMs = Date.now();
+  if (boundAt.ms < evaluated.ms) {
+    errors.push('use_context.bound_at cannot predate strategy evaluation');
+  }
+  if (boundAt.ms > nowMs + MAX_CLOCK_SKEW_MS) {
+    errors.push('use_context.bound_at is future-dated');
+  }
+
   const currentHistoryDigest = text(useContext.current_history_digest, 64).toLowerCase();
   if (!HASH.test(currentHistoryDigest)) errors.push('use_context.current_history_digest must be sha256');
   if (currentHistoryDigest !== text(strategyLease.own_history?.history_digest, 64).toLowerCase()) {
@@ -365,7 +376,7 @@ export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}, u
   const expiresRaw = text(strategyLease.expires_at, 64);
   if (expiresRaw) {
     const expires = parseTime(expiresRaw, 'strategy_lease.expires_at');
-    if (boundAt.ms >= expires.ms) {
+    if (nowMs >= expires.ms) {
       errors.push('strategy lease expired before proposal use; refresh current market context');
     }
   }
