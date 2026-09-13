@@ -102,14 +102,14 @@ function assertReceiptBindsOutbox(receipt, outbox) {
 }
 
 export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = fetch) {
-  if (request.method !== 'POST') return handleFederatedRelayV31Transport(request, env, fetchImpl);
+  if (request.method !== 'POST') return await handleFederatedRelayV31Transport(request, env, fetchImpl);
   try {
     const raw = await readBoundedRelayBodyV31(request);
     let body;
-    try { body = JSON.parse(raw); } catch { return handleFederatedRelayV31Transport(request, env, fetchImpl, raw); }
+    try { body = JSON.parse(raw); } catch { return await handleFederatedRelayV31Transport(request, env, fetchImpl, raw); }
 
     if (body?.contract === KEY_QUERY_CONTRACT) {
-      return handleFederatedRelayV31Transport(request, env, fetchImpl, raw);
+      return await handleFederatedRelayV31Transport(request, env, fetchImpl, raw);
     }
 
     if (body?.contract === DELIVERY_ACK_CONTRACT) {
@@ -119,22 +119,22 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
         loadRelayKey(env, 'founder-control-room', body.receipt.signature.keyId, fetchImpl),
       ]);
       assertReceiptBindsOutbox(body.receipt, outbox);
-      return handleFederatedRelayV31Transport(request, mergeRegistry(env, [receiptKey]), fetchImpl, raw);
+      return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [receiptKey]), fetchImpl, raw);
     }
 
     if (body?.contract === REPLY_REFRESH_CONTRACT) {
       relayAssert(typeof body.signature?.keyId === 'string', 'relay_reply_refresh_signature_invalid', 401);
       const refreshKey = await loadRelayKey(env, 'founder-control-room', body.signature.keyId, fetchImpl);
-      return handleFederatedRelayV31Transport(request, mergeRegistry(env, [refreshKey]), fetchImpl, raw);
+      return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [refreshKey]), fetchImpl, raw);
     }
 
     if (body?.contract === 'juss/federated-agent-relay@v3.1') {
       relayAssert(typeof body.source?.member === 'string' && typeof body.signature?.keyId === 'string', 'relay_signature_invalid');
       const sourceKey = await loadRelayKey(env, body.source.member, body.signature.keyId, fetchImpl);
-      return handleFederatedRelayV31Transport(request, mergeRegistry(env, [sourceKey]), fetchImpl, raw);
+      return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [sourceKey]), fetchImpl, raw);
     }
 
-    return handleFederatedRelayV31Transport(request, env, fetchImpl, raw);
+    return await handleFederatedRelayV31Transport(request, env, fetchImpl, raw);
   } catch (error) {
     const known = error instanceof RelayV31Error;
     return Response.json({
