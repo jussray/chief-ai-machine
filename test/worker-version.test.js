@@ -26,7 +26,14 @@ describe('Chief AI Worker version receipt', () => {
     );
   });
 
-  it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
+  it('exposes Cloudflare provider version metadata to the runtime', () => {
+    expect(wranglerConfig).toMatch(
+      /"version_metadata":\s*\{\s*"binding":\s*"CF_VERSION_METADATA"\s*\}/,
+    );
+    expect(workerSource).toContain('env?.CF_VERSION_METADATA');
+  });
+
+  it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker when the build path supports it', () => {
     expect(wranglerConfig).toMatch(
       /"build":\s*\{\s*"command":\s*"node scripts\/bake-worker-release-sha\.mjs"/,
     );
@@ -48,11 +55,15 @@ describe('Chief AI Worker version receipt', () => {
     expect(runtimeReleaseVarIndex).toBeGreaterThan(bakedRuntimeIndex);
   });
 
-  it('returns the explicit release SHA without touching assets when no baked identity exists', async () => {
+  it('returns provider version metadata with the compatibility SHA receipt', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
         RELEASE_SHA: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
+        CF_VERSION_METADATA: {
+          id: '986aa81c-f5ea-41d0-bbc2-4aa059e1d28a',
+          tag: 'candidate',
+        },
         ASSETS: {
           fetch: () => {
             throw new Error('version route should not fall through to assets');
@@ -66,10 +77,12 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
+      version_id: '986aa81c-f5ea-41d0-bbc2-4aa059e1d28a',
+      version_tag: 'candidate',
     });
   });
 
-  it('reports unknown instead of fabricating a release SHA', async () => {
+  it('reports unknown/null instead of fabricating identity', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
@@ -84,6 +97,8 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: 'unknown',
+      version_id: null,
+      version_tag: null,
     });
   });
 });
