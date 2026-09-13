@@ -1,6 +1,7 @@
 import {
   FEDERATED_AGENT_RELAY_V3,
   FederatedRelayV3Error,
+  assertRelayKeyUsableV3,
   canonicalizeRelayJsonV3,
   parseFederatedAgentRelayEnvelopeV3,
   sha256HexV3,
@@ -12,6 +13,7 @@ const DEFAULT_KEY_VALID_FROM = '2026-09-13T00:00:00.000Z';
 const FCR_RELAY_PROJECT_URL = 'https://oojzfmmywbvficgybaxd.supabase.co';
 const CHIEF_MEMBER = 'chief-ai-machine';
 const CHIEF_REPOSITORY = 'jussray/chief-ai-machine';
+const MAX_RELAY_ENVELOPE_BYTES = 65536;
 
 function json(body, status = 200) {
   return Response.json(body, {
@@ -37,7 +39,13 @@ function relayDatabaseError(message) {
 
 function statusFor(error) {
   if (error.code?.includes('_missing') || error.code === 'relay_runtime_identity_unavailable') return 503;
-  if (error.code === 'relay_signing_key_unknown' || error.code === 'relay_signature_invalid' || error.code === 'relay_signing_key_revoked') return 401;
+  if (
+    error.code === 'relay_signing_key_unknown'
+    || error.code === 'relay_signature_invalid'
+    || error.code === 'relay_signing_key_revoked'
+    || error.code === 'relay_signing_key_not_current'
+  ) return 401;
+  if (error.code === 'relay_envelope_too_large') return 413;
   if (error.code === 'relay_target_identity_stale' || error.code === 'relay_expired' || error.code === 'relay_issued_in_future') return 409;
   if (/sequence|nonce|collision|chain_|supersession|reply_/.test(error.code ?? '')) return 409;
   if (error.code === 'relay_database_error') return 503;
@@ -50,6 +58,47 @@ function supabaseUrl(env) {
     : FCR_RELAY_PROJECT_URL;
   if (configured !== FCR_RELAY_PROJECT_URL) throw new FederatedRelayV3Error('relay_config_supabase_identity_mismatch');
   return configured;
+}
+
+async function readJsonBodyBounded(request, maxBytes = MAX_RELAY_ENVELOPE_BYTES) {
+  const declaredLength = request.headers.get('content-length');
+  if (declaredLength !== null) {
+    const parsedLength = Number(declaredLength);
+    if (!Number.isFinite(parsedLength) || parsedLength < 0) {
+      throw new FederatedRelayV3Error('relay_content_length_invalid');
+    }
+    if (parsedLength > maxBytes) throw new FederatedRelayV3Error('relay_envelope_too_large');
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) throw new FederatedRelayV3Error('relay_envelope_json_invalid');
+  const chunks = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!(value instanceof Uint8Array)) throw new FederatedRelayV3Error('relay_envelope_json_invalid');
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new FederatedRelayV3Error('relay_envelope_too_large');
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    throw new FederatedRelayV3Error('relay_envelope_json_invalid');
+  }
 }
 
 /**
@@ -126,6 +175,7 @@ async function ensureChiefPublicKey(env) {
     if (existing.member !== CHIEF_MEMBER || canonicalizeRelayJsonV3(existing.publicKeyJwk) !== canonicalizeRelayJsonV3(publicKeyJwk)) {
       throw new FederatedRelayV3Error('relay_key_id_collision');
     }
+    assertRelayKeyUsableV3(existing, CHIEF_MEMBER, new Date());
     return { keyId, privateJwk, publicKeyJwk };
   }
 
@@ -148,6 +198,7 @@ async function ensureChiefPublicKey(env) {
   } catch (error) {
     const raced = await loadPublicKey(env, keyId);
     if (raced.member !== CHIEF_MEMBER || canonicalizeRelayJsonV3(raced.publicKeyJwk) !== canonicalizeRelayJsonV3(publicKeyJwk)) throw error;
+    assertRelayKeyUsableV3(raced, CHIEF_MEMBER, new Date());
   }
   return { keyId, privateJwk, publicKeyJwk };
 }
@@ -285,14 +336,11 @@ async function buildSignedReply(env, runtimeSha, parent, parentFingerprint, pare
 
 export async function handleFederatedRelayV3(request, env, runtimeSha) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  const contentLength = Number(request.headers.get('content-length') || '0');
-  if (Number.isFinite(contentLength) && contentLength > 65536) return json({ error: 'Relay envelope exceeds 64KB.' }, 413);
 
   try {
     const normalizedRuntimeSha = typeof runtimeSha === 'string' ? runtimeSha.trim().toLowerCase() : '';
     if (!/^[0-9a-f]{40}$/.test(normalizedRuntimeSha)) throw new FederatedRelayV3Error('relay_runtime_identity_unavailable');
-    let input;
-    try { input = await request.json(); } catch { throw new FederatedRelayV3Error('relay_envelope_json_invalid'); }
+    const input = await readJsonBodyBounded(request);
     const envelope = parseFederatedAgentRelayEnvelopeV3(input);
     if (
       envelope.target.member !== CHIEF_MEMBER
