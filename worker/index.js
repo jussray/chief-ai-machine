@@ -1,7 +1,7 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleFederatedRelayV31Transport } from './federated-relay-v31-transport.js';
+import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 import { makeRelayFetch } from './relay-fetch.js';
 
@@ -19,7 +19,7 @@ export default {
     if (url.pathname === '/api/chief/capability-plan') return handleChiefCapabilityPlan(request);
     if (url.pathname === '/api/chief/founder-content-proposal') return handleChiefFounderContentProposal(request);
     if (url.pathname === '/api/federated-relay') {
-      return handleFederatedRelayV31Transport(
+      return handleFederatedRelayV31Runtime(
         request,
         { ...env, RELEASE_SHA: getReleaseSha(env) },
         makeRelayFetch(env),
