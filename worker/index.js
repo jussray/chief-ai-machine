@@ -4,11 +4,17 @@ import { handleChiefFounderContentProposal } from './chief-founder-content-propo
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
+  const bakedReleaseSha = typeof BUILD_RELEASE_SHA === 'string'
+    && BUILD_RELEASE_SHA.trim()
+    && BUILD_RELEASE_SHA.trim() !== 'unknown'
+    ? BUILD_RELEASE_SHA.trim()
+    : null;
+
   const candidates = [
-    env?.RELEASE_SHA,
-    env?.GITHUB_SHA,
+    bakedReleaseSha,
     env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.RELEASE_SHA,
   ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
