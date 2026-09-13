@@ -417,6 +417,8 @@ export async function ensureProofModeAccessPolicy({
   let effective = resolveEffectiveApplication(apps, target.hostname, null, appName);
   if (
     effective.needsWorkerIdentity
+    || effective.scope === 'public_exact_host'
+    || effective.scope === 'public_path_or_multi_destination'
     || effective.scope === 'all_preview_workers'
     || effective.scope === 'all_workers'
   ) {
