@@ -1,3 +1,5 @@
+/* global crypto */
+
 import { expect, test } from '@playwright/test';
 import {
   FEDERATED_AGENT_RELAY_V3,
