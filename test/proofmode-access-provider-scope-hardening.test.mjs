@@ -138,4 +138,23 @@ describe('ProofMode provider scope hardening', () => {
       /does not match target chief-ai\.mcgill-raylene\.workers\.dev/,
     );
   });
+
+  it('binds public-scope repair to the target Worker account and never POSTs on mismatch', async () => {
+    const app = {
+      id: 'app-public-exact',
+      name: 'Chief immutable preview public host',
+      destinations: [{ type: 'public', uri: '1234abcd-chief-ai.mcgill-raylene.workers.dev/*' }],
+    };
+    const { fetchImpl, calls } = cloudflareFixture({
+      apps: [app],
+      accountSubdomain: 'different-account',
+    });
+
+    await expect(ensureProofModeAccessPolicy(input(fetchImpl, 'repair'))).rejects.toThrow(
+      /does not match target chief-ai\.mcgill-raylene\.workers\.dev/,
+    );
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    expect(calls.some((call) => call.path.endsWith('/workers/workers'))).toBe(true);
+    expect(calls.some((call) => call.path.endsWith('/workers/subdomain'))).toBe(true);
+  });
 });
