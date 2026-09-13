@@ -3,9 +3,10 @@ import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { handleFederatedRelayV31 } from './federated-relay-v31.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
+import { makeRelayFetch } from './relay-fetch.js';
 
-function getReleaseSha(env) {
-  const candidates = [env?.RELEASE_SHA, env?.GITHUB_SHA, env?.WORKERS_CI_COMMIT_SHA, BUILD_RELEASE_SHA];
+export function getReleaseSha(env, bakedReleaseSha = BUILD_RELEASE_SHA) {
+  const candidates = [env?.RELEASE_SHA, env?.GITHUB_SHA, env?.WORKERS_CI_COMMIT_SHA, bakedReleaseSha];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
 }
@@ -18,7 +19,11 @@ export default {
     if (url.pathname === '/api/chief/capability-plan') return handleChiefCapabilityPlan(request);
     if (url.pathname === '/api/chief/founder-content-proposal') return handleChiefFounderContentProposal(request);
     if (url.pathname === '/api/federated-relay') {
-      return handleFederatedRelayV31(request, { ...env, RELEASE_SHA: getReleaseSha(env) });
+      return handleFederatedRelayV31(
+        request,
+        { ...env, RELEASE_SHA: getReleaseSha(env) },
+        makeRelayFetch(env),
+      );
     }
     if (url.pathname.startsWith('/api/')) return new Response('Not implemented', { status: 501 });
     return env.ASSETS.fetch(request);
