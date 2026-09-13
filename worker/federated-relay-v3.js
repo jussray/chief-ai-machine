@@ -52,7 +52,13 @@ function supabaseUrl(env) {
   return configured;
 }
 
-async function dbRequest(env, path, { method = 'GET', body, prefer } = {}) {
+/**
+ * @param {Record<string, unknown>} env
+ * @param {string} path
+ * @param {{ method?: string, body?: unknown, prefer?: string }} [options]
+ */
+async function dbRequest(env, path, options = {}) {
+  const { method = 'GET', body, prefer } = options;
   const secret = requiredEnv(env, 'FCR_RELAY_SUPABASE_SECRET_KEY');
   const headers = {
     apikey: secret,
@@ -290,7 +296,14 @@ export async function handleFederatedRelayV3(request, env, runtimeSha) {
     let input;
     try { input = await request.json(); } catch { throw new FederatedRelayV3Error('relay_envelope_json_invalid'); }
     const envelope = parseFederatedAgentRelayEnvelopeV3(input);
-    if (envelope.target.member !== CHIEF_MEMBER) throw new FederatedRelayV3Error('relay_target_identity_stale');
+    if (
+      envelope.target.member !== CHIEF_MEMBER
+      || envelope.target.repository !== CHIEF_REPOSITORY
+      || envelope.target.branch !== 'main'
+      || envelope.target.headSha !== normalizedRuntimeSha
+    ) {
+      throw new FederatedRelayV3Error('relay_target_identity_stale');
+    }
 
     const incomingFingerprint = await sha256HexV3(canonicalizeRelayJsonV3(envelope));
     const stored = await findStoredMessage(env, envelope.messageId);
