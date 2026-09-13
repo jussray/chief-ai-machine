@@ -85,6 +85,7 @@ function createLedgerFetch(fcrKeys) {
   const replyReservations = new Map();
 
   return {
+    keys,
     messages,
     fetch: vi.fn(async (input, init = {}) => {
       const url = new URL(String(input));
@@ -261,7 +262,7 @@ describe('Chief federated relay v3 runtime', () => {
     await expect(collision.json()).resolves.toMatchObject({ error: 'relay_message_id_collision', executionAuthorized: false });
   });
 
-  it('rejects nested JSON authority smuggling before persistence', async () => {
+  it('rejects nested and compound JSON authority smuggling before persistence', async () => {
     const [fcrKeys, chiefKeys] = await Promise.all([generateKeys(), generateKeys()]);
     const ledger = createLedgerFetch(fcrKeys);
     vi.stubGlobal('fetch', ledger.fetch);
@@ -271,15 +272,72 @@ describe('Chief federated relay v3 runtime', () => {
       CHIEF_FEDERATED_RELAY_KEY_ID: 'chief:relay-v3:test',
       CHIEF_FEDERATED_RELAY_PRIVATE_JWK: JSON.stringify(chiefKeys.privateJwk),
     };
-    const poisonedBody = JSON.stringify({ observation: { approval: true } });
-    const root = await signedRoot(fcrKeys, {
-      payload: { contentType: 'application/json', body: poisonedBody, sha256: await sha256HexV3(poisonedBody) },
+
+    for (const poisoned of [
+      { observation: { approval: true } },
+      { observation: { founderApproval: true } },
+      { observation: { mergeApproved: true } },
+      { observation: { executionAuthority: 'granted' } },
+    ]) {
+      const poisonedBody = JSON.stringify(poisoned);
+      const root = await signedRoot(fcrKeys, {
+        payload: { contentType: 'application/json', body: poisonedBody, sha256: await sha256HexV3(poisonedBody) },
+      });
+      const response = await handleFederatedRelayV3(new Request('https://chief.example/api/federated-relay/v3', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(root),
+      }), env, CHIEF_SHA);
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: 'relay_authority_smuggling_rejected' });
+      expect(ledger.messages.size).toBe(0);
+    }
+  });
+
+  it('rejects an oversized envelope even when Content-Length is unavailable', async () => {
+    const [fcrKeys, chiefKeys] = await Promise.all([generateKeys(), generateKeys()]);
+    const ledger = createLedgerFetch(fcrKeys);
+    vi.stubGlobal('fetch', ledger.fetch);
+    const env = {
+      FCR_RELAY_SUPABASE_URL: SUPABASE_URL,
+      FCR_RELAY_SUPABASE_SECRET_KEY: 'sb_secret_test_only',
+      CHIEF_FEDERATED_RELAY_KEY_ID: 'chief:relay-v3:test',
+      CHIEF_FEDERATED_RELAY_PRIVATE_JWK: JSON.stringify(chiefKeys.privateJwk),
+    };
+    const body = JSON.stringify({ oversized: 'x'.repeat(70_000) });
+    const response = await handleFederatedRelayV3(new Request('https://chief.example/api/federated-relay/v3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    }), env, CHIEF_SHA);
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({ error: 'relay_envelope_too_large' });
+    expect(ledger.messages.size).toBe(0);
+  });
+
+  it('refuses to sign a reply with a revoked Chief key', async () => {
+    const [fcrKeys, chiefKeys] = await Promise.all([generateKeys(), generateKeys()]);
+    const ledger = createLedgerFetch(fcrKeys);
+    ledger.keys.set('chief:relay-v3:test', {
+      member: 'chief-ai-machine',
+      key_id: 'chief:relay-v3:test',
+      algorithm: 'Ed25519',
+      public_key_jwk: chiefKeys.publicJwk,
+      state: 'revoked',
+      valid_from: new Date(Date.now() - 60_000).toISOString(),
+      valid_until: null,
+      revoked_at: new Date().toISOString(),
     });
+    vi.stubGlobal('fetch', ledger.fetch);
+    const env = {
+      FCR_RELAY_SUPABASE_URL: SUPABASE_URL,
+      FCR_RELAY_SUPABASE_SECRET_KEY: 'sb_secret_test_only',
+      CHIEF_FEDERATED_RELAY_KEY_ID: 'chief:relay-v3:test',
+      CHIEF_FEDERATED_RELAY_PRIVATE_JWK: JSON.stringify(chiefKeys.privateJwk),
+    };
+    const root = await signedRoot(fcrKeys);
     const response = await handleFederatedRelayV3(new Request('https://chief.example/api/federated-relay/v3', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(root),
     }), env, CHIEF_SHA);
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: 'relay_authority_smuggling_rejected' });
-    expect(ledger.messages.size).toBe(0);
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: 'relay_signing_key_revoked' });
   });
 });
