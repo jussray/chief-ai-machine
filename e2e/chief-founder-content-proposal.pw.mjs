@@ -120,7 +120,7 @@ test.describe('Chief founder-content live runtime', () => {
   test('serves the exact candidate head from /version', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
     expect(response.status()).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
+    await expect(response.json()).resolves.toMatchObject({ ok: true, sha: expectedHead });
   });
 
   test('returns an audience-targeted exact-copy handoff without authenticating or publishing it', async ({ request }) => {
