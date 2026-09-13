@@ -11,8 +11,11 @@ const RELAY_CONTRACT = 'juss/federated-agent-relay@v3.1';
 const RECEIPT_CONTRACT = 'juss/federated-agent-relay-receipt@v3.1';
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
 const DELIVERY_ACK_CONTRACT = 'juss/federated-agent-relay-delivery-ack@v3.1';
+const REPLY_REFRESH_CONTRACT = 'juss/federated-agent-relay-reply-refresh@v3.1';
 const MAX_ENVELOPE_BYTES = 512 * 1024;
 const SHA40 = /^[0-9a-f]{40}$/;
+const SHA256 = /^[0-9a-f]{64}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._:-]{3,200}$/;
 const BASE64URL_64 = /^[A-Za-z0-9_-]{86}$/;
 
@@ -415,8 +418,6 @@ async function handleDeliveryAck(body, env, fetchImpl) {
   relayAssert(body.supersededByMessageId === null, 'relay_delivery_ack_unsigned_supersession_rejected', 409);
   await verifyFcrReceipt(body.receipt, body.messageId, env);
 
-  // Only signed receipt evidence is durable. The outer delivery field may say
-  // duplicate on an exact retry, but the signed receipt proves acceptance.
   await supabaseRequest(env, '/rest/v1/rpc/federated_relay_resolve_reply_v31', {
     method: 'POST',
     body: JSON.stringify({
@@ -431,6 +432,45 @@ async function handleDeliveryAck(body, env, fetchImpl) {
     contract: DELIVERY_ACK_CONTRACT,
     resolved: true,
     messageId: body.messageId,
+    executionAuthorized: false,
+    authorityTransferred: false,
+    approvalCarriedForward: false,
+  }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+}
+async function handleReplyRefresh(body, env, fetchImpl) {
+  exactKeys(body, ['contract','parentMessageId','messageId','deliveryFingerprint','requestedAt','signature'], 'relay_reply_refresh_invalid');
+  relayAssert(body.contract === REPLY_REFRESH_CONTRACT, 'relay_reply_refresh_contract_invalid');
+  relayAssert(typeof body.parentMessageId === 'string' && UUID.test(body.parentMessageId), 'relay_reply_refresh_parent_invalid');
+  relayAssert(typeof body.messageId === 'string' && UUID.test(body.messageId), 'relay_reply_refresh_message_invalid');
+  relayAssert(typeof body.deliveryFingerprint === 'string' && SHA256.test(body.deliveryFingerprint), 'relay_reply_refresh_fingerprint_invalid');
+  relayAssert(typeof body.requestedAt === 'string', 'relay_reply_refresh_time_invalid');
+  const requestedAtMs = Date.parse(body.requestedAt);
+  relayAssert(Number.isFinite(requestedAtMs) && new Date(requestedAtMs).toISOString() === body.requestedAt, 'relay_reply_refresh_time_invalid');
+  const now = Date.now();
+  relayAssert(requestedAtMs <= now + 30_000 && requestedAtMs >= now - 2 * 60_000, 'relay_reply_refresh_time_stale', 409);
+  relayAssert(body.signature?.algorithm === 'Ed25519' && typeof body.signature?.keyId === 'string', 'relay_reply_refresh_signature_invalid', 401);
+  const key = registry(env).find((candidate) => candidate.member === 'founder-control-room' && candidate.keyId === body.signature.keyId);
+  relayAssert(key, 'relay_reply_refresh_key_unknown', 401);
+  keyWindowUsable(key, 'founder-control-room', body.requestedAt, body.requestedAt);
+  const { signature, ...unsigned } = body;
+  await verifyDetached(unsigned, signature, key);
+
+  const rpc = await supabaseRequest(env, '/rest/v1/rpc/federated_relay_refresh_expired_reply_v31', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_parent_message_id: body.parentMessageId,
+      p_message_id: body.messageId,
+      p_expected_delivery_fingerprint: body.deliveryFingerprint,
+    }),
+  }, fetchImpl);
+  const row = Array.isArray(rpc) ? rpc[0] : rpc;
+  relayAssert(row && row.message_id === body.messageId && Number.isSafeInteger(Number(row.source_sequence)), 'relay_reply_refresh_result_invalid', 503);
+  return Response.json({
+    contract: REPLY_REFRESH_CONTRACT,
+    refreshed: true,
+    messageId: row.message_id,
+    sourceSequence: Number(row.source_sequence),
+    resignCount: Number(row.resign_count),
     executionAuthorized: false,
     authorityTransferred: false,
     approvalCarriedForward: false,
@@ -492,6 +532,7 @@ export async function handleFederatedRelayV31Transport(request, env, fetchImpl =
     try { parsed = JSON.parse(raw); } catch { throw new RelayV31Error('relay_json_invalid'); }
     if (parsed?.contract === KEY_QUERY_CONTRACT) return handleKeyQuery(parsed, env);
     if (parsed?.contract === DELIVERY_ACK_CONTRACT) return handleDeliveryAck(parsed, env, fetchImpl);
+    if (parsed?.contract === REPLY_REFRESH_CONTRACT) return handleReplyRefresh(parsed, env, fetchImpl);
 
     const envelope = parseCanonicalEnvelopeV31(raw);
     const result = await acceptEnvelope(envelope, env, fetchImpl);
