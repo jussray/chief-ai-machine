@@ -11,6 +11,7 @@ const RELAY_CONTRACT = 'juss/federated-agent-relay@v3.1';
 const RECEIPT_CONTRACT = 'juss/federated-agent-relay-receipt@v3.1';
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
 const DELIVERY_ACK_CONTRACT = 'juss/federated-agent-relay-delivery-ack@v3.1';
+const MAX_ENVELOPE_BYTES = 512 * 1024;
 const SHA40 = /^[0-9a-f]{40}$/;
 const KEY_ID = /^[A-Za-z0-9._:-]{3,200}$/;
 const BASE64URL_64 = /^[A-Za-z0-9_-]{86}$/;
@@ -410,17 +411,20 @@ async function handleDeliveryAck(body, env, fetchImpl) {
   exactKeys(body, ['contract','messageId','delivery','receipt','currentState','supersededByMessageId'], 'relay_delivery_ack_invalid');
   relayAssert(body.contract === DELIVERY_ACK_CONTRACT, 'relay_delivery_ack_contract_invalid');
   relayAssert(body.delivery === 'accepted' || body.delivery === 'duplicate', 'relay_delivery_ack_result_invalid');
-  relayAssert(body.currentState === 'accepted' || body.currentState === 'superseded' || body.currentState === 'revoked', 'relay_delivery_ack_state_invalid');
-  relayAssert(body.supersededByMessageId === null || typeof body.supersededByMessageId === 'string', 'relay_delivery_ack_supersession_invalid');
+  relayAssert(body.currentState === 'accepted', 'relay_delivery_ack_unsigned_state_rejected', 409);
+  relayAssert(body.supersededByMessageId === null, 'relay_delivery_ack_unsigned_supersession_rejected', 409);
   await verifyFcrReceipt(body.receipt, body.messageId, env);
+
+  // Only signed receipt evidence is durable. The outer delivery field may say
+  // duplicate on an exact retry, but the signed receipt proves acceptance.
   await supabaseRequest(env, '/rest/v1/rpc/federated_relay_resolve_reply_v31', {
     method: 'POST',
     body: JSON.stringify({
       p_message_id: body.messageId,
-      p_delivery: body.delivery,
+      p_delivery: body.receipt.delivery,
       p_receipt: body.receipt,
-      p_current_state: body.currentState,
-      p_superseded_by_message_id: body.supersededByMessageId,
+      p_current_state: 'accepted',
+      p_superseded_by_message_id: null,
     }),
   }, fetchImpl);
   return Response.json({
@@ -444,12 +448,46 @@ async function handleKeyQuery(body, env) {
   }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
 
-export async function handleFederatedRelayV31Transport(request, env, fetchImpl = fetch) {
+export async function readBoundedRelayBodyV31(request) {
+  const rawLength = request.headers.get('content-length');
+  if (rawLength !== null) {
+    const contentLength = Number(rawLength);
+    relayAssert(Number.isFinite(contentLength) && contentLength >= 0, 'relay_content_length_invalid', 400);
+    relayAssert(contentLength <= MAX_ENVELOPE_BYTES, 'relay_envelope_too_large', 413);
+  }
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_ENVELOPE_BYTES) {
+      await reader.cancel();
+      throw new RelayV31Error('relay_envelope_too_large', 413);
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new RelayV31Error('relay_utf8_invalid', 400);
+  }
+}
+
+export async function handleFederatedRelayV31Transport(request, env, fetchImpl = fetch, rawBody = undefined) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'POST' } });
   try {
     relayAssert((request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase() === 'application/json', 'relay_content_type', 415);
-    const raw = await request.text();
-    relayAssert(new TextEncoder().encode(raw).byteLength <= 512 * 1024, 'relay_envelope_too_large', 413);
+    const raw = rawBody === undefined ? await readBoundedRelayBodyV31(request) : rawBody;
+    relayAssert(typeof raw === 'string' && new TextEncoder().encode(raw).byteLength <= MAX_ENVELOPE_BYTES, 'relay_envelope_too_large', 413);
     let parsed;
     try { parsed = JSON.parse(raw); } catch { throw new RelayV31Error('relay_json_invalid'); }
     if (parsed?.contract === KEY_QUERY_CONTRACT) return handleKeyQuery(parsed, env);
