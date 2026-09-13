@@ -6,10 +6,12 @@ on:
       - main
     paths:
       - "worker/proofmode-mcp.js"
+      - "worker/federated-relay.js"
       - "worker/index.js"
       - "wrangler.jsonc"
       - "scripts/verify-cloudflare-runtime-identity.mjs"
       - "e2e/proofmode-mcp.pw.mjs"
+      - "e2e/federated-relay.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
@@ -81,7 +83,7 @@ jobs:
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Run live ProofMode MCP Playwright proof
+      - name: Run live ProofMode and federated relay Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -98,7 +100,7 @@ jobs:
 
           export default defineConfig({
             testDir: './e2e',
-            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            testMatch: /(proofmode-mcp|federated-relay)\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,
