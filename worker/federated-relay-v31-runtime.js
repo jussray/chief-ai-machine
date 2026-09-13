@@ -4,6 +4,7 @@ import { handleFederatedRelayV31Transport, readBoundedRelayBodyV31 } from './fed
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
 const DELIVERY_ACK_CONTRACT = 'juss/federated-agent-relay-delivery-ack@v3.1';
 const REPLY_REFRESH_CONTRACT = 'juss/federated-agent-relay-reply-refresh@v3.1';
+const RELAY_CONTRACT = 'juss/federated-agent-relay@v3.1';
 const SOURCE_ORIGIN_HEADER = 'x-federated-relay-source-origin';
 const SHA40 = /^[0-9a-f]{40}$/;
 const FCR_REPOSITORY = 'jussray/founder-control-room';
@@ -187,6 +188,68 @@ function assertReceiptBindsOutbox(receipt, outbox) {
     && receipt.acceptedKey?.keyId === outbox.source_key_id,
   'relay_delivery_ack_accepted_key_mismatch', 409);
 }
+function githubBranchUrl(source) {
+  return `https://api.github.com/repos/${source.repository}/branches/${encodeURIComponent(source.branch)}`;
+}
+function githubHeaders() {
+  return { Accept: 'application/vnd.github+json', 'User-Agent': 'chief-federated-relay-v31' };
+}
+async function readGitHubJson(response, unavailableCode) {
+  relayAssert(response.ok, unavailableCode, response.status === 404 ? 409 : 503);
+  try {
+    return await response.json();
+  } catch {
+    throw new RelayV31Error(unavailableCode, 503);
+  }
+}
+export async function verifySourceCommitReachabilityV31(source, fetchImpl = fetch) {
+  relayAssert(isRecord(source) && typeof source.repository === 'string' && typeof source.branch === 'string'
+    && typeof source.headSha === 'string' && SHA40.test(source.headSha), 'relay_source_identity_invalid', 400);
+  const branchResponse = await fetchImpl(githubBranchUrl(source), { headers: githubHeaders() });
+  const branch = await readGitHubJson(
+    branchResponse,
+    branchResponse.status === 404 ? 'relay_source_branch_unknown' : 'relay_source_provider_unavailable',
+  );
+  const branchHead = String(branch?.commit?.sha ?? '').toLowerCase();
+  relayAssert(SHA40.test(branchHead), 'relay_source_provider_invalid', 503);
+  if (branchHead === source.headSha) return { branchHead, state: 'current_head_at_acceptance' };
+
+  const commitResponse = await fetchImpl(
+    `https://api.github.com/repos/${source.repository}/commits/${source.headSha}`,
+    { headers: githubHeaders() },
+  );
+  if (commitResponse.status === 404) throw new RelayV31Error('relay_source_commit_missing', 409);
+  relayAssert(commitResponse.ok, 'relay_source_provider_unavailable', 503);
+
+  const compareResponse = await fetchImpl(
+    `https://api.github.com/repos/${source.repository}/compare/${source.headSha}...${branchHead}`,
+    { headers: githubHeaders() },
+  );
+  if (compareResponse.status === 404) throw new RelayV31Error('relay_source_history_unreachable', 409);
+  const comparison = await readGitHubJson(compareResponse, 'relay_source_provider_unavailable');
+  relayAssert(comparison?.status === 'ahead' || comparison?.status === 'identical', 'relay_source_history_unreachable', 409);
+  return { branchHead, state: 'reachable_at_acceptance' };
+}
+export function sourceReachabilityFetchV31(fetchImpl, source) {
+  const verifiedBranchUrl = githubBranchUrl(source);
+  return async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url === verifiedBranchUrl) {
+      return Response.json({ commit: { sha: source.headSha } }, { status: 200 });
+    }
+    return fetchImpl(input, init);
+  };
+}
+function historicalChiefKeyResponse(key) {
+  relayAssert((key.state === 'active' || key.state === 'retiring') && !key.revokedAt, 'relay_key_not_servable', 404);
+  return Response.json({
+    contract: KEY_QUERY_CONTRACT,
+    key,
+    executionAuthorized: false,
+    authorityTransferred: false,
+    approvalCarriedForward: false,
+  }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+}
 
 export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = fetch) {
   if (request.method !== 'POST') return await handleFederatedRelayV31Transport(request, env, fetchImpl);
@@ -196,6 +259,9 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
     try { body = JSON.parse(raw); } catch { return await handleFederatedRelayV31Transport(request, env, fetchImpl, raw); }
 
     if (body?.contract === KEY_QUERY_CONTRACT) {
+      relayAssert(body.member === 'chief-ai-machine' && typeof body.keyId === 'string', 'relay_key_query_invalid', 400);
+      const historicalKey = await maybeLoadRelayKey(env, 'chief-ai-machine', body.keyId, fetchImpl);
+      if (historicalKey) return historicalChiefKeyResponse(historicalKey);
       return await handleFederatedRelayV31Transport(request, env, fetchImpl, raw);
     }
 
@@ -215,14 +281,16 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
       return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [refreshKey]), fetchImpl, raw);
     }
 
-    if (body?.contract === 'juss/federated-agent-relay@v3.1') {
+    if (body?.contract === RELAY_CONTRACT) {
       relayAssert(typeof body.source?.member === 'string' && typeof body.signature?.keyId === 'string', 'relay_signature_invalid');
       let sourceKey = await maybeLoadRelayKey(env, body.source.member, body.signature.keyId, fetchImpl);
       if (!sourceKey && body.source.member === 'founder-control-room') {
         sourceKey = await bootstrapFcrKey(request, body, env, fetchImpl);
       }
       relayAssert(sourceKey, 'relay_key_unknown', 401);
-      return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [sourceKey]), fetchImpl, raw);
+      await verifySourceCommitReachabilityV31(body.source, fetchImpl);
+      const verifiedFetch = sourceReachabilityFetchV31(fetchImpl, body.source);
+      return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [sourceKey]), verifiedFetch, raw);
     }
 
     return await handleFederatedRelayV31Transport(request, env, fetchImpl, raw);
