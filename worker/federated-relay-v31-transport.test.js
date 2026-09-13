@@ -3,7 +3,10 @@ import { canonicalizeRelayJcsV31, sha256HexV31 } from './federated-relay-v31.js'
 import { handleFederatedRelayV31Transport } from './federated-relay-v31-transport.js';
 
 function b64url(bytes) {
-  return Buffer.from(bytes).toString('base64url');
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/=+$/u, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 }
 async function keyPair() {
   const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
