@@ -7,11 +7,15 @@ on:
     paths:
       - "worker/proofmode-mcp.js"
       - "worker/federated-relay.js"
+      - "worker/federated-relay-v3-core.js"
+      - "worker/federated-relay-v3.js"
+      - "worker/federated-relay-v3.test.js"
       - "worker/index.js"
       - "wrangler.jsonc"
       - "scripts/verify-cloudflare-runtime-identity.mjs"
       - "e2e/proofmode-mcp.pw.mjs"
       - "e2e/federated-relay.pw.mjs"
+      - "e2e/federated-relay-v3.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
@@ -19,6 +23,11 @@ on:
         description: "Cloudflare Worker base URL to verify"
         required: true
         type: string
+      verify_federated_relay_v3:
+        description: "Run the protected FCR → Chief → FCR signed durable v3 roundtrip"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -34,6 +43,13 @@ env:
   CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
   CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  FEDERATED_RELAY_V3_LIVE_REQUIRED: ${{ inputs.verify_federated_relay_v3 && 'true' || 'false' }}
+  FCR_FEDERATED_RELAY_BASE_URL: ${{ vars.FCR_FEDERATED_RELAY_BASE_URL || 'https://api.foundercontrolroom.org' }}
+  FCR_RELAY_SUPABASE_URL: "https://oojzfmmywbvficgybaxd.supabase.co"
+  FCR_RELAY_SUPABASE_SECRET_KEY: ${{ secrets.FCR_RELAY_SUPABASE_SECRET_KEY }}
+  FCR_FEDERATED_RELAY_PRIVATE_JWK: ${{ secrets.FCR_FEDERATED_RELAY_PRIVATE_JWK }}
+  FCR_FEDERATED_RELAY_KEY_ID: ${{ vars.FCR_FEDERATED_RELAY_KEY_ID }}
+  FCR_FEDERATED_RELAY_KEY_VALID_FROM: ${{ vars.FCR_FEDERATED_RELAY_KEY_VALID_FROM }}
 
 jobs:
   verify:
@@ -83,6 +99,22 @@ jobs:
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
+      - name: Classify protected relay v3 proof readiness
+        shell: bash
+        run: |
+          if [ "$FEDERATED_RELAY_V3_LIVE_REQUIRED" != 'true' ]; then
+            printf '%s\n' 'Federated relay v3 live roundtrip is not requested in this run; source/unit proof remains separate.'
+            exit 0
+          fi
+          missing=()
+          for name in FCR_RELAY_SUPABASE_SECRET_KEY FCR_FEDERATED_RELAY_PRIVATE_JWK FCR_FEDERATED_RELAY_KEY_ID; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            printf 'BLOCKED_RELAY_SECRET_CONFIG: missing protected inputs: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
       - name: Run live ProofMode and federated relay Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
@@ -100,7 +132,7 @@ jobs:
 
           export default defineConfig({
             testDir: './e2e',
-            testMatch: /(proofmode-mcp|federated-relay)\.pw\.mjs$/,
+            testMatch: /(proofmode-mcp|federated-relay|federated-relay-v3)\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,

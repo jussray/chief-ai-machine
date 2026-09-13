@@ -2,6 +2,7 @@ import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { handleFederatedRelay } from './federated-relay.js';
+import { handleFederatedRelayV3 } from './federated-relay-v3.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
@@ -59,6 +60,10 @@ export default {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       return handleChiefFounderContentProposal(request);
+    }
+
+    if (url.pathname === '/api/federated-relay/v3') {
+      return handleFederatedRelayV3(request, env, getReleaseSha(env));
     }
 
     if (url.pathname === '/api/federated-relay') {
