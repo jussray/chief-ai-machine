@@ -70,10 +70,17 @@ jobs:
           cache: npm
 
       - name: Verify provider-issued Cloudflare preview identity
+        id: runtime-identity
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "60"
+          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "30"
         run: node scripts/verify-cloudflare-runtime-identity.mjs
+
+      - name: Preserve provider-admin block classification
+        if: failure() && steps.runtime-identity.outcome == 'failure'
+        shell: bash
+        run: |
+          printf '%s\n' 'BLOCKED_PROVIDER_AUTHORITY: immutable Cloudflare preview did not pass the configured Access service-token boundary. Do not weaken Access or treat provider upload as runtime proof.'
 
       - name: Bind verified runtime to Chief capability test surface
         shell: bash
