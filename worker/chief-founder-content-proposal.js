@@ -1,7 +1,5 @@
 import { sha256Hex } from '../src/domain/capability-plan.js';
-import { buildFounderContentProposal } from '../src/domain/founder-content-brain.js';
-import { buildFounderContentStrategy } from '../src/domain/founder-content-strategy.js';
-import { attachV4AdvisoryLearningToCurrentStrategyInput } from '../src/domain/founder-content-v4-advisory.js';
+import { buildStrategyAwareFounderContentPackage } from '../src/domain/founder-content-package.js';
 
 const ROUTE = '/api/chief/founder-content-proposal';
 const HANDOFF_CONTRACT = 'chief-ai/founder-content-handoff@v1';
@@ -34,6 +32,52 @@ function errorResponse(code, message, status = 400) {
 
 function record(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function buildStrategyView(strategyLease, proposal) {
+  const strategyHash = sha256Hex(JSON.stringify(strategyLease));
+  const bragClaimIds = Array.isArray(strategyLease.strategy?.brag_claim_ids)
+    ? strategyLease.strategy.brag_claim_ids
+    : [];
+
+  return Object.freeze({
+    version: strategyLease.version,
+    kind: strategyLease.kind,
+    state: strategyLease.state,
+    strategy_hash: strategyHash,
+    platform: proposal.public_payload.platform,
+    story_type: proposal.public_payload.story_type,
+    evaluated_at: strategyLease.evaluated_at,
+    expires_at: strategyLease.expires_at,
+    target_audience: Object.freeze({
+      segment: strategyLease.audience?.primary_segment || '',
+      cares_about: strategyLease.audience?.cares_about || [],
+      skepticisms: strategyLease.audience?.skepticisms || [],
+      credibility_signals: strategyLease.audience?.credibility_signals || [],
+      desired_impression: strategyLease.audience?.desired_impression || '',
+      desired_action: strategyLease.audience?.desired_action || '',
+    }),
+    history: Object.freeze({
+      learning_signal_hashes: strategyLease.own_history?.learning_signal_hashes || [],
+      post_count: strategyLease.own_history?.post_count ?? 0,
+      last_published_at: strategyLease.own_history?.last_published_at ?? null,
+    }),
+    selected_angle: strategyLease.strategy?.selected_angle || '',
+    selected_brag_id: bragClaimIds[0] || null,
+    experiment: strategyLease.strategy?.improvement_experiment || '',
+    authority: Object.freeze({
+      advisory_only: true,
+      can_publish: false,
+      can_renew_truth: false,
+      strategy_evidence_is_not_claim_proof: true,
+    }),
+  });
+}
+
+function validatePackagePair(strategyLease, proposal) {
+  if (strategyLease.evaluated_at !== proposal.authority?.proposal_evaluated_at) {
+    throw new Error('strategy lease and proposal must share the same evaluated_at boundary');
+  }
 }
 
 function buildHandoff(strategy, proposal) {
@@ -70,27 +114,13 @@ function buildHandoff(strategy, proposal) {
   });
 }
 
-function validatePair(strategy, proposal) {
-  const errors = [];
-  if (strategy.platform !== proposal.public_payload.platform) {
-    errors.push('strategy platform must match proposal platform');
-  }
-  if (strategy.story_type !== proposal.public_payload.story_type) {
-    errors.push('strategy story_type must match proposal story_type');
-  }
-  if (strategy.evaluated_at !== proposal.authority.proposal_evaluated_at) {
-    errors.push('strategy and proposal must share the same evaluated_at boundary');
-  }
-  if (errors.length > 0) throw new Error(errors.join('; '));
-}
-
 /**
  * Runtime bridge for founder-content reasoning.
  *
- * Chief may bind an advisory audience/history/discourse strategy to an exact-copy
- * proposal. It cannot authenticate Current You or evidence, approve publication,
- * or execute the post. FCR remains the authenticated founder, evidence, and
- * publication-authority boundary.
+ * The live route uses the strategy-aware package as the only composition
+ * boundary. Strategy, history, visual direction, and binding are advisory and
+ * fail closed before the canonical proposal is handed to FCR. Chief cannot
+ * authenticate Current You or evidence, approve publication, or execute a post.
  */
 export async function handleChiefFounderContentProposal(request) {
   const url = new URL(request.url);
@@ -113,26 +143,43 @@ export async function handleChiefFounderContentProposal(request) {
     return errorResponse('invalid_json', 'Request body must be valid JSON.');
   }
 
-  if (!record(input) || !record(input.strategy) || !record(input.proposal)) {
+  if (
+    !record(input)
+    || !record(input.strategy)
+    || !record(input.proposal)
+    || !record(input.visual_direction)
+    || !record(input.use_context)
+  ) {
     return errorResponse(
       'invalid_founder_content_request',
-      'Request body must contain strategy and proposal JSON objects.',
+      'Request body must contain strategy, proposal, visual_direction, and use_context JSON objects.',
     );
   }
 
   try {
-    const strategyInput = input.v4_advisory_handoff === undefined
-      ? input.strategy
-      : attachV4AdvisoryLearningToCurrentStrategyInput(input.strategy, input.v4_advisory_handoff);
-    const strategy = buildFounderContentStrategy(strategyInput);
-    const proposal = buildFounderContentProposal(input.proposal);
-    validatePair(strategy, proposal);
+    const contentPackage = buildStrategyAwareFounderContentPackage({
+      proposal_input: input.proposal,
+      strategy_input: input.strategy,
+      visual_direction: input.visual_direction,
+      use_context: input.use_context,
+      ...(input.v4_advisory_handoff === undefined
+        ? {}
+        : { v4_advisory_handoff: input.v4_advisory_handoff }),
+    });
+    const proposal = contentPackage.proposal;
+    const strategyLease = contentPackage.strategy_lease;
+    validatePackagePair(strategyLease, proposal);
+    const strategy = buildStrategyView(strategyLease, proposal);
     const handoff = buildHandoff(strategy, proposal);
 
     return json({
       data: {
         strategy,
+        strategyLease,
         proposal,
+        visualDirection: contentPackage.visual_direction,
+        strategyBinding: contentPackage.strategy_binding,
+        packageAuthority: contentPackage.authority,
         handoff,
         governanceBoundary: {
           proposalOnly: true,

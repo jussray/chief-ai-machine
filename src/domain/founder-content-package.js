@@ -92,23 +92,23 @@ export function buildStrategyAwareFounderContentPackage(input = {}) {
     thesis: proposal.public_payload.draft_text,
   });
 
-  return Object.freeze({
+  return deepFreeze({
     version: 1,
     kind: 'chief-ai/founder-content-strategy-aware-package',
     proposal,
     strategy_lease: strategyLease,
     visual_direction: visualDirection,
-    strategy_binding: Object.freeze({
+    strategy_binding: {
       ...strategyBinding,
       draft_fingerprint: draftFingerprint,
-    }),
-    authority: Object.freeze({
+    },
+    authority: {
       canonical_publication_authority_object: 'proposal',
       strategy_sidecars_advisory_only: true,
       strategy_can_authorize_publish: false,
       strategy_can_change_proposal_hash: false,
       visual_direction_can_authorize_publish: false,
       visual_direction_can_expand_claim_scope: false,
-    }),
+    },
   });
 }

@@ -14,11 +14,17 @@ on:
       - "src/domain/founder-control-surface.test.js"
       - "src/domain/founder-content-brain.js"
       - "src/domain/founder-content-brain.test.js"
+      - "src/domain/founder-content-package.js"
+      - "src/domain/founder-content-package.test.js"
+      - "src/domain/founder-content-strategy-lease.js"
+      - "src/domain/founder-content-strategy-lease.test.js"
       - "src/domain/founder-content-strategy.js"
       - "src/domain/founder-content-strategy.test.js"
       - "src/domain/founder-content-strategy.redteam.test.js"
       - "src/domain/founder-content-v4-advisory.js"
+      - "src/domain/founder-content-visual-direction.js"
       - "src/ultrathink/v4-advisory-handoff.v0.ts"
+      - "test/founder-content-current-review-regressions.test.js"
       - "test/ultrathink/v4-advisory-handoff.v0.test.ts"
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
@@ -164,7 +170,7 @@ jobs:
         run: npm ci
 
       - name: Run focused capability contracts
-        run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
+        run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js test/founder-content-current-review-regressions.test.js
 
   pr-runtime-gate:
     name: Verify live Chief capability plan with Playwright (PR gate only)
@@ -247,10 +253,80 @@ jobs:
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Add trusted V4 advisory runtime assertion
+      - name: Add trusted strategy-aware adapter and V4 runtime assertion
         shell: bash
         run: |
           cat >> e2e/chief-founder-content-proposal.pw.mjs <<'EOF'
+
+          const trustedLegacyProposalInput = proposalInput;
+          proposalInput = () => {
+            const legacy = trustedLegacyProposalInput();
+            const evaluatedAt = legacy.strategy.evaluated_at;
+            const observedAt = legacy.proposal.current_you.observed_at;
+            const lastPublishedAt = new Date(Date.parse(observedAt) - 60_000).toISOString();
+            const historyDigest = 'd'.repeat(64);
+            const claimId = 'truth-decay';
+
+            legacy.proposal.public_claims[0].claim_id = claimId;
+            legacy.proposal.public_claims[0].evidence_scope = claimId;
+            legacy.proposal.internal_evidence.proves = [claimId];
+
+            return {
+              strategy: {
+                evaluated_at: evaluatedAt,
+                audience: {
+                  primary_segment: legacy.strategy.target_audience.segment,
+                  cares_about: legacy.strategy.target_audience.cares_about,
+                  skepticisms: legacy.strategy.target_audience.skepticisms,
+                  credibility_signals: legacy.strategy.target_audience.credibility_signals,
+                  desired_impression: legacy.strategy.target_audience.desired_impression,
+                  desired_action: legacy.strategy.target_audience.desired_action,
+                },
+                own_history: {
+                  observed_at: observedAt,
+                  history_digest: historyDigest,
+                  post_count: 1,
+                  last_published_at: lastPublishedAt,
+                  recent_pattern_signatures: [],
+                  learning_signal_hashes: legacy.strategy.history.learning_signal_hashes,
+                  recent_draft_fingerprints: [],
+                },
+                market_context: { required: false, source_class: 'not-required' },
+                verified_public_claim_ids: [claimId],
+                strategy: {
+                  selected_angle: legacy.strategy.selected_angle,
+                  hook_pattern: 'failure-confession',
+                  frame_pattern: 'evidence-lifetime-frame',
+                  proof_pattern: 'exact-version-proof',
+                  closing_pattern: 'technical-invitation',
+                  counter_position: false,
+                  brag_claim_ids: [claimId],
+                  retired_patterns: ['generic-ai-agent-hook'],
+                  improvement_experiment: legacy.strategy.experiment,
+                },
+              },
+              proposal: legacy.proposal,
+              visual_direction: {
+                creative_mode: 'cinematic-proof',
+                form: 'short-video-9x16',
+                emotional_intent: ['clarity'],
+                visual_hook: 'A proof signal reaches a boundary and refuses to cross without a receipt.',
+                scene_concept: 'A restrained system map shows one verified signal stop before an unverified runtime edge.',
+                motion_language: 'Slow approach, firm stop, quiet pull-back.',
+                memory_line: 'Proof stops where truth stops.',
+                human_outcome: 'Make the evidence boundary understandable without exposing implementation details.',
+                proof_object: 'Exact-version evidence receipt',
+                proof_truth_boundary: 'The receipt proves source behavior, not production outcome.',
+                targets: ['linkedin'],
+                preserves_human_agency: true,
+                uses_manipulative_dark_patterns: false,
+              },
+              use_context: {
+                bound_at: evaluatedAt,
+                current_history_digest: historyDigest,
+              },
+            };
+          };
 
           test('consumes the V4 advisory handoff on the deployed candidate without retaining raw hashes', async ({ request }) => {
             const input = proposalInput();
@@ -273,6 +349,9 @@ jobs:
             expect(response.status()).toBe(200);
             const body = await response.json();
             expect(body.data.strategy.history.learning_signal_hashes).toContain(learningHash);
+            expect(body.data.strategyLease.kind).toBe('chief-ai/founder-content-strategy-lease');
+            expect(body.data.strategyBinding.kind).toBe('chief-ai/founder-content-strategy-binding');
+            expect(body.data.visualDirection.kind).toBe('chief-ai/founder-content-visual-direction');
             const encoded = JSON.stringify(body);
             expect(encoded).not.toContain(subjectHash);
             expect(encoded).not.toContain(observationHash);

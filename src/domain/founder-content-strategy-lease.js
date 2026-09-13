@@ -81,8 +81,9 @@ function findForbiddenKeys(value, path = 'input', findings = []) {
 
 function pattern(value) {
   return text(value, 120)
+    .normalize('NFKC')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
 }
 
@@ -153,6 +154,9 @@ function validateOwnHistory(input = {}, evaluated) {
   if (!HASH.test(digest)) errors.push('own_history.history_digest must be sha256');
   if (!Number.isInteger(postCount) || postCount < 0) errors.push('own_history.post_count must be a non-negative integer');
   if (postCount === 0 && lastPublished) errors.push('own_history.last_published_at cannot exist when post_count is zero');
+  if (Number.isInteger(postCount) && postCount > 0 && !lastPublished) {
+    errors.push('own_history.last_published_at is required when post_count is greater than zero');
+  }
   if (Number.isInteger(postCount) && postCount >= 0 && recentPatternSignatures.length > postCount) {
     errors.push('own_history.recent_pattern_signatures cannot exceed post_count');
   }
