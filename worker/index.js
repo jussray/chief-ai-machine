@@ -4,14 +4,28 @@ import { handleChiefFounderContentProposal } from './chief-founder-content-propo
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
+  const bakedReleaseSha = typeof BUILD_RELEASE_SHA === 'string'
+    && BUILD_RELEASE_SHA.trim()
+    && BUILD_RELEASE_SHA.trim() !== 'unknown'
+    ? BUILD_RELEASE_SHA.trim()
+    : null;
+
   const candidates = [
-    env?.RELEASE_SHA,
-    env?.GITHUB_SHA,
+    bakedReleaseSha,
     env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.RELEASE_SHA,
   ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
+}
+
+function getProviderVersionMetadata(env) {
+  const metadata = env?.CF_VERSION_METADATA;
+  return {
+    version_id: typeof metadata?.id === 'string' && metadata.id.trim() ? metadata.id.trim() : null,
+    version_tag: typeof metadata?.tag === 'string' && metadata.tag.trim() ? metadata.tag.trim() : null,
+  };
 }
 
 // Chief AI Worker entry point.
@@ -25,7 +39,11 @@ export default {
 
     if (url.pathname === '/version') {
       return Response.json(
-        { ok: true, sha: getReleaseSha(env) },
+        {
+          ok: true,
+          sha: getReleaseSha(env),
+          ...getProviderVersionMetadata(env),
+        },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }

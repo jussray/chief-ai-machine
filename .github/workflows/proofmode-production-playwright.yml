@@ -17,6 +17,7 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+  CLOUDFLARE_RUNTIME_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
 
 jobs:
   verify:
@@ -43,81 +44,18 @@ jobs:
           node-version: "24"
           cache: npm
 
-      - name: Wait for exact-head Cloudflare production build
-        shell: bash
+      - name: Verify provider-issued production runtime identity
+        id: runtime-identity
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for attempt in {1..90}; do
-            checks="$(curl --fail --silent --show-error \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "90"
+        run: node scripts/verify-cloudflare-runtime-identity.mjs
 
-            state="$(printf '%s' "$checks" | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                try {
-                  const data = JSON.parse(raw);
-                  const runs = (data.check_runs || []).filter((run) => run.name === "Workers Builds: chief-ai");
-                  if (runs.some((run) => run.status === "completed" && run.conclusion === "success")) {
-                    console.log("success");
-                    return;
-                  }
-                  if (runs.some((run) => run.status === "completed" && run.conclusion && run.conclusion !== "success")) {
-                    console.log("failure");
-                    return;
-                  }
-                  console.log("pending");
-                } catch {
-                  console.log("pending");
-                }
-              });
-            ')"
-
-            if [ "$state" = "success" ]; then
-              printf 'Cloudflare production build is green for %s\n' "$EXPECTED_HEAD_SHA"
-              break
-            fi
-            if [ "$state" = "failure" ]; then
-              printf 'Cloudflare production build failed for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
-            fi
-            if [ "$attempt" -eq 90 ]; then
-              printf 'Cloudflare production build did not complete for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
-            fi
-            sleep 2
-          done
-
-      - name: Wait for production runtime to serve exact head
+      - name: Preserve production provider block classification
+        if: failure() && steps.runtime-identity.outcome == 'failure'
         shell: bash
         run: |
-          for attempt in {1..90}; do
-            body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
-            actual="$(printf '%s' "$body" | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                try {
-                  console.log(JSON.parse(raw).sha || "");
-                } catch {
-                  console.log("");
-                }
-              });
-            ')"
-            if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
-              printf 'Production runtime is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
-              exit 0
-            fi
-            if [ "$attempt" -eq 90 ]; then
-              printf 'Production runtime never served expected head %s; last observed %s\n' "$EXPECTED_HEAD_SHA" "$actual" >&2
-              exit 1
-            fi
-            sleep 2
-          done
+          printf '%s\n' 'BLOCKED_PROVIDER_RUNTIME: production runtime did not prove the provider Version ID attached to this exact main head. Do not substitute preview evidence for production outcome.'
 
       - name: Install locked application dependencies
         run: npm ci
