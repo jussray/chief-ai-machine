@@ -53,10 +53,11 @@ function extractProviderIdentity(data) {
   const summary = String(run.output?.summary || '');
   const versionId = summary.match(/Version ID:\s*([A-Za-z0-9-]+)/)?.[1] || null;
   const previewUrl = summary.match(/Preview URL:\s*(https:\/\/\S+)/)?.[1] || null;
+  const previewAliasUrl = summary.match(/Preview Alias URL:\s*(https:\/\/\S+)/)?.[1] || null;
   if (!versionId) {
     throw new Error(`Successful ${checkName} check did not expose a provider Version ID.`);
   }
-  return { versionId, previewUrl };
+  return { versionId, previewUrl, previewAliasUrl };
 }
 
 let providerIdentity = null;
@@ -74,18 +75,26 @@ if (!providerIdentity) {
   fail(`No successful ${checkName} provider check with Version ID found for exact head ${expectedHeadSha}.`);
 }
 
-const runtimeBaseUrl = explicitBaseUrl || providerIdentity.previewUrl;
-if (!runtimeBaseUrl) {
+const candidateBaseUrls = explicitBaseUrl
+  ? [explicitBaseUrl]
+  : [providerIdentity.previewAliasUrl, providerIdentity.previewUrl]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .filter((value, index, values) => values.indexOf(value) === index);
+
+if (candidateBaseUrls.length === 0) {
   fail(`No runtime URL is available for provider Version ID ${providerIdentity.versionId}.`);
 }
 
-let parsedRuntimeUrl;
-try {
-  parsedRuntimeUrl = new URL(runtimeBaseUrl);
-} catch {
-  fail('Cloudflare runtime URL is invalid.');
-}
-if (parsedRuntimeUrl.protocol !== 'https:') fail('Cloudflare runtime proof requires HTTPS.');
+const runtimeCandidates = candidateBaseUrls.map((runtimeBaseUrl) => {
+  let parsed;
+  try {
+    parsed = new URL(runtimeBaseUrl);
+  } catch {
+    fail('Cloudflare runtime URL is invalid.');
+  }
+  if (parsed.protocol !== 'https:') fail('Cloudflare runtime proof requires HTTPS.');
+  return parsed;
+});
 
 const headers = { Accept: 'application/json' };
 if (accessClientId && accessClientSecret) {
@@ -93,49 +102,60 @@ if (accessClientId && accessClientSecret) {
   headers['CF-Access-Client-Secret'] = accessClientSecret;
 }
 
-let lastStatus = 0;
-let lastObservedVersionId = null;
-let lastRedirectHost = null;
+const observations = new Map();
 for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-  try {
-    const response = await fetch(new URL('/version', parsedRuntimeUrl), {
-      headers,
-      redirect: 'manual',
-    });
-    lastStatus = response.status;
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (location) {
-        try { lastRedirectHost = new URL(location, parsedRuntimeUrl).host; } catch { lastRedirectHost = null; }
-      }
-    } else {
-      const body = await response.text();
-      try {
-        const parsed = JSON.parse(body);
-        lastObservedVersionId = typeof parsed.version_id === 'string' ? parsed.version_id : null;
-      } catch {
-        lastObservedVersionId = null;
-      }
-      if (response.status === 200 && lastObservedVersionId === providerIdentity.versionId) {
-        console.log(`Cloudflare runtime identity verified for exact head ${expectedHeadSha}.`);
-        console.log(`Provider Version ID: ${providerIdentity.versionId}`);
-        console.log(`Runtime: ${parsedRuntimeUrl.origin}`);
-        if (process.env.GITHUB_ENV) {
-          await appendFile(process.env.GITHUB_ENV, `CLOUDFLARE_RUNTIME_BASE_URL=${parsedRuntimeUrl.origin}\n`, 'utf8');
-          await appendFile(process.env.GITHUB_ENV, `EXPECTED_CLOUDFLARE_VERSION_ID=${providerIdentity.versionId}\n`, 'utf8');
+  for (const parsedRuntimeUrl of runtimeCandidates) {
+    const observation = observations.get(parsedRuntimeUrl.origin) || {
+      status: 0,
+      versionId: null,
+      redirectHost: null,
+    };
+    try {
+      const response = await fetch(new URL('/version', parsedRuntimeUrl), {
+        headers,
+        redirect: 'manual',
+      });
+      observation.status = response.status;
+      observation.redirectHost = null;
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (location) {
+          try { observation.redirectHost = new URL(location, parsedRuntimeUrl).host; } catch { observation.redirectHost = null; }
         }
-        process.exit(0);
+      } else {
+        const body = await response.text();
+        try {
+          const parsed = JSON.parse(body);
+          observation.versionId = typeof parsed.version_id === 'string' ? parsed.version_id : null;
+        } catch {
+          observation.versionId = null;
+        }
+        if (response.status === 200 && observation.versionId === providerIdentity.versionId) {
+          console.log(`Cloudflare runtime identity verified for exact head ${expectedHeadSha}.`);
+          console.log(`Provider Version ID: ${providerIdentity.versionId}`);
+          console.log(`Runtime: ${parsedRuntimeUrl.origin}`);
+          if (process.env.GITHUB_ENV) {
+            await appendFile(process.env.GITHUB_ENV, `CLOUDFLARE_RUNTIME_BASE_URL=${parsedRuntimeUrl.origin}\n`, 'utf8');
+            await appendFile(process.env.GITHUB_ENV, `EXPECTED_CLOUDFLARE_VERSION_ID=${providerIdentity.versionId}\n`, 'utf8');
+          }
+          process.exit(0);
+        }
       }
+    } catch {
+      // Retry boundedly; the final receipt below remains explicit.
     }
-  } catch {
-    // Retry boundedly; the final receipt below remains explicit.
+    observations.set(parsedRuntimeUrl.origin, observation);
   }
   if (attempt < maxAttempts) await sleep(sleepMs);
 }
 
 console.error(`Cloudflare runtime identity did not match provider Version ID for exact head ${expectedHeadSha}.`);
 console.error(`Expected provider Version ID: ${providerIdentity.versionId}`);
-console.error(`Observed provider Version ID: ${lastObservedVersionId || 'missing'}`);
-console.error(`Observed HTTP status: ${lastStatus || 'unavailable'}`);
-if (lastRedirectHost) console.error(`Observed redirect host: ${lastRedirectHost}`);
+for (const candidate of runtimeCandidates) {
+  const observation = observations.get(candidate.origin) || {};
+  console.error(`Candidate runtime: ${candidate.origin}`);
+  console.error(`Observed provider Version ID: ${observation.versionId || 'missing'}`);
+  console.error(`Observed HTTP status: ${observation.status || 'unavailable'}`);
+  if (observation.redirectHost) console.error(`Observed redirect host: ${observation.redirectHost}`);
+}
 process.exit(1);
