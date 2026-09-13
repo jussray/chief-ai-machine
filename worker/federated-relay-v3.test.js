@@ -1,3 +1,5 @@
+/* global crypto */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleFederatedRelayV3 } from './federated-relay-v3.js';
 import {
@@ -216,6 +218,18 @@ describe('Chief federated relay v3 runtime', () => {
     const retryBody = await retry.json();
     expect(retryBody.status).toBe('duplicate');
     expect(canonicalizeRelayJsonV3(retryBody.replyEnvelope)).toBe(canonicalizeRelayJsonV3(firstBody.replyEnvelope));
+    expect(ledger.messages.size).toBe(1);
+
+    const staleRetry = await handleFederatedRelayV3(new Request('https://chief.example/api/federated-relay/v3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(root),
+    }), env, 'e'.repeat(40));
+    expect(staleRetry.status).toBe(409);
+    await expect(staleRetry.json()).resolves.toMatchObject({
+      error: 'relay_target_identity_stale',
+      executionAuthorized: false,
+    });
     expect(ledger.messages.size).toBe(1);
   });
 
