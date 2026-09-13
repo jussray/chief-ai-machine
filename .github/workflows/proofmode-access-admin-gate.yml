@@ -49,7 +49,7 @@ jobs:
       - name: Verify provider-issued Cloudflare runtime identity through Access
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "60"
+          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "30"
         run: node scripts/verify-cloudflare-runtime-identity.mjs
 
       - name: Bind verified runtime to ProofMode test surface
