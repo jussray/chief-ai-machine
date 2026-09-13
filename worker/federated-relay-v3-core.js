@@ -1,5 +1,3 @@
-/* global atob, btoa, crypto, TextEncoder */
-
 export const FEDERATED_AGENT_RELAY_V3 = 'juss/federated-agent-relay@v3';
 
 const MEMBER_REPOSITORIES = Object.freeze({
