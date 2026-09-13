@@ -22,19 +22,23 @@ describe('Chief AI Worker version receipt', () => {
     );
   });
 
-  it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
+  it('bakes the Workers Builds commit SHA and branch before Wrangler bundles the Worker', () => {
     expect(wranglerConfig).toMatch(
       /"build":\s*\{\s*"command":\s*"node scripts\/bake-worker-release-sha\.mjs"/,
     );
     expect(releaseBakeScript).toContain('WORKERS_CI_COMMIT_SHA');
+    expect(releaseBakeScript).toContain('WORKERS_CI_BRANCH');
+    expect(releaseBakeScript).toContain('BUILD_RELEASE_SHA');
+    expect(releaseBakeScript).toContain('BUILD_RELEASE_BRANCH');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
-  it('returns the explicit release SHA without touching assets', async () => {
+  it('returns explicit release SHA and branch without touching assets', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
         RELEASE_SHA: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
+        FEDERATED_RELAY_BRANCH: 'feat/federated-relay-v3-1-20260913',
         ASSETS: {
           fetch: () => {
             throw new Error('version route should not fall through to assets');
@@ -48,10 +52,11 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
+      branch: 'feat/federated-relay-v3-1-20260913',
     });
   });
 
-  it('reports unknown instead of fabricating a release SHA', async () => {
+  it('reports unknown instead of fabricating release identity', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
@@ -66,6 +71,7 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: 'unknown',
+      branch: 'unknown',
     });
   });
 });
