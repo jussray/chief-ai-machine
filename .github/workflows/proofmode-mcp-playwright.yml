@@ -23,11 +23,6 @@ on:
         description: "Cloudflare Worker base URL to verify"
         required: true
         type: string
-      verify_federated_relay_v3:
-        description: "Run the protected FCR → Chief → FCR signed durable v3 roundtrip"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -43,13 +38,6 @@ env:
   CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
   CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-  FEDERATED_RELAY_V3_LIVE_REQUIRED: ${{ github.event_name == 'pull_request' && 'true' || (inputs.verify_federated_relay_v3 && 'true' || 'false') }}
-  FCR_FEDERATED_RELAY_BASE_URL: ${{ vars.FCR_FEDERATED_RELAY_BASE_URL || 'https://api.foundercontrolroom.org' }}
-  FCR_RELAY_SUPABASE_URL: "https://oojzfmmywbvficgybaxd.supabase.co"
-  FCR_RELAY_SUPABASE_SECRET_KEY: ${{ secrets.FCR_RELAY_SUPABASE_SECRET_KEY }}
-  FCR_FEDERATED_RELAY_PRIVATE_JWK: ${{ secrets.FCR_FEDERATED_RELAY_PRIVATE_JWK }}
-  FCR_FEDERATED_RELAY_KEY_ID: ${{ vars.FCR_FEDERATED_RELAY_KEY_ID }}
-  FCR_FEDERATED_RELAY_KEY_VALID_FROM: ${{ vars.FCR_FEDERATED_RELAY_KEY_VALID_FROM }}
 
 jobs:
   verify:
@@ -99,23 +87,12 @@ jobs:
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Classify protected relay v3 proof readiness
+      - name: Preserve federated relay v3 proof ownership
         shell: bash
         run: |
-          if [ "$FEDERATED_RELAY_V3_LIVE_REQUIRED" != 'true' ]; then
-            printf '%s\n' 'Federated relay v3 live roundtrip is not requested in this run; source/unit proof remains separate.'
-            exit 0
-          fi
-          missing=()
-          for name in FCR_RELAY_SUPABASE_SECRET_KEY FCR_FEDERATED_RELAY_PRIVATE_JWK FCR_FEDERATED_RELAY_KEY_ID; do
-            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
-          done
-          if [ "${#missing[@]}" -ne 0 ]; then
-            printf 'BLOCKED_RELAY_SECRET_CONFIG: missing protected inputs: %s\n' "${missing[*]}" >&2
-            exit 1
-          fi
+          printf '%s\n' 'Federated relay v3 end-to-end proof is FCR-owned. Chief CI must not receive or use an FCR private signing key. This workflow proves Chief runtime identity plus Chief-owned live surfaces only; merge still requires the separate FCR-produced v3 roundtrip receipt.'
 
-      - name: Run live ProofMode and federated relay Playwright proof
+      - name: Run live ProofMode and legacy relay Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -132,7 +109,8 @@ jobs:
 
           export default defineConfig({
             testDir: './e2e',
-            testMatch: /(proofmode-mcp|federated-relay|federated-relay-v3)\.pw\.mjs$/,
+            testMatch: /(proofmode-mcp|federated-relay)\.pw\.mjs$/,
+            testIgnore: /federated-relay-v3\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,
