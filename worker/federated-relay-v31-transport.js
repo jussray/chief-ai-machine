@@ -12,7 +12,6 @@ const RECEIPT_CONTRACT = 'juss/federated-agent-relay-receipt@v3.1';
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
 const DELIVERY_ACK_CONTRACT = 'juss/federated-agent-relay-delivery-ack@v3.1';
 const SHA40 = /^[0-9a-f]{40}$/;
-const SHA256 = /^[0-9a-f]{64}$/;
 const KEY_ID = /^[A-Za-z0-9._:-]{3,200}$/;
 const BASE64URL_64 = /^[A-Za-z0-9_-]{86}$/;
 
