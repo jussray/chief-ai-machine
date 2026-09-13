@@ -14,9 +14,13 @@ const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const KEY_ID = /^[A-Za-z0-9:._-]{3,200}$/;
 const PROOF_COOKIE = /^[A-Za-z0-9:._-]{8,300}$/;
 const FORBIDDEN_AUTHORITY_KEYS = new Set([
-  'approval', 'approved', 'authorized', 'authority', 'executionauthorized',
-  'authoritytransferred', 'approvalcarriedforward', 'mergeauthority',
+  'approval', 'approved', 'authorized', 'authorization', 'authority',
+  'executionauthorized', 'authoritytransferred', 'approvalcarriedforward',
+  'mergeauthority', 'mergeapproved', 'founderapproval', 'executionauthority',
   'deployauthority', 'providerwriteauthorized', 'mutationauthorized',
+]);
+const FORBIDDEN_AUTHORITY_KEY_FRAGMENTS = Object.freeze([
+  'approval', 'approved', 'authorized', 'authorization', 'authority',
 ]);
 const TOP_LEVEL_FIELDS = new Set([
   'contract', 'messageId', 'replyToMessageId', 'ordering', 'source', 'target',
@@ -187,7 +191,11 @@ function rejectAuthorityFields(value, depth = 0) {
   if (Array.isArray(value)) return value.forEach((item) => rejectAuthorityFields(item, depth + 1));
   if (!isRecord(value)) return;
   for (const [key, child] of Object.entries(value)) {
-    if (FORBIDDEN_AUTHORITY_KEYS.has(key.toLowerCase().replace(/[^a-z]/g, ''))) throw new FederatedRelayV3Error('relay_authority_smuggling_rejected');
+    const normalizedKey = key.toLowerCase().replace(/[^a-z]/g, '');
+    if (
+      FORBIDDEN_AUTHORITY_KEYS.has(normalizedKey)
+      || FORBIDDEN_AUTHORITY_KEY_FRAGMENTS.some((fragment) => normalizedKey.includes(fragment))
+    ) throw new FederatedRelayV3Error('relay_authority_smuggling_rejected');
     rejectAuthorityFields(child, depth + 1);
   }
 }
