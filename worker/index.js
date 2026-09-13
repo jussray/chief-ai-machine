@@ -1,7 +1,6 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleFederatedRelay } from './federated-relay.js';
 import { handleFederatedRelayV3 } from './federated-relay-v3.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
@@ -24,10 +23,10 @@ function getReleaseSha(env) {
 
 function getProviderVersionMetadata(env) {
   const metadata = env?.CF_VERSION_METADATA;
-  return {
-    version_id: typeof metadata?.id === 'string' && metadata.id.trim() ? metadata.id.trim() : null,
-    version_tag: typeof metadata?.tag === 'string' && metadata.tag.trim() ? metadata.tag.trim() : null,
-  };
+  const result = {};
+  if (typeof metadata?.id === 'string' && metadata.id.trim()) result.version_id = metadata.id.trim();
+  if (typeof metadata?.tag === 'string' && metadata.tag.trim()) result.version_tag = metadata.tag.trim();
+  return result;
 }
 
 // Chief AI Worker entry point.
@@ -67,7 +66,16 @@ export default {
     }
 
     if (url.pathname === '/api/federated-relay') {
-      return handleFederatedRelay(request, getReleaseSha(env));
+      return Response.json(
+        {
+          error: 'relay_v1_retired',
+          successor: '/api/federated-relay/v3',
+          executionAuthorized: false,
+          authorityTransferred: false,
+          approvalCarriedForward: false,
+        },
+        { status: 410, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } },
+      );
     }
 
     if (url.pathname.startsWith('/api/')) {
