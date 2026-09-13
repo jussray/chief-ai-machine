@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from './capability-plan.js';
 import { buildFounderContentProposal } from './founder-content-brain.js';
 import {
   bindStrategyLeaseToProposal,
@@ -28,7 +28,7 @@ function deepFreeze(value, seen = new WeakSet()) {
 }
 
 export function founderContentDraftFingerprint(value) {
-  return createHash('sha256').update(normalizedDraft(value)).digest('hex');
+  return sha256Hex(normalizedDraft(value));
 }
 
 function recentDraftFingerprints(strategyInput) {
