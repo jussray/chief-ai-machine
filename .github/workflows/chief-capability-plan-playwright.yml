@@ -309,7 +309,7 @@ jobs:
               visual_direction: {
                 creative_mode: 'cinematic-proof',
                 form: 'short-video-9x16',
-                emotional_intent: ['clarity'],
+                emotional_intent: ['revelation'],
                 visual_hook: 'A proof signal reaches a boundary and refuses to cross without a receipt.',
                 scene_concept: 'A restrained system map shows one verified signal stop before an unverified runtime edge.',
                 motion_language: 'Slow approach, firm stop, quiet pull-back.',

@@ -54,7 +54,7 @@ const proposalInput = {
   draft_text: 'I tightened a runtime boundary so stale strategy cannot silently authorize the next action.',
   public_claims: [{
     claim_id: 'runtime-boundary',
-    text: 'The founder-content runtime now uses the strategy-aware package at this source version.',
+    text: 'I built the founder-content runtime integration at this exact source version.',
     truth_state: 'verified',
     public_safe: true,
     evidence_ref: EVIDENCE_REF,
@@ -97,7 +97,7 @@ const proposalInput = {
 const visualDirection = {
   creative_mode: 'cinematic-proof',
   form: 'short-video-9x16',
-  emotional_intent: ['clarity'],
+  emotional_intent: ['revelation'],
   visual_hook: 'A proof signal reaches a boundary and refuses to cross without a receipt.',
   scene_concept: 'A restrained system map shows one verified signal stop before an unverified runtime edge.',
   motion_language: 'Slow approach, firm stop, quiet pull-back.',
