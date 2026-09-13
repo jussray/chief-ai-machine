@@ -91,12 +91,9 @@ function exactFcrOrigin(request) {
   relayAssert(allowed, 'relay_source_origin_not_allowed', 401);
   return parsed.origin;
 }
-async function bootstrapFcrKey(request, envelope, env, fetchImpl) {
-  relayAssert(envelope?.source?.member === 'founder-control-room'
-    && envelope.source.repository === FCR_REPOSITORY
-    && typeof envelope.source.headSha === 'string'
-    && SHA40.test(envelope.source.headSha)
-    && typeof envelope.signature?.keyId === 'string', 'relay_source_bootstrap_invalid', 401);
+export async function bootstrapFcrPublicKeyV31(request, expectedSha, keyId, env, fetchImpl = fetch) {
+  relayAssert(typeof expectedSha === 'string' && SHA40.test(expectedSha)
+    && typeof keyId === 'string' && keyId.length > 0, 'relay_source_bootstrap_invalid', 401);
   const origin = exactFcrOrigin(request);
 
   const versionResponse = await fetchImpl(`${origin}/version`, {
@@ -107,16 +104,12 @@ async function bootstrapFcrKey(request, envelope, env, fetchImpl) {
   relayAssert(versionResponse.ok, 'relay_source_runtime_identity_unavailable', 503);
   const version = await versionResponse.json();
   const observedSha = String(version?.gitSha || version?.sha || '').trim().toLowerCase();
-  relayAssert(observedSha === envelope.source.headSha, 'relay_source_runtime_identity_stale', 409);
+  relayAssert(observedSha === expectedSha, 'relay_source_runtime_identity_stale', 409);
 
   const keyResponse = await fetchImpl(`${origin}/api/federated-relay/v3`, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contract: KEY_QUERY_CONTRACT,
-      member: 'founder-control-room',
-      keyId: envelope.signature.keyId,
-    }),
+    body: JSON.stringify({ contract: KEY_QUERY_CONTRACT, member: 'founder-control-room', keyId }),
     redirect: 'manual',
   });
   relayAssert(keyResponse.ok, 'relay_source_key_query_failed', 503);
@@ -128,7 +121,7 @@ async function bootstrapFcrKey(request, envelope, env, fetchImpl) {
   'relay_source_key_query_invalid', 503);
   const key = keyResult.key;
   relayAssert(key?.member === 'founder-control-room'
-    && key.keyId === envelope.signature.keyId
+    && key.keyId === keyId
     && key.publicKeyJwk?.kty === 'OKP'
     && key.publicKeyJwk?.crv === 'Ed25519'
     && typeof key.publicKeyJwk?.x === 'string'
@@ -149,6 +142,13 @@ async function bootstrapFcrKey(request, envelope, env, fetchImpl) {
     }),
   }, fetchImpl);
   return key;
+}
+async function bootstrapFcrEnvelopeKey(request, envelope, env, fetchImpl) {
+  relayAssert(envelope?.source?.member === 'founder-control-room'
+    && envelope.source.repository === FCR_REPOSITORY
+    && typeof envelope.source.headSha === 'string'
+    && typeof envelope.signature?.keyId === 'string', 'relay_source_bootstrap_invalid', 401);
+  return bootstrapFcrPublicKeyV31(request, envelope.source.headSha, envelope.signature.keyId, env, fetchImpl);
 }
 async function loadOutbox(env, messageId, fetchImpl) {
   const select = [
@@ -267,11 +267,18 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
 
     if (body?.contract === DELIVERY_ACK_CONTRACT) {
       relayAssert(typeof body.messageId === 'string' && isRecord(body.receipt) && typeof body.receipt.signature?.keyId === 'string', 'relay_delivery_ack_invalid');
-      const [outbox, receiptKey] = await Promise.all([
-        loadOutbox(env, body.messageId, fetchImpl),
-        loadRelayKey(env, 'founder-control-room', body.receipt.signature.keyId, fetchImpl),
-      ]);
+      const outbox = await loadOutbox(env, body.messageId, fetchImpl);
       assertReceiptBindsOutbox(body.receipt, outbox);
+      let receiptKey = await maybeLoadRelayKey(env, 'founder-control-room', body.receipt.signature.keyId, fetchImpl);
+      if (!receiptKey) {
+        receiptKey = await bootstrapFcrPublicKeyV31(
+          request,
+          outbox.target_head_sha,
+          body.receipt.signature.keyId,
+          env,
+          fetchImpl,
+        );
+      }
       return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [receiptKey]), fetchImpl, raw);
     }
 
@@ -285,7 +292,7 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
       relayAssert(typeof body.source?.member === 'string' && typeof body.signature?.keyId === 'string', 'relay_signature_invalid');
       let sourceKey = await maybeLoadRelayKey(env, body.source.member, body.signature.keyId, fetchImpl);
       if (!sourceKey && body.source.member === 'founder-control-room') {
-        sourceKey = await bootstrapFcrKey(request, body, env, fetchImpl);
+        sourceKey = await bootstrapFcrEnvelopeKey(request, body, env, fetchImpl);
       }
       relayAssert(sourceKey, 'relay_key_unknown', 401);
       await verifySourceCommitReachabilityV31(body.source, fetchImpl);
