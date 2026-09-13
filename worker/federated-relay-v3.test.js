@@ -1,5 +1,3 @@
-/* global crypto */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleFederatedRelayV3 } from './federated-relay-v3.js';
 import {
