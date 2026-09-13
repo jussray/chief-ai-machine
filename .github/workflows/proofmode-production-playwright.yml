@@ -45,10 +45,17 @@ jobs:
           cache: npm
 
       - name: Verify provider-issued production runtime identity
+        id: runtime-identity
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "90"
         run: node scripts/verify-cloudflare-runtime-identity.mjs
+
+      - name: Preserve production provider block classification
+        if: failure() && steps.runtime-identity.outcome == 'failure'
+        shell: bash
+        run: |
+          printf '%s\n' 'BLOCKED_PROVIDER_RUNTIME: production runtime did not prove the provider Version ID attached to this exact main head. Do not substitute preview evidence for production outcome.'
 
       - name: Install locked application dependencies
         run: npm ci
