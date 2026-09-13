@@ -17,6 +17,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
