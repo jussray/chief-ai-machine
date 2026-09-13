@@ -15,7 +15,6 @@ on:
       - "scripts/verify-cloudflare-runtime-identity.mjs"
       - "e2e/proofmode-mcp.pw.mjs"
       - "e2e/federated-relay.pw.mjs"
-      - "e2e/federated-relay-v3.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
@@ -110,7 +109,6 @@ jobs:
           export default defineConfig({
             testDir: './e2e',
             testMatch: /(proofmode-mcp|federated-relay)\.pw\.mjs$/,
-            testIgnore: /federated-relay-v3\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,
