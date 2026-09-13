@@ -3,6 +3,8 @@ name: Founder Control Room / Chief AI Pair Contract
 on:
   pull_request:
     paths:
+      - '.control-room/necessary-fix-policy.json'
+      - 'AGENTS_FOUNDER_INTELLIGENCE.md'
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
@@ -13,6 +15,8 @@ on:
   push:
     branches: [main]
     paths:
+      - '.control-room/necessary-fix-policy.json'
+      - 'AGENTS_FOUNDER_INTELLIGENCE.md'
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
@@ -100,6 +104,7 @@ jobs:
         working-directory: chief-ai-machine
         env:
           PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
+          PAIR_NECESSARY_FIX_POLICY_PATH: ../founder-control-room/src/lib/standingFounderPolicy.ts
           PAIR_CROSS_REPO_REQUIRED: 'true'
           PAIR_SELECTED_REF: ${{ steps.pair-ref.outputs.ref }}
           PAIR_SELECTED_SHA: ${{ steps.pair-ref.outputs.sha }}
