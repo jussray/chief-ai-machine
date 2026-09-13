@@ -3,6 +3,7 @@ import { handleFederatedRelayV31Transport, readBoundedRelayBodyV31 } from './fed
 
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
 const DELIVERY_ACK_CONTRACT = 'juss/federated-agent-relay-delivery-ack@v3.1';
+const REPLY_REFRESH_CONTRACT = 'juss/federated-agent-relay-reply-refresh@v3.1';
 
 function relayAssert(condition, code, status = 400) {
   if (!condition) throw new RelayV31Error(code, status);
@@ -119,6 +120,12 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
       ]);
       assertReceiptBindsOutbox(body.receipt, outbox);
       return handleFederatedRelayV31Transport(request, mergeRegistry(env, [receiptKey]), fetchImpl, raw);
+    }
+
+    if (body?.contract === REPLY_REFRESH_CONTRACT) {
+      relayAssert(typeof body.signature?.keyId === 'string', 'relay_reply_refresh_signature_invalid', 401);
+      const refreshKey = await loadRelayKey(env, 'founder-control-room', body.signature.keyId, fetchImpl);
+      return handleFederatedRelayV31Transport(request, mergeRegistry(env, [refreshKey]), fetchImpl, raw);
     }
 
     if (body?.contract === 'juss/federated-agent-relay@v3.1') {
