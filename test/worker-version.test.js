@@ -14,6 +14,10 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
+const workerSource = readFileSync(
+  new URL('../worker/index.js', import.meta.url),
+  'utf8',
+);
 
 describe('Chief AI Worker version receipt', () => {
   it('routes runtime endpoints through the Worker before asset fallback', () => {
@@ -30,7 +34,21 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
-  it('returns the explicit release SHA without touching assets', async () => {
+  it('prioritizes provider-owned exact build identity over mutable release variables', () => {
+    const workersCommitIndex = releaseBakeScript.indexOf('process.env.WORKERS_CI_COMMIT_SHA');
+    const githubCommitIndex = releaseBakeScript.indexOf('process.env.GITHUB_SHA');
+    const releaseVarIndex = releaseBakeScript.indexOf('process.env.RELEASE_SHA');
+    expect(workersCommitIndex).toBeGreaterThanOrEqual(0);
+    expect(githubCommitIndex).toBeGreaterThan(workersCommitIndex);
+    expect(releaseVarIndex).toBeGreaterThan(githubCommitIndex);
+
+    const bakedRuntimeIndex = workerSource.indexOf('bakedReleaseSha,');
+    const runtimeReleaseVarIndex = workerSource.indexOf('env?.RELEASE_SHA');
+    expect(bakedRuntimeIndex).toBeGreaterThanOrEqual(0);
+    expect(runtimeReleaseVarIndex).toBeGreaterThan(bakedRuntimeIndex);
+  });
+
+  it('returns the explicit release SHA without touching assets when no baked identity exists', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
