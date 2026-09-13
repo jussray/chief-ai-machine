@@ -14,16 +14,16 @@ permissions:
   contents: read
   checks: read
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-
 concurrency:
   group: proofmode-access-admin-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
+  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
 
 jobs:
   verify:
@@ -46,82 +46,15 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
-      - name: Resolve immutable Cloudflare candidate
-        shell: bash
+      - name: Verify provider-issued Cloudflare runtime identity through Access
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          if [ -n "$MANUAL_BASE_URL" ]; then
-            printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
-            exit 0
-          fi
+          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "60"
+        run: node scripts/verify-cloudflare-runtime-identity.mjs
 
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
-          for attempt in {1..60}; do
-            checks="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$api" || true)"
-            preview="$(printf '%s' "$checks" | node -e '
-              let input = "";
-              process.stdin.setEncoding("utf8");
-              process.stdin.on("data", chunk => input += chunk);
-              process.stdin.on("end", () => {
-                try {
-                  const data = JSON.parse(input || "{}");
-                  const run = data.check_runs?.find(item => item.name === "Workers Builds: chief-ai" && item.status === "completed" && item.conclusion === "success");
-                  const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
-                  if (match) process.stdout.write(match[1]);
-                } catch {}
-              });
-            ')"
-            if [ -n "$preview" ]; then
-              printf 'PROOFMODE_BASE_URL=%s\n' "$preview" >> "$GITHUB_ENV"
-              printf 'Resolved immutable candidate: %s\n' "$preview"
-              exit 0
-            fi
-            sleep 2
-          done
-          printf 'No successful immutable Cloudflare candidate found for %s\n' "$EXPECTED_HEAD_SHA" >&2
-          exit 1
-
-      - name: Require complete Access service-token pair when Access is configured
+      - name: Bind verified runtime to ProofMode test surface
         shell: bash
-        run: |
-          set -euo pipefail
-          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
-            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
-            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
-            exit 1
-          fi
-
-      - name: Verify immutable candidate serves exact head
-        shell: bash
-        run: |
-          set -euo pipefail
-          access_headers=()
-          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
-            access_headers+=(
-              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"
-              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"
-            )
-          fi
-
-          body="$RUNNER_TEMP/proofmode-access-version.json"
-          for attempt in {1..15}; do
-            status="$(curl --silent --show-error "${access_headers[@]}" --output "$body" --write-out '%{http_code}' "$PROOFMODE_BASE_URL/version" || true)"
-            actual="$(node -e 'const fs=require("fs"); try { const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(j.sha||""); } catch {}' "$body")"
-            if [ "$status" = "200" ] && [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
-              printf 'Access-authorized immutable candidate serves exact head %s\n' "$EXPECTED_HEAD_SHA"
-              exit 0
-            fi
-            sleep 2
-          done
-          printf 'Candidate did not prove exact-head Access-authorized readback for %s\n' "$EXPECTED_HEAD_SHA" >&2
-          exit 1
+        run: printf 'PROOFMODE_BASE_URL=%s\n' "$CLOUDFLARE_RUNTIME_BASE_URL" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
