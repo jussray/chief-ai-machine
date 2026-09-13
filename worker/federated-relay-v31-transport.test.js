@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalizeRelayJcsV31, sha256HexV31 } from './federated-relay-v31.js';
+import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
 import { handleFederatedRelayV31Transport } from './federated-relay-v31-transport.js';
 
 function b64url(bytes) {
@@ -87,6 +88,33 @@ function fakeProvider(state) {
     if (url.includes('/rest/v1/federated_relay_messages?')) {
       return Response.json(state.storedRoot ? [state.storedRoot] : []);
     }
+    if (url.includes('/rest/v1/federated_relay_v31_public_keys?')) {
+      const key = state.fcrPublicKey;
+      return Response.json(key ? [{
+        member: 'founder-control-room', key_id: state.fcrKeyId, public_key_jwk: key,
+        state: 'active', valid_from: state.validFrom, valid_until: state.validUntil, revoked_at: null,
+      }] : []);
+    }
+    if (url.includes('/rest/v1/federated_relay_outbox?')) {
+      const reply = state.replyEnvelope;
+      return Response.json(reply ? [{
+        message_id: reply.messageId,
+        source_member: reply.source.member,
+        source_repository: reply.source.repository,
+        source_branch: reply.source.branch,
+        source_head_sha: reply.source.headSha,
+        source_key_id: reply.signature.keyId,
+        target_member: reply.target.member,
+        target_repository: reply.target.repository,
+        target_branch: reply.target.branch,
+        target_head_sha: reply.target.headSha,
+        semantic_fingerprint: state.replySemanticFingerprint,
+        delivery_fingerprint: state.replyDeliveryFingerprint,
+        predecessor_proof_cookie: reply.predecessorProofCookie,
+        successor_proof_cookie: state.replySuccessorProofCookie,
+        delivery_status: 'signed',
+      }] : []);
+    }
     if (url.endsWith('/rest/v1/rpc/federated_relay_accept_v31')) {
       const args = JSON.parse(init.body);
       state.storedRoot = {
@@ -112,6 +140,9 @@ function fakeProvider(state) {
     if (url.endsWith('/rest/v1/rpc/federated_relay_finalize_reply_v31')) {
       const args = JSON.parse(init.body);
       state.replyEnvelope = args.p_envelope;
+      state.replySemanticFingerprint = args.p_semantic_fingerprint;
+      state.replyDeliveryFingerprint = args.p_delivery_fingerprint;
+      state.replySuccessorProofCookie = args.p_successor_proof_cookie;
       return new Response(null, { status: 204 });
     }
     if (url.endsWith('/rest/v1/rpc/federated_relay_resolve_reply_v31')) {
@@ -120,6 +151,51 @@ function fakeProvider(state) {
     }
     throw new Error(`unexpected fetch: ${url}`);
   };
+}
+
+async function acceptedReplyFixture() {
+  const fx = await fixture();
+  const state = {
+    fcrSha: fx.fcrSha,
+    chiefSha: fx.chiefSha,
+    fcrKeyId: fx.fcrKeyId,
+    fcrPublicKey: fx.fcr.publicJwk,
+    validFrom: fx.validFrom,
+    validUntil: fx.validUntil,
+    storedRoot: null,
+    replyEnvelope: null,
+    resolved: null,
+  };
+  const fetchImpl = fakeProvider(state);
+  const rootResponse = await handleFederatedRelayV31Transport(new Request('https://chief.test/api/federated-relay', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: canonicalizeRelayJcsV31(fx.root),
+  }), fx.env, fetchImpl);
+  const rootBody = await rootResponse.json();
+  const reply = rootBody.replyEnvelope;
+  const acceptedAt = new Date().toISOString();
+  const unsignedReceipt = {
+    contract: 'juss/federated-agent-relay-receipt@v3.1',
+    receiptId: crypto.randomUUID(),
+    delivery: 'accepted',
+    messageId: reply.messageId,
+    semanticFingerprint: state.replySemanticFingerprint,
+    deliveryFingerprint: state.replyDeliveryFingerprint,
+    predecessorProofCookie: reply.predecessorProofCookie,
+    successorProofCookie: state.replySuccessorProofCookie,
+    sourceHeadSha: reply.source.headSha,
+    targetObservedHeadSha: reply.target.headSha,
+    sourceCommitEvidence: { repository: reply.source.repository, branch: reply.source.branch, headSha: reply.source.headSha, state: 'reachable_at_acceptance', checkedAt: acceptedAt },
+    evidenceDigest: 'd'.repeat(64),
+    acceptedKey: { member: 'chief-ai-machine', keyId: fx.chiefKeyId, stateAtAcceptance: 'active', validFrom: fx.validFrom, validUntil: fx.validUntil },
+    acceptedAt,
+    executionAuthorized: false,
+    authorityTransferred: false,
+    approvalCarriedForward: false,
+    nextGate: 'test receipt',
+    receiver: { ...reply.target, keyId: fx.fcrKeyId },
+  };
+  const receipt = await signObject(unsignedReceipt, fx.fcr.privateKey, fx.fcrKeyId);
+  return { fx, state, fetchImpl, reply, receipt };
 }
 
 describe('federated relay v3.1 transport', () => {
@@ -136,6 +212,19 @@ describe('federated relay v3.1 transport', () => {
     expect(body.key.keyId).toBe(fx.chiefKeyId);
     expect(body.key.publicKeyJwk.x).toBe(fx.chief.publicJwk.x);
     expect(body.executionAuthorized).toBe(false);
+  });
+
+  it('rejects an oversized streaming body before runtime JSON buffering', async () => {
+    const fx = await fixture();
+    const oversized = `{"contract":"${'x'.repeat((512 * 1024) + 1)}"}`;
+    const response = await handleFederatedRelayV31Runtime(new Request('https://chief.test/api/federated-relay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: oversized,
+    }), fx.env, async () => { throw new Error('network not expected'); });
+    const body = await response.json();
+    expect(response.status).toBe(413);
+    expect(body.error).toBe('relay_envelope_too_large');
   });
 
   it('accepts a canonical FCR root and returns one durable signed Chief reply across exact retries', async () => {
@@ -169,53 +258,33 @@ describe('federated relay v3.1 transport', () => {
     expect(canonicalizeRelayJcsV31(secondBody.replyEnvelope)).toBe(firstReplyCanonical);
   });
 
-  it('resolves the Chief outbox only after a valid FCR-signed delivery receipt', async () => {
-    const fx = await fixture();
-    const state = { fcrSha: fx.fcrSha, chiefSha: fx.chiefSha, storedRoot: null, replyEnvelope: null, resolved: null };
-    const fetchImpl = fakeProvider(state);
-    const rootResponse = await handleFederatedRelayV31Transport(new Request('https://chief.test/api/federated-relay', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: canonicalizeRelayJcsV31(fx.root),
-    }), fx.env, fetchImpl);
-    const rootBody = await rootResponse.json();
-    const reply = rootBody.replyEnvelope;
-    const acceptedAt = new Date().toISOString();
-    const unsignedReceipt = {
-      contract: 'juss/federated-agent-relay-receipt@v3.1',
-      receiptId: crypto.randomUUID(),
-      delivery: 'accepted',
-      messageId: reply.messageId,
-      semanticFingerprint: 'a'.repeat(64),
-      deliveryFingerprint: 'b'.repeat(64),
-      predecessorProofCookie: reply.predecessorProofCookie,
-      successorProofCookie: `Q4R:v3.1:${'c'.repeat(64)}`,
-      sourceHeadSha: reply.source.headSha,
-      targetObservedHeadSha: reply.target.headSha,
-      sourceCommitEvidence: { repository: reply.source.repository, branch: reply.source.branch, headSha: reply.source.headSha, state: 'reachable_at_acceptance', checkedAt: acceptedAt },
-      evidenceDigest: 'd'.repeat(64),
-      acceptedKey: { member: 'chief-ai-machine', keyId: fx.chiefKeyId, stateAtAcceptance: 'active', validFrom: fx.validFrom, validUntil: fx.validUntil },
-      acceptedAt,
-      executionAuthorized: false,
-      authorityTransferred: false,
-      approvalCarriedForward: false,
-      nextGate: 'test receipt',
-      receiver: { ...reply.target, keyId: fx.fcrKeyId },
-    };
-    const receipt = await signObject(unsignedReceipt, fx.fcr.privateKey, fx.fcrKeyId);
-    const ack = {
+  it('persists delivery state only from the signed receipt', async () => {
+    const { fx, state, fetchImpl, reply, receipt } = await acceptedReplyFixture();
+    const tampered = {
       contract: 'juss/federated-agent-relay-delivery-ack@v3.1',
       messageId: reply.messageId,
-      delivery: 'accepted',
+      delivery: 'duplicate',
       receipt,
+      currentState: 'revoked',
+      supersededByMessageId: crypto.randomUUID(),
+    };
+    const rejected = await handleFederatedRelayV31Runtime(new Request('https://chief.test/api/federated-relay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tampered),
+    }), fx.env, fetchImpl);
+    expect(rejected.status).toBe(409);
+    expect(state.resolved).toBeNull();
+
+    const valid = {
+      ...tampered,
       currentState: 'accepted',
       supersededByMessageId: null,
     };
-    const ackResponse = await handleFederatedRelayV31Transport(new Request('https://chief.test/api/federated-relay', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ack),
+    const accepted = await handleFederatedRelayV31Runtime(new Request('https://chief.test/api/federated-relay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(valid),
     }), fx.env, fetchImpl);
-    const ackBody = await ackResponse.json();
-    expect(ackResponse.status).toBe(200);
-    expect(ackBody.resolved).toBe(true);
-    expect(state.resolved.p_message_id).toBe(reply.messageId);
+    expect(accepted.status).toBe(200);
     expect(state.resolved.p_delivery).toBe('accepted');
+    expect(state.resolved.p_current_state).toBe('accepted');
+    expect(state.resolved.p_superseded_by_message_id).toBeNull();
   });
 });
