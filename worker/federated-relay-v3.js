@@ -146,8 +146,6 @@ async function ensureChiefPublicKey(env) {
       },
     });
   } catch (error) {
-    // A simultaneous cold start may have inserted the same identity. Re-read
-    // and accept only an exact public-key match.
     const raced = await loadPublicKey(env, keyId);
     if (raced.member !== CHIEF_MEMBER || canonicalizeRelayJsonV3(raced.publicKeyJwk) !== canonicalizeRelayJsonV3(publicKeyJwk)) throw error;
   }
@@ -263,7 +261,7 @@ async function buildSignedReply(env, runtimeSha, parent, parentFingerprint, pare
     source: {
       member: CHIEF_MEMBER,
       repository: CHIEF_REPOSITORY,
-      branch: 'main',
+      branch: parent.target.branch,
       headSha: runtimeSha,
     },
     target: { ...parent.source },
@@ -299,7 +297,6 @@ export async function handleFederatedRelayV3(request, env, runtimeSha) {
     if (
       envelope.target.member !== CHIEF_MEMBER
       || envelope.target.repository !== CHIEF_REPOSITORY
-      || envelope.target.branch !== 'main'
       || envelope.target.headSha !== normalizedRuntimeSha
     ) {
       throw new FederatedRelayV3Error('relay_target_identity_stale');
@@ -320,7 +317,7 @@ export async function handleFederatedRelayV3(request, env, runtimeSha) {
         expectedTarget: {
           member: CHIEF_MEMBER,
           repository: CHIEF_REPOSITORY,
-          branch: 'main',
+          branch: envelope.target.branch,
           headSha: normalizedRuntimeSha,
         },
       });
