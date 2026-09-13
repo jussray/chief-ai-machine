@@ -1,3 +1,5 @@
+/* global atob, btoa, crypto, TextEncoder */
+
 export const FEDERATED_AGENT_RELAY_V3 = 'juss/federated-agent-relay@v3';
 
 const MEMBER_REPOSITORIES = Object.freeze({
@@ -138,7 +140,8 @@ export async function sha256HexV3(value) {
   return bytesToHex(new Uint8Array(digest));
 }
 function unsignedRelayV3(envelope) {
-  const { signature: _signature, ...unsigned } = envelope;
+  const unsigned = { ...envelope };
+  delete unsigned.signature;
   return unsigned;
 }
 export async function signRelayEnvelopeV3(unsigned, privateKeyJwk, keyId) {
