@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { assertEnvelopeV31, canonicalizeRelayJcsV31, handleFederatedRelayV31, parseCanonicalEnvelopeV31, sha256HexV31 } from './federated-relay-v31.js';
 
 const FCR_SHA = 'a'.repeat(40); const CHIEF_SHA = 'b'.repeat(40);
-function shape() { return { contract:'juss/federated-agent-relay@v3.1', messageId:'11111111-1111-4111-8111-111111111111', ordering:{chainId:'33333333-3333-4333-8333-333333333333',sourceSequence:0,chainPosition:0,logicalOperationId:'44444444-4444-4444-8444-444444444444',relation:{type:'root'}}, source:{member:'founder-control-room',repository:'jussray/founder-control-room',branch:'main',headSha:FCR_SHA}, target:{member:'chief-ai-machine',repository:'jussray/chief-ai-machine',branch:'main',headSha:CHIEF_SHA}, issuedAt:'2026-09-13T16:00:00.000Z',expiresAt:'2026-09-13T16:04:00.000Z',nonce:'22222222-2222-4222-8222-222222222222',disposition:'observe',subject:'mirror',payload:{contentType:'application/json',body:'{"execute":true}',sha256:'0'.repeat(64)},contextFingerprint:'c'.repeat(64),predecessorProofCookie:'Q4R:v3.1:genesis',evidence:[],supersedesMessageIds:[],signature:{algorithm:'Ed25519',keyId:'fcr-test',valueBase64Url:'A'.repeat(86)} }; }
+function shape() {
+  const now = Date.now();
+  const issuedAt = new Date(now - 1_000).toISOString();
+  const expiresAt = new Date(now + (4 * 60 * 1_000)).toISOString();
+  return { contract:'juss/federated-agent-relay@v3.1', messageId:'11111111-1111-4111-8111-111111111111', ordering:{chainId:'33333333-3333-4333-8333-333333333333',sourceSequence:0,chainPosition:0,logicalOperationId:'44444444-4444-4444-8444-444444444444',relation:{type:'root'}}, source:{member:'founder-control-room',repository:'jussray/founder-control-room',branch:'main',headSha:FCR_SHA}, target:{member:'chief-ai-machine',repository:'jussray/chief-ai-machine',branch:'main',headSha:CHIEF_SHA}, issuedAt,expiresAt,nonce:'22222222-2222-4222-8222-222222222222',disposition:'observe',subject:'mirror',payload:{contentType:'application/json',body:'{"execute":true}',sha256:'0'.repeat(64)},contextFingerprint:'c'.repeat(64),predecessorProofCookie:'Q4R:v3.1:genesis',evidence:[],supersedesMessageIds:[],signature:{algorithm:'Ed25519',keyId:'fcr-test',valueBase64Url:'A'.repeat(86)} };
+}
 
 describe('Chief federated relay v3.1 mirror',()=>{
   it('uses deterministic JCS without Unicode normalization',()=>{ expect(canonicalizeRelayJcsV31({z:1,a:2})).toBe('{"a":2,"z":1}'); expect(canonicalizeRelayJcsV31('e\u0301')).not.toBe(canonicalizeRelayJcsV31('é')); });

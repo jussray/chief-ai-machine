@@ -17,7 +17,9 @@ export default {
     if (url.pathname === '/mcp') return handleProofModeMcp(request, env);
     if (url.pathname === '/api/chief/capability-plan') return handleChiefCapabilityPlan(request);
     if (url.pathname === '/api/chief/founder-content-proposal') return handleChiefFounderContentProposal(request);
-    if (url.pathname === '/api/federated-relay') return handleFederatedRelayV31(request, env);
+    if (url.pathname === '/api/federated-relay') {
+      return handleFederatedRelayV31(request, { ...env, RELEASE_SHA: getReleaseSha(env) });
+    }
     if (url.pathname.startsWith('/api/')) return new Response('Not implemented', { status: 501 });
     return env.ASSETS.fetch(request);
   },
