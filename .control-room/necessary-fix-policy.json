@@ -25,6 +25,15 @@
       "config/founder-chief-pair.contract.json"
     ]
   },
+  "mergeCanon": {
+    "mergeAuthorityAvailable": true,
+    "mergeApprovalRequired": true,
+    "approvalScope": "exact-repository-pr-base-head",
+    "approvalCarryForward": false,
+    "askFounderWhenApprovalMissingOrStale": true,
+    "reviewOrGreenChecksDoNotAuthorizeMerge": true,
+    "baseOrHeadMovementExpiresApproval": true
+  },
   "truthBoundary": {
     "doesNotGrantAuthority": true,
     "requiresCurrentAuthority": true,
