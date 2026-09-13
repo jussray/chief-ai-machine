@@ -43,7 +43,7 @@ env:
   CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
   CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-  FEDERATED_RELAY_V3_LIVE_REQUIRED: ${{ inputs.verify_federated_relay_v3 && 'true' || 'false' }}
+  FEDERATED_RELAY_V3_LIVE_REQUIRED: ${{ github.event_name == 'pull_request' && 'true' || (inputs.verify_federated_relay_v3 && 'true' || 'false') }}
   FCR_FEDERATED_RELAY_BASE_URL: ${{ vars.FCR_FEDERATED_RELAY_BASE_URL || 'https://api.foundercontrolroom.org' }}
   FCR_RELAY_SUPABASE_URL: "https://oojzfmmywbvficgybaxd.supabase.co"
   FCR_RELAY_SUPABASE_SECRET_KEY: ${{ secrets.FCR_RELAY_SUPABASE_SECRET_KEY }}
@@ -87,7 +87,7 @@ jobs:
         if: failure() && steps.runtime-identity.outcome == 'failure'
         shell: bash
         run: |
-          printf '%s\n' 'BLOCKED_PROVIDER_AUTHORITY: immutable Cloudflare preview did not pass the configured Access service-token boundary. Do not weaken Access or treat provider upload as runtime proof.'
+          printf '%s\n' 'BLOCKED_PROVIDER_AUTHORITY: provider-issued Chief preview candidates did not pass exact-version verification through the configured Access service-token boundary. Do not weaken Access or treat provider upload as runtime proof.'
 
       - name: Bind verified runtime to ProofMode test surface
         shell: bash
