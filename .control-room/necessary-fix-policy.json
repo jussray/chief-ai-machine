@@ -9,7 +9,22 @@
     "proofGatedReversible": "proof-gated",
     "founderBoundaryCrossed": "founder-required"
   },
-  "founderRequiredWhen": ["scope-expansion","external-publication-or-communication","spend","destructive-change","irreversible-change","authority-expansion"],
+  "founderRequiredWhen": [
+    "scope-expansion",
+    "external-publication",
+    "spend",
+    "destructive-change",
+    "irreversible-change",
+    "authority-expansion"
+  ],
+  "externalCommunication": {
+    "defaultDisposition": "founder-required",
+    "standingApprovedAutomationMayProceed": true,
+    "standingAuthorizationSources": [
+      "docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md",
+      "config/founder-chief-pair.contract.json"
+    ]
+  },
   "truthBoundary": {
     "doesNotGrantAuthority": true,
     "requiresCurrentAuthority": true,
@@ -23,5 +38,15 @@
     "incomingEvidenceMayInvalidateStaleState": true,
     "outgoingApprovedActionsEmitUpdatedMarkersAndReceipts": true
   },
-  "loop": ["confess-reality","classify-evidence","identify-bottleneck","identify-necessary-fix","check-existing-authority","execute-now-or-proof-gate-or-founder-gate","verify-outcome","update-continuity","next-gate"]
+  "loop": [
+    "confess-reality",
+    "classify-evidence",
+    "identify-bottleneck",
+    "identify-necessary-fix",
+    "check-existing-authority",
+    "execute-now-or-proof-gate-or-founder-gate",
+    "verify-outcome",
+    "update-continuity",
+    "next-gate"
+  ]
 }
