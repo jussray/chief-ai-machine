@@ -20,6 +20,14 @@ function getReleaseSha(env) {
   return value?.trim() || 'unknown';
 }
 
+function getProviderVersionMetadata(env) {
+  const metadata = env?.CF_VERSION_METADATA;
+  return {
+    version_id: typeof metadata?.id === 'string' && metadata.id.trim() ? metadata.id.trim() : null,
+    version_tag: typeof metadata?.tag === 'string' && metadata.tag.trim() ? metadata.tag.trim() : null,
+  };
+}
+
 // Chief AI Worker entry point.
 //
 // Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
@@ -31,7 +39,11 @@ export default {
 
     if (url.pathname === '/version') {
       return Response.json(
-        { ok: true, sha: getReleaseSha(env) },
+        {
+          ok: true,
+          sha: getReleaseSha(env),
+          ...getProviderVersionMetadata(env),
+        },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
