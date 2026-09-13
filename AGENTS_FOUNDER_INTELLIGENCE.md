@@ -42,10 +42,11 @@ Before returning a repair or implementation step as founder homework, read [`.co
 
 - `execute-now` when the fix is necessary, reversible, inside the current approved scope, and current authority plus applicable evidence/exact-head requirements are satisfied.
 - `proof-gated` when the action is reversible but Chief AI or Founder Control Room requires proof before integration. Collect the proof and continue through the existing gate instead of asking the founder to perform automatable verification.
-- `founder-required` when the fix widens scope, publishes or communicates externally, spends money, is destructive or irreversible, expands authority, or crosses a stricter Chief AI rule.
+- `founder-required` when the fix widens scope, publishes externally, communicates externally outside a separately approved communication class, spends money, is destructive or irreversible, expands authority, or crosses a stricter Chief AI rule.
+- Compliant posts inside an approved automated publishing class explicitly authorized by `docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md` and `config/founder-chief-pair.contract.json` keep that standing authorization; this necessary-fix default must not convert them back into fresh founder homework.
 - Incoming evidence may update or invalidate bidirectional continuity fingerprints/cookies; outgoing approved actions must update the corresponding markers and receipts. Those markers are non-secret continuity state and never authority.
 - Provider acceptance is execution evidence, not outcome proof. Verify the outcome, update continuity, and identify the next gate before claiming completion.
 
-This default never grants merge, deployment, migration, publication, external communication, destructive-write, credential, billing, or authority-expansion permission. Existing exact-head checks, Playwright requirements, Founder Control Room release truth, and repository rules remain stronger.
+This default never grants merge, deployment, migration, publication, external communication, destructive-write, credential, billing, or authority-expansion permission. Existing exact-head checks, Playwright requirements, Founder Control Room release truth, standing communication authorizations, and repository rules remain stronger.
 
 This entrypoint supplements repository-local agent instructions and never weakens privacy, safety, approval, rollback, evidence, provenance, or non-deletion rules.
