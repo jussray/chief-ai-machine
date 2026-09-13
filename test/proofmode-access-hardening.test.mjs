@@ -5,6 +5,7 @@ const ACCOUNT = 'account-1';
 const ADMIN = 'admin-token';
 const CLIENT_ID = 'client-id.access';
 const SERVICE_ID = 'service-token-1';
+const WORKER_ID = 'worker-chief-ai';
 const TARGET = 'https://5a188322-chief-ai.mcgill-raylene.workers.dev';
 const HOST = '5a188322-chief-ai.mcgill-raylene.workers.dev';
 
@@ -35,6 +36,15 @@ function routeFetch({ apps, policies = [] }) {
       }]);
     }
     if (parsed.pathname.endsWith('/access/apps')) return response(apps);
+    if (parsed.pathname.endsWith('/workers/workers')) {
+      return response([{ id: WORKER_ID, name: 'chief-ai' }]);
+    }
+    if (parsed.pathname.endsWith('/workers/subdomain')) {
+      return response({ subdomain: 'mcgill-raylene' });
+    }
+    if (parsed.pathname.endsWith('/workers/scripts/chief-ai/subdomain')) {
+      return response({ enabled: true, previews_enabled: true });
+    }
     if (parsed.pathname.endsWith('/policies')) return response(policies);
     throw new Error(`Unexpected request: ${url}`);
   });
