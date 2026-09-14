@@ -1,7 +1,7 @@
-import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleFederatedRelayV3 } from './federated-relay-v3.js';
+import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
@@ -16,6 +16,23 @@ function getReleaseSha(env) {
     env?.WORKERS_CI_COMMIT_SHA,
     env?.GITHUB_SHA,
     env?.RELEASE_SHA,
+  ];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
+}
+
+function getReleaseBranch(env) {
+  const bakedReleaseBranch = typeof BUILD_RELEASE_BRANCH === 'string'
+    && BUILD_RELEASE_BRANCH.trim()
+    && BUILD_RELEASE_BRANCH.trim() !== 'unknown'
+    ? BUILD_RELEASE_BRANCH.trim()
+    : null;
+
+  const candidates = [
+    bakedReleaseBranch,
+    env?.WORKERS_CI_BRANCH,
+    env?.GITHUB_REF_NAME,
+    env?.RELEASE_BRANCH,
   ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
@@ -43,6 +60,7 @@ export default {
         {
           ok: true,
           sha: getReleaseSha(env),
+          branch: getReleaseBranch(env),
           ...getProviderVersionMetadata(env),
         },
         { headers: { 'Cache-Control': 'no-store' } },
@@ -62,7 +80,12 @@ export default {
     }
 
     if (url.pathname === '/api/federated-relay/v3') {
-      return handleFederatedRelayV3(request, env, getReleaseSha(env));
+      return handleFederatedRelayV3BoundToRuntime(
+        request,
+        env,
+        getReleaseSha(env),
+        getReleaseBranch(env),
+      );
     }
 
     if (url.pathname === '/api/federated-relay') {
