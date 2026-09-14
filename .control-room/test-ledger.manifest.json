@@ -30,7 +30,7 @@
       "Lint",
       "Unit Tests",
       "Verify Chief AI control room contracts",
-      "Verify operational authority",
+      "Verify operational source contract",
       "Verify test-ledger contract"
     ],
     "unlistedDiscoveredChecks": "advisory-visible-non-authoritative",

@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "stage": "proofmode-ruleset-212-reconciliation",
+  "repository": "jussray/chief-ai-machine",
+  "rulesetId": 21261587,
+  "rulesetName": "governance boundary",
+  "status": "ready-for-independent-admin-reconciliation",
+  "authority": {
+    "mutationAuthority": "independent-repository-admin-only",
+    "candidateCodeMayMutate": false,
+    "candidateCodeMayUseBypass": false,
+    "candidateCodeRole": "compile-verify-and-fail-closed-only",
+    "protectedSecretsAllowed": false
+  },
+  "preconditions": {
+    "target": "branch",
+    "enforcement": "active",
+    "defaultBranchMustBeTargeted": true,
+    "observedRulesFingerprint": "b63e86fbe27dcf4b0a806f39ad42c9f25f53031c74806c58ce96968f3fcab4f0",
+    "rulesFingerprintScope": "rules-array-only-stable-json-sha256",
+    "requireLastPushApproval": true,
+    "legacyContextsPresent": [
+      "Redacted provider receipt",
+      "Verify exact Chief runtime with Playwright",
+      "Verify live Chief capability plan with Playwright",
+      "Verify live ProofMode MCP with Playwright",
+      "Verify operational authority",
+      "Verify production ProofMode MCP with Playwright"
+    ],
+    "retainedContextsPresent": [
+      "Publish exact-head test ledger",
+      "Typecheck",
+      "Verify Founder Goals desktop and mobile flow",
+      "Verify Freestyle, Goalfix, and PromptOS in Chromium"
+    ],
+    "reobserveImmediatelyBeforeMutation": true,
+    "abortOnAnyRulesFingerprintDrift": true,
+    "ruleset20818149MustRemainUnchanged": true
+  },
+  "mutation": {
+    "method": "PUT",
+    "apiVersion": "2026-03-10",
+    "path": "/repos/jussray/chief-ai-machine/rulesets/21261587",
+    "body": {
+      "rules": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_linear_history"
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 0,
+            "dismiss_stale_reviews_on_push": true,
+            "required_reviewers": [],
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": true,
+            "require_extra_approval_for_unattributed_changes": true,
+            "allowed_merge_methods": [
+              "merge",
+              "squash",
+              "rebase"
+            ]
+          }
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "Publish exact-head test ledger",
+                "integration_id": 15368
+              },
+              {
+                "context": "Typecheck",
+                "integration_id": 15368
+              },
+              {
+                "context": "Verify Founder Goals desktop and mobile flow",
+                "integration_id": 15368
+              },
+              {
+                "context": "Verify Freestyle, Goalfix, and PromptOS in Chromium",
+                "integration_id": 15368
+              }
+            ]
+          }
+        },
+        {
+          "type": "code_scanning",
+          "parameters": {
+            "code_scanning_tools": [
+              {
+                "tool": "CodeQL",
+                "security_alerts_threshold": "high_or_higher",
+                "alerts_threshold": "errors_and_warnings"
+              }
+            ]
+          }
+        },
+        {
+          "type": "copilot_code_review",
+          "parameters": {
+            "review_on_push": false,
+            "review_draft_pull_requests": true
+          }
+        }
+      ]
+    }
+  },
+  "desired": {
+    "rulesFingerprint": "95f46942ff05b04fdfd724d76939b86885aa6bbc95763a11c3e3914a3866f2f0",
+    "removeLegacyContexts": [
+      "Redacted provider receipt",
+      "Verify exact Chief runtime with Playwright",
+      "Verify live Chief capability plan with Playwright",
+      "Verify live ProofMode MCP with Playwright",
+      "Verify operational authority",
+      "Verify production ProofMode MCP with Playwright"
+    ],
+    "preserveRequiredContexts": [
+      "Publish exact-head test ledger",
+      "Typecheck",
+      "Verify Founder Goals desktop and mobile flow",
+      "Verify Freestyle, Goalfix, and PromptOS in Chromium"
+    ],
+    "requireLastPushApproval": false,
+    "requiredApprovingReviewCount": 0,
+    "requiredReviewThreadResolution": true,
+    "preserveUnrelatedTopLevelRulesetStateByOmission": true,
+    "productionProofRemainsPostMergeOnly": true
+  },
+  "verification": {
+    "independentGetReadbackRequired": true,
+    "desiredRulesFingerprintRequired": "95f46942ff05b04fdfd724d76939b86885aa6bbc95763a11c3e3914a3866f2f0",
+    "allLegacyContextsMustBeAbsent": true,
+    "allRetainedContextsMustRemain": true,
+    "lastPushApprovalMustBeFalse": true,
+    "ruleset20818149MustBeReobservedUnchanged": true,
+    "ambiguousWriteOutcome": "reconcile-by-independent-readback-before-any-retry"
+  },
+  "attack1000": {
+    "candidateSelfAuthorization": "blocked",
+    "bypassUse": "forbidden",
+    "protectedSecretExposure": "forbidden",
+    "productionProofPreMerge": "removed-from-required-contexts",
+    "sourceChecksPreserved": true,
+    "codeScanningPreserved": true,
+    "linearHistoryPreserved": true,
+    "deletionProtectionPreserved": true,
+    "nonFastForwardProtectionPreserved": true,
+    "providerAcceptanceUpgradesOutcomeTruth": false
+  }
+}

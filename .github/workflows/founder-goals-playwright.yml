@@ -4,16 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "index.html"
-      - "styles/goals.css"
-      - "src/main.js"
-      - "src/domain/goal-plan.js"
-      - "src/domain/goal-plan.test.js"
-      - "src/modules/goals.js"
-      - "e2e/founder-goals.pw.mjs"
-      - "e2e/playwright.founder-goals.config.mjs"
-      - ".github/workflows/founder-goals-playwright.yml"
   workflow_dispatch:
 
 permissions:

@@ -39,7 +39,8 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
-        console: 'readonly', process: 'readonly', fetch: 'readonly', Buffer: 'readonly', URL: 'readonly', setTimeout: 'readonly',
+        console: 'readonly', process: 'readonly', fetch: 'readonly', Buffer: 'readonly',
+        URL: 'readonly', URLSearchParams: 'readonly', setTimeout: 'readonly',
       },
     },
   },
@@ -50,6 +51,17 @@ export default [
       sourceType: 'module',
       globals: {
         describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['**/*.test.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
+        URL: 'readonly', URLSearchParams: 'readonly',
       },
     },
   },

@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-const expected = ['context7', 'github', 'playwright'];
+const expected = ['context7', 'founder-control-room', 'github', 'playwright'];
+const fcrUrl = 'https://api.foundercontrolroom.org/mcp';
 const toolsets = 'repos,issues,pull_requests,actions,code_security,secret_protection';
 const playwright = '@playwright/mcp@0.0.78';
 
@@ -17,6 +18,8 @@ function read(file) {
 
 function validate(file, servers, requireStdio = false) {
   assert(JSON.stringify(Object.keys(servers ?? {}).sort()) === JSON.stringify(expected), `${file} must contain exactly: ${expected.join(', ')}`);
+  assert(servers['founder-control-room']?.type === 'http' && servers['founder-control-room']?.url === fcrUrl, `${file}:Founder Control Room endpoint drifted`);
+  assert(!servers['founder-control-room']?.headers, `${file}:Founder Control Room credentials must not be committed`);
   assert(servers.github?.type === 'http' && servers.github?.url === 'https://api.githubcopilot.com/mcp/', `${file}:github endpoint drifted`);
   assert(servers.github?.headers?.['X-MCP-Toolsets'] === toolsets, `${file}:github toolsets drifted`);
   assert(servers.github?.headers?.['X-MCP-Lockdown'] === 'true', `${file}:github lockdown must remain enabled while public`);
@@ -49,4 +52,4 @@ validate('.vscode/mcp.json', vscode.servers, true);
 noSecrets('.mcp.json', project);
 noSecrets('.mcp.example.json', example);
 noSecrets('.vscode/mcp.json', vscode);
-console.log('[verify:mcp] Prompt-ops MCP configuration is scoped, pinned, and credential-free.');
+console.log('[verify:mcp] Prompt-ops MCP configuration is scoped, pinned, credential-free, and routed through Founder Control Room.');
