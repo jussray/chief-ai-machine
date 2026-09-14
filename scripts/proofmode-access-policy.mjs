@@ -493,11 +493,38 @@ export async function ensureProofModeAccessPolicy({
     throw new Error('Cloudflare created a policy that did not match the requested exclusive specific service-token rule.');
   }
 
+  const verifiedPolicies = await listAll(
+    fetchImpl,
+    token,
+    policyPath,
+    'Verify Access application policies after repair',
+  );
+  const verifiedUnsafeBypass = verifiedPolicies.find((policy) => hasEveryoneBypass(policy));
+  if (verifiedUnsafeBypass) {
+    throw new Error(
+      'Cloudflare repair postcondition observed an Everyone/Bypass policy after creation; exact Service Auth was not proven.',
+    );
+  }
+  const verifiedExact = verifiedPolicies.find((policy) => hasSpecificServiceToken(policy, serviceId));
+  if (!verifiedExact) {
+    throw new Error(
+      'Cloudflare repair postcondition did not persist the requested exclusive specific service-token rule.',
+    );
+  }
+  const verifiedParallelGrant = verifiedPolicies.find(
+    (policy) => policy !== verifiedExact && isIndependentGrantPolicy(policy),
+  );
+  if (verifiedParallelGrant) {
+    throw new Error(
+      'Cloudflare repair postcondition observed a parallel Service Auth or bypass grant after creation; exact single-token authority was not proven.',
+    );
+  }
+
   return {
     state: 'configured',
     changed: true,
     appId,
-    policyId: created.id || null,
+    policyId: verifiedExact.id || created.id || null,
     scope: effective.scope,
     serviceTokenId: serviceId,
   };
