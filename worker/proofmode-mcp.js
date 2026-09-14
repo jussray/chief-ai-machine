@@ -348,8 +348,12 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return jsonResponse(jsonRpcError(message?.id, -32600, 'Invalid Request.'), 400);
   }
 
-  if (message.id === undefined) {
-    return new Response(null, { status: 202 });
+  const declaredProtocol = message.params?._meta?.[MODERN_PROTOCOL_META_KEY];
+  if (!protocol.explicit && declaredProtocol === MODERN_PROTOCOL_VERSION) {
+    return jsonResponse(
+      modernHeaderMismatch(message, 'MCP-Protocol-Version is required when request metadata declares MCP 2026-07-28.'),
+      400,
+    );
   }
 
   if (protocol.protocolVersion === MODERN_PROTOCOL_VERSION) {
@@ -358,6 +362,10 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     if (message.method === 'initialize') {
       return jsonResponse(jsonRpcError(message.id, -32601, 'initialize is not available in MCP 2026-07-28.'), 400);
     }
+  }
+
+  if (message.id === undefined) {
+    return new Response(null, { status: 202 });
   }
 
   return jsonResponse(await dispatch(message, deps, protocol.protocolVersion));
