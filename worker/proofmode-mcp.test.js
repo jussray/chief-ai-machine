@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 const UPSTREAM_RECEIPT = '11111111-1111-4111-8111-111111111111';
+const MODERN_PROTOCOL_VERSION = '2026-07-28';
+const PROTOCOL_META_KEY = 'io.modelcontextprotocol/protocolVersion';
+const CLIENT_INFO_META_KEY = 'io.modelcontextprotocol/clientInfo';
+const CLIENT_CAPABILITIES_META_KEY = 'io.modelcontextprotocol/clientCapabilities';
+const SERVER_INFO_META_KEY = 'io.modelcontextprotocol/serverInfo';
 
 function mcpRequest(body, headers = {}) {
   return new Request('https://proofmode.example/mcp', {
@@ -13,6 +18,22 @@ function mcpRequest(body, headers = {}) {
     },
     body: JSON.stringify(body),
   });
+}
+
+function modernHeaders(method, name) {
+  return {
+    'MCP-Protocol-Version': MODERN_PROTOCOL_VERSION,
+    'Mcp-Method': method,
+    ...(name ? { 'Mcp-Name': name } : {}),
+  };
+}
+
+function modernMeta() {
+  return {
+    [PROTOCOL_META_KEY]: MODERN_PROTOCOL_VERSION,
+    [CLIENT_INFO_META_KEY]: { name: 'proofmode-test', version: '1.0.0' },
+    [CLIENT_CAPABILITIES_META_KEY]: {},
+  };
 }
 
 async function json(response) {
@@ -59,7 +80,7 @@ function classifier(input) {
 }
 
 describe('ProofMode MCP transport', () => {
-  it('initializes with the tools capability', async () => {
+  it('preserves legacy initialize compatibility with the tools capability', async () => {
     const response = await handleProofModeMcp(
       mcpRequest({
         jsonrpc: '2.0',
@@ -79,6 +100,32 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
     expect(payload.result.instructions).toContain('juss-proof/v1');
     expect(payload.result.instructions).toContain('anonymously');
+    expect(payload.result).not.toHaveProperty('resultType');
+  });
+
+  it('supports stateless MCP 2026-07-28 discovery without initialize', async () => {
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'discover-1',
+        method: 'server/discover',
+        params: { _meta: modernMeta() },
+      }, modernHeaders('server/discover')),
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.protocolVersions).toEqual(
+      expect.arrayContaining([MODERN_PROTOCOL_VERSION, '2025-06-18']),
+    );
+    expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
+    expect(payload.result.ttlMs).toBe(0);
+    expect(payload.result.cacheScope).toBe('private');
+    expect(payload.result._meta[SERVER_INFO_META_KEY]).toMatchObject({
+      name: 'proofmode',
+      version: '0.1.0',
+    });
   });
 
   it('lists only the read-only repository audit tool without credential inputs', async () => {
@@ -97,6 +144,24 @@ describe('ProofMode MCP transport', () => {
       idempotentHint: true,
       openWorldHint: true,
     });
+  });
+
+  it('adds modern cache hints and server identity to tools/list', async () => {
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'list-modern',
+        method: 'tools/list',
+        params: { _meta: modernMeta() },
+      }, modernHeaders('tools/list')),
+    );
+
+    const payload = await json(response);
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.tools).toHaveLength(1);
+    expect(payload.result.ttlMs).toBe(0);
+    expect(payload.result.cacheScope).toBe('private');
+    expect(payload.result._meta[SERVER_INFO_META_KEY].name).toBe('proofmode');
   });
 
   it('advertises only POST when rejecting GET', async () => {
@@ -165,6 +230,88 @@ describe('ProofMode MCP transport', () => {
         expect.objectContaining({ type: 'proofmode_layer', name: 'verified: not_proven', state: 'unknown' }),
       ]),
     );
+  });
+
+  it('executes the same read-only audit over the modern stateless transport', async () => {
+    const evidence = evidenceFixture();
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async ({ owner, repo, ref }) => {
+        providerCalls += 1;
+        expect(owner).toBe('acme');
+        expect(repo).toBe('app');
+        expect(ref).toBe('main');
+        return evidence;
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'call-modern',
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app', ref: 'main' },
+          _meta: modernMeta(),
+        },
+      }, modernHeaders('tools/call', 'audit_repository')),
+      deps,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(providerCalls).toBe(1);
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.isError).toBe(false);
+    expect(payload.result.structuredContent.repository).toBe('acme/app');
+    expect(payload.result._meta[SERVER_INFO_META_KEY].name).toBe('proofmode');
+  });
+
+  it('fails closed on modern routing-header disagreement before provider access', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'header-mismatch',
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app' },
+          _meta: modernMeta(),
+        },
+      }, modernHeaders('tools/call', 'wrong_tool')),
+      deps,
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
+    expect(providerCalls).toBe(0);
+  });
+
+  it('rejects modern initialize instead of silently creating a legacy session', async () => {
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'modern-initialize',
+        method: 'initialize',
+        params: { _meta: modernMeta() },
+      }, modernHeaders('initialize')),
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error).toMatchObject({ code: -32601 });
   });
 
   it('does not forward Worker GitHub credentials into public repository evidence reads', async () => {
