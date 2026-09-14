@@ -1,51 +1,46 @@
-import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
+import { makeRelayFetch } from './relay-fetch.js';
 
-function getReleaseSha(env) {
-  const candidates = [
-    env?.RELEASE_SHA,
-    env?.GITHUB_SHA,
-    env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
-  ];
+export function getReleaseSha(env, bakedReleaseSha = BUILD_RELEASE_SHA) {
+  const candidates = [env?.RELEASE_SHA, env?.GITHUB_SHA, env?.WORKERS_CI_COMMIT_SHA, bakedReleaseSha];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
 }
 
-// Chief AI Worker entry point.
-//
-// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
-// Runtime-first routes are declared in wrangler.jsonc so they cannot silently
-// fall through to SPA assets.
+export function getReleaseBranch(env, bakedReleaseBranch = BUILD_RELEASE_BRANCH) {
+  const candidates = [env?.FEDERATED_RELAY_BRANCH, env?.WORKERS_CI_BRANCH, bakedReleaseBranch];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
     if (url.pathname === '/version') {
       return Response.json(
-        { ok: true, sha: getReleaseSha(env) },
+        { ok: true, sha: getReleaseSha(env), branch: getReleaseBranch(env) },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
-
-    if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request, env);
+    if (url.pathname === '/mcp') return handleProofModeMcp(request, env);
+    if (url.pathname === '/api/chief/capability-plan') return handleChiefCapabilityPlan(request);
+    if (url.pathname === '/api/chief/founder-content-proposal') return handleChiefFounderContentProposal(request);
+    if (url.pathname === '/api/federated-relay') {
+      return handleFederatedRelayV31Runtime(
+        request,
+        {
+          ...env,
+          RELEASE_SHA: getReleaseSha(env),
+          FEDERATED_RELAY_BRANCH: getReleaseBranch(env),
+        },
+        makeRelayFetch(env),
+      );
     }
-
-    if (url.pathname === '/api/chief/capability-plan') {
-      return handleChiefCapabilityPlan(request);
-    }
-
-    if (url.pathname === '/api/chief/founder-content-proposal') {
-      return handleChiefFounderContentProposal(request);
-    }
-
-    if (url.pathname.startsWith('/api/')) {
-      return new Response('Not implemented', { status: 501 });
-    }
-
+    if (url.pathname.startsWith('/api/')) return new Response('Not implemented', { status: 501 });
     return env.ASSETS.fetch(request);
   },
 };

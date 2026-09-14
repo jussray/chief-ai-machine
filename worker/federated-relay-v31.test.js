@@ -1,0 +1,91 @@
+import { describe, expect, it } from 'vitest';
+import { assertEnvelopeV31, canonicalizeRelayJcsV31, parseCanonicalEnvelopeV31, sha256HexV31 } from './federated-relay-v31.js';
+import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
+
+const FCR_SHA = 'a'.repeat(40);
+const CHIEF_SHA = 'b'.repeat(40);
+function shape() {
+  const now = Date.now();
+  const issuedAt = new Date(now - 1_000).toISOString();
+  const expiresAt = new Date(now + (4 * 60 * 1_000)).toISOString();
+  return {
+    contract: 'juss/federated-agent-relay@v3.1',
+    messageId: '11111111-1111-4111-8111-111111111111',
+    ordering: {
+      chainId: '33333333-3333-4333-8333-333333333333',
+      sourceSequence: 0,
+      chainPosition: 0,
+      logicalOperationId: '44444444-4444-4444-8444-444444444444',
+      relation: { type: 'root' },
+    },
+    source: { member: 'founder-control-room', repository: 'jussray/founder-control-room', branch: 'main', headSha: FCR_SHA },
+    target: { member: 'chief-ai-machine', repository: 'jussray/chief-ai-machine', branch: 'main', headSha: CHIEF_SHA },
+    issuedAt,
+    expiresAt,
+    nonce: '22222222-2222-4222-8222-222222222222',
+    disposition: 'observe',
+    subject: 'mirror',
+    payload: { contentType: 'application/json', body: '{"execute":true}', sha256: '0'.repeat(64) },
+    contextFingerprint: 'c'.repeat(64),
+    predecessorProofCookie: 'Q4R:v3.1:genesis',
+    evidence: [],
+    supersedesMessageIds: [],
+    signature: { algorithm: 'Ed25519', keyId: 'fcr-test', valueBase64Url: 'A'.repeat(86) },
+  };
+}
+
+describe('Chief federated relay v3.1 mirror', () => {
+  it('uses deterministic JCS without Unicode normalization', () => {
+    expect(canonicalizeRelayJcsV31({ z: 1, a: 2 })).toBe('{"a":2,"z":1}');
+    expect(canonicalizeRelayJcsV31('e\u0301')).not.toBe(canonicalizeRelayJcsV31('é'));
+  });
+
+  it('rejects duplicate-key raw JSON and nested authority fields', () => {
+    expect(() => parseCanonicalEnvelopeV31('{"a":1,"a":1}')).toThrowError(/relay_json_duplicate_key|relay_transport_not_canonical_jcs/);
+    const value = shape();
+    value.source.executionAuthorized = true;
+    expect(() => assertEnvelopeV31(value)).toThrowError(/relay_source_field/);
+  });
+
+  it('rejects uppercase SHAs and treats authority-looking payload text as inert data', async () => {
+    const value = shape();
+    value.source.headSha = 'A'.repeat(40);
+    expect(() => assertEnvelopeV31(value)).toThrowError(/relay_source_head_sha/);
+    const inert = shape();
+    inert.payload.sha256 = await sha256HexV31(inert.payload.body);
+    expect(() => assertEnvelopeV31(inert)).not.toThrow();
+  });
+
+  it('fails closed through the deployed runtime when cryptographic/durable bindings are absent', async () => {
+    const value = shape();
+    value.payload.sha256 = await sha256HexV31(value.payload.body);
+    const raw = canonicalizeRelayJcsV31(value);
+    const response = await handleFederatedRelayV31Runtime(
+      new Request('https://chief.example/api/federated-relay', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: raw,
+      }),
+      { RELEASE_SHA: CHIEF_SHA, FEDERATED_RELAY_BRANCH: 'main' },
+    );
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body.executionAuthorized).toBe(false);
+    expect(body.authorityTransferred).toBe(false);
+  });
+
+  it('ATTACK-6000 rejects deterministic malformed envelopes', () => {
+    for (let i = 0; i < 6000; i += 1) {
+      const value = shape();
+      switch (i % 6) {
+        case 0: value.messageId = `bad-${i}`; break;
+        case 1: value.source.repository = 'evil/example'; break;
+        case 2: value.target.headSha = 'F'.repeat(40); break;
+        case 3: value.ordering.chainPosition = -1; break;
+        case 4: value.signature.valueBase64Url = '!'; break;
+        default: value.supersedesMessageIds = ['55555555-5555-4555-8555-555555555555'];
+      }
+      expect(() => assertEnvelopeV31(value), `attack-${i}`).toThrow();
+    }
+  });
+});
