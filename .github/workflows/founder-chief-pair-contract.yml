@@ -47,6 +47,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           CURRENT_CHIEF_PR: ${{ github.event.pull_request.number || '' }}
           CHIEF_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           contract="chief-ai-machine/config/founder-chief-pair.contract.json"
@@ -55,11 +56,17 @@ jobs:
           jq -e '
             .relationship.topology == "standalone-peers"
             and .relationship.controlRoom.independentlyCallable == true
-            and .relationship.chiefAI.independentlyCallable == true
+            and .relationship.controlRoom.ownsIdentity == true
+            and .relationship.controlRoom.ownsLifecycle == true
             and .relationship.controlRoom.ownsReceipts == true
-            and .relationship.chiefAI.ownsReceipts == true
             and .relationship.controlRoom.ownsFailureState == true
+            and .relationship.controlRoom.ownsContinuityMarkers == true
+            and .relationship.chiefAI.independentlyCallable == true
+            and .relationship.chiefAI.ownsIdentity == true
+            and .relationship.chiefAI.ownsLifecycle == true
+            and .relationship.chiefAI.ownsReceipts == true
             and .relationship.chiefAI.ownsFailureState == true
+            and .relationship.chiefAI.ownsContinuityMarkers == true
             and .relationship.crossSystem.sharedRuntimeRequired == false
             and .relationship.crossSystem.identityCollapseAllowed == false
             and .relationship.crossSystem.implicitAuthorityTransferAllowed == false
@@ -67,21 +74,49 @@ jobs:
             and .relationship.crossSystem.failureCollapseAllowed == false
             and .relationship.crossSystem.continuityCollapseAllowed == false
             and .relationship.crossSystem.evidenceCreatesAuthority == false
+            and .relationship.crossSystem.cooperationMayProceedWithinEachSystemsOwnAuthority == true
+            and (.relationship.continuityBoundary | contains("non-secret"))
+            and (.relationship.continuityBoundary | contains("non-authorizing"))
+            and (.relationship.continuityBoundary | contains("recipient-side verification"))
+            and (.relationship.continuityBoundary | contains("never transfers authority"))
+            and (.relationship.cooperationBoundary | contains("independently valid systems"))
+            and (.relationship.cooperationBoundary | contains("distinct receipts"))
+            and (.relationship.cooperationBoundary | contains("never silently replaces"))
           ' "$contract" >/dev/null
 
           selected_ref="main"
           source="founder-control-room/main"
+          selected_sha=""
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             configured_chief_pr="$(jq -r '.candidatePairing.chiefAIPullRequest' "$contract")"
             fcr_pr="$(jq -r '.candidatePairing.founderControlRoomPullRequest' "$contract")"
             test "$configured_chief_pr" = "$CURRENT_CHIEF_PR"
             printf '%s' "$fcr_pr" | grep -Eq '^[1-9][0-9]*$'
+
+            pr_json="$(curl --fail-with-body --silent --show-error --location \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/jussray/founder-control-room/pulls/${fcr_pr}")"
+            jq -e '
+              .state == "open"
+              and .merged_at == null
+              and .base.ref == "main"
+              and .head.repo.full_name == "jussray/founder-control-room"
+              and (.head.sha | test("^[0-9a-f]{40}$"))
+            ' <<<"$pr_json" >/dev/null
+
             selected_ref="refs/pull/${fcr_pr}/head"
+            selected_sha="$(jq -r '.head.sha' <<<"$pr_json")"
             source="contract-paired-fcr-pr-${fcr_pr}"
+
+            ref_sha="$(git ls-remote --exit-code "$remote" "$selected_ref" | awk 'NR==1 {print $1}')"
+            test "$ref_sha" = "$selected_sha"
+          else
+            selected_sha="$(git ls-remote --exit-code "$remote" "refs/heads/$selected_ref" | awk 'NR==1 {print $1}')"
           fi
 
-          selected_sha="$(git ls-remote --exit-code "$remote" "$selected_ref" | awk 'NR==1 {print $1}')"
           printf '%s' "$selected_sha" | grep -Eq '^[0-9a-f]{40}$'
 
           printf 'ref=%s\n' "$selected_ref" >> "$GITHUB_OUTPUT"
@@ -95,6 +130,7 @@ jobs:
             printf -- '- FCR exact SHA selected: `%s`\n' "$selected_sha"
             printf -- '- Selection mode: `%s`\n' "$source"
             echo '- Topology: `standalone-peers`'
+            echo '- Counterpart PR state/base/head identity: provider-read and verified'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check out exact Founder Control Room authority
