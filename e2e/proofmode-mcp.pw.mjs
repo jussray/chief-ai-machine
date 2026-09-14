@@ -83,7 +83,7 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(response.status()).toBe(200);
     const payload = await response.json();
     expect(payload.result.resultType).toBe('complete');
-    expect(payload.result.protocolVersions).toContain(modernProtocolVersion);
+    expect(payload.result.supportedVersions).toEqual([modernProtocolVersion]);
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
     expect(payload.result.ttlMs).toBe(0);
     expect(payload.result.cacheScope).toBe('private');
@@ -188,6 +188,27 @@ test.describe('ProofMode live MCP runtime', () => {
           arguments: { owner: 'jussray', repo: 'chief-ai-machine', ref: expectedHead },
           _meta: modernMeta(),
         },
+      },
+    });
+
+    expect(response.status()).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe(-32020);
+  });
+
+  test('fails closed when required modern request metadata is absent', async ({ request }) => {
+    const response = await request.post(`${baseURL}/mcp`, {
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': modernProtocolVersion,
+        'Mcp-Method': 'tools/list',
+      },
+      data: {
+        jsonrpc: '2.0',
+        id: 'missing-meta',
+        method: 'tools/list',
+        params: {},
       },
     });
 
