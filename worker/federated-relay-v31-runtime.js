@@ -1,4 +1,4 @@
-import { RelayV31Error } from './federated-relay-v31.js';
+import { RelayV31Error, assertEnvelopeV31 } from './federated-relay-v31.js';
 import { handleFederatedRelayV31Transport, readBoundedRelayBodyV31 } from './federated-relay-v31-transport.js';
 
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
@@ -9,12 +9,24 @@ const SOURCE_ORIGIN_HEADER = 'x-federated-relay-source-origin';
 const SHA40 = /^[0-9a-f]{40}$/;
 const FCR_REPOSITORY = 'jussray/founder-control-room';
 const FCR_WORKER_HOST = /^[a-z0-9-]+-founder-control-room\.mcgill-raylene\.workers\.dev$/;
+const MAX_TTL_MS = 5 * 60_000;
+const CLOCK_SKEW_MS = 30_000;
 
 function relayAssert(condition, code, status = 400) {
   if (!condition) throw new RelayV31Error(code, status);
 }
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+export function assertRelayFreshnessRuntimeV31(envelope, now = new Date()) {
+  relayAssert(now instanceof Date && Number.isFinite(now.getTime()), 'relay_observed_time_required');
+  const issued = Date.parse(envelope?.issuedAt);
+  const expires = Date.parse(envelope?.expiresAt);
+  relayAssert(Number.isFinite(issued) && new Date(issued).toISOString() === envelope.issuedAt, 'relay_issued_at_invalid');
+  relayAssert(Number.isFinite(expires) && new Date(expires).toISOString() === envelope.expiresAt, 'relay_expires_at_invalid');
+  relayAssert(expires > issued && expires - issued <= MAX_TTL_MS, 'relay_invalid_expiry');
+  relayAssert(issued <= now.getTime() + CLOCK_SKEW_MS, 'relay_issued_in_future');
+  relayAssert(now.getTime() <= expires, 'relay_expired', 409);
 }
 async function supabaseRequest(env, path, init, fetchImpl) {
   relayAssert(typeof env.RELAY_SUPABASE_URL === 'string' && typeof env.RELAY_SUPABASE_SERVICE_ROLE_KEY === 'string', 'relay_ledger_unconfigured', 503);
@@ -289,6 +301,8 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
     }
 
     if (body?.contract === RELAY_CONTRACT) {
+      assertEnvelopeV31(body);
+      assertRelayFreshnessRuntimeV31(body, new Date());
       relayAssert(typeof body.source?.member === 'string' && typeof body.signature?.keyId === 'string', 'relay_signature_invalid');
       let sourceKey = await maybeLoadRelayKey(env, body.source.member, body.signature.keyId, fetchImpl);
       if (!sourceKey && body.source.member === 'founder-control-room') {
