@@ -16,6 +16,7 @@ const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
 const MODERN_PROTOCOL_META_KEY = 'io.modelcontextprotocol/protocolVersion';
 const MODERN_CLIENT_INFO_META_KEY = 'io.modelcontextprotocol/clientInfo';
+const MODERN_CLIENT_CAPABILITIES_META_KEY = 'io.modelcontextprotocol/clientCapabilities';
 const MODERN_SERVER_INFO_META_KEY = 'io.modelcontextprotocol/serverInfo';
 const SERVER_INFO = Object.freeze({ name: 'proofmode', title: 'ProofMode', version: '0.1.0' });
 const SERVER_CAPABILITIES = Object.freeze({ tools: Object.freeze({ listChanged: false }) });
@@ -66,8 +67,8 @@ function modernResult(result) {
     ? result._meta
     : {};
   return {
-    resultType: 'complete',
     ...result,
+    resultType: 'complete',
     _meta: {
       ...currentMeta,
       [MODERN_SERVER_INFO_META_KEY]: SERVER_INFO,
@@ -148,15 +149,19 @@ function validateModernEnvelope(request, message) {
   }
 
   const meta = message.params?._meta;
-  if (meta !== undefined && (!meta || typeof meta !== 'object' || Array.isArray(meta))) {
-    return modernHeaderMismatch(message, 'params._meta must be an object when present.');
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    return modernHeaderMismatch(message, 'params._meta is required for MCP 2026-07-28 requests.');
   }
-  if (meta && Object.prototype.hasOwnProperty.call(meta, MODERN_PROTOCOL_META_KEY)) {
-    if (meta[MODERN_PROTOCOL_META_KEY] !== MODERN_PROTOCOL_VERSION) {
-      return modernHeaderMismatch(message, 'Request metadata protocolVersion must match MCP-Protocol-Version.');
-    }
+  if (meta[MODERN_PROTOCOL_META_KEY] !== MODERN_PROTOCOL_VERSION) {
+    return modernHeaderMismatch(message, 'Request metadata protocolVersion must match MCP-Protocol-Version.');
   }
-  if (meta && Object.prototype.hasOwnProperty.call(meta, MODERN_CLIENT_INFO_META_KEY)) {
+
+  const clientCapabilities = meta[MODERN_CLIENT_CAPABILITIES_META_KEY];
+  if (!clientCapabilities || typeof clientCapabilities !== 'object' || Array.isArray(clientCapabilities)) {
+    return modernHeaderMismatch(message, 'Request metadata clientCapabilities is required and must be an object.');
+  }
+
+  if (Object.prototype.hasOwnProperty.call(meta, MODERN_CLIENT_INFO_META_KEY)) {
     const clientInfo = meta[MODERN_CLIENT_INFO_META_KEY];
     if (
       !clientInfo
@@ -265,7 +270,7 @@ async function dispatch(message, deps, protocolVersion) {
 
   if (modern && method === 'server/discover') {
     return jsonRpc(id, {
-      protocolVersions: SUPPORTED_PROTOCOLS,
+      supportedVersions: [MODERN_PROTOCOL_VERSION],
       capabilities: SERVER_CAPABILITIES,
       instructions: SERVER_INSTRUCTIONS,
       ttlMs: 0,
