@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "worker/index.js"
+      - "worker/release-sha.js"
       - "worker/chief-capability-plan.js"
       - "worker/chief-capability-plan.test.js"
       - "worker/chief-founder-content-proposal.js"
@@ -17,6 +18,7 @@ on:
       - "src/domain/founder-content-strategy.js"
       - "src/domain/founder-content-strategy.test.js"
       - "src/domain/founder-content-strategy.redteam.test.js"
+      - "scripts/bake-worker-release-sha.mjs"
       - "scripts/verify-cloudflare-runtime-identity.mjs"
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
