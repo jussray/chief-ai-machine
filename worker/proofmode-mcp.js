@@ -2,11 +2,25 @@ import { classifyRepositoryEvidence } from '../plugins/proofmode/src/audit.js';
 import { loadPublicRepositoryEvidence, ProofModeGitHubError } from '../plugins/proofmode/src/github.js';
 import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
-const PROTOCOL_VERSION = '2025-06-18';
-const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
+const MODERN_PROTOCOL_VERSION = '2026-07-28';
+const LEGACY_PROTOCOL_VERSION = '2025-06-18';
+const LEGACY_PROTOCOLS = new Set([LEGACY_PROTOCOL_VERSION, '2025-03-26']);
+const SUPPORTED_PROTOCOLS = Object.freeze([
+  MODERN_PROTOCOL_VERSION,
+  LEGACY_PROTOCOL_VERSION,
+  '2025-03-26',
+]);
+const SUPPORTED_PROTOCOL_SET = new Set(SUPPORTED_PROTOCOLS);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 const RECEIPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOOL_ARGUMENT_KEYS = new Set(['owner', 'repo', 'ref', 'acknowledges']);
+const MODERN_PROTOCOL_META_KEY = 'io.modelcontextprotocol/protocolVersion';
+const MODERN_CLIENT_INFO_META_KEY = 'io.modelcontextprotocol/clientInfo';
+const MODERN_SERVER_INFO_META_KEY = 'io.modelcontextprotocol/serverInfo';
+const SERVER_INFO = Object.freeze({ name: 'proofmode', title: 'ProofMode', version: '0.1.0' });
+const SERVER_CAPABILITIES = Object.freeze({ tools: Object.freeze({ listChanged: false }) });
+const SERVER_INSTRUCTIONS =
+  'ProofMode is read-only. It audits public GitHub repository evidence anonymously, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.';
 const SAFE_TOOL_ERROR_MESSAGES = Object.freeze({
   repository_unavailable: 'Repository or ref is not publicly available to ProofMode.',
   source_rate_limited: 'GitHub rate-limited the public evidence request.',
@@ -47,8 +61,26 @@ const TOOL = {
   },
 };
 
-function jsonRpc(id, result) {
-  return { jsonrpc: '2.0', id, result };
+function modernResult(result) {
+  const currentMeta = result && typeof result._meta === 'object' && !Array.isArray(result._meta)
+    ? result._meta
+    : {};
+  return {
+    resultType: 'complete',
+    ...result,
+    _meta: {
+      ...currentMeta,
+      [MODERN_SERVER_INFO_META_KEY]: SERVER_INFO,
+    },
+  };
+}
+
+function jsonRpc(id, result, protocolVersion = LEGACY_PROTOCOL_VERSION) {
+  return {
+    jsonrpc: '2.0',
+    id,
+    result: protocolVersion === MODERN_PROTOCOL_VERSION ? modernResult(result) : result,
+  };
 }
 
 function jsonRpcError(id, code, message, data) {
@@ -80,9 +112,66 @@ function validateOrigin(request) {
   }
 }
 
-function validateProtocolHeader(request) {
+function classifyProtocol(request) {
   const version = request.headers.get('MCP-Protocol-Version');
-  return !version || SUPPORTED_PROTOCOLS.has(version);
+  if (!version) return { protocolVersion: LEGACY_PROTOCOL_VERSION, explicit: false };
+  if (!SUPPORTED_PROTOCOL_SET.has(version)) {
+    return {
+      error: jsonRpcError(null, -32022, 'Unsupported MCP protocol version.', {
+        supportedProtocolVersions: SUPPORTED_PROTOCOLS,
+      }),
+    };
+  }
+  return { protocolVersion: version, explicit: true };
+}
+
+function modernHeaderMismatch(message, detail) {
+  return jsonRpcError(message?.id, -32020, 'MCP routing headers do not match the request body.', { detail });
+}
+
+function validateModernEnvelope(request, message) {
+  const methodHeader = request.headers.get('Mcp-Method');
+  if (!methodHeader || methodHeader !== message.method) {
+    return modernHeaderMismatch(message, 'Mcp-Method must be present and equal the JSON-RPC method.');
+  }
+
+  const expectedName = message.method === 'tools/call'
+    ? (typeof message.params?.name === 'string' ? message.params.name : '')
+    : '';
+  const nameHeader = request.headers.get('Mcp-Name');
+  if (expectedName) {
+    if (!nameHeader || nameHeader !== expectedName) {
+      return modernHeaderMismatch(message, 'Mcp-Name must be present and equal params.name for tools/call.');
+    }
+  } else if (nameHeader) {
+    return modernHeaderMismatch(message, 'Mcp-Name is not valid for this method.');
+  }
+
+  const meta = message.params?._meta;
+  if (meta !== undefined && (!meta || typeof meta !== 'object' || Array.isArray(meta))) {
+    return modernHeaderMismatch(message, 'params._meta must be an object when present.');
+  }
+  if (meta && Object.prototype.hasOwnProperty.call(meta, MODERN_PROTOCOL_META_KEY)) {
+    if (meta[MODERN_PROTOCOL_META_KEY] !== MODERN_PROTOCOL_VERSION) {
+      return modernHeaderMismatch(message, 'Request metadata protocolVersion must match MCP-Protocol-Version.');
+    }
+  }
+  if (meta && Object.prototype.hasOwnProperty.call(meta, MODERN_CLIENT_INFO_META_KEY)) {
+    const clientInfo = meta[MODERN_CLIENT_INFO_META_KEY];
+    if (
+      !clientInfo
+      || typeof clientInfo !== 'object'
+      || Array.isArray(clientInfo)
+      || typeof clientInfo.name !== 'string'
+      || !clientInfo.name.trim()
+      || typeof clientInfo.version !== 'string'
+      || !clientInfo.version.trim()
+    ) {
+      return modernHeaderMismatch(message, 'clientInfo metadata must contain non-empty name and version strings.');
+    }
+  }
+
+  return null;
 }
 
 function validateToolArguments(value) {
@@ -170,25 +259,37 @@ function resolveDeps(envOrDeps, maybeDeps) {
   return looksLikeDeps ? envOrDeps : (maybeDeps || DEFAULT_DEPS);
 }
 
-async function dispatch(message, deps) {
+async function dispatch(message, deps, protocolVersion) {
   const { id, method, params } = message;
+  const modern = protocolVersion === MODERN_PROTOCOL_VERSION;
 
-  if (method === 'initialize') {
-    const requested = params?.protocolVersion;
-    const negotiated = SUPPORTED_PROTOCOLS.has(requested) ? requested : PROTOCOL_VERSION;
+  if (modern && method === 'server/discover') {
     return jsonRpc(id, {
-      protocolVersion: negotiated,
-      capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
-      instructions:
-        'ProofMode is read-only. It audits public GitHub repository evidence anonymously, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
-    });
+      protocolVersions: SUPPORTED_PROTOCOLS,
+      capabilities: SERVER_CAPABILITIES,
+      instructions: SERVER_INSTRUCTIONS,
+      ttlMs: 0,
+      cacheScope: 'private',
+    }, protocolVersion);
   }
 
-  if (method === 'ping') return jsonRpc(id, {});
+  if (!modern && method === 'initialize') {
+    const requested = params?.protocolVersion;
+    const negotiated = LEGACY_PROTOCOLS.has(requested) ? requested : LEGACY_PROTOCOL_VERSION;
+    return jsonRpc(id, {
+      protocolVersion: negotiated,
+      capabilities: SERVER_CAPABILITIES,
+      serverInfo: SERVER_INFO,
+      instructions: SERVER_INSTRUCTIONS,
+    }, protocolVersion);
+  }
+
+  if (method === 'ping') return jsonRpc(id, {}, protocolVersion);
 
   if (method === 'tools/list') {
-    return jsonRpc(id, { tools: [TOOL] });
+    return jsonRpc(id, modern
+      ? { tools: [TOOL], ttlMs: 0, cacheScope: 'private' }
+      : { tools: [TOOL] }, protocolVersion);
   }
 
   if (method === 'tools/call') {
@@ -208,9 +309,9 @@ async function dispatch(message, deps) {
       });
       const report = deps.classifyRepositoryEvidence(evidence);
       const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
-      return jsonRpc(id, toolResult(report, proofReceipt));
+      return jsonRpc(id, toolResult(report, proofReceipt), protocolVersion);
     } catch (error) {
-      return jsonRpc(id, toolError(error));
+      return jsonRpc(id, toolError(error), protocolVersion);
     }
   }
 
@@ -224,13 +325,12 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return jsonResponse(jsonRpcError(null, -32000, 'Origin not allowed.'), 403);
   }
 
-  if (!validateProtocolHeader(request)) {
-    return jsonResponse(jsonRpcError(null, -32600, 'Unsupported MCP-Protocol-Version.'), 400);
-  }
-
   if (request.method !== 'POST') {
     return new Response(null, { status: 405, headers: { Allow: 'POST' } });
   }
+
+  const protocol = classifyProtocol(request);
+  if (protocol.error) return jsonResponse(protocol.error, 400);
 
   let message;
   try {
@@ -244,11 +344,16 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
   }
 
   if (message.id === undefined) {
-    if (message.method === 'notifications/initialized' || message.method.startsWith('notifications/')) {
-      return new Response(null, { status: 202 });
-    }
     return new Response(null, { status: 202 });
   }
 
-  return jsonResponse(await dispatch(message, deps));
+  if (protocol.protocolVersion === MODERN_PROTOCOL_VERSION) {
+    const mismatch = validateModernEnvelope(request, message);
+    if (mismatch) return jsonResponse(mismatch, 400);
+    if (message.method === 'initialize') {
+      return jsonResponse(jsonRpcError(message.id, -32601, 'initialize is not available in MCP 2026-07-28.'), 400);
+    }
+  }
+
+  return jsonResponse(await dispatch(message, deps, protocol.protocolVersion));
 }
