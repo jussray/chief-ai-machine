@@ -216,4 +216,24 @@ test.describe('ProofMode live MCP runtime', () => {
     const payload = await response.json();
     expect(payload.error.code).toBe(-32020);
   });
+
+  test('fails closed when modern request metadata is present but the HTTP protocol header is absent', async ({ request }) => {
+    const response = await request.post(`${baseURL}/mcp`, {
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'Mcp-Method': 'tools/list',
+      },
+      data: {
+        jsonrpc: '2.0',
+        id: 'missing-version-header',
+        method: 'tools/list',
+        params: { _meta: modernMeta() },
+      },
+    });
+
+    expect(response.status()).toBe(400);
+    const payload = await response.json();
+    expect(payload.error.code).toBe(-32020);
+  });
 });
