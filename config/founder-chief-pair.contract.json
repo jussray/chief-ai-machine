@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-09-13.1",
+  "contractVersion": "2026-09-13.2",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
@@ -9,7 +9,9 @@
     "schema": "juss/founder-chief-pair-candidate@v1",
     "founderControlRoomPullRequest": 781,
     "chiefAIPullRequest": 142,
-    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority."
+    "chiefAINecessaryFixPolicyPullRequest": 151,
+    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority.",
+    "carrierSeparationBoundary": "Chief PR #142 carries standalone MCP and pair identity. Chief PR #151 carries the necessary-fix policy and its separate runtime work. Neither carrier donates merge, runtime, provider, review, or Playwright proof to the other."
   },
   "relationship": {
     "topology": "standalone-peers",

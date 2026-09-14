@@ -30,6 +30,15 @@ const normalize = (value) => {
   return value;
 };
 
+const necessaryFixFounderGates = [
+  'scope-expansion',
+  'external-publication',
+  'spend',
+  'destructive-change',
+  'irreversible-change',
+  'authority-expansion',
+];
+
 requireValue(contract.schemaVersion === 1, 'pair contract schemaVersion must be 1');
 requireValue(/^\d{4}-\d{2}-\d{2}\.\d+$/.test(contract.contractVersion), 'contractVersion must be date.revision');
 requireValue(contract.pair?.controlRoom === 'jussray/founder-control-room', 'control-room repository drifted');
@@ -39,7 +48,10 @@ requireValue(pkg.name === 'chief-ai-machine', 'validator is running in the wrong
 requireValue(contract.candidatePairing?.schema === 'juss/founder-chief-pair-candidate@v1', 'pair candidate schema drifted');
 requireValue(Number.isInteger(contract.candidatePairing?.founderControlRoomPullRequest) && contract.candidatePairing.founderControlRoomPullRequest > 0, 'FCR candidate PR must be a positive integer');
 requireValue(Number.isInteger(contract.candidatePairing?.chiefAIPullRequest) && contract.candidatePairing.chiefAIPullRequest > 0, 'Chief candidate PR must be a positive integer');
-requireValue(contract.candidatePairing?.truthBoundary?.includes('does not grant merge'), 'candidate pairing must remain non-authorizing');
+requireValue(Number.isInteger(contract.candidatePairing?.chiefAINecessaryFixPolicyPullRequest) && contract.candidatePairing.chiefAINecessaryFixPolicyPullRequest > 0, 'Chief necessary-fix policy candidate PR must be a positive integer');
+requireValue(contract.candidatePairing?.truthBoundary?.includes('does not grant merge'), 'pair candidate truth boundary must remain non-authorizing');
+requireValue(contract.candidatePairing?.carrierSeparationBoundary?.includes('Chief PR #142') && contract.candidatePairing?.carrierSeparationBoundary?.includes('Chief PR #151'), 'candidate carrier separation must name both existing Chief carriers');
+requireValue(contract.candidatePairing?.carrierSeparationBoundary?.includes('Neither carrier donates'), 'candidate carriers must not donate proof to each other');
 
 const relationship = contract.relationship ?? {};
 const crossSystem = relationship.crossSystem ?? {};
@@ -195,10 +207,12 @@ for (const field of contract.requiredExecutiveFields ?? []) {
 }
 
 const counterpartPath = process.env.PAIR_CONTRACT_PATH;
+const necessaryFixPolicyPath = process.env.PAIR_NECESSARY_FIX_POLICY_PATH;
 const crossRepoRequired = process.env.PAIR_CROSS_REPO_REQUIRED === 'true';
 
 if (crossRepoRequired) {
   requireValue(Boolean(counterpartPath), 'PAIR_CONTRACT_PATH is required when cross-repository verification is enforced');
+  requireValue(Boolean(necessaryFixPolicyPath), 'PAIR_NECESSARY_FIX_POLICY_PATH is required when cross-repository verification is enforced');
 }
 
 if (counterpartPath) {
@@ -217,6 +231,26 @@ if (counterpartPath) {
   }
 }
 
+if (necessaryFixPolicyPath) {
+  try {
+    const policy = JSON.parse(await readFile(resolve(process.cwd(), necessaryFixPolicyPath), 'utf8'));
+    requireValue(policy.policyId === 'necessary-fix-execution-default', 'Chief necessary-fix policy id drifted');
+    requireValue(policy.projectId === 'chief-ai-machine', 'Chief necessary-fix policy project id drifted');
+    requireValue(
+      JSON.stringify(policy.founderRequiredWhen) === JSON.stringify(necessaryFixFounderGates),
+      `Chief necessary-fix founder gates ${JSON.stringify(policy.founderRequiredWhen ?? [])} drifted`,
+    );
+    requireValue(policy.externalCommunication?.defaultDisposition === 'founder-required', 'Chief necessary-fix external communication must remain founder-required by default');
+    requireValue(policy.externalCommunication?.standingApprovedAutomationMayProceed === true, 'Chief necessary-fix policy must preserve approved automated publishing classes');
+    requireValue(policy.externalCommunication?.standingAuthorizationSources?.includes('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md') && policy.externalCommunication?.standingAuthorizationSources?.includes('config/founder-chief-pair.contract.json'), 'Chief necessary-fix standing communication authorization sources drifted');
+    requireValue(policy.mergeCanon?.mergeApprovalRequired === true && policy.mergeCanon?.approvalScope === 'exact-repository-pr-base-head' && policy.mergeCanon?.approvalCarryForward === false, 'Chief necessary-fix merge canon drifted');
+    requireValue(policy.truthBoundary?.doesNotGrantAuthority === true && policy.truthBoundary?.requiresCurrentAuthority === true && policy.truthBoundary?.verifiedEvidenceAloneDoesNotMutate === true && policy.truthBoundary?.continuityMarkersAuthorize === false, 'Chief necessary-fix truth boundary drifted');
+    requireValue(policy.continuity?.bidirectionalFingerprintsAndCookies === true && policy.continuity?.incomingEvidenceMayInvalidateStaleState === true && policy.continuity?.outgoingApprovedActionsEmitUpdatedMarkersAndReceipts === true, 'Chief necessary-fix continuity boundary drifted');
+  } catch (error) {
+    failures.push(`Chief necessary-fix policy could not be read: ${error.message}`);
+  }
+}
+
 if (failures.length > 0) {
   console.error('Founder Control Room / Chief AI pair contract failed:');
   for (const failure of failures) console.error(` - ${failure}`);
@@ -224,8 +258,11 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
-console.log('Standalone-peer identity, lifecycle, receipt, failure, continuity, V10 authority, outcome, public communication, temporal truth, and Sauce Guard controls verified.');
+console.log('Standalone-peer identity, lifecycle, receipt, failure, continuity, V10 authority, outcome, necessary-fix carrier, public communication, temporal truth, and Sauce Guard controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
+console.log(necessaryFixPolicyPath
+  ? 'Separate Chief necessary-fix policy carrier verified without donating proof to this candidate.'
+  : 'Chief necessary-fix policy carrier comparison was not requested.');
 console.log('Runtime behavior remains unverified and must be resolved at use time.');
