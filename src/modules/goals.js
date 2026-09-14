@@ -58,9 +58,10 @@ function summarizeItems(items, emptyText) {
   return remaining > 0 ? `${visible} +${remaining}` : visible;
 }
 
-function makeTraceStep(label, value, muted = false) {
+function makeTraceStep(label, value, { muted = false, kind = '' } = {}) {
   const step = document.createElement('div');
   step.className = `goal-trace-step${muted ? ' is-muted' : ''}`;
+  if (kind) step.dataset.truthKind = kind;
   step.appendChild(makeTextElement('span', 'goal-trace-label', label));
   step.appendChild(makeTextElement('strong', 'goal-trace-value', value));
   return step;
@@ -71,27 +72,39 @@ function makeDecisionTrace(goal) {
   trace.className = 'goal-trace';
   trace.setAttribute('aria-label', 'Chief decision trace');
 
-  const evidence = summarizeItems(goal.evidence, 'Evidence not recorded yet');
-  const route = summarizeItems(goal.strategicLenses, 'No reasoning route recorded');
-  const capabilities = summarizeItems(goal.capabilities, 'No capabilities selected');
-  const judgment = goal.definitionOfDone || 'Definition of done not recorded';
-  const proof = summarizeItems(goal.proofRequirements, 'No proof requirement recorded');
-  const nextMove = goal.nextGate || 'Next gate not defined';
+  const known = summarizeItems(goal.evidence, 'No verified evidence recorded yet.');
+  const route = summarizeItems(goal.strategicLenses, 'No reasoning lens recorded.');
+  const proof = summarizeItems(goal.proofRequirements, 'No proof requirement recorded.');
+  const capabilities = summarizeItems(goal.capabilities, 'No capabilities selected.');
+  const recommendation = goal.definitionOfDone
+    ? `${goal.definitionOfDone} · capabilities: ${capabilities}`
+    : `Definition of done not recorded · capabilities: ${capabilities}`;
+  const nextGate = goal.nextGate || 'Next gate not defined.';
 
   trace.append(
-    makeTraceStep('Reality', evidence, !goal.evidence?.length),
-    makeTraceStep('Reasoning route', route, !goal.strategicLenses?.length),
-    makeTraceStep('Capabilities', capabilities, !goal.capabilities?.length),
-    makeTraceStep('Judgment', judgment, !goal.definitionOfDone),
-    makeTraceStep('Proof', proof, !goal.proofRequirements?.length),
-    makeTraceStep('Next move', nextMove, !goal.nextGate),
+    makeTraceStep('KNOWN', known, { muted: !goal.evidence?.length, kind: 'known' }),
+    makeTraceStep(
+      'INFERRED',
+      goal.strategicLenses?.length
+        ? `Reasoning route only: ${route}. This is not verified evidence.`
+        : 'No inference is recorded as fact.',
+      { muted: !goal.strategicLenses?.length, kind: 'inferred' },
+    ),
+    makeTraceStep(
+      'BLOCKED',
+      goal.proofRequirements?.length
+        ? `Completion stays blocked until: ${proof}`
+        : 'No explicit proof blocker recorded.',
+      { muted: !goal.proofRequirements?.length, kind: 'blocked' },
+    ),
+    makeTraceStep('RECOMMENDED', recommendation, { muted: !goal.definitionOfDone, kind: 'recommended' }),
+    makeTraceStep(
+      'CANNOT AUTHORIZE',
+      'Chief cannot authorize merge, deploy, publication, provider mutation, billing, or destructive external action.',
+      { kind: 'authority' },
+    ),
+    makeTraceStep('NEXT GATE', nextGate, { muted: !goal.nextGate, kind: 'next-gate' }),
   );
-
-  const authority = document.createElement('div');
-  authority.className = 'goal-authority';
-  authority.appendChild(makeTextElement('span', 'goal-trace-label', 'Authority'));
-  authority.appendChild(makeTextElement('strong', '', 'Chief recommends. Founder approval remains the execution gate.'));
-  trace.appendChild(authority);
 
   return trace;
 }
