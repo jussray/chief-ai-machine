@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('founder goal front door exposes Chief reasoning and carries the bounded plan into Builder', async ({ page }, testInfo) => {
+test('founder goal front door exposes Chief truth grammar and carries the bounded plan into Builder', async ({ page }, testInfo) => {
   const goalsPage = page.locator('#page-goals');
   await expect(goalsPage).toBeVisible();
   await expect(goalsPage.getByRole('heading', { name: 'What are we trying to accomplish?' })).toBeVisible();
@@ -46,20 +46,19 @@ test('founder goal front door exposes Chief reasoning and carries the bounded pl
 
   const trace = goalCard.getByRole('region', { name: 'Chief decision trace' });
   await expect(trace).toBeVisible();
-  await expect(trace).toContainText('Reality');
-  await expect(trace).toContainText('Current main is pinned');
-  await expect(trace).toContainText('Reasoning route');
-  await expect(trace).toContainText('truthmode → redteam +1');
-  await expect(trace).toContainText('Capabilities');
-  await expect(trace).toContainText('goalfix-v1 → repo-audit-first');
-  await expect(trace).toContainText('Judgment');
-  await expect(trace).toContainText(DONE);
-  await expect(trace).toContainText('Authority');
-  await expect(trace).toContainText('Chief recommends. Founder approval remains the execution gate.');
-  await expect(trace).toContainText('Proof');
-  await expect(trace).toContainText('goal contract unit test green → Founder Goals Playwright green');
-  await expect(trace).toContainText('Next move');
-  await expect(trace).toContainText(NEXT_GATE);
+  await expect(trace.locator('[data-truth-kind="known"]')).toContainText('KNOWN');
+  await expect(trace.locator('[data-truth-kind="known"]')).toContainText('Current main is pinned');
+  await expect(trace.locator('[data-truth-kind="inferred"]')).toContainText('INFERRED');
+  await expect(trace.locator('[data-truth-kind="inferred"]')).toContainText('Reasoning route only: truthmode → redteam +1. This is not verified evidence.');
+  await expect(trace.locator('[data-truth-kind="blocked"]')).toContainText('BLOCKED');
+  await expect(trace.locator('[data-truth-kind="blocked"]')).toContainText('Completion stays blocked until: goal contract unit test green → Founder Goals Playwright green');
+  await expect(trace.locator('[data-truth-kind="recommended"]')).toContainText('RECOMMENDED');
+  await expect(trace.locator('[data-truth-kind="recommended"]')).toContainText(DONE);
+  await expect(trace.locator('[data-truth-kind="recommended"]')).toContainText('goalfix-v1 → repo-audit-first');
+  await expect(trace.locator('[data-truth-kind="authority"]')).toContainText('CANNOT AUTHORIZE');
+  await expect(trace.locator('[data-truth-kind="authority"]')).toContainText('Chief cannot authorize merge, deploy, publication, provider mutation, billing, or destructive external action.');
+  await expect(trace.locator('[data-truth-kind="next-gate"]')).toContainText('NEXT GATE');
+  await expect(trace.locator('[data-truth-kind="next-gate"]')).toContainText(NEXT_GATE);
 
   await goalCard.getByRole('button', { name: 'Continue in Builder' }).click();
   await expect(page.locator('#page-builder')).toHaveClass(/\bon\b/);
