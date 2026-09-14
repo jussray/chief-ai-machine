@@ -34,6 +34,7 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_HEAD_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
   CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
   ACCESS_AUTH_CONFIGURED: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID != '' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET != '' }}
 
@@ -75,7 +76,7 @@ jobs:
         if: failure() && steps.runtime-identity.outcome == 'failure'
         shell: bash
         run: |
-          printf '%s\n' 'BLOCKED_PROVIDER_AUTHORITY: provider-issued Chief preview candidates did not pass exact-version verification through the configured Access service-token boundary. Do not weaken Access or treat provider upload as runtime proof.'
+          printf '%s\n' 'BLOCKED_PROVIDER_AUTHORITY: provider-issued Chief preview candidates did not pass exact Version ID + SHA + branch verification through the configured Access service-token boundary. Do not weaken Access or treat provider upload as runtime proof.'
 
       - name: Bind verified runtime to ProofMode test surface
         shell: bash
