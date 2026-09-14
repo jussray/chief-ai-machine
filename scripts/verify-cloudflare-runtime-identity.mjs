@@ -3,6 +3,7 @@ import { appendFile } from 'node:fs/promises';
 const token = process.env.GITHUB_TOKEN?.trim();
 const repository = process.env.GITHUB_REPOSITORY?.trim();
 const expectedHeadSha = process.env.EXPECTED_HEAD_SHA?.trim();
+const expectedHeadBranch = process.env.EXPECTED_HEAD_BRANCH?.trim();
 const explicitBaseUrl = process.env.CLOUDFLARE_RUNTIME_BASE_URL?.trim();
 const checkName = process.env.CLOUDFLARE_CHECK_NAME?.trim() || 'Workers Builds: chief-ai';
 const accessClientId = process.env.CLOUDFLARE_ACCESS_CLIENT_ID?.trim();
@@ -18,6 +19,7 @@ function fail(message) {
 if (!token) fail('GITHUB_TOKEN is required to bind runtime identity to an exact-head provider check.');
 if (!repository) fail('GITHUB_REPOSITORY is required.');
 if (!expectedHeadSha) fail('EXPECTED_HEAD_SHA is required.');
+if (!expectedHeadBranch) fail('EXPECTED_HEAD_BRANCH is required.');
 if (!Number.isFinite(maxAttempts) || maxAttempts < 1) fail('CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS must be a positive integer.');
 if (!Number.isFinite(sleepMs) || sleepMs < 0) fail('CLOUDFLARE_RUNTIME_PROOF_SLEEP_MS must be a non-negative integer.');
 if (Boolean(accessClientId) !== Boolean(accessClientSecret)) {
@@ -108,6 +110,8 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const observation = observations.get(parsedRuntimeUrl.origin) || {
       status: 0,
       versionId: null,
+      sha: null,
+      branch: null,
       redirectHost: null,
     };
     try {
@@ -127,16 +131,27 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
           const parsed = JSON.parse(body);
           observation.versionId = typeof parsed.version_id === 'string' ? parsed.version_id : null;
+          observation.sha = typeof parsed.sha === 'string' ? parsed.sha : null;
+          observation.branch = typeof parsed.branch === 'string' ? parsed.branch : null;
         } catch {
           observation.versionId = null;
+          observation.sha = null;
+          observation.branch = null;
         }
-        if (response.status === 200 && observation.versionId === providerIdentity.versionId) {
+        if (
+          response.status === 200
+          && observation.versionId === providerIdentity.versionId
+          && observation.sha === expectedHeadSha
+          && observation.branch === expectedHeadBranch
+        ) {
           console.log(`Cloudflare runtime identity verified for exact head ${expectedHeadSha}.`);
           console.log(`Provider Version ID: ${providerIdentity.versionId}`);
+          console.log(`Runtime branch: ${expectedHeadBranch}`);
           console.log(`Runtime: ${parsedRuntimeUrl.origin}`);
           if (process.env.GITHUB_ENV) {
             await appendFile(process.env.GITHUB_ENV, `CLOUDFLARE_RUNTIME_BASE_URL=${parsedRuntimeUrl.origin}\n`, 'utf8');
             await appendFile(process.env.GITHUB_ENV, `EXPECTED_CLOUDFLARE_VERSION_ID=${providerIdentity.versionId}\n`, 'utf8');
+            await appendFile(process.env.GITHUB_ENV, `EXPECTED_RUNTIME_BRANCH=${expectedHeadBranch}\n`, 'utf8');
           }
           process.exit(0);
         }
@@ -149,12 +164,16 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
   if (attempt < maxAttempts) await sleep(sleepMs);
 }
 
-console.error(`Cloudflare runtime identity did not match provider Version ID for exact head ${expectedHeadSha}.`);
+console.error(`Cloudflare runtime identity did not match provider Version ID + exact SHA + branch for ${expectedHeadSha}.`);
 console.error(`Expected provider Version ID: ${providerIdentity.versionId}`);
+console.error(`Expected runtime SHA: ${expectedHeadSha}`);
+console.error(`Expected runtime branch: ${expectedHeadBranch}`);
 for (const candidate of runtimeCandidates) {
   const observation = observations.get(candidate.origin) || {};
   console.error(`Candidate runtime: ${candidate.origin}`);
   console.error(`Observed provider Version ID: ${observation.versionId || 'missing'}`);
+  console.error(`Observed runtime SHA: ${observation.sha || 'missing'}`);
+  console.error(`Observed runtime branch: ${observation.branch || 'missing'}`);
   console.error(`Observed HTTP status: ${observation.status || 'unavailable'}`);
   if (observation.redirectHost) console.error(`Observed redirect host: ${observation.redirectHost}`);
 }
