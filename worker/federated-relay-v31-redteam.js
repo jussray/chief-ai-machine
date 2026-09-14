@@ -1,4 +1,4 @@
-const clone = (value) => structuredClone(value);
+const clone = (value) => globalThis.structuredClone(value);
 
 export const RELAY_V31_MUTATIONS = [
   { name: 'contract_invalid', apply: (e) => { e.contract = 'juss/federated-agent-relay@evil'; } },
