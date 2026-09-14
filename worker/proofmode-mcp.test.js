@@ -297,6 +297,56 @@ describe('ProofMode MCP transport', () => {
     expect(providerCalls).toBe(0);
   });
 
+  it('fails closed when modern metadata declares the protocol but the HTTP version header is missing', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'missing-version-header',
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app' },
+          _meta: modernMeta(),
+        },
+      }, {
+        'Mcp-Method': 'tools/call',
+        'Mcp-Name': 'audit_repository',
+      }),
+      deps,
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
+    expect(providerCalls).toBe(0);
+  });
+
+  it('validates modern notification routing before returning 202', async () => {
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        method: 'notifications/cancelled',
+        params: { _meta: modernMeta() },
+      }, {
+        'MCP-Protocol-Version': MODERN_PROTOCOL_VERSION,
+        'Mcp-Method': 'tools/list',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
+  });
+
   it('fails closed when required modern request metadata is absent', async () => {
     let providerCalls = 0;
     const deps = {
