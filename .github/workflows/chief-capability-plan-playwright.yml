@@ -41,8 +41,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  ACCESS_AUTH_CONFIGURED: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID != '' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET != '' }}
 
 jobs:
   verify:
@@ -74,6 +73,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "30"
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: node scripts/verify-cloudflare-runtime-identity.mjs
 
       - name: Preserve provider-admin block classification
@@ -95,6 +96,8 @@ jobs:
       - name: Run live Chief capability-plan Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           cat > playwright.chief-capability-plan.config.mjs <<'EOF'
@@ -106,6 +109,7 @@ jobs:
                 'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
               }
             : {};
+          const authenticated = Object.keys(accessHeaders).length > 0;
 
           export default defineConfig({
             testDir: './e2e',
@@ -114,17 +118,19 @@ jobs:
             retries: 0,
             workers: 1,
             outputDir: './test-results/chief-capability-plan',
-            reporter: [
-              ['line'],
-              ['html', { outputFolder: './playwright-report/chief-capability-plan', open: 'never' }],
-            ],
-            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
+            reporter: authenticated
+              ? [['line']]
+              : [
+                  ['line'],
+                  ['html', { outputFolder: './playwright-report/chief-capability-plan', open: 'never' }],
+                ],
+            use: { trace: authenticated ? 'off' : 'retain-on-failure', extraHTTPHeaders: accessHeaders },
           });
           EOF
           npx playwright test --config=playwright.chief-capability-plan.config.mjs
 
       - name: Retain Playwright report
-        if: always()
+        if: always() && env.ACCESS_AUTH_CONFIGURED != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: chief-capability-plan-playwright-${{ env.EXPECTED_HEAD_SHA }}
