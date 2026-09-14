@@ -16,6 +16,7 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_BRANCH: ${{ github.ref_name }}
   PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
   CLOUDFLARE_RUNTIME_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
 
@@ -55,7 +56,7 @@ jobs:
         if: failure() && steps.runtime-identity.outcome == 'failure'
         shell: bash
         run: |
-          printf '%s\n' 'BLOCKED_PROVIDER_RUNTIME: production runtime did not prove the provider Version ID attached to this exact main head. Do not substitute preview evidence for production outcome.'
+          printf '%s\n' 'BLOCKED_PROVIDER_RUNTIME: production runtime did not prove provider Version ID + exact main SHA + main branch identity. Do not substitute preview evidence for production outcome.'
 
       - name: Install locked application dependencies
         run: npm ci
