@@ -116,9 +116,7 @@ describe('ProofMode MCP transport', () => {
     expect(response.status).toBe(200);
     const payload = await json(response);
     expect(payload.result.resultType).toBe('complete');
-    expect(payload.result.protocolVersions).toEqual(
-      expect.arrayContaining([MODERN_PROTOCOL_VERSION, '2025-06-18']),
-    );
+    expect(payload.result.supportedVersions).toEqual([MODERN_PROTOCOL_VERSION]);
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
     expect(payload.result.ttlMs).toBe(0);
     expect(payload.result.cacheScope).toBe('private');
@@ -297,6 +295,54 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.error.code).toBe(-32020);
     expect(providerCalls).toBe(0);
+  });
+
+  it('fails closed when required modern request metadata is absent', async () => {
+    let providerCalls = 0;
+    const deps = {
+      loadPublicRepositoryEvidence: async () => {
+        providerCalls += 1;
+        return evidenceFixture();
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'missing-meta',
+        method: 'tools/call',
+        params: {
+          name: 'audit_repository',
+          arguments: { owner: 'acme', repo: 'app' },
+        },
+      }, modernHeaders('tools/call', 'audit_repository')),
+      deps,
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
+    expect(providerCalls).toBe(0);
+  });
+
+  it('fails closed when required modern clientCapabilities metadata is absent', async () => {
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 'missing-capabilities',
+        method: 'tools/list',
+        params: {
+          _meta: {
+            [PROTOCOL_META_KEY]: MODERN_PROTOCOL_VERSION,
+          },
+        },
+      }, modernHeaders('tools/list')),
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
   });
 
   it('rejects modern initialize instead of silently creating a legacy session', async () => {
