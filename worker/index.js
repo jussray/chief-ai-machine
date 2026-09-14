@@ -40,7 +40,10 @@ function getReleaseBranch(env) {
 
 function getProviderVersionMetadata(env) {
   const metadata = env?.CF_VERSION_METADATA;
-  const result = {};
+  const result = {
+    version_id: null,
+    version_tag: null,
+  };
   if (typeof metadata?.id === 'string' && metadata.id.trim()) result.version_id = metadata.id.trim();
   if (typeof metadata?.tag === 'string' && metadata.tag.trim()) result.version_tag = metadata.tag.trim();
   return result;
