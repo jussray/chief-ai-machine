@@ -320,7 +320,7 @@ describe('Chief federated relay v3 runtime', () => {
       member: 'chief-ai-machine',
       key_id: 'chief:relay-v3:test',
       algorithm: 'Ed25519',
-      public_key_jwk: chiefKeys.publicJwk,
+      public_key_jwk: { kty: 'OKP', crv: 'Ed25519', x: chiefKeys.publicJwk.x },
       state: 'revoked',
       valid_from: new Date(Date.now() - 60_000).toISOString(),
       valid_until: null,
