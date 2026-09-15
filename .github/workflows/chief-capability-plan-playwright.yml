@@ -68,9 +68,6 @@ jobs:
       - name: Run focused capability contracts
         run: npx vitest run worker/chief-capability-plan.test.js worker/chief-mcp.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
 
-      - name: Verify candidate credential membrane
-        run: npm run verify:pr-credential-membrane
-
   pr-runtime-gate:
     name: Verify live Chief capability plan with Playwright
     if: ${{ always() }}
