@@ -20,7 +20,6 @@ on:
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
-      - "config/operational-authority.json"
   workflow_dispatch:
     inputs:
       base_url:
