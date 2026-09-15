@@ -4,17 +4,27 @@ import { resolve } from 'node:path';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-const [contractText, constitution, communication, pkgText, chiefSkill, chatgptContract] = await Promise.all([
+const [
+  contractText,
+  constitution,
+  communication,
+  pkgText,
+  chiefSkill,
+  chatgptContract,
+  necessaryFixPolicyText,
+] = await Promise.all([
   read('config/founder-chief-pair.contract.json'),
   read('docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'),
   read('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md'),
   read('package.json'),
   read('.claude/skills/juss-chief-ai/SKILL.md'),
   read('CHATGPT.md'),
+  read('.control-room/necessary-fix-policy.json'),
 ]);
 
 const contract = JSON.parse(contractText);
 const pkg = JSON.parse(pkgText);
+const necessaryFixPolicy = JSON.parse(necessaryFixPolicyText);
 const failures = [];
 const requireValue = (condition, message) => {
   if (!condition) failures.push(message);
@@ -29,6 +39,15 @@ const normalize = (value) => {
   }
   return value;
 };
+
+const expectedNecessaryFixFounderGates = [
+  'scope-expansion',
+  'external-publication',
+  'spend',
+  'destructive-change',
+  'irreversible-change',
+  'authority-expansion',
+];
 
 requireValue(contract.schemaVersion === 1, 'pair contract schemaVersion must be 1');
 requireValue(/^\d{4}-\d{2}-\d{2}\.\d+$/.test(contract.contractVersion), 'contractVersion must be date.revision');
@@ -60,6 +79,29 @@ requireValue(contract.driftPolicy?.includes('pair drift'), 'pair drift policy is
 requireValue(contract.runtimeTruthBoundary?.includes('does not prove deployed or runtime behavior'), 'runtime truth boundary is required');
 requireValue(contract.postingTruthBoundary?.includes('observable platform artifact'), 'posting truth boundary is required');
 requireValue(contract.postingApprovalPolicy?.includes('unless separately approved'), 'posting approval policy is required');
+
+requireValue(necessaryFixPolicy.schemaVersion === '1.0', 'necessary-fix policy schemaVersion must be 1.0');
+requireValue(necessaryFixPolicy.policyId === 'necessary-fix-execution-default', 'necessary-fix policyId drifted');
+requireValue(necessaryFixPolicy.projectId === 'chief-ai-machine', 'necessary-fix projectId drifted');
+requireValue(
+  JSON.stringify(necessaryFixPolicy.founderRequiredWhen) === JSON.stringify(expectedNecessaryFixFounderGates),
+  'necessary-fix founder gates drifted from FCR standing policy',
+);
+requireValue(
+  necessaryFixPolicy.externalCommunication?.defaultDisposition === 'founder-required',
+  'external communication must remain founder-required by default',
+);
+requireValue(
+  necessaryFixPolicy.externalCommunication?.standingApprovedAutomationMayProceed === true,
+  'approved automated publishing class exception must remain preserved',
+);
+requireValue(
+  necessaryFixPolicy.externalCommunication?.standingAuthorizationSources?.includes('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md')
+    && necessaryFixPolicy.externalCommunication?.standingAuthorizationSources?.includes('config/founder-chief-pair.contract.json'),
+  'standing publishing authorization sources drifted',
+);
+requireValue(necessaryFixPolicy.truthBoundary?.doesNotGrantAuthority === true, 'necessary-fix policy must not grant authority');
+requireValue(necessaryFixPolicy.truthBoundary?.continuityMarkersAuthorize === false, 'continuity markers must remain non-authorizing');
 
 for (const mode of ['/futureyou', '/truthmode', '/confess']) {
   requireValue(contract.requiredPublicCommunicationModes?.includes(mode), `pair contract missing public communication mode ${mode}`);
@@ -160,10 +202,12 @@ for (const field of contract.requiredExecutiveFields ?? []) {
 }
 
 const counterpartPath = process.env.PAIR_CONTRACT_PATH;
+const counterpartNecessaryFixPolicyPath = process.env.PAIR_NECESSARY_FIX_POLICY_PATH;
 const crossRepoRequired = process.env.PAIR_CROSS_REPO_REQUIRED === 'true';
 
 if (crossRepoRequired) {
   requireValue(Boolean(counterpartPath), 'PAIR_CONTRACT_PATH is required when cross-repository verification is enforced');
+  requireValue(Boolean(counterpartNecessaryFixPolicyPath), 'PAIR_NECESSARY_FIX_POLICY_PATH is required when cross-repository verification is enforced');
 }
 
 if (counterpartPath) {
@@ -182,6 +226,36 @@ if (counterpartPath) {
   }
 }
 
+if (counterpartNecessaryFixPolicyPath) {
+  try {
+    const counterpartPolicyText = await readFile(resolve(process.cwd(), counterpartNecessaryFixPolicyPath), 'utf8');
+    const gateBlock = counterpartPolicyText.match(
+      /const\s+NECESSARY_FIX_FOUNDER_GATES\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\s*as const\);/,
+    );
+    const counterpartGates = gateBlock
+      ? [...gateBlock[1].matchAll(/'([^']+)'/g)].map((match) => match[1])
+      : [];
+
+    requireValue(
+      JSON.stringify(counterpartGates) === JSON.stringify(necessaryFixPolicy.founderRequiredWhen),
+      `pair drift: FCR necessary-fix founder gates ${JSON.stringify(counterpartGates)} do not match Chief AI ${JSON.stringify(necessaryFixPolicy.founderRequiredWhen)}`,
+    );
+    requireValue(
+      counterpartPolicyText.includes('unless a separate explicit communication policy exists.'),
+      'pair drift: FCR standing policy no longer preserves a separate explicit communication-policy exception',
+    );
+    requireValue(
+      counterpartPolicyText.includes("necessaryFixDefault: Object.freeze({")
+        && counterpartPolicyText.includes('doesNotGrantAuthority: true')
+        && counterpartPolicyText.includes('requiresCurrentAuthority: true')
+        && counterpartPolicyText.includes('proofGatedActionsRemainProofGated: true'),
+      'pair drift: FCR necessary-fix authority/proof boundary changed',
+    );
+  } catch (error) {
+    failures.push(`Founder Control Room necessary-fix policy could not be read: ${error.message}`);
+  }
+}
+
 if (failures.length > 0) {
   console.error('Founder Control Room / Chief AI pair contract failed:');
   for (const failure of failures) console.error(` - ${failure}`);
@@ -189,8 +263,11 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
-console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, and Sauce Guard controls verified.');
+console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, Sauce Guard, and necessary-fix controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
+console.log(counterpartNecessaryFixPolicyPath
+  ? 'Cross-repository necessary-fix policy alignment verified.'
+  : 'Local necessary-fix policy verified; FCR counterpart comparison was not requested.');
 console.log('Runtime behavior remains unverified and must be resolved at use time.');

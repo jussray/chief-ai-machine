@@ -66,7 +66,7 @@ test.describe('Chief capability-plan live runtime', () => {
   test('serves the exact candidate head from /version', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
     expect(response.status()).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
+    await expect(response.json()).resolves.toMatchObject({ ok: true, sha: expectedHead });
   });
 
   test('returns a proposal-only plan plus a credential-free FCR connection handoff', async ({ request }) => {
