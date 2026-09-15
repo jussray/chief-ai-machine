@@ -100,10 +100,20 @@ export function buildProviderLearningReceipt(validatedRequest, providerResult) {
   if (!ISO_DATE.test(providerResult?.observed_at || '') || Number.isNaN(Date.parse(providerResult?.observed_at))) {
     errors.push('provider result observed_at must be ISO UTC');
   }
+  if (!Number.isFinite(providerResult?.latency_ms) || providerResult.latency_ms < 0) {
+    errors.push('provider result latency_ms must be a non-negative number');
+  }
+  if (!Number.isInteger(providerResult?.usage?.input_tokens) || providerResult.usage.input_tokens < 0
+      || !Number.isInteger(providerResult?.usage?.output_tokens) || providerResult.usage.output_tokens < 0) {
+    errors.push('provider result token usage must contain non-negative integers');
+  }
+  const providerMessageId = text(providerResult?.provider_message_id, 240);
+  const providerRequestId = nullableText(providerResult?.request_id, 240);
+  if (!providerMessageId) errors.push('provider result message identity is required');
   if (errors.length > 0) fail(errors);
 
-  const provenanceRef = `anthropic:${providerResult.request_id || providerResult.provider_message_id}`;
-  const idempotencyBase = providerResult.request_id || providerResult.provider_message_id;
+  const idempotencyBase = providerRequestId || providerMessageId;
+  const provenanceRef = `anthropic:${idempotencyBase}`;
   const metricContext = {
     timestamp: providerResult.observed_at,
     source: 'anthropic-api',
@@ -127,12 +137,12 @@ export function buildProviderLearningReceipt(validatedRequest, providerResult) {
     }),
     createMetricObservation({
       ...metricContext,
-      metric_name: 'input_tokens', unit: 'tokens', value: providerResult.usage?.input_tokens ?? 0,
+      metric_name: 'input_tokens', unit: 'tokens', value: providerResult.usage.input_tokens,
       idempotency_key: `${idempotencyBase}:input_tokens`,
     }),
     createMetricObservation({
       ...metricContext,
-      metric_name: 'output_tokens', unit: 'tokens', value: providerResult.usage?.output_tokens ?? 0,
+      metric_name: 'output_tokens', unit: 'tokens', value: providerResult.usage.output_tokens,
       idempotency_key: `${idempotencyBase}:output_tokens`,
     }),
   ];
@@ -150,8 +160,8 @@ export function buildProviderLearningReceipt(validatedRequest, providerResult) {
     api_version: providerResult.api_version,
     requested_model: providerResult.requested_model,
     resolved_model: providerResult.resolved_model,
-    provider_request_id: providerResult.request_id,
-    provider_message_id: providerResult.provider_message_id,
+    provider_request_id: providerRequestId,
+    provider_message_id: providerMessageId,
     observed_at: providerResult.observed_at,
     output_hash: hash(providerResult.output_text || ''),
     approval_receipt_id: request.approval.receipt_id,
