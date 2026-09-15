@@ -1,13 +1,28 @@
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 export const STARRED_PROMPTS_UPDATED_EVENT = 'chief-stars-updated';
 
-export function readStoredArray(key) {
+export function readStoredArrayState(key) {
+  let raw;
   try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(value) ? value : [];
+    raw = localStorage.getItem(key);
   } catch {
-    return [];
+    return { state: 'unavailable', values: [] };
   }
+  if (raw === null) return { state: 'ready', values: [] };
+
+  try {
+    const value = JSON.parse(raw);
+    return Array.isArray(value)
+      ? { state: 'ready', values: value }
+      : { state: 'corrupt', values: [] };
+  } catch {
+    return { state: 'corrupt', values: [] };
+  }
+}
+
+export function readStoredArray(key) {
+  const read = readStoredArrayState(key);
+  return read.state === 'ready' ? read.values : [];
 }
 
 function emitStateEvent(name) {
@@ -22,7 +37,12 @@ export function writeCustomPrompts(prompts) {
 }
 
 export function writeStars(stars) {
-  const safe = Array.isArray(stars) ? [...new Set(stars)] : [];
+  const safe = Array.isArray(stars)
+    ? [...new Set(stars.filter(value => (
+      (typeof value === 'string' && value.length > 0 && value.length <= 180)
+      || (typeof value === 'number' && Number.isSafeInteger(value))
+    )))]
+    : [];
   localStorage.setItem('chief-stars', JSON.stringify(safe));
   emitStateEvent(STARRED_PROMPTS_UPDATED_EVENT);
 }
@@ -163,6 +183,37 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
 
   if (!Array.isArray(prompts) || normalized.length !== prompts.length) changed = true;
   return { prompts: normalized, changed };
+}
+
+export function readCustomPromptState() {
+  const read = readStoredArrayState('chief-custom');
+  if (read.state !== 'ready') return { state: read.state, prompts: [] };
+
+  const normalized = normalizeCustomPrompts(read.values);
+  if (normalized.prompts.length !== read.values.length) {
+    return { state: 'corrupt', prompts: [] };
+  }
+
+  if (normalized.changed) {
+    try {
+      localStorage.setItem('chief-custom', JSON.stringify(normalized.prompts));
+    } catch {
+      return { state: 'unavailable', prompts: [] };
+    }
+  }
+  return { state: 'ready', prompts: normalized.prompts };
+}
+
+export function readStarState() {
+  const read = readStoredArrayState('chief-stars');
+  if (read.state !== 'ready') return { state: read.state, stars: [] };
+
+  const valid = read.values.filter(value => (
+    (typeof value === 'string' && value.length > 0 && value.length <= 180)
+    || (typeof value === 'number' && Number.isSafeInteger(value))
+  ));
+  if (valid.length !== read.values.length) return { state: 'corrupt', stars: [] };
+  return { state: 'ready', stars: [...new Set(valid)] };
 }
 
 export function migrateLegacyCustomStarIds(customPrompts, stars) {

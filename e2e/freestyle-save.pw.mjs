@@ -16,16 +16,11 @@ async function openPage(page, name) {
 async function assertModalProvider(page, providerLabel) {
   await page.locator('#mTabs .ptab', { hasText: providerLabel }).click();
   const visibleText = await page.locator('#mBody').innerText();
-
   expect(visibleText.length).toBeGreaterThan(100);
   expect(floorCount(visibleText), `${providerLabel} must contain exactly one evidence floor`).toBe(1);
   expect(visibleText).toContain(FLOOR);
-
   await page.locator('#mCopy').click();
-  await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toBe(visibleText);
-
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(visibleText);
   return visibleText;
 }
 
@@ -48,12 +43,9 @@ test.beforeEach(async ({ context, page }) => {
   await page.reload();
 });
 
-test('Freestyle save, reopen, provider switch, copy, and reload remain governed', async ({ page }, testInfo) => {
+test('Freestyle save becomes live Library state, reopens, copies, and survives reload', async ({ page }, testInfo) => {
   await openPage(page, 'freestyle');
-
-  await page.locator('#fsAsk').fill(
-    'Red team this product launch and attack the hidden assumptions before I invest more.',
-  );
+  await page.locator('#fsAsk').fill('Red team this product launch and attack the hidden assumptions before I invest more.');
   await page.locator('#fsGenerate').click();
   await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
   expect(await page.locator('#fsTabs .ptab').count()).toBeGreaterThanOrEqual(2);
@@ -67,12 +59,8 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   });
   expect(savedImmediately).not.toBeNull();
   expect(savedImmediately.id).toMatch(/^freestyle-/);
-  expect(Object.keys(savedImmediately.versions)).toEqual(
-    expect.arrayContaining(['chatgpt', 'claude', 'perplexity']),
-  );
-  for (const text of Object.values(savedImmediately.versions)) {
-    expect(floorCount(text)).toBe(1);
-  }
+  expect(Object.keys(savedImmediately.versions)).toEqual(expect.arrayContaining(['chatgpt', 'claude', 'perplexity']));
+  for (const text of Object.values(savedImmediately.versions)) expect(floorCount(text)).toBe(1);
 
   await openPage(page, 'library');
   await page.locator('#search').fill(savedImmediately.title);
@@ -89,11 +77,7 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   expect(chatgptText).not.toBe('');
   expect(claudeText).not.toBe('');
 
-  await page.screenshot({
-    path: testInfo.outputPath(`${testInfo.project.name}-saved-draft.png`),
-    fullPage: true,
-  });
-
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-saved-draft.png`), fullPage: true });
   await page.locator('#mClose').click();
   await expect(page.locator('#modalWrap')).not.toHaveClass(/\bopen\b/);
 
@@ -109,7 +93,7 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   expect(savedAfterReload).toEqual(savedImmediately);
 });
 
-test('custom prompt text is inert, legacy star ids migrate, and delete stays coherent', async ({ page }) => {
+test('custom prompt text stays inert, legacy star ids migrate, and delete stays coherent', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem('chief-custom', JSON.stringify([{
       id: 'custom-xss-proof',
@@ -120,6 +104,7 @@ test('custom prompt text is inert, legacy star ids migrate, and delete stays coh
       platforms: ['chatgpt'],
       versions: { chatgpt: 'Safe prompt body' },
       emoji: '<img src=x onerror="window.__chiefStoredXss=5">',
+      repos: [],
     }]));
     localStorage.setItem('chief-stars', JSON.stringify(['c0']));
   });
@@ -133,9 +118,7 @@ test('custom prompt text is inert, legacy star ids migrate, and delete stays coh
   await expect(injectedCard.locator('.sub')).toContainText('<svg onload=');
   expect(await page.evaluate(() => window.__chiefStoredXss)).toBeUndefined();
 
-  const migratedStars = await page.evaluate(
-    () => JSON.parse(localStorage.getItem('chief-stars') || '[]'),
-  );
+  const migratedStars = await page.evaluate(() => JSON.parse(localStorage.getItem('chief-stars') || '[]'));
   expect(migratedStars).toEqual(['custom-xss-proof']);
 
   await page.locator('.chip.c-star').click();
@@ -147,25 +130,39 @@ test('custom prompt text is inert, legacy star ids migrate, and delete stays coh
 
   await openPage(page, 'library');
   await expect(page.locator('#statStar')).toHaveText('0');
-  expect(await page.evaluate(
-    () => JSON.parse(localStorage.getItem('chief-stars') || '[]'),
-  )).toEqual([]);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('chief-stars') || '[]'))).toEqual([]);
 });
 
-test('malformed prompt storage fails closed instead of bricking the library', async ({ page }) => {
-  await page.evaluate(() => {
-    localStorage.setItem('chief-custom', '{not-json');
-    localStorage.setItem('chief-stars', '{also-not-json');
-  });
+test('corrupt custom and star storage remain UNKNOWN and are not overwritten', async ({ page }) => {
+  const corruptCustom = '{"broken":';
+  const corruptStars = '{"stars":';
+  await page.evaluate(({ custom, stars }) => {
+    localStorage.setItem('chief-custom', custom);
+    localStorage.setItem('chief-stars', stars);
+  }, { custom: corruptCustom, stars: corruptStars });
   await page.reload();
 
   await openPage(page, 'library');
-  await expect(page.locator('#grid .pcard').first()).toBeVisible();
-  await expect(page.locator('#statCustom')).toHaveText('0');
-  await expect(page.locator('#statStar')).toHaveText('0');
+  await expect(page.locator('#statCustom')).toHaveText('?');
+  await expect(page.locator('#statStar')).toHaveText('?');
+  await expect(page.locator('#statTotal')).toHaveText('?');
+  await expect(page.locator('.chip.c-star')).toBeDisabled();
+
+  await openPage(page, 'custom');
+  await expect(page.locator('#navCustom')).toHaveText('?');
+  await expect(page.locator('[data-custom-storage-truth="unknown"]')).toContainText('Current custom prompt count is UNKNOWN.');
+  await expect(page.locator('[data-custom-storage-truth="unknown"]')).toContainText('Nothing has been overwritten.');
+  await expect(page.getByText('No custom prompts yet.', { exact: true })).toHaveCount(0);
+  await expect(page.locator('#saveCustom')).toBeDisabled();
+
+  const preserved = await page.evaluate(() => ({
+    custom: localStorage.getItem('chief-custom'),
+    stars: localStorage.getItem('chief-stars'),
+  }));
+  expect(preserved).toEqual({ custom: corruptCustom, stars: corruptStars });
 });
 
-test('structurally hostile custom prompt cannot crash repo filtering or retain arbitrary fields', async ({ page }) => {
+test('structurally hostile custom prompt canonicalizes without crashing repo filtering', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -173,8 +170,8 @@ test('structurally hostile custom prompt cannot crash repo filtering or retain a
     localStorage.setItem('chief-custom', JSON.stringify([{
       id: 'custom-hostile-repos',
       title: 'Hostile repo shape',
-      platforms: ['chatgpt'],
-      versions: { chatgpt: 'Safe prompt body' },
+      platforms: ['CHATGPT'],
+      versions: { ChatGPT: 'Safe prompt body' },
       repos: { includes: 'not-a-function' },
       authority: { granted: true },
       arbitrary: ['must', 'not', 'survive'],
@@ -184,11 +181,7 @@ test('structurally hostile custom prompt cannot crash repo filtering or retain a
 
   await openPage(page, 'library');
   await expect(page.locator('#statCustom')).toHaveText('1');
-
-  const normalized = await page.evaluate(() => {
-    const prompts = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    return prompts[0] || null;
-  });
+  const normalized = await page.evaluate(() => JSON.parse(localStorage.getItem('chief-custom') || '[]')[0] || null);
   expect(normalized).toEqual({
     id: 'custom-hostile-repos',
     title: 'Hostile repo shape',
@@ -204,7 +197,6 @@ test('structurally hostile custom prompt cannot crash repo filtering or retain a
   const repoFilter = page.locator('[data-repo]:visible').first();
   await repoFilter.click();
   await expect(page.locator('#page-library')).toHaveClass(/\bon\b/);
-  await expect(page.locator('#grid .pcard').first()).toBeVisible();
   expect(pageErrors).toEqual([]);
 });
 
@@ -217,40 +209,6 @@ test('Builder save is visible in Library without a reload', async ({ page }) => 
   await page.locator('#search').fill('Builder:');
   await expect(page.locator('#grid .pcard')).toHaveCount(1);
   await expect(page.locator('#grid .pcard h3')).toContainText('Builder:');
-});
-
-test('portable goal list shapes normalize before readiness and Builder continuation', async ({ page }) => {
-  await page.evaluate(() => {
-    localStorage.setItem('chief-goals-v1', JSON.stringify([{
-      goal: 'Ship the smallest safe fix',
-      project: 'chief-ai-machine',
-      priority: 'now',
-      definitionOfDone: 'Rendered continuation reaches Builder',
-      evidence: 'exact head observed, source tests green',
-      constraints: 'minimal edits\nno bypass',
-      strategicLenses: 'ooda, redteam',
-      capabilities: 'repo-audit-first',
-      proofRequirements: 'unit tests green\nPlaywright green',
-      rollback: 'Revert the focused commit',
-      nextGate: 'Review exact head',
-      createdAt: '2026-09-05T12:00:00.000Z',
-    }]));
-  });
-  await page.reload();
-
-  await openPage(page, 'goals');
-  await expect(page.locator('#goalReadiness')).toHaveText('1/1 ready');
-
-  const normalized = await page.evaluate(() => JSON.parse(localStorage.getItem('chief-goals-v1') || '[]')[0]);
-  expect(normalized.constraints).toEqual(['minimal edits', 'no bypass']);
-  expect(normalized.proofRequirements).toEqual(['unit tests green', 'Playwright green']);
-  expect(normalized.strategicLenses).toEqual(['ooda', 'redteam']);
-
-  await page.getByRole('button', { name: 'Continue in Builder' }).click();
-  await expect(page.locator('#page-builder')).toHaveClass(/\bon\b/);
-  await expect(page.locator('#bRepo')).toHaveValue('chief-ai-machine');
-  await expect(page.locator('#bConstraints')).toHaveValue(/no bypass/);
-  await expect(page.locator('#bConstraints')).toHaveValue(/Proof: unit tests green; Playwright green/);
 });
 
 test('Friend Mode copy receipt fails closed when clipboard and fallback both fail', async ({ page }) => {

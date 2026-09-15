@@ -15,6 +15,7 @@
     "disablePersistedCheckoutCredentials": true,
     "cancelSupersededPullRequestRuns": true,
     "singleFullCoverageExecutionPerWorkflow": true,
+    "singleOwnerPerVerificationResponsibility": true,
     "providerBuildSuccessIsNotRuntimeProof": true,
     "providerPreviewIsNotProductionAuthority": true,
     "uiAndRuntimeClaimsRequirePlaywright": true,
@@ -32,6 +33,24 @@
     "runtimeFacts": "provider-evidence-authoritative",
     "executionAuthorization": "bind-to-current-intent-and-exact-proposal"
   },
+  "workflowResponsibilityMirrors": [
+    {
+      "command": "node scripts/verify-cookie-contract.mjs",
+      "owner": ".github/workflows/control-room-contracts.yml",
+      "mirror": ".github/workflows/cookie-contract.yml",
+      "tracking": "#96",
+      "rationale": "Preserve the existing Cookie Contract check identity until live GitHub ruleset readback proves whether that provider context can be retired safely.",
+      "removalGate": "Remove the mirror after live ruleset readback proves Cookie Contract is not required and the required Control Room Contracts check remains authoritative for cookie verification."
+    },
+    {
+      "command": "node scripts/verify-founder-chief-pair.mjs",
+      "owner": ".github/workflows/control-room-contracts.yml",
+      "mirror": ".github/workflows/founder-chief-pair-contract.yml",
+      "tracking": "#96",
+      "rationale": "The standalone pair workflow executes the same verifier with exact cross-repository FCR SHA selection and PAIR_CROSS_REPO_REQUIRED=true, so the repeated command has a distinct evidence scope.",
+      "removalGate": "Remove only if the authoritative owner acquires equivalent exact cross-repository FCR proof and live provider readback confirms the standalone check identity can be retired."
+    }
+  ],
   "workflowAuthorityWaivers": [
     {
       "workflow": ".github/workflows/proofmode-production-playwright.yml",

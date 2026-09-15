@@ -20,7 +20,6 @@ on:
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
-      - "config/operational-authority.json"
   workflow_dispatch:
     inputs:
       base_url:
@@ -192,7 +191,11 @@ jobs:
             printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
+            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+              printf 'Cloudflare Access rejected the supplied service-token credentials; verify the effective Access application uses a Service Auth policy that includes this exact token, and that the token is enabled and unexpired.\n' >&2
+            else
+              printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment.\n' >&2
+            fi
           fi
           exit 1
 
