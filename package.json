@@ -6,6 +6,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "deploy:api:production": "npx wrangler deploy",
     "generate:promptos": "node scripts/generateCatalog.mjs",
     "verify:v10-capability-kernel": "vitest run src/domain/capability-plan.test.js src/domain/capability-security.test.js src/domain/capability-outcome.test.js",
     "verify:mcp": "node scripts/verify-mcp-config.mjs",
