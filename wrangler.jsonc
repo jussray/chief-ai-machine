@@ -1,10 +1,22 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
+  "compatibility_flags": ["nodejs_compat"],
   "main": "worker/index.js",
+  "preview_urls": true,
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
+  "ratelimits": [
+    {
+      "name": "MCP_TOOLS_CALL_RATE_LIMITER",
+      "namespace_id": "739184251",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    }
+  ],
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
