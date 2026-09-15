@@ -16,7 +16,7 @@ founder shorthand
 
 For Chief AI Machine, high-signal fingerprints include: prompt operating system, capability router, prompt library, specialist agents, founder content learning, merge-intent evaluation, private model/backend boundary, Chief AI, and cross-project AI orchestration.
 
-If a fingerprint could belong to PromptOS, FCR, or another project, verify the exact repo, branch, files, PR/issue, and current `main` before acting.
+If a fingerprint could belong to PromptOS, FCR, Sol Continuity, or another project, verify the exact repo, branch, files, PR/issue, and current `main` before acting.
 
 ## Genesis fingerprint
 
@@ -42,5 +42,28 @@ Prior plans, prompts, branches, screenshots, PR descriptions, or deploy claims l
 ## Reuse rule
 
 Every correction should leave a reusable fingerprint. Prefer exact prompt IDs, functions, routes, failing tests, PRs, SHAs, provider boundaries, and prior decisions before broad repo scans.
+
+## Federated continuity quartet
+
+Chief AI Machine participates in a four-repository federation with Founder Control Room, Sol Continuity, and PromptOS. The systems cooperate through verified evidence and continuity markers while remaining independently authoritative inside their own boundaries.
+
+- **Chief AI Machine** owns reasoning, capability composition, adversarial challenge, governance interpretation, and test-ledger evidence for Chief-owned behavior.
+- **Founder Control Room** owns consequential founder-control execution boundaries, current approval binding, and verified operational receipts.
+- **Sol Continuity** carries assistant/model/session continuity and capability-routing state without converting memory or transport state into proof.
+- **PromptOS** compiles founder intent into workflow/prompt structure without granting execution authority.
+
+Chief may receive verified evidence from any peer and use it to update or invalidate stale Chief assumptions, fingerprints, proof cookies, tests, or next gates. It must re-verify the peer's exact repo/head and relevant runtime/provider state before treating that evidence as current.
+
+Chief must never treat its own reasoning, a peer cookie, a model response, or a machine-green result as standing authorization. Chief cannot self-authorize, expand authority, self-verify an external outcome, or transfer one repo's approval to another repo.
+
+### Bidirectional cookie rule
+
+For material cross-repo work, carry a non-secret marker containing enough provenance to resolve the source exact repo/branch/head, subject fingerprint, evidence state, relevant runtime/provider fingerprints, predecessor marker, and invalidation conditions. On receipt, verify both the source state and Chief's local authority ceiling before acting.
+
+Movement in repo head, subject, scope, authority, runtime, provider, evidence contract, or founder proposal expires the affected present-tense marker until revalidated. Preserve predecessor cookies and receipts as historical provenance.
+
+Verified evidence plus current founder approval may justify the smallest reversible bounded repair, implementation, stale-proof correction, issue reconciliation, or merge proposal when the target repo's own gates permit it. Evidence alone never mutates. Founder approval never makes stale evidence current and never bypasses required checks.
+
+After an approved Chief mutation, re-read the authoritative state, verify the relevant outcome, and emit a successor fingerprint/proof cookie linked to its predecessor. Return that receipt to the federation so FCR, Sol, and PromptOS can reconcile their own local state without inheriting Chief's authority.
 
 This protocol supplements `AGENTS.md`, `CLAUDE.md`, Founder Intelligence, release truth, privacy/security, and approval gates. It never overrides a stricter rule or grants mutation authority by itself.
