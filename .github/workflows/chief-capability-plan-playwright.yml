@@ -24,7 +24,6 @@ on:
       - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
       - "scripts/verify-pr-credential-membrane.mjs"
-      - "config/operational-authority.json"
 
 permissions:
   contents: read
