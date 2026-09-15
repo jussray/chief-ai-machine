@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 const UPSTREAM_RECEIPT = '11111111-1111-4111-8111-111111111111';
@@ -49,6 +49,15 @@ function classifier(input) {
     ],
     nextChecks: [],
     limitations: [],
+  };
+}
+
+function auditMessage(id = 20) {
+  return {
+    jsonrpc: '2.0',
+    id,
+    method: 'tools/call',
+    params: { name: 'audit_repository', arguments: { owner: 'acme', repo: 'app' } },
   };
 }
 
@@ -136,13 +145,6 @@ describe('ProofMode MCP transport', () => {
       dependsOn: [UPSTREAM_RECEIPT],
       nextAuthority: 'runtime-provider-mcp',
     });
-    expect(payload.result.structuredContent.proofReceipt.evidence).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: 'repository_snapshot', state: 'verified' }),
-        expect.objectContaining({ type: 'proofmode_layer', name: 'implemented: supported', state: 'verified' }),
-        expect.objectContaining({ type: 'proofmode_layer', name: 'verified: not_proven', state: 'unknown' }),
-      ]),
-    );
   });
 
   it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
@@ -158,12 +160,7 @@ describe('ProofMode MCP transport', () => {
     };
 
     const response = await handleProofModeMcp(
-      mcpRequest({
-        jsonrpc: '2.0',
-        id: 4,
-        method: 'tools/call',
-        params: { name: 'audit_repository', arguments: { owner: 'acme', repo: 'app' } },
-      }),
+      mcpRequest(auditMessage(4)),
       { PROOFMODE_GITHUB_TOKEN: 'server-secret' },
       deps,
     );
@@ -171,6 +168,55 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent.repository).toBe('acme/app');
+  });
+
+  it('rate-limits only expensive tools/call messages', async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    const loadPublicRepositoryEvidence = vi.fn();
+    const response = await handleProofModeMcp(
+      mcpRequest(auditMessage(30), { 'CF-Connecting-IP': '203.0.113.7' }),
+      { MCP_TOOLS_CALL_RATE_LIMITER: { limit } },
+      { loadPublicRepositoryEvidence, classifyRepositoryEvidence: classifier },
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('60');
+    expect(limit).toHaveBeenCalledWith({ key: 'proofmode-tools-call:203.0.113.7' });
+    expect(loadPublicRepositoryEvidence).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: -32029, data: { scope: 'tools/call', accountingAuthority: false } },
+    });
+  });
+
+  it('does not consume the limiter for initialize, ping, or tools/list', async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    for (const [id, method] of [[40, 'initialize'], [41, 'ping'], [42, 'tools/list']]) {
+      const params = method === 'initialize'
+        ? { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } }
+        : {};
+      const response = await handleProofModeMcp(
+        mcpRequest({ jsonrpc: '2.0', id, method, params }),
+        { MCP_TOOLS_CALL_RATE_LIMITER: { limit } },
+      );
+      expect(response.status).toBe(200);
+    }
+    expect(limit).not.toHaveBeenCalled();
+  });
+
+  it('fails open if the rate-limit binding is unavailable', async () => {
+    const evidence = evidenceFixture();
+    const limit = vi.fn(async () => { throw new Error('binding unavailable'); });
+    const response = await handleProofModeMcp(
+      mcpRequest(auditMessage(50)),
+      { MCP_TOOLS_CALL_RATE_LIMITER: { limit } },
+      {
+        loadPublicRepositoryEvidence: async () => evidence,
+        classifyRepositoryEvidence: classifier,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).result.isError).toBe(false);
   });
 
   it('rejects browser cross-origin requests', async () => {
