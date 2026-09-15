@@ -2,7 +2,7 @@ import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 import {
   createLocalPromptId,
-  readStoredArray,
+  readCustomPromptState,
   writeCustomPrompts,
 } from './prompt-state.js';
 
@@ -78,17 +78,26 @@ export function initBuilder(PROMPTS) {
   document.getElementById('saveBuilder')?.addEventListener('click', () => {
     const text = out.textContent;
     if (!text) return;
-    const custom = readStoredArray('chief-custom');
-    custom.push({
+    const current = readCustomPromptState();
+    if (current.state !== 'ready') {
+      showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
+      return;
+    }
+    const next = {
       id: createLocalPromptId('builder'),
       title: 'Builder: ' + (packEl?.selectedOptions?.[0]?.textContent || packEl?.value || 'prompt'),
       sub: 'Saved from Builder',
       cat: 'custom',
       platforms: [platformEl?.value || 'chatgpt'],
       versions: { [platformEl?.value || 'chatgpt']: text },
-    });
-    writeCustomPrompts(custom);
-    showToast('Saved to My Prompts!');
+      repos: [],
+    };
+    try {
+      writeCustomPrompts([...current.prompts, next]);
+      showToast('Saved to My Prompts!');
+    } catch {
+      showToast('Save failed. Custom prompt state is unchanged.');
+    }
   });
 
   build();

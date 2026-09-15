@@ -3,7 +3,7 @@ import { showToast, copyText } from './ui.js';
 import {
   CUSTOM_PROMPTS_UPDATED_EVENT,
   createLocalPromptId,
-  readStoredArray,
+  readCustomPromptState,
   writeCustomPrompts,
 } from './prompt-state.js';
 
@@ -159,14 +159,22 @@ export function initFreestyle(PROMPTS) {
   });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
-    const custom = readStoredArray('chief-custom');
-    custom.push({
+    const current = readCustomPromptState();
+    if (current.state !== 'ready') {
+      showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
+      return;
+    }
+    const next = {
       ...currentResult,
       id: createLocalPromptId('freestyle'),
       versions: normalizePromptVersionsForSave(currentResult),
-    });
-    writeCustomPrompts(custom);
-    showToast('Saved to My Prompts!');
+    };
+    try {
+      writeCustomPrompts([...current.prompts, next]);
+      showToast('Saved to My Prompts!');
+    } catch {
+      showToast('Save failed. Custom prompt state is unchanged.');
+    }
   });
   document.getElementById('fsRegenerate')?.addEventListener('click', generate);
 }

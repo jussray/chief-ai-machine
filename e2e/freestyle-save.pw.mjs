@@ -133,7 +133,7 @@ test('custom prompt text stays inert, legacy star ids migrate, and delete stays 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('chief-stars') || '[]'))).toEqual([]);
 });
 
-test('corrupt custom and star storage remain UNKNOWN and are not overwritten', async ({ page }) => {
+test('corrupt local prompt state stays UNKNOWN and every save/export path fails closed', async ({ page }) => {
   const corruptCustom = '{"broken":';
   const corruptStars = '{"stars":';
   await page.evaluate(({ custom, stars }) => {
@@ -154,6 +154,19 @@ test('corrupt custom and star storage remain UNKNOWN and are not overwritten', a
   await expect(page.locator('[data-custom-storage-truth="unknown"]')).toContainText('Nothing has been overwritten.');
   await expect(page.getByText('No custom prompts yet.', { exact: true })).toHaveCount(0);
   await expect(page.locator('#saveCustom')).toBeDisabled();
+
+  await openPage(page, 'freestyle');
+  await page.locator('#fsAsk').fill('Red team this launch before I ship it.');
+  await page.locator('#fsGenerate').click();
+  await page.locator('#fsSave').click();
+  await expect(page.locator('#toast')).toContainText('Custom prompt state is UNKNOWN. Nothing was saved.');
+
+  await openPage(page, 'builder');
+  await page.locator('#saveBuilder').click();
+  await expect(page.locator('#toast')).toContainText('Custom prompt state is UNKNOWN. Nothing was saved.');
+
+  await page.evaluate(() => document.getElementById('exportBtn')?.click());
+  await expect(page.locator('#toast')).toContainText('Export blocked');
 
   const preserved = await page.evaluate(() => ({
     custom: localStorage.getItem('chief-custom'),
