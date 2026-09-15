@@ -6,7 +6,7 @@ import {
   runAnthropicMessage,
 } from './anthropic-provider.js';
 
-const API_KEY = 'sk-ant-fixture-never-log-this';
+const API_KEY = 'fixture-anthropic-api-key-never-log-this';
 
 function successPayload(overrides = {}) {
   return {
@@ -63,6 +63,7 @@ describe('Anthropic provider adapter', () => {
       resolved_model: 'claude-sonnet-5',
       latency_ms: 842,
       provenance_locked: true,
+      usage: { input_tokens: 10, output_tokens: 4 },
     });
   });
 
@@ -83,6 +84,20 @@ describe('Anthropic provider adapter', () => {
     expect(result.api_version).toBe(ANTHROPIC_API_VERSION);
     expect(result.output_text).toContain('"provider":"openai"');
     expect(result).not.toHaveProperty('authority');
+  });
+
+  it('rejects success responses with missing usage instead of fabricating zero tokens', async () => {
+    const fetchImpl = async () => Response.json(successPayload({ usage: undefined }));
+
+    await expect(runAnthropicMessage(
+      { ANTHROPIC_API_KEY: API_KEY },
+      request(),
+      { fetchImpl, timeoutSignal: () => undefined },
+    )).rejects.toMatchObject({
+      code: 'provider_response_invalid',
+      status: 502,
+      message: 'Anthropic returned invalid token usage.',
+    });
   });
 
   it('bounds and redacts provider error bodies before surfacing them', async () => {
