@@ -1,8 +1,15 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { AnthropicProviderError, runAnthropicMessage } from './anthropic-provider.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
+import {
+  PROVIDER_RUN_REQUEST_CONTRACT,
+  buildProviderLearningReceipt,
+  validateProviderRunRequest,
+} from '../src/domain/provider-learning.js';
 
 export const CHIEF_FCR_RPC_CONTRACT = 'juss-v10/chief-fcr-rpc@v1';
 export const CHIEF_CAPABILITY_PLAN_CONTRACT = 'juss-v10/capability-plan@v1';
+export const CHIEF_PROVIDER_RUN_CONTRACT = PROVIDER_RUN_REQUEST_CONTRACT;
 export const CHIEF_SERVICE_IDENTITY = 'chief-ai';
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
@@ -11,6 +18,28 @@ function normalizeSha(value) {
   if (typeof value !== 'string') return null;
   const normalized = value.trim().toLowerCase();
   return FULL_SHA.test(normalized) ? normalized : null;
+}
+
+function safeProviderError(error) {
+  if (error instanceof AnthropicProviderError) {
+    return {
+      code: error.code,
+      message: error.message,
+      requestId: error.requestId || null,
+    };
+  }
+  if (error?.code === 'PROVIDER_RUN_REJECTED') {
+    return {
+      code: 'provider_run_rejected',
+      message: error instanceof Error ? error.message : 'Provider run request was rejected.',
+      requestId: null,
+    };
+  }
+  return {
+    code: 'provider_run_failed',
+    message: 'Provider run failed.',
+    requestId: null,
+  };
 }
 
 // Public /version compatibility may use an explicit runtime SHA when running
@@ -38,6 +67,7 @@ export function getFounderControlRoomServiceVersion(_env, artifactReleaseSha = B
     service: CHIEF_SERVICE_IDENTITY,
     rpcContract: CHIEF_FCR_RPC_CONTRACT,
     capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
+    providerRunContract: CHIEF_PROVIDER_RUN_CONTRACT,
     releaseSha: getArtifactReleaseSha(artifactReleaseSha),
   };
 }
@@ -63,4 +93,65 @@ export async function createFounderControlRoomCapabilityPlan(
     releaseSha: getArtifactReleaseSha(artifactReleaseSha),
     result: await response.json(),
   };
+}
+
+export async function runFounderControlRoomProviderMessage(
+  env,
+  input,
+  artifactReleaseSha = BUILD_RELEASE_SHA,
+  deps = { runAnthropicMessage },
+) {
+  const releaseSha = getArtifactReleaseSha(artifactReleaseSha);
+  let validated;
+  try {
+    validated = validateProviderRunRequest(input);
+  } catch (error) {
+    return {
+      ok: false,
+      status: 400,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      providerRunContract: CHIEF_PROVIDER_RUN_CONTRACT,
+      releaseSha,
+      error: safeProviderError(error),
+    };
+  }
+
+  try {
+    const providerResult = await deps.runAnthropicMessage(env, validated);
+    const learningReceipt = buildProviderLearningReceipt(validated, providerResult);
+    return {
+      ok: true,
+      status: 200,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      providerRunContract: CHIEF_PROVIDER_RUN_CONTRACT,
+      releaseSha,
+      result: {
+        output: {
+          provider: 'anthropic',
+          requestId: providerResult.request_id,
+          messageId: providerResult.provider_message_id,
+          requestedModel: providerResult.requested_model,
+          resolvedModel: providerResult.resolved_model,
+          stopReason: providerResult.stop_reason,
+          contentTypes: providerResult.content_types,
+          text: providerResult.output_text,
+        },
+        learningReceipt,
+      },
+    };
+  } catch (error) {
+    const providerError = safeProviderError(error);
+    const status = error instanceof AnthropicProviderError ? error.status : 502;
+    return {
+      ok: false,
+      status,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      providerRunContract: CHIEF_PROVIDER_RUN_CONTRACT,
+      releaseSha,
+      error: providerError,
+    };
+  }
 }
