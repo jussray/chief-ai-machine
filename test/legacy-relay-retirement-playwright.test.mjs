@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { URL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
