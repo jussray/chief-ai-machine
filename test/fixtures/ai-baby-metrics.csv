@@ -1,0 +1,3 @@
+timestamp,source,workspace_id,project_id,account_id,page_id,audience_segment,metric_name,unit,value,idempotency_key,provenance_ref
+2026-08-01T09:00:00.000Z,linkedin,founder-control-room,content-engine,,,build-in-public,impressions,count,1200,li-post-1:impressions,linkedin-export-2026-08
+2026-08-01T09:00:00.000Z,anthropic-api,founder-control-room,chief-ai-machine,,,founder,input_tokens,tokens,340,req-3:input,anthropic:req-3
