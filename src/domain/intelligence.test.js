@@ -3,6 +3,7 @@ import {
   createIntelligenceAsset,
   createPortableSnapshot,
   migrateLegacyPrompt,
+  normalizeCustomPrompt,
   parsePortableSnapshot,
   upsertIntelligenceAsset,
   validateIntelligenceAsset,
@@ -61,7 +62,7 @@ describe('founder intelligence assets', () => {
     expect(asset.provider).toBe('chatgpt');
   });
 
-  it('round-trips the portable snapshot format', () => {
+  it('round-trips the portable snapshot format with bounded compatibility data', () => {
     const asset = createIntelligenceAsset({
       title: 'Founder voice',
       kind: 'brand-voice',
@@ -69,15 +70,92 @@ describe('founder intelligence assets', () => {
     }, NOW);
     const snapshot = createPortableSnapshot({
       assets: [asset],
-      customPrompts: [{ id: 'legacy' }],
+      customPrompts: [{
+        id: 'legacy',
+        title: 'Legacy prompt',
+        cat: 'research',
+        platforms: ['ChatGPT'],
+        versions: { chatgpt: 'Use supplied evidence only.' },
+      }],
       stars: [1, 2],
       exportedAt: NOW.toISOString(),
     });
 
     const parsed = parsePortableSnapshot(snapshot, NOW);
     expect(parsed.assets).toEqual([asset]);
-    expect(parsed.customPrompts).toEqual([{ id: 'legacy' }]);
+    expect(parsed.customPrompts).toEqual([{
+      id: 'legacy',
+      title: 'Legacy prompt',
+      sub: '',
+      cat: 'research',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: 'Use supplied evidence only.' },
+      emoji: '✨',
+      notes: '',
+      repos: [],
+    }]);
     expect(parsed.stars).toEqual([1, 2]);
+  });
+
+  it('normalizes imported prompt object shape without treating prompt prose as markup', () => {
+    const promptBody = '  <script>this is prompt text, not executable UI</script>\n';
+    const prompt = normalizeCustomPrompt({
+      id: ' imported-1 ',
+      title: '<img src=x onerror="globalThis.compromised=true">',
+      sub: '<svg onload="globalThis.compromised=true"></svg>',
+      cat: ' Research ',
+      platforms: ['ChatGPT', '__proto__', 'BAD PLATFORM'],
+      versions: {
+        chatgpt: promptBody,
+        '__proto__': 'drop me',
+        'bad platform': 'drop me too',
+      },
+      repos: [' chief-ai-machine ', '', { nope: true }],
+      dangerous: { execute: true },
+    }, 3);
+
+    expect(prompt).toEqual({
+      id: 'imported-1',
+      title: '<img src=x onerror="globalThis.compromised=true">',
+      sub: '<svg onload="globalThis.compromised=true"></svg>',
+      cat: 'research',
+      platforms: ['chatgpt'],
+      versions: { chatgpt: promptBody },
+      emoji: '✨',
+      notes: '',
+      repos: ['chief-ai-machine'],
+    });
+    expect(prompt.versions.chatgpt).toBe(promptBody);
+    expect(prompt).not.toHaveProperty('dangerous');
+  });
+
+  it('rejects imported custom prompts without a usable provider version', () => {
+    expect(normalizeCustomPrompt({
+      title: 'Versionless prompt',
+      platforms: ['chatgpt'],
+      versions: {},
+    })).toBeNull();
+
+    expect(normalizeCustomPrompt({
+      title: 'Whitespace-only prompt',
+      versions: { chatgpt: '   \n\t ' },
+    })).toBeNull();
+  });
+
+  it('bounds compatibility arrays and drops non-primitive star references', () => {
+    const parsed = parsePortableSnapshot({
+      format: 'founder-intelligence-snapshot',
+      schemaVersion: 1,
+      assets: [],
+      compatibility: {
+        customPrompts: [null, { title: 'Safe import', platforms: ['claude'], versions: { claude: 'Summarize.' } }],
+        stars: [1, 'custom-1', { injected: true }, null, 1.5],
+      },
+    }, NOW);
+
+    expect(parsed.customPrompts).toHaveLength(1);
+    expect(parsed.customPrompts[0].title).toBe('Safe import');
+    expect(parsed.stars).toEqual([1, 'custom-1']);
   });
 
   it('accepts the original export format for backward compatibility', () => {
@@ -93,6 +171,7 @@ describe('founder intelligence assets', () => {
 
     expect(parsed.assets).toHaveLength(1);
     expect(parsed.assets[0].source).toBe('legacy-chief-prompt');
+    expect(parsed.customPrompts[0].title).toBe('Old prompt');
     expect(parsed.stars).toEqual([4]);
   });
 });
