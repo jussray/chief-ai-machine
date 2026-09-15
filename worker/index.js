@@ -1,6 +1,7 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleFounderContentLearning } from './founder-content-learning-route.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
@@ -40,6 +41,10 @@ export default {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       return handleChiefFounderContentProposal(request);
+    }
+
+    if (url.pathname === '/api/chief/founder-content-learning') {
+      return handleFounderContentLearning(request, env);
     }
 
     if (url.pathname.startsWith('/api/')) {
