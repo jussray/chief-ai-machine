@@ -16,10 +16,6 @@ function text(value, max) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-function safeInteger(value, fallback = 0) {
-  return Number.isInteger(value) && value >= 0 ? value : fallback;
-}
-
 function redactSecret(value, secret) {
   const source = typeof value === 'string' ? value : '';
   if (!secret) return source;
@@ -183,6 +179,18 @@ export async function runAnthropicMessage(env, input, deps = {}) {
     );
   }
 
+  const inputTokens = payload.usage?.input_tokens;
+  const outputTokens = payload.usage?.output_tokens;
+  if (!Number.isInteger(inputTokens) || inputTokens < 0
+      || !Number.isInteger(outputTokens) || outputTokens < 0) {
+    throw new AnthropicProviderError(
+      'provider_response_invalid',
+      'Anthropic returned invalid token usage.',
+      502,
+      responseRequestId(response, payload),
+    );
+  }
+
   const completedAtMs = now();
   const extracted = extractTextBlocks(payload.content);
   return Object.freeze({
@@ -198,8 +206,8 @@ export async function runAnthropicMessage(env, input, deps = {}) {
     output_text: extracted.outputText,
     content_types: Object.freeze(extracted.contentTypes),
     usage: Object.freeze({
-      input_tokens: safeInteger(payload.usage?.input_tokens),
-      output_tokens: safeInteger(payload.usage?.output_tokens),
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
     }),
     latency_ms: Math.max(0, completedAtMs - startedAtMs),
     observed_at: new Date(completedAtMs).toISOString(),
