@@ -71,6 +71,25 @@ function validateProtocolHeader(request) {
   return !version || SUPPORTED_PROTOCOLS.has(version);
 }
 
+async function checkToolsCallRateLimit(request, env) {
+  const limiter = env?.MCP_TOOLS_CALL_RATE_LIMITER;
+  if (!limiter || typeof limiter.limit !== 'function') {
+    return { allowed: true, enforced: false };
+  }
+
+  // ProofMode is currently a public read-only MCP surface, so there is no
+  // authenticated user identifier to key on. Cloudflare supplies this header
+  // at the edge. It is abuse protection, not billing/accounting authority.
+  const clientIp = request.headers.get('CF-Connecting-IP')?.trim() || 'unknown-edge-client';
+  try {
+    const result = await limiter.limit({ key: `proofmode-tools-call:${clientIp}` });
+    return { allowed: result?.success !== false, enforced: true };
+  } catch {
+    // Limiter unavailability must not turn a read-only proof endpoint into an outage.
+    return { allowed: true, enforced: false };
+  }
+}
+
 function toolResult(report, proofReceipt) {
   const structuredContent = { ...report, proofReceipt };
   return {
@@ -191,6 +210,20 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
       return new Response(null, { status: 202 });
     }
     return new Response(null, { status: 202 });
+  }
+
+  if (message.method === 'tools/call') {
+    const rateLimit = await checkToolsCallRateLimit(request, env);
+    if (!rateLimit.allowed) {
+      return jsonResponse(
+        jsonRpcError(message.id, -32029, 'ProofMode tools/call rate limit exceeded.', {
+          scope: 'tools/call',
+          accountingAuthority: false,
+        }),
+        429,
+        { 'Retry-After': '60' },
+      );
+    }
   }
 
   return jsonResponse(await dispatch(message, deps, env));
