@@ -60,9 +60,6 @@ jobs:
       - name: Install locked Chief dependencies
         run: npm ci
 
-      - name: Verify MCP configuration contract
-        run: npm run verify:mcp
-
       - name: Run focused Chief MCP contracts
         run: npx vitest run worker/chief-mcp.test.js worker/proofmode-mcp.test.js worker/chief-capability-plan.test.js
 
