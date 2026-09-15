@@ -28,16 +28,16 @@ Chief AI solves the **portable intelligence problem** for founders running multi
 │ Control Room Evidence · Council · Briefs · Company Brain    │
 │  Versioned portable export/import · Provider-agnostic        │
 └──────────────┬──────────────────────────┬───────────────────┘
-               │ authorizes execution      │ optional integration
+               │ proposes governed handoff │ optional integration
                ▼                          ▼
    ┌───────────────────────┐   ┌──────────────────────────┐
    │  Founder Control Room │   │          L99             │
-   │  Agent governance &   │   │  Provenance, isolation,  │
-   │  OODA execution loop  │   │  revocation & promotion  │
+   │  Human authority,     │   │  Provenance, isolation,  │
+   │  execution & evidence │   │  revocation & promotion  │
    └───────────────────────┘   └──────────────────────────┘
 ```
 
-These are **three separate products with optional integrations**. Chief AI delivers full value without the other two.
+Chief AI can deliver standalone reasoning and portable-intelligence value. When an action crosses into execution, provider mutation, repository write, deployment, publication, credentials, billing, or another consequential boundary, Chief remains proposal-only: Founder Control Room is the enforcement/evidence plane and the human founder remains the final authority. L99 remains an optional integration.
 
 ---
 
