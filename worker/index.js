@@ -2,6 +2,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import {
   createFounderControlRoomCapabilityPlan,
   getFounderControlRoomServiceVersion,
+  runFounderControlRoomProviderMessage,
 } from './fcr-service.js';
 import httpWorker from './http-worker.js';
 
@@ -12,6 +13,10 @@ export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
 
   async createCapabilityPlan(input) {
     return createFounderControlRoomCapabilityPlan(this.env, input);
+  }
+
+  async runProviderMessage(input) {
+    return runFounderControlRoomProviderMessage(this.env, input);
   }
 }
 
