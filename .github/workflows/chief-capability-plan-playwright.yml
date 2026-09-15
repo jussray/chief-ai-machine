@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
+      - "worker/http-worker.js"
       - "worker/index.js"
+      - "worker/chief-mcp.js"
+      - "worker/chief-mcp.test.js"
       - "worker/chief-capability-plan.js"
       - "worker/chief-capability-plan.test.js"
       - "worker/chief-founder-content-proposal.js"
@@ -20,33 +23,11 @@ on:
       - "e2e/chief-capability-plan.pw.mjs"
       - "e2e/chief-founder-content-proposal.pw.mjs"
       - ".github/workflows/chief-capability-plan-playwright.yml"
-      - ".github/workflows/proofmode-access-service-auth.yml"
-      - "scripts/proofmode-access-policy.mjs"
-      - "scripts/proofmode-access-policy.test.js"
+      - "scripts/verify-pr-credential-membrane.mjs"
       - "config/operational-authority.json"
-  workflow_dispatch:
-    inputs:
-      base_url:
-        description: "Exact immutable Chief workers.dev runtime origin to inspect or verify"
-        required: true
-        type: string
-      expected_head_sha:
-        description: "Exact 40-character commit SHA intended to own this manual proof"
-        required: true
-        type: string
-      access_mode:
-        description: "Verify runtime, check Access, or repair only the approved exact-host Service Auth policy"
-        required: true
-        default: verify
-        type: choice
-        options:
-          - verify
-          - check
-          - repair
 
 permissions:
   contents: read
-  checks: read
 
 concurrency:
   group: chief-capability-plan-playwright-${{ github.event.pull_request.number || github.run_id }}
@@ -54,87 +35,11 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
-  MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  TRUSTED_BASE_SHA: 2fd4fda0cab12e52ab5096e723884d98bcfe7d10
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
 jobs:
-  dispatch-identity:
-    name: Verify manual dispatch identity
-    runs-on: ubuntu-22.04
-    timeout-minutes: 2
-    outputs:
-      base_url: ${{ steps.guard.outputs.base_url }}
-    steps:
-      - name: Guard founder, exact ref, and immutable target
-        id: guard
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_SHA: ${{ github.sha }}
-          DISPATCH_ACTOR: ${{ github.actor }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
-        run: |
-          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
-            exit 0
-          fi
-
-          if [ "$DISPATCH_ACTOR" != "$REPOSITORY_OWNER" ]; then
-            printf 'Privileged manual proof is founder-only: actor=%s owner=%s.\n' "$DISPATCH_ACTOR" "$REPOSITORY_OWNER" >&2
-            exit 1
-          fi
-
-          if ! printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
-            printf 'Manual proof requires expected_head_sha to be an exact 40-character commit SHA.\n' >&2
-            exit 1
-          fi
-
-          if [ "$EXPECTED_HEAD_SHA" != "$DISPATCH_SHA" ]; then
-            printf 'Manual proof identity mismatch: expected_head_sha=%s but selected ref resolves to %s.\n' \
-              "$EXPECTED_HEAD_SHA" "$DISPATCH_SHA" >&2
-            exit 1
-          fi
-
-          normalized="$(node -e '
-            const raw = process.argv[1].trim();
-            try {
-              const url = new URL(raw);
-              const host = url.hostname.toLowerCase();
-              const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
-              if (
-                url.protocol !== "https:"
-                || url.username
-                || url.password
-                || url.search
-                || url.hash
-                || url.pathname !== "/"
-                || !immutable
-              ) process.exit(1);
-              process.stdout.write(url.origin);
-            } catch {
-              process.exit(1);
-            }
-          ' "$MANUAL_BASE_URL")" || {
-            printf 'Manual Chief base URL must be one immutable chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
-            exit 1
-          }
-
-          printf 'Manual dispatch identity verified for %s by %s\n' "$EXPECTED_HEAD_SHA" "$DISPATCH_ACTOR"
-          printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
-
-  access-policy-admin:
-    name: Check or repair ProofMode Access Service Auth
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}
-    needs: dispatch-identity
-    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@988e2ac70d5d8d0c1988a373aae419c2f9b63b59
-    with:
-      mode: ${{ inputs.access_mode }}
-      target_url: ${{ needs.dispatch-identity.outputs.base_url }}
-
   source-contract:
     name: Verify Chief capability source contract
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.access_mode == 'verify' }}
-    needs: dispatch-identity
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -161,11 +66,14 @@ jobs:
         run: npm ci
 
       - name: Run focused capability contracts
-        run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
+        run: npx vitest run worker/chief-capability-plan.test.js worker/chief-mcp.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js
+
+      - name: Verify candidate credential membrane
+        run: npm run verify:pr-credential-membrane
 
   pr-runtime-gate:
-    name: ${{ github.event_name == 'pull_request' && 'Verify live Chief capability plan with Playwright' || 'Verify live Chief capability plan with Playwright (PR gate only)' }}
-    if: ${{ always() && github.event_name == 'pull_request' }}
+    name: Verify live Chief capability plan with Playwright
+    if: ${{ always() }}
     needs: source-contract
     runs-on: ubuntu-22.04
     timeout-minutes: 2
@@ -174,155 +82,5 @@ jobs:
         shell: bash
         run: |
           printf 'PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.\n' >&2
-          printf 'Run a founder-authorized workflow_dispatch on this exact audited SHA with access_mode=verify after the bounded Access check/repair path is complete.\n' >&2
+          printf 'Protected runtime proof must originate from a trusted current-main carrier after the bounded Access check/repair path is complete.\n' >&2
           exit 1
-
-  runtime-proof:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' && 'Verify live Chief capability plan with Playwright' || 'Verify live Chief capability plan with Playwright (privileged manual only)' }}
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
-    needs:
-      - dispatch-identity
-      - source-contract
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    environment: proofmode-access-admin
-    steps:
-      - name: Reacquire current main before privileged proof
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          current="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
-            | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                const data = JSON.parse(raw);
-                process.stdout.write(data?.commit?.sha || "");
-              });
-            ')"
-          if [ "$current" != "$TRUSTED_BASE_SHA" ]; then
-            printf 'Current main advanced: trusted_base=%s current_main=%s. Reacquire main before privileged proof.\n' "$TRUSTED_BASE_SHA" "$current" >&2
-            exit 1
-          fi
-
-      - name: Check out immutable trusted browser-proof source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.TRUSTED_BASE_SHA }}
-          persist-credentials: false
-
-      - name: Record trusted browser-proof source
-        shell: bash
-        run: |
-          trusted="$(git rev-parse HEAD)"
-          printf 'trusted_browser_proof_source=%s\n' "$trusted"
-          test "$trusted" = "$TRUSTED_BASE_SHA"
-
-      - name: Bind immutable target
-        shell: bash
-        env:
-          GUARDED_BASE_URL: ${{ needs.dispatch-identity.outputs.base_url }}
-        run: |
-          test -n "$GUARDED_BASE_URL"
-          printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$GUARDED_BASE_URL" >> "$GITHUB_ENV"
-
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install trusted runtime proof dependencies
-        run: npm ci
-
-      - name: Install isolated Playwright runner
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
-
-      - name: Verify immutable preview serves exact head
-        shell: bash
-        env:
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-        run: |
-          if [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] || [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
-            printf 'Cloudflare Access service auth requires both credentials in proofmode-access-admin.\n' >&2
-            exit 1
-          fi
-
-          headers="$RUNNER_TEMP/chief-version.headers"
-          body_file="$RUNNER_TEMP/chief-version.body"
-          status="000"
-
-          for attempt in {1..10}; do
-            status="$(curl --silent --show-error \
-              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
-              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
-              --dump-header "$headers" \
-              --output "$body_file" \
-              --write-out '%{http_code}' \
-              "$CHIEF_CAPABILITY_PLAN_BASE_URL/version" || true)"
-            if grep -Fq "$EXPECTED_HEAD_SHA" "$body_file" 2>/dev/null; then
-              printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          printf 'Observed HTTP status: %s\n' "$status" >&2
-          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
-          if [ -n "$location" ]; then
-            printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
-          fi
-          if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access rejected the configured service token or no matching exact-host Service Auth policy accepted it. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
-          fi
-          exit 1
-
-      - name: Run live Chief capability-plan Playwright proof
-        env:
-          PLAYWRIGHT_HTML_OPEN: never
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-        shell: bash
-        run: |
-          cat > playwright.chief-capability-plan.config.mjs <<'EOF'
-          import { defineConfig } from '@playwright/test';
-
-          const accessHeaders = {
-            'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-            'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-          };
-
-          export default defineConfig({
-            testDir: './e2e',
-            testMatch: /(?:chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs$/,
-            fullyParallel: false,
-            retries: 0,
-            workers: 1,
-            outputDir: './test-results/chief-capability-plan',
-            reporter: [
-              ['line'],
-              ['html', { outputFolder: './playwright-report/chief-capability-plan', open: 'never' }],
-            ],
-            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
-          });
-          EOF
-          npx playwright test --config=playwright.chief-capability-plan.config.mjs
-
-      - name: Retain Playwright report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: chief-capability-plan-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            playwright-report/chief-capability-plan
-            test-results/chief-capability-plan
-          if-no-files-found: warn
-          retention-days: 14

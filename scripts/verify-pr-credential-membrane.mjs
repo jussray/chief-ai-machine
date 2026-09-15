@@ -14,56 +14,32 @@ const requireValue = (condition, message) => {
 for (const path of workflowPaths) {
   const text = await readFile(new URL(path, root), 'utf8');
   const jobsIndex = text.indexOf('\njobs:\n');
-  const runtimeIndex = text.indexOf('\n  runtime-proof:\n');
 
   requireValue(jobsIndex >= 0, `${path}: jobs block missing`);
-  requireValue(runtimeIndex >= 0, `${path}: runtime-proof job missing`);
   requireValue(text.includes('pull_request:'), `${path}: pull_request source-proof trigger missing`);
-  requireValue(text.includes('workflow_dispatch:'), `${path}: founder manual runtime trigger missing`);
-
-  if (jobsIndex < 0 || runtimeIndex < 0) continue;
-
-  const globalScope = text.slice(0, jobsIndex);
-  const preRuntime = text.slice(0, runtimeIndex);
-  const runtime = text.slice(runtimeIndex);
-
+  requireValue(!text.includes('workflow_dispatch:'), `${path}: candidate-authored workflow must not expose a privileged manual trigger`);
+  requireValue(!text.includes('\n  runtime-proof:\n'), `${path}: candidate-authored workflow must not define a secret-bearing runtime-proof job`);
+  requireValue(text.includes('pr-runtime-gate:'), `${path}: PR fail-closed runtime gate missing`);
   requireValue(
-    !globalScope.includes('${{ secrets.'),
-    `${path}: workflow-global secret reference would expose privileged material outside the manual runtime job`,
-  );
-  requireValue(
-    preRuntime.includes('pr-runtime-gate:'),
-    `${path}: PR fail-closed runtime gate missing`,
-  );
-  requireValue(
-    preRuntime.includes('Fail closed before secret-bearing runtime proof'),
+    text.includes('Fail closed before secret-bearing runtime proof'),
     `${path}: PR gate must stop before secret-bearing runtime proof`,
   );
   requireValue(
-    preRuntime.includes('PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.'),
+    text.includes('PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.'),
     `${path}: PR credential-membrane receipt text drifted`,
   );
   requireValue(
-    !preRuntime.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}')
-      && !preRuntime.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}'),
-    `${path}: Cloudflare Access secrets referenced before privileged runtime-proof job`,
+    text.includes('Protected runtime proof must originate from a trusted current-main carrier'),
+    `${path}: trusted-main runtime authority receipt missing`,
   );
   requireValue(
-    !preRuntime.includes('environment: proofmode-access-admin'),
-    `${path}: PR/source job may not enter proofmode-access-admin`,
+    !text.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}')
+      && !text.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}'),
+    `${path}: candidate-authored workflow references Cloudflare Access secrets`,
   );
   requireValue(
-    runtime.includes("github.event_name == 'workflow_dispatch'"),
-    `${path}: privileged runtime-proof must be workflow_dispatch-only`,
-  );
-  requireValue(
-    runtime.includes('environment: proofmode-access-admin'),
-    `${path}: privileged runtime-proof must use proofmode-access-admin`,
-  );
-  requireValue(
-    runtime.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}')
-      && runtime.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}'),
-    `${path}: privileged runtime-proof must bind both Access service-token secrets together`,
+    !text.includes('environment: proofmode-access-admin'),
+    `${path}: candidate-authored workflow may not enter proofmode-access-admin`,
   );
 }
 
@@ -85,5 +61,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PR credential membrane verified for Chief MCP and capability-plan Playwright workflows.');
+console.log('PR credential membrane verified: candidate workflows are source-only and fail closed before provider runtime authority.');
 console.log('Trusted reasoning authority verified: ULTRATHINK is server-owned, embedded workflow tokens are inert, and capability plans remain non-authorizing.');
