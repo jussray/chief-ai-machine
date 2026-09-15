@@ -1,6 +1,7 @@
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { getReleaseSha } from './fcr-service.js';
+import { handleFounderContentLearning } from './founder-content-learning-route.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 // Runtime-neutral HTTP Worker surface.
@@ -30,6 +31,10 @@ const httpWorker = {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       return handleChiefFounderContentProposal(request);
+    }
+
+    if (url.pathname === '/api/chief/founder-content-learning') {
+      return handleFounderContentLearning(request, env);
     }
 
     if (url.pathname.startsWith('/api/')) {
