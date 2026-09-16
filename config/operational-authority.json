@@ -51,26 +51,7 @@
       "removalGate": "Remove only if the authoritative owner acquires equivalent exact cross-repository FCR proof and live provider readback confirms the standalone check identity can be retired."
     }
   ],
-  "workflowAuthorityWaivers": [
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/checkout@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/setup-node@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    },
-    {
-      "workflow": ".github/workflows/proofmode-production-playwright.yml",
-      "reference": "actions/upload-artifact@v4",
-      "tracking": "#92",
-      "removalGate": "remove when #92 lands immutable runtime workflow authority with exact-preview SHA and Playwright proof"
-    }
-  ],
+  "workflowAuthorityWaivers": [],
   "failureTaxonomy": [
     "startup_failure",
     "provider_build_failure",
