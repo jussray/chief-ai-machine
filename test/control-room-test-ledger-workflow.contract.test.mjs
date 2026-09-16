@@ -2,15 +2,28 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
+const quality = await readFile('.github/workflows/quality-gate.yml', 'utf8');
 const materializer = await readFile('.github/workflows/governance-required-check-materializer.yml', 'utf8');
 const productionProof = await readFile('.github/workflows/proofmode-production-playwright.yml', 'utf8');
 const manifest = JSON.parse(await readFile('.control-room/test-ledger.manifest.json', 'utf8'));
 
 describe('Control Room Test Ledger workflow contract', () => {
-  it('materializes the ruleset-required ledger check on pull requests', () => {
+  it('materializes the ruleset-required ledger check on pull requests and fails closed on prerequisite failure', () => {
+    const publishSection = workflow.split('  publish-ledger:')[1];
     expect(workflow).toContain('pull_request:');
-    expect(workflow).toContain('name: Publish exact-head test ledger');
+    expect(publishSection).toContain('name: Publish exact-head test ledger');
+    expect(publishSection).toContain('if: ${{ always() }}');
+    expect(publishSection).toContain('LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}');
+    expect(publishSection).toContain('test "$LEDGER_CONTRACT_RESULT" = \'success\'');
     expect(workflow).not.toContain("if: github.event_name != 'pull_request'");
+  });
+
+  it('materializes the required SonarQube context instead of leaving a no-steps skipped job', () => {
+    const sonarSection = quality.split('  sonarqube:')[1];
+    expect(sonarSection).toContain('name: "SonarQube – Founder Intelligence"');
+    expect(sonarSection).toContain('if: ${{ always() }}');
+    expect(sonarSection).toContain('UNIT_TEST_RESULT: ${{ needs.unit-tests.result }}');
+    expect(sonarSection).toContain('test "$UNIT_TEST_RESULT" = \'success\'');
   });
 
   it('keeps the observer outside the authority set to avoid self-authorization', () => {
@@ -29,6 +42,9 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('Run exact-runtime browser proof');
     expect(runtimeSection).toContain('page.goto(`${baseUrl}/version`');
     expect(runtimeSection).toContain('expect(payload?.sha).toBe(expectedSha)');
+    expect(runtimeSection).toContain('page.goto(`${baseUrl}/`');
+    expect(runtimeSection).toContain("getByRole('heading', { name: 'What are we trying to accomplish?' })");
+    expect(runtimeSection).toContain('page.goto(`${baseUrl}/styles/main.css`');
     expect(runtimeSection).toContain('npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs');
     expect(runtimeSection).not.toContain('Chief runtime surface changed; real exact-runtime Playwright proof is required.');
   });
@@ -42,6 +58,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('styles/');
     expect(runtimeSection).toContain('src/');
     expect(runtimeSection).toContain('\\.assetsignore$');
+    expect(runtimeSection).toContain('git diff --no-renames --name-only');
   });
 
   it('authenticates Cloudflare check-run provenance instead of trusting the check name alone', () => {
@@ -104,7 +121,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(providerSection).toContain('Verify exact-head or unchanged-provider-tree receipt');
     expect(providerSection).toContain('has_provider_receipt');
     expect(providerSection).toContain('git rev-list --first-parent');
-    expect(providerSection).toContain('git diff --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA"');
+    expect(providerSection).toContain('git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA"');
     expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$)'");
     expect(providerSection).toContain('Provider receipt continuity proven');
     expect(providerSection).not.toContain('N/A proven from exact-head diff: provider/runtime surface unchanged.');
