@@ -1,40 +1,28 @@
 name: Freestyle Save Playwright
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "control-room.manifest.json"
-      - ".control-room/repository.manifest.json"
-      - "scripts/verify-control-room-tests.mjs"
-      - "scripts/generateCatalog.mjs"
-      - "src/main.js"
-      - "src/data/goalfix-v1.js"
-      - "src/modules/freestyle.js"
-      - "src/modules/custom.js"
-      - "src/modules/promptos-ui.js"
-      - "src/domain/evidence-first-prompt.js"
-      - "src/promptos/**"
-      - "styles/promptos.css"
-      - "e2e/freestyle-save.pw.mjs"
-      - "e2e/goalfix-v1.pw.mjs"
-      - "e2e/promptos-catalog.pw.mjs"
-      - "e2e/playwright.freestyle.config.mjs"
-      - ".github/workflows/control-room-contracts.yml"
-      - ".github/workflows/freestyle-save-playwright.yml"
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
+    inputs:
+      expected_head_sha:
+        description: "Exact repository SHA to verify"
+        required: false
+        type: string
 
 permissions:
   contents: read
 
-concurrency:
-  group: freestyle-save-playwright-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+  TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
+
+concurrency:
+  group: freestyle-save-playwright-trusted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -42,56 +30,82 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 18
     steps:
-      - name: Check out exact requested head
+      - name: Verify trusted event boundary
+        if: github.event_name == 'pull_request_target'
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = 'main'
+          test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
+      - name: Check out trusted evaluator snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify Freestyle Goalfix PromptOS applicability
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|scripts/generateCatalog\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|promptos-ui)\.js$|src/domain/evidence-first-prompt\.js$|src/promptos/|styles/promptos\.css$|e2e/(freestyle-save|goalfix-v1|promptos-catalog)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'N/A proven from trusted exact-head diff: Freestyle/Goalfix/PromptOS surface unchanged.'
+          fi
+      - name: Check out candidate assets without credentials
+        if: steps.scope.outputs.changed == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          path: candidate
           persist-credentials: false
-
-      - name: Record and verify exact head
-        shell: bash
-        run: |
-          actual="$(git rev-parse HEAD)"
-          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
-
-      - name: Set up Node
+      - name: Set up Node from trusted evaluator
+        if: steps.scope.outputs.changed == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: "24"
+          node-version: '24'
           cache: npm
-
-      - name: Install locked application dependencies
+      - name: Install trusted locked test dependencies
+        if: steps.scope.outputs.changed == 'true'
         run: npm ci
-
-      - name: Install isolated Playwright runner
+      - name: Install trusted Playwright runner
+        if: steps.scope.outputs.changed == 'true'
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
-
       - name: Install Chromium
+        if: steps.scope.outputs.changed == 'true'
         run: npx playwright install --with-deps chromium
-
-      - name: Start static application server
+      - name: Start candidate static application server
+        if: steps.scope.outputs.changed == 'true'
         shell: bash
         run: |
-          python3 -m http.server 4173 > /tmp/chief-ai-server.log 2>&1 &
-          echo $! > /tmp/chief-ai-server.pid
+          python3 -m http.server 4173 --directory candidate > /tmp/chief-ai-freestyle-server.log 2>&1 &
+          echo $! > /tmp/chief-ai-freestyle-server.pid
           for attempt in {1..30}; do
             curl --fail --silent http://127.0.0.1:4173/ >/dev/null && exit 0
             sleep 1
           done
-          cat /tmp/chief-ai-server.log
+          cat /tmp/chief-ai-freestyle-server.log
           exit 1
-
-      - name: Run rendered Freestyle, Goalfix, and PromptOS proof
+      - name: Run trusted rendered Freestyle Goalfix PromptOS proof
+        if: steps.scope.outputs.changed == 'true'
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
-
       - name: Stop static server
-        if: always()
+        if: always() && steps.scope.outputs.changed == 'true'
         shell: bash
-        run: test ! -f /tmp/chief-ai-server.pid || kill "$(cat /tmp/chief-ai-server.pid)" || true
-
-      - name: Retain Playwright report and screenshots
-        if: always()
+        run: test ! -f /tmp/chief-ai-freestyle-server.pid || kill "$(cat /tmp/chief-ai-freestyle-server.pid)" || true
+      - name: Retain trusted browser evidence
+        if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: freestyle-save-playwright-${{ env.EXPECTED_HEAD_SHA }}
