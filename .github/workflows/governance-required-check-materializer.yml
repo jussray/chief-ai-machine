@@ -85,7 +85,7 @@ jobs:
             exit 1
           fi
 
-          changed_since_receipt="$(git diff --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
+          changed_since_receipt="$(git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
           printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
           printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
 
@@ -112,7 +112,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           git fetch --no-tags origin "$BASE_SHA"
-          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(index\.html|styles/goals\.css|src/main\.js|src/domain/goal-plan(\.test)?\.js|src/modules/goals\.js|e2e/founder-goals\.pw\.mjs|e2e/playwright\.founder-goals\.config\.mjs|\.github/workflows/founder-goals-playwright\.yml)$'; then
             echo 'Founder Goals surface changed; real Playwright proof is required.' >&2
@@ -135,7 +135,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           git fetch --no-tags origin "$BASE_SHA"
-          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json|\.control-room/repository\.manifest\.json|scripts/verify-control-room-tests\.mjs|scripts/generateCatalog\.mjs|src/main\.js|src/data/goalfix-v1\.js|src/modules/(freestyle|custom|promptos-ui)\.js|src/domain/evidence-first-prompt\.js|src/promptos/|styles/promptos\.css|e2e/(freestyle-save|goalfix-v1|promptos-catalog)\.pw\.mjs|e2e/playwright\.freestyle\.config\.mjs|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml)'; then
             echo 'Freestyle/Goalfix/PromptOS surface changed; real Chromium proof is required.' >&2
@@ -161,7 +161,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           git fetch --no-tags origin "$BASE_SHA"
-          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
@@ -256,20 +256,38 @@ jobs:
           cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
           import { test, expect } from '@playwright/test';
 
-          test('immutable Chief preview serves the exact candidate SHA', async ({ page }) => {
+          test('immutable Chief preview proves exact SHA and rendered SPA', async ({ page }) => {
             const baseUrl = process.env.CHIEF_RUNTIME_BASE_URL;
             const expectedSha = process.env.EXPECTED_HEAD_SHA;
             expect(baseUrl).toBeTruthy();
             expect(expectedSha).toMatch(/^[0-9a-f]{40}$/);
+            const expectedHost = new URL(baseUrl).host;
 
-            const response = await page.goto(`${baseUrl}/version`, { waitUntil: 'domcontentloaded' });
-            expect(response).not.toBeNull();
-            console.log(`final-url=${page.url()}`);
-            console.log(`status=${response.status()}`);
-            expect(response.status()).toBe(200);
-
-            const payload = await response.json();
+            const versionResponse = await page.goto(`${baseUrl}/version`, { waitUntil: 'domcontentloaded' });
+            expect(versionResponse).not.toBeNull();
+            console.log(`version-final-url=${page.url()}`);
+            console.log(`version-status=${versionResponse.status()}`);
+            expect(versionResponse.status()).toBe(200);
+            expect(new URL(page.url()).host).toBe(expectedHost);
+            expect(versionResponse.headers()['content-type'] || '').toContain('application/json');
+            const payload = await versionResponse.json();
             expect(payload?.sha).toBe(expectedSha);
+
+            const appResponse = await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+            expect(appResponse).not.toBeNull();
+            console.log(`app-final-url=${page.url()}`);
+            console.log(`app-status=${appResponse.status()}`);
+            expect(appResponse.status()).toBe(200);
+            expect(new URL(page.url()).host).toBe(expectedHost);
+            await expect(page.locator('#app')).toBeVisible();
+            await expect(page.getByRole('heading', { name: 'What are we trying to accomplish?' })).toBeVisible();
+
+            const cssResponse = await page.goto(`${baseUrl}/styles/main.css`, { waitUntil: 'domcontentloaded' });
+            expect(cssResponse).not.toBeNull();
+            expect(cssResponse.status()).toBe(200);
+            expect(new URL(page.url()).host).toBe(expectedHost);
+            expect(cssResponse.headers()['content-type'] || '').toContain('text/css');
+            expect((await cssResponse.text()).length).toBeGreaterThan(100);
           });
           EOF
 
@@ -327,7 +345,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           git fetch --no-tags origin "$BASE_SHA"
-          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(worker/(index|chief-capability-plan|chief-founder-content-proposal)(\.test)?\.js|src/domain/(founder-control-surface|founder-content-brain|founder-content-strategy)(\.test|\.redteam\.test)?\.js|e2e/(chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs|\.github/workflows/chief-capability-plan-playwright\.yml|config/operational-authority\.json)$'; then
             echo 'Chief capability-plan surface changed; real live Playwright proof is required.' >&2
@@ -350,7 +368,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           git fetch --no-tags origin "$BASE_SHA"
-          changed="$(git diff --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
           if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js|worker/index\.js|wrangler\.jsonc|e2e/proofmode-mcp\.pw\.mjs|\.github/workflows/proofmode-mcp-playwright\.yml)$'; then
             echo 'Live ProofMode surface changed; real Playwright proof is required.' >&2

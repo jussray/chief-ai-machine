@@ -16,11 +16,7 @@ jobs:
   rollover:
     name: Roll Current Main Through Open PR Graph
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-      pull-requests: write
-      checks: write
+    timeout-minutes: 20
     steps:
       - name: Check out trusted current main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -33,12 +29,23 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Require workflow-triggering continuity credential
+        env:
+          PR_CONTINUITY_TOKEN: ${{ secrets.PR_CONTINUITY_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$PR_CONTINUITY_TOKEN" ]; then
+            printf 'PR_CONTINUITY_TOKEN is required before automatic branch mutation so successor pull_request checks can materialize.\n' >&2
+            exit 1
+          fi
+
       - name: Attack 20 before write authority
         run: node --test test/pr-continuity.attack20.test.mjs
 
       - name: Roll main forward without force, rebase, or conflict guessing
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.PR_CONTINUITY_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           ROOT_BASE_REF: main
         run: node scripts/pr-continuity.mjs rollover

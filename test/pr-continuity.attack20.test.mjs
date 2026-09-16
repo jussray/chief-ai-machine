@@ -34,16 +34,16 @@ test('AT08 fork pull is not same-repository authority', () => assert.equal(sameR
 test('AT09 same-repo pull qualifies', () => assert.equal(sameRepositoryPull(pr(1, 'main', 'feature'), repo), true));
 test('AT10 append managed block preserves body', () => {
   const next = replaceManagedBlock('Human scope', `${START_MARKER}\nreceipt\n${END_MARKER}`);
-  assert.match(next, /^Human scope/);
+  assert.ok(next.startsWith('Human scope'));
   assert.match(next, /receipt/);
 });
 test('AT11 refresh managed block preserves surrounding prose', () => {
   const body = `Before\n\n${START_MARKER}\nold\n${END_MARKER}\n\nAfter`;
   const next = replaceManagedBlock(body, `${START_MARKER}\nnew\n${END_MARKER}`);
-  assert.match(next, /^Before/);
+  assert.ok(next.startsWith('Before'));
   assert.match(next, /new/);
   assert.doesNotMatch(next, /old/);
-  assert.match(next, /After$/);
+  assert.ok(next.endsWith('After'));
 });
 test('AT12 duplicate markers block metadata mutation', () => assert.throws(() => replaceManagedBlock(`${START_MARKER}${START_MARKER}${END_MARKER}`, 'x'), /MALFORMED/));
 test('AT13 orphan start marker blocks', () => assert.throws(() => replaceManagedBlock(`${START_MARKER}x`, 'x'), /MALFORMED/));
@@ -97,7 +97,23 @@ test('AT24 workflows separate candidate, trusted, and rollover authority without
   assert.match(rollover, /\n {2}push:\n/);
   assert.match(rollover, /workflow_dispatch:/);
   assert.match(rollover, /name: Roll Current Main Through Open PR Graph/);
-  assert.match(rollover, /contents: write/);
+  assert.match(rollover, /PR_CONTINUITY_TOKEN: \$\{\{ secrets\.PR_CONTINUITY_TOKEN \}\}/);
+  assert.doesNotMatch(rollover, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
   assert.doesNotMatch(rollover, /github\.event_name/);
+});
+test('AT25 managed receipt replacement preserves surrounding whitespace byte-for-byte', () => {
+  const before = 'Human prose  \n    indented-before\n';
+  const after = '\n    indented-after  \nTail\t\n';
+  const body = `${before}${START_MARKER}\nold\n${END_MARKER}${after}`;
+  const block = `${START_MARKER}\nnew\n${END_MARKER}`;
+  const next = replaceManagedBlock(body, block);
+  assert.equal(next, `${before}${block}${after}`);
+});
+test('AT26 rollover requires a workflow-triggering credential and post-move reverify evidence', () => {
+  const rollover = readFileSync('.github/workflows/pr-continuity-rollover.yml', 'utf8');
+  const engine = readFileSync('scripts/pr-continuity.mjs', 'utf8');
+  assert.match(rollover, /workflow-triggering continuity credential/);
+  assert.match(engine, /waitForReverification/);
+  assert.match(engine, /BLOCKED_REVERIFY_TRIGGER/);
 });
 test('schema remains stable', () => assert.equal(SCHEMA, 'juss/pr-continuity@v1'));

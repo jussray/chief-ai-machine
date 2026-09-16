@@ -19,14 +19,15 @@ export function assertExpectedHead(expected, actual) {
 export function replaceManagedBlock(body = '', block) {
   const starts = body.split(START_MARKER).length - 1;
   const ends = body.split(END_MARKER).length - 1;
-  if (!starts && !ends) return `${body.trimEnd()}${body.trimEnd() ? '\n\n' : ''}${block}\n`;
+  if (!starts && !ends) {
+    if (!body) return `${block}\n`;
+    return `${body}${body.endsWith('\n') ? '\n' : '\n\n'}${block}\n`;
+  }
   if (starts !== 1 || ends !== 1) throw new Error('MALFORMED_CONTINUITY_MARKERS');
   const start = body.indexOf(START_MARKER);
   const end = body.indexOf(END_MARKER);
   if (start > end) throw new Error('MALFORMED_CONTINUITY_MARKERS');
-  const before = body.slice(0, start).trimEnd();
-  const after = body.slice(end + END_MARKER.length).trimStart();
-  return `${before}${before ? '\n\n' : ''}${block}${after ? `\n\n${after}` : '\n'}`;
+  return `${body.slice(0, start)}${block}${body.slice(end + END_MARKER.length)}`;
 }
 export function continuityBlock(v) {
   return [
@@ -114,6 +115,15 @@ async function listOpenPulls(repo) {
   }
   throw new Error('PULL_PAGINATION_LIMIT_EXCEEDED');
 }
+async function waitForReverification(repo, sha) {
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const payload = (await github(`/repos/${repo}/commits/${sha}/check-runs?per_page=100`)).payload;
+    const runs = payload?.check_runs || [];
+    if (runs.some((run) => run.head_sha === sha && ['Typecheck', 'PR Continuity Candidate Observation'].includes(run.name))) return true;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  return false;
+}
 async function patchBody(repo, pr, block) {
   const live = await getPull(repo, pr.number);
   if (!samePullSnapshot(pr, live)) return { updated: false, blocked: true, reason: 'METADATA_RACE' };
@@ -181,10 +191,15 @@ async function updateOnePull(repo, number, rootBaseRef) {
   }
   status = await compare(repo, pr.base.sha, pr.head.sha);
   let state = isCurrentCompareStatus(status) ? (pr.head.sha !== before ? 'ROLLED_FORWARD' : 'CURRENT_AFTER_RACE') : 'BLOCKED_UPDATE_TIMEOUT';
+  let reverifyTriggered = null;
+  if (state === 'ROLLED_FORWARD') {
+    reverifyTriggered = await waitForReverification(repo, pr.head.sha);
+    if (!reverifyTriggered) state = 'BLOCKED_REVERIFY_TRIGGER';
+  }
   const proofState = state === 'ROLLED_FORWARD' ? 'REVERIFY_REQUIRED' : (state === 'CURRENT_AFTER_RACE' ? 'EXACT_HEAD_PROOF_SEPARATE' : 'BLOCKED');
   const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, state, proofState));
   if (metadata.blocked) state = 'BLOCKED_METADATA';
-  return { number, state, headRef: pr.head.ref, headBefore: before, headSha: pr.head.sha, metadata };
+  return { number, state, headRef: pr.head.ref, headBefore: before, headSha: pr.head.sha, reverifyTriggered, metadata };
 }
 
 export async function auditMode() {
