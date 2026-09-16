@@ -78,8 +78,8 @@ test('AT24 workflows separate candidate, trusted, and rollover authority without
   const trusted = readFileSync('.github/workflows/pr-continuity-trusted.yml', 'utf8');
   const rollover = readFileSync('.github/workflows/pr-continuity-rollover.yml', 'utf8');
 
+  assert.match(candidate, /\n {2}pull_request:\n/);
   assert.match(candidate, /name: PR Continuity Candidate Observation/);
-  assert.match(candidate, /\n  pull_request:\n/);
   assert.doesNotMatch(candidate, /pull_request_target:/);
   assert.doesNotMatch(candidate, /github\.event_name/);
   assert.doesNotMatch(candidate, /checks: write/);
@@ -94,7 +94,7 @@ test('AT24 workflows separate candidate, trusted, and rollover authority without
   assert.match(trusted, /ref: \$\{\{ github\.sha \}\}/);
   assert.doesNotMatch(trusted, /github\.event_name/);
 
-  assert.match(rollover, /\n  push:\n/);
+  assert.match(rollover, /\n {2}push:\n/);
   assert.match(rollover, /workflow_dispatch:/);
   assert.match(rollover, /name: Roll Current Main Through Open PR Graph/);
   assert.match(rollover, /contents: write/);
