@@ -73,12 +73,31 @@ test('AT22 metadata snapshots fail closed on concurrent body or head movement', 
   assert.equal(samePullSnapshot(first, headMoved), false);
 });
 test('AT23 blocked rollover publishes the exact authoritative gate name', () => assert.equal(CONTINUITY_GATE_NAME, 'PR Continuity Exact-Head Gate'));
-test('AT24 workflow separates candidate observation from trusted write authority', () => {
-  const workflow = readFileSync('.github/workflows/pr-continuity.yml', 'utf8');
-  assert.match(workflow, /name: PR Continuity Candidate Observation/);
-  assert.match(workflow, /name: Publish trusted PR continuity exact-head gate/);
-  assert.match(workflow, /github\.event\.pull_request\.base\.ref == 'main'/);
-  assert.match(workflow, /checks: write/);
-  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+test('AT24 workflows separate candidate, trusted, and rollover authority without event-skipped jobs', () => {
+  const candidate = readFileSync('.github/workflows/pr-continuity.yml', 'utf8');
+  const trusted = readFileSync('.github/workflows/pr-continuity-trusted.yml', 'utf8');
+  const rollover = readFileSync('.github/workflows/pr-continuity-rollover.yml', 'utf8');
+
+  assert.match(candidate, /name: PR Continuity Candidate Observation/);
+  assert.match(candidate, /\n  pull_request:\n/);
+  assert.doesNotMatch(candidate, /pull_request_target:/);
+  assert.doesNotMatch(candidate, /github\.event_name/);
+  assert.doesNotMatch(candidate, /checks: write/);
+  assert.doesNotMatch(candidate, /pull-requests: write/);
+  assert.doesNotMatch(candidate, /contents: write/);
+
+  assert.match(trusted, /pull_request_target:/);
+  assert.match(trusted, /branches: \[main\]/);
+  assert.match(trusted, /name: Publish trusted PR continuity exact-head gate/);
+  assert.match(trusted, /name: PR Continuity Metadata Receipt/);
+  assert.match(trusted, /checks: write/);
+  assert.match(trusted, /ref: \$\{\{ github\.sha \}\}/);
+  assert.doesNotMatch(trusted, /github\.event_name/);
+
+  assert.match(rollover, /\n  push:\n/);
+  assert.match(rollover, /workflow_dispatch:/);
+  assert.match(rollover, /name: Roll Current Main Through Open PR Graph/);
+  assert.match(rollover, /contents: write/);
+  assert.doesNotMatch(rollover, /github\.event_name/);
 });
 test('schema remains stable', () => assert.equal(SCHEMA, 'juss/pr-continuity@v1'));
