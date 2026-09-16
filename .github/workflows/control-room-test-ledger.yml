@@ -54,9 +54,18 @@ jobs:
   publish-ledger:
     name: Publish exact-head test ledger
     needs: ledger-contract
+    if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
+      - name: Fail closed unless ledger contract passed
+        env:
+          LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'ledger-contract=%s\n' "$LEDGER_CONTRACT_RESULT"
+          test "$LEDGER_CONTRACT_RESULT" = 'success'
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
