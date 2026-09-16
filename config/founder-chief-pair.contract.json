@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-09-13.2",
+  "contractVersion": "2026-08-19.1",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
@@ -8,41 +8,8 @@
   "candidatePairing": {
     "schema": "juss/founder-chief-pair-candidate@v1",
     "founderControlRoomPullRequest": 781,
-    "chiefAIPullRequest": 142,
-    "chiefAINecessaryFixPolicyPullRequest": 151,
-    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority.",
-    "carrierSeparationBoundary": "Chief PR #142 carries standalone MCP and pair identity. Chief PR #151 carries the necessary-fix policy and its separate runtime work. Neither carrier donates merge, runtime, provider, review, or Playwright proof to the other."
-  },
-  "relationship": {
-    "topology": "standalone-peers",
-    "controlRoom": {
-      "independentlyCallable": true,
-      "ownsIdentity": true,
-      "ownsLifecycle": true,
-      "ownsReceipts": true,
-      "ownsFailureState": true,
-      "ownsContinuityMarkers": true
-    },
-    "chiefAI": {
-      "independentlyCallable": true,
-      "ownsIdentity": true,
-      "ownsLifecycle": true,
-      "ownsReceipts": true,
-      "ownsFailureState": true,
-      "ownsContinuityMarkers": true
-    },
-    "crossSystem": {
-      "sharedRuntimeRequired": false,
-      "identityCollapseAllowed": false,
-      "implicitAuthorityTransferAllowed": false,
-      "receiptCollapseAllowed": false,
-      "failureCollapseAllowed": false,
-      "continuityCollapseAllowed": false,
-      "evidenceCreatesAuthority": false,
-      "cooperationMayProceedWithinEachSystemsOwnAuthority": true
-    },
-    "continuityBoundary": "Fingerprints and proof cookies remain separate, non-secret, non-authorizing state markers for each system. Cross-system evidence may update or invalidate the recipient's state only after recipient-side verification; it never transfers authority.",
-    "cooperationBoundary": "Founder Control Room and Chief AI may call, observe, and inform one another while remaining independently valid systems. A joint claim requires distinct receipts for each participating system; one system's green or red state never silently replaces the other's."
+    "chiefAIPullRequest": 128,
+    "truthBoundary": "Candidate alignment proves only that the exact unmerged pair-contract candidates agree. It does not grant merge, main, runtime, deployment, publication, or founder authority."
   },
   "roles": {
     "controlRoom": [
