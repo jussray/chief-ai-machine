@@ -400,7 +400,11 @@ jobs:
             printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
           fi
           if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            printf 'Cloudflare Access rejected the configured service token or no matching exact-host Service Auth policy accepted it. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
+            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+              printf 'Cloudflare Access rejected the supplied service-token credentials; verify the effective Access application uses a Service Auth policy that includes this exact token, and that the token is enabled and unexpired. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
+            else
+              printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
+            fi
           fi
           exit 1
 
