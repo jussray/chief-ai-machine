@@ -46,6 +46,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           CHIEF_HEAD_REF: ${{ github.head_ref }}
+          CHIEF_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           CHIEF_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
@@ -61,6 +62,7 @@ jobs:
           printf '%s' "$selected_sha" | grep -Eq '^[0-9a-f]{40}$'
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
+            printf '%s' "$CHIEF_HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
             local_digest="$(sha256sum "$local_contract" | awk '{print $1}')"
             main_contract="$(mktemp)"
             curl --fail --silent --show-error --location \
@@ -69,14 +71,10 @@ jobs:
             main_digest="$(sha256sum "$main_contract" | awk '{print $1}')"
 
             if [ "$local_digest" != "$main_digest" ]; then
-              candidate_chief_pr="$(jq -r '.candidatePairing.chiefAIPullRequest // empty' "$local_contract")"
+              primary_chief_pr="$(jq -r '.candidatePairing.chiefAIPullRequest // empty' "$local_contract")"
               candidate_pr="$(jq -r '.candidatePairing.founderControlRoomPullRequest // empty' "$local_contract")"
 
-              if ! printf '%s' "$candidate_chief_pr" | grep -Eq '^[1-9][0-9]*$' || [ "$candidate_chief_pr" != "$CHIEF_PR_NUMBER" ]; then
-                printf 'Pair contract candidate Chief PR must equal the active Chief pull request: contract=%s active=%s\n' \
-                  "$candidate_chief_pr" "$CHIEF_PR_NUMBER" >&2
-                exit 1
-              fi
+              printf '%s' "$primary_chief_pr" | grep -Eq '^[1-9][0-9]*$'
 
               if printf '%s' "$candidate_pr" | grep -Eq '^[1-9][0-9]*$'; then
                 candidate_json="$(curl --fail --silent --show-error \
@@ -99,6 +97,24 @@ jobs:
                 remote_pr_sha="$(git ls-remote --exit-code "$remote" "refs/pull/$candidate_pr/head" | awk 'NR==1 {print $1}')"
                 test "$remote_pr_sha" = "$candidate_sha"
 
+                peer_lock="$(curl --fail --silent --show-error --location \
+                  "$raw_base/$candidate_sha/.control-room/founder-chief-pair-peer-lock.json")"
+                jq -e '
+                  .schema == "fcr/founder-chief-pair-peer-lock@v1"
+                  and .repository == "jussray/founder-control-room"
+                  and .scope == "pull-request-candidate-only"
+                  and .chiefAIFounderContentStrategy.repository == "jussray/chief-ai-machine"
+                  and (.chiefAIFounderContentStrategy.expectedHeadSha | test("^[0-9a-f]{40}$"))
+                  and .authorizesMerge == false
+                  and .authorizesDeployment == false
+                  and .authorizesProviderMutation == false
+                  and .runtimeTruthProven == false
+                ' <<<"$peer_lock" >/dev/null
+                locked_content_pr="$(jq -r '.chiefAIFounderContentStrategy.pullRequest' <<<"$peer_lock")"
+                locked_content_sha="$(jq -r '.chiefAIFounderContentStrategy.expectedHeadSha' <<<"$peer_lock")"
+                test "$locked_content_pr" = "$CHIEF_PR_NUMBER"
+                test "$locked_content_sha" = "$CHIEF_HEAD_SHA"
+
                 selected_ref="pull/$candidate_pr/head"
                 selected_sha="$candidate_sha"
                 source="paired-contract-candidate"
@@ -120,11 +136,13 @@ jobs:
           {
             echo '## Founder ↔ Chief pair authority'
             echo
-            printf -- '- Chief exact source: `%s`\n' "$GITHUB_SHA"
+            printf -- '- Chief exact source: `%s`\n' "$CHIEF_HEAD_SHA"
             printf -- '- FCR logical ref selected: `%s`\n' "$selected_ref"
             printf -- '- FCR exact SHA selected: `%s`\n' "$selected_sha"
             printf -- '- Selection mode: `%s`\n' "$source"
             if [ "$source" = "paired-contract-candidate" ]; then
+              echo '- Active carrier: Chief founder-content strategy; FCR peer-lock acknowledgement is exact-head bound.'
+              echo '- The shared contract may name a different primary Chief pair carrier; carrier identity and shared policy are separate evidence planes.'
               echo '- Truth boundary: candidate alignment does not grant main, merge, runtime, deployment, publication, or founder authority.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
