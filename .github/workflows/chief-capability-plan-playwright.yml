@@ -32,7 +32,6 @@ on:
       - ".github/workflows/proofmode-access-service-auth.yml"
       - "scripts/proofmode-access-policy.mjs"
       - "scripts/proofmode-access-policy.test.js"
-      - "config/operational-authority.json"
   workflow_dispatch:
     inputs:
       base_url:
