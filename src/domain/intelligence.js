@@ -80,6 +80,14 @@ function cleanStars(stars) {
   )))].slice(0, 500);
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function normalizeCustomPrompt(prompt, index = 0) {
   if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt)) return null;
 
@@ -219,37 +227,37 @@ function requireExportableAssets(assets) {
   return assets;
 }
 
-function requireCanonicalCustomPrompts(customPrompts) {
+function requireCanonicalCustomPrompts(customPrompts, prefix = 'Portable export blocked') {
   if (!Array.isArray(customPrompts)) {
-    throw new Error('Portable export blocked: custom prompts must be an array');
+    throw new Error(`${prefix}: custom prompts must be an array`);
   }
   const normalized = normalizeCustomPrompts(customPrompts);
-  if (JSON.stringify(normalized) !== JSON.stringify(customPrompts)) {
-    throw new Error('Portable export blocked: custom prompt state contains invalid or lossy data');
+  if (stableJson(normalized) !== stableJson(customPrompts)) {
+    throw new Error(`${prefix}: custom prompt state contains invalid or lossy data`);
   }
   return customPrompts;
 }
 
-function requireCanonicalStars(stars) {
+function requireCanonicalStars(stars, prefix = 'Portable export blocked') {
   if (!Array.isArray(stars)) {
-    throw new Error('Portable export blocked: stars must be an array');
+    throw new Error(`${prefix}: stars must be an array`);
   }
-  if (JSON.stringify(cleanStars(stars)) !== JSON.stringify(stars)) {
-    throw new Error('Portable export blocked: star state contains invalid or lossy data');
+  if (stableJson(cleanStars(stars)) !== stableJson(stars)) {
+    throw new Error(`${prefix}: star state contains invalid or lossy data`);
   }
   return stars;
 }
 
-function requireExportableGoals(goals) {
+function requireExportableGoals(goals, prefix = 'Portable export blocked') {
   if (!Array.isArray(goals)) {
-    throw new Error('Portable export blocked: founder goals must be an array');
+    throw new Error(`${prefix}: founder goals must be an array`);
   }
   for (let index = 0; index < goals.length; index += 1) {
     const validation = validateGoalPlan(goals[index]);
     const missingLists = GOAL_LIST_FIELDS.filter((field) => !Array.isArray(goals[index]?.[field]));
     const errors = [...validation.errors, ...missingLists.map((field) => `${field} must be an array`)];
     if (errors.length) {
-      throw new Error(`Portable export blocked: founder goal ${index + 1} is invalid (${errors.join('; ')})`);
+      throw new Error(`${prefix}: founder goal ${index + 1} is invalid (${errors.join('; ')})`);
     }
   }
   return goals;
@@ -257,7 +265,7 @@ function requireExportableGoals(goals) {
 
 function readCurrentSnapshotArray(value, label) {
   if (value === undefined) return [];
-  if (!Array.isArray(value)) throw new Error(`Snapshot ${label} must be an array`);
+  if (!Array.isArray(value)) throw new Error(`Import failed: snapshot ${label} must be an array`);
   return value;
 }
 
@@ -277,21 +285,21 @@ export function createPortableSnapshot({ assets = [], customPrompts = [], stars 
 }
 
 export function parsePortableSnapshot(input, now = new Date()) {
-  if (!input || typeof input !== 'object') throw new Error('Snapshot must be an object');
+  if (!input || typeof input !== 'object') throw new Error('Import failed: snapshot must be an object');
 
   if (input.format === 'founder-intelligence-snapshot') {
-    if (input.schemaVersion !== INTELLIGENCE_SCHEMA_VERSION) throw new Error('Unsupported snapshot version');
+    if (input.schemaVersion !== INTELLIGENCE_SCHEMA_VERSION) throw new Error('Import failed: unsupported snapshot version');
     const assets = readCurrentSnapshotArray(input.assets, 'assets');
     const invalid = assets.find((asset) => !validateIntelligenceAsset(asset).valid);
-    if (invalid) throw new Error('Snapshot contains an invalid intelligence asset');
+    if (invalid) throw new Error('Import failed: snapshot contains an invalid intelligence asset');
 
     const customPrompts = readCurrentSnapshotArray(input.compatibility?.customPrompts, 'custom prompts');
     const stars = readCurrentSnapshotArray(input.compatibility?.stars, 'stars');
-    requireCanonicalCustomPrompts(customPrompts);
-    requireCanonicalStars(stars);
+    requireCanonicalCustomPrompts(customPrompts, 'Import failed');
+    requireCanonicalStars(stars, 'Import failed');
 
     const goals = input.goals === undefined ? null : readCurrentSnapshotArray(input.goals, 'founder goals');
-    if (goals !== null) requireExportableGoals(goals);
+    if (goals !== null) requireExportableGoals(goals, 'Import failed');
 
     return { assets, customPrompts, stars, goals };
   }
