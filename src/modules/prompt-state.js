@@ -110,6 +110,7 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
   let changed = false;
   const seenIds = new Set((Array.isArray(reservedIds) ? reservedIds : []).map(id => String(id)));
   const normalized = [];
+  const sourcePairs = [];
 
   for (const prompt of Array.isArray(prompts) ? prompts : []) {
     if (!isRecord(prompt)) {
@@ -145,6 +146,7 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
       changed = true;
     }
 
+    const sourceId = prompt.id == null ? '' : String(prompt.id).trim();
     let id = normalizePromptId(prompt.id);
     if (!id || seenIds.has(id)) {
       id = createLocalPromptId('custom');
@@ -153,6 +155,7 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
       changed = true;
     }
     seenIds.add(id);
+    if (sourceId) sourcePairs.push([sourceId, id]);
 
     const title = text(prompt.title).trim() || 'Untitled';
     const sub = text(prompt.sub);
@@ -186,26 +189,74 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
   }
 
   if (!Array.isArray(prompts) || normalized.length !== prompts.length) changed = true;
-  return { prompts: normalized, changed };
+
+  const sourceCounts = new Map();
+  sourcePairs.forEach(([sourceId]) => sourceCounts.set(sourceId, (sourceCounts.get(sourceId) || 0) + 1));
+  const ambiguousIds = [...sourceCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([sourceId]) => sourceId);
+  const idRemap = sourcePairs
+    .filter(([sourceId, finalId]) => sourceCounts.get(sourceId) === 1 && sourceId !== finalId)
+    .map(([from, to]) => ({ from, to }));
+
+  return { prompts: normalized, changed, idRemap, ambiguousIds };
 }
 
-export function readCustomPromptState() {
-  const read = readStoredArrayState('chief-custom');
-  if (read.state !== 'ready') return { state: read.state, prompts: [] };
+export function remapStarReferences(stars, idRemap = [], ambiguousIds = []) {
+  const remap = new Map((Array.isArray(idRemap) ? idRemap : [])
+    .filter(entry => isRecord(entry) && typeof entry.from === 'string' && typeof entry.to === 'string')
+    .map(entry => [entry.from, entry.to]));
+  const ambiguous = new Set((Array.isArray(ambiguousIds) ? ambiguousIds : [])
+    .filter(value => typeof value === 'string'));
+  let changed = false;
+  const next = [];
 
-  const normalized = normalizeCustomPrompts(read.values);
+  for (const star of Array.isArray(stars) ? stars : []) {
+    if (typeof star !== 'string') {
+      next.push(star);
+      continue;
+    }
+    const key = star.trim();
+    if (ambiguous.has(key)) {
+      changed = true;
+      continue;
+    }
+    const mapped = remap.get(key);
+    if (mapped) {
+      if (mapped !== star) changed = true;
+      next.push(mapped);
+      continue;
+    }
+    next.push(star);
+  }
+
+  const deduped = [...new Set(next)];
+  if (deduped.length !== next.length) changed = true;
+  return { stars: deduped, changed };
+}
+
+export function readCustomPromptState({ reservedIds = [] } = {}) {
+  const read = readStoredArrayState('chief-custom');
+  if (read.state !== 'ready') return { state: read.state, prompts: [], idRemap: [], ambiguousIds: [] };
+
+  const normalized = normalizeCustomPrompts(read.values, { reservedIds });
   if (normalized.prompts.length !== read.values.length) {
-    return { state: 'corrupt', prompts: [] };
+    return { state: 'corrupt', prompts: [], idRemap: [], ambiguousIds: [] };
   }
 
   if (normalized.changed) {
     try {
       localStorage.setItem('chief-custom', JSON.stringify(normalized.prompts));
     } catch {
-      return { state: 'unavailable', prompts: [] };
+      return { state: 'unavailable', prompts: [], idRemap: [], ambiguousIds: [] };
     }
   }
-  return { state: 'ready', prompts: normalized.prompts };
+  return {
+    state: 'ready',
+    prompts: normalized.prompts,
+    idRemap: normalized.idRemap,
+    ambiguousIds: normalized.ambiguousIds,
+  };
 }
 
 export function readStarState() {
