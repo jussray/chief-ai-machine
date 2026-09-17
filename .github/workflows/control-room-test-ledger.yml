@@ -17,6 +17,7 @@ env:
   CONTROL_ROOM_LEDGER_SELF_CHECK: Publish exact-head test ledger
   CONTROL_ROOM_TEST_LEDGER_PATH: artifacts/control-room-test-ledger.json
   CONTROL_ROOM_LEDGER_POLICY_PATH: .control-room/test-ledger.manifest.json
+  CONTROL_ROOM_LEDGER_TIMEOUT_MS: ${{ github.event_name == 'pull_request' && '600000' || '1200000' }}
 
 concurrency:
   group: control-room-test-ledger-${{ github.event.pull_request.number || github.ref }}
@@ -48,15 +49,23 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Run ledger and operator contracts
-        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs
+        run: npx vitest run test/control-room-test-ledger.test.mjs test/operator-truth-summary.test.mjs test/control-room-test-ledger-workflow.contract.test.mjs
 
   publish-ledger:
     name: Publish exact-head test ledger
     needs: ledger-contract
-    if: github.event_name != 'pull_request'
+    if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
+      - name: Fail closed unless ledger contract passed
+        env:
+          LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'ledger-contract=%s\n' "$LEDGER_CONTRACT_RESULT"
+          test "$LEDGER_CONTRACT_RESULT" = 'success'
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

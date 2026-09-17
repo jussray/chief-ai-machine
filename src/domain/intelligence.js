@@ -1,5 +1,7 @@
 // Copyright © 2026 Juss Ray. All rights reserved. Proprietary and confidential.
 
+import { validateGoalPlan } from './goal-plan.js';
+
 export const INTELLIGENCE_SCHEMA_VERSION = 1;
 
 export const ASSET_KINDS = Object.freeze([
@@ -22,6 +24,13 @@ export const ASSET_STATUSES = Object.freeze([
 const KIND_SET = new Set(ASSET_KINDS);
 const STATUS_SET = new Set(ASSET_STATUSES);
 const CUSTOM_PROMPT_PLATFORM = /^[a-z0-9][a-z0-9._-]{0,39}$/;
+const GOAL_LIST_FIELDS = Object.freeze([
+  'evidence',
+  'constraints',
+  'strategicLenses',
+  'capabilities',
+  'proofRequirements',
+]);
 
 function cleanText(value, maxLength = 10000) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
@@ -69,6 +78,14 @@ function cleanStars(stars) {
     (typeof value === 'number' && Number.isSafeInteger(value))
     || (typeof value === 'string' && value.length > 0 && value.length <= 180)
   )))].slice(0, 500);
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function normalizeCustomPrompt(prompt, index = 0) {
@@ -195,34 +212,96 @@ export function migrateLegacyPrompt(prompt, now = new Date()) {
   }, now);
 }
 
-export function createPortableSnapshot({ assets = [], customPrompts = [], stars = [], exportedAt = new Date().toISOString() } = {}) {
-  const safeAssets = assets.filter((asset) => validateIntelligenceAsset(asset).valid);
+function requireExportableAssets(assets) {
+  if (!Array.isArray(assets)) {
+    throw new Error('Portable export blocked: intelligence assets must be an array');
+  }
+
+  for (let index = 0; index < assets.length; index += 1) {
+    const validation = validateIntelligenceAsset(assets[index]);
+    if (!validation.valid) {
+      throw new Error(`Portable export blocked: intelligence asset ${index + 1} is invalid (${validation.errors.join('; ')})`);
+    }
+  }
+
+  return assets;
+}
+
+function requireCanonicalCustomPrompts(customPrompts, prefix = 'Portable export blocked') {
+  if (!Array.isArray(customPrompts)) {
+    throw new Error(`${prefix}: custom prompts must be an array`);
+  }
+  const normalized = normalizeCustomPrompts(customPrompts);
+  if (stableJson(normalized) !== stableJson(customPrompts)) {
+    throw new Error(`${prefix}: custom prompt state contains invalid or lossy data`);
+  }
+  return customPrompts;
+}
+
+function requireCanonicalStars(stars, prefix = 'Portable export blocked') {
+  if (!Array.isArray(stars)) {
+    throw new Error(`${prefix}: stars must be an array`);
+  }
+  if (stableJson(cleanStars(stars)) !== stableJson(stars)) {
+    throw new Error(`${prefix}: star state contains invalid or lossy data`);
+  }
+  return stars;
+}
+
+function requireExportableGoals(goals, prefix = 'Portable export blocked') {
+  if (!Array.isArray(goals)) {
+    throw new Error(`${prefix}: founder goals must be an array`);
+  }
+  for (let index = 0; index < goals.length; index += 1) {
+    const validation = validateGoalPlan(goals[index]);
+    const missingLists = GOAL_LIST_FIELDS.filter((field) => !Array.isArray(goals[index]?.[field]));
+    const errors = [...validation.errors, ...missingLists.map((field) => `${field} must be an array`)];
+    if (errors.length) {
+      throw new Error(`${prefix}: founder goal ${index + 1} is invalid (${errors.join('; ')})`);
+    }
+  }
+  return goals;
+}
+
+function readCurrentSnapshotArray(value, label) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new Error(`Import failed: snapshot ${label} must be an array`);
+  return value;
+}
+
+export function createPortableSnapshot({ assets = [], customPrompts = [], stars = [], goals = [], exportedAt = new Date().toISOString() } = {}) {
   return {
     product: 'chief-ai',
     format: 'founder-intelligence-snapshot',
     schemaVersion: INTELLIGENCE_SCHEMA_VERSION,
     exportedAt,
-    assets: safeAssets,
+    assets: requireExportableAssets(assets),
     compatibility: {
-      customPrompts: normalizeCustomPrompts(customPrompts),
-      stars: cleanStars(stars),
+      customPrompts: requireCanonicalCustomPrompts(customPrompts),
+      stars: requireCanonicalStars(stars),
     },
+    goals: requireExportableGoals(goals),
   };
 }
 
 export function parsePortableSnapshot(input, now = new Date()) {
-  if (!input || typeof input !== 'object') throw new Error('Snapshot must be an object');
+  if (!input || typeof input !== 'object') throw new Error('Import failed: snapshot must be an object');
 
   if (input.format === 'founder-intelligence-snapshot') {
-    if (input.schemaVersion !== INTELLIGENCE_SCHEMA_VERSION) throw new Error('Unsupported snapshot version');
-    const assets = Array.isArray(input.assets) ? input.assets : [];
+    if (input.schemaVersion !== INTELLIGENCE_SCHEMA_VERSION) throw new Error('Import failed: unsupported snapshot version');
+    const assets = readCurrentSnapshotArray(input.assets, 'assets');
     const invalid = assets.find((asset) => !validateIntelligenceAsset(asset).valid);
-    if (invalid) throw new Error('Snapshot contains an invalid intelligence asset');
-    return {
-      assets,
-      customPrompts: normalizeCustomPrompts(input.compatibility?.customPrompts),
-      stars: cleanStars(input.compatibility?.stars),
-    };
+    if (invalid) throw new Error('Import failed: snapshot contains an invalid intelligence asset');
+
+    const customPrompts = readCurrentSnapshotArray(input.compatibility?.customPrompts, 'custom prompts');
+    const stars = readCurrentSnapshotArray(input.compatibility?.stars, 'stars');
+    requireCanonicalCustomPrompts(customPrompts, 'Import failed');
+    requireCanonicalStars(stars, 'Import failed');
+
+    const goals = input.goals === undefined ? null : readCurrentSnapshotArray(input.goals, 'founder goals');
+    if (goals !== null) requireExportableGoals(goals, 'Import failed');
+
+    return { assets, customPrompts, stars, goals };
   }
 
   // Backward compatibility with the original { custom, stars } export.
@@ -232,5 +311,6 @@ export function parsePortableSnapshot(input, now = new Date()) {
       .map((prompt, index) => migrateLegacyPrompt(prompt, new Date(now.getTime() + index))),
     customPrompts,
     stars: cleanStars(input.stars),
+    goals: null,
   };
 }

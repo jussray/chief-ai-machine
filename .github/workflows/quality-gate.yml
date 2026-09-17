@@ -115,11 +115,20 @@ jobs:
   sonarqube:
     name: "SonarQube – Founder Intelligence"
     needs: unit-tests
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:
+      - name: Fail closed unless unit tests passed
+        env:
+          UNIT_TEST_RESULT: ${{ needs.unit-tests.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'unit-tests=%s\n' "$UNIT_TEST_RESULT"
+          test "$UNIT_TEST_RESULT" = 'success'
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

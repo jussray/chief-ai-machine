@@ -17,12 +17,82 @@ import { createPortableSnapshot, parsePortableSnapshot } from './domain/intellig
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
 function readArray(key) {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return [];
+
+  let value;
   try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(value) ? value : [];
+    value = JSON.parse(raw);
   } catch {
-    return [];
+    throw new Error(`Portable export blocked: ${key} contains invalid JSON`);
   }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`Portable export blocked: ${key} is not an array`);
+  }
+  return value;
+}
+
+function commitPortableImport(imported) {
+  const writes = [
+    [INTELLIGENCE_STORAGE_KEY, imported.assets],
+    ['chief-custom', imported.customPrompts],
+    ['chief-stars', imported.stars],
+  ];
+  if (imported.goals !== null) writes.push([GOAL_STORAGE_KEY, imported.goals]);
+
+  const previous = new Map();
+  try {
+    for (const [key] of writes) previous.set(key, localStorage.getItem(key));
+  } catch {
+    throw new Error('Import failed: local storage is unavailable. Nothing was changed.');
+  }
+
+  try {
+    for (const [key, value] of writes) localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    let rollbackFailed = false;
+    for (const [key] of writes) {
+      try {
+        const before = previous.get(key);
+        if (before === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, before);
+      } catch {
+        rollbackFailed = true;
+      }
+    }
+    if (rollbackFailed) {
+      throw new Error('Import failed and previous local state could not be fully restored.');
+    }
+    throw new Error('Import failed; previous local state was restored.');
+  }
+}
+
+function mountBrainPortabilityControls() {
+  const head = document.querySelector('#page-brain .page-head');
+  if (!head || document.getElementById('brainExportBtn')) return;
+
+  const controls = document.createElement('div');
+  controls.style.display = 'flex';
+  controls.style.gap = '8px';
+  controls.style.flexWrap = 'wrap';
+  controls.style.marginTop = '14px';
+  controls.setAttribute('aria-label', 'Company brain portability');
+
+  const exportButton = document.createElement('button');
+  exportButton.type = 'button';
+  exportButton.id = 'brainExportBtn';
+  exportButton.className = 'mini-btn solid';
+  exportButton.textContent = '⬇️ Export company brain';
+
+  const importButton = document.createElement('button');
+  importButton.type = 'button';
+  importButton.id = 'brainImportBtn';
+  importButton.className = 'mini-btn';
+  importButton.textContent = '⬆️ Import company brain';
+
+  controls.append(exportButton, importButton);
+  head.appendChild(controls);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFreestyle(PUBLIC_PROMPTS);
   initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
+  mountBrainPortabilityControls();
 
   const tbody = document.getElementById('benchBody');
   if (tbody) {
@@ -47,23 +118,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.getElementById('exportBtn')?.addEventListener('click', () => {
-    const snapshot = createPortableSnapshot({
-      assets: readArray(INTELLIGENCE_STORAGE_KEY),
-      customPrompts: readArray('chief-custom'),
-      stars: readArray('chief-stars'),
-    });
-    snapshot.goals = readArray(GOAL_STORAGE_KEY);
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'chief-ai-founder-intelligence.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Portable company brain exported.');
-  });
+  function exportCompanyBrain() {
+    try {
+      const snapshot = createPortableSnapshot({
+        assets: readArray(INTELLIGENCE_STORAGE_KEY),
+        customPrompts: readArray('chief-custom'),
+        stars: readArray('chief-stars'),
+        goals: readArray(GOAL_STORAGE_KEY),
+      });
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'chief-ai-founder-intelligence.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('Portable company brain exported.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Portable company brain export blocked.');
+    }
+  }
 
-  document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
+  document.getElementById('exportBtn')?.addEventListener('click', exportCompanyBrain);
+  document.getElementById('brainExportBtn')?.addEventListener('click', exportCompanyBrain);
+
+  const openImportPicker = () => document.getElementById('importFile')?.click();
+  document.getElementById('importBtn')?.addEventListener('click', openImportPicker);
+  document.getElementById('brainImportBtn')?.addEventListener('click', openImportPicker);
+
   document.getElementById('importFile')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -72,14 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
-        localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
-        localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
-        localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
-        if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
+        commitPortableImport(imported);
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
-      } catch {
-        showToast('Import failed — unsupported or invalid file.');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Import failed — unsupported or invalid file.');
       }
     };
     reader.readAsText(file);
