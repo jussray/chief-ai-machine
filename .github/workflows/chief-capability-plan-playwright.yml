@@ -64,7 +64,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  TRUSTED_BASE_SHA: 2fd4fda0cab12e52ab5096e723884d98bcfe7d10
+  TRUSTED_BASE_SHA: 9052f02421b5bf3a7e3d6537ae93a408e26f0ee1
 
 jobs:
   dispatch-identity:
