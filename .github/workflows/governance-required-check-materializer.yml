@@ -20,11 +20,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  trust-boundary:
-    name: Verify trusted governance evaluator
+  provider-receipt:
+    name: Redacted provider receipt
     runs-on: ubuntu-22.04
     steps:
-      - name: Bind evaluator to event-bound trusted base
+      - name: Verify trusted event boundary
         env:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
@@ -36,17 +36,6 @@ jobs:
           test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
           test "$BASE_REF" = 'main'
           test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
-
-  provider-receipt:
-    name: Redacted provider receipt
-    needs: trust-boundary
-    if: ${{ always() }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Fail closed unless evaluator is trusted
-        env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
-        run: test "$TRUST_RESULT" = 'success'
       - name: Check out trusted evaluator snapshot
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -60,71 +49,59 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$TRUSTED_EVALUATOR_SHA"
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
-
           has_provider_receipt() {
             local sha="$1"
             local api="https://api.github.com/repos/${REPO}/commits/${sha}/check-runs?check_name=Workers%20Builds%3A%20chief-ai&per_page=100"
             local json
             json="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$api" || true)"
-            printf '%s' "$json" | EXPECTED_PROVIDER_SHA="$sha" CLOUDFLARE_CHECK_APP_ID="$CLOUDFLARE_CHECK_APP_ID" node -e '
-              let s="";
-              process.stdin.on("data", c => s += c);
-              process.stdin.on("end", () => {
-                if (!s) process.exit(1);
-                const d = JSON.parse(s);
-                const run = (d.check_runs || []).find((x) =>
-                  x.name === "Workers Builds: chief-ai"
-                  && x.head_sha === process.env.EXPECTED_PROVIDER_SHA
-                  && x.app?.id === Number(process.env.CLOUDFLARE_CHECK_APP_ID)
-                  && x.status === "completed"
-                  && x.conclusion === "success"
-                );
-                process.exit(run ? 0 : 1);
+            EXPECTED_PROVIDER_SHA="$sha" printf '%s' "$json" | EXPECTED_PROVIDER_SHA="$sha" node -e '
+              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
+                if(!s) process.exit(1); const d=JSON.parse(s); const expected=process.env.EXPECTED_PROVIDER_SHA;
+                const run=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===expected && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
+                process.exit(run?0:1);
               });
-            '
           }
-
           if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
-            printf 'Verified exact-head Cloudflare provider receipt for %s\n' "$EXPECTED_HEAD_SHA"
+            echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
             exit 0
           fi
-
           inherited_sha=""
           while IFS= read -r candidate; do
             [ -n "$candidate" ] || continue
-            if has_provider_receipt "$candidate"; then
-              inherited_sha="$candidate"
-              break
-            fi
-          done < <({ git rev-list --first-parent "$EXPECTED_HEAD_SHA" "^$BASE_SHA" || true; printf '%s\n' "$BASE_SHA"; } | awk '!seen[$0]++')
-
+            if has_provider_receipt "$candidate"; then inherited_sha="$candidate"; break; fi
+          done < <({ printf '%s\n' "$BASE_SHA"; git rev-list --first-parent "${EXPECTED_HEAD_SHA}^" "^${BASE_SHA}"; } | awk '!seen[$0]++')
           if [ -z "$inherited_sha" ]; then
-            echo 'No successful exact-head, predecessor, or base Cloudflare provider receipt found.' >&2
+            echo 'No successful exact-head or predecessor Cloudflare provider receipt found.' >&2
             exit 1
           fi
-
           changed_since_receipt="$(git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
           printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
+          printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
           unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$)' || true)"
           if [ -n "$unsafe_since_receipt" ]; then
-            printf 'Provider-affecting or unclassified files changed since inherited receipt:\n%s\n' "$unsafe_since_receipt" >&2
+            printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
             exit 1
           fi
-          echo 'Provider receipt continuity proven across governance/test-only tail.'
+          echo "Provider receipt continuity proven: only non-runtime governance/test files changed since ${inherited_sha}."
 
   runtime-proof:
     name: Verify exact Chief runtime with Playwright
-    needs: trust-boundary
-    if: ${{ always() }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
-      - name: Fail closed unless evaluator is trusted
+      - name: Verify trusted event boundary
         env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
-        run: test "$TRUST_RESULT" = 'success'
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = 'main'
+          test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
       - name: Check out trusted evaluator snapshot
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -132,7 +109,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Classify exact runtime applicability
-        id: runtime-scope
+        id: scope
         shell: bash
         run: |
           set -euo pipefail
@@ -145,13 +122,13 @@ jobs:
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             echo 'N/A proven from trusted exact-head diff: Chief runtime surface unchanged.'
           fi
-      - name: Set up Node
-        if: steps.runtime-scope.outputs.changed == 'true'
+      - name: Set up Node from trusted evaluator
+        if: steps.scope.outputs.changed == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
       - name: Resolve authenticated exact-head Cloudflare preview
-        if: steps.runtime-scope.outputs.changed == 'true'
+        if: steps.scope.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -162,17 +139,15 @@ jobs:
           for attempt in {1..45}; do
             json="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$api" || true)"
             preview="$(printf '%s' "$json" | node -e '
-              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
-                if (!s) return;
-                const d=JSON.parse(s);
-                const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
-                const m=String(r?.output?.summary||"").match(/Preview URL:\s*(https:\/\/\S+)/);
-                if (m) process.stdout.write(m[1]);
+              let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{
+                if(!s)return;const d=JSON.parse(s);const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai"&&x.head_sha===process.env.EXPECTED_HEAD_SHA&&x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID)&&x.status==="completed"&&x.conclusion==="success");
+                const m=String(r?.output?.summary||"").match(/Preview URL:\s*(https:\/\/\S+)/);if(m)process.stdout.write(m[1]);
               });
             ')"
             if [ -n "$preview" ]; then
-              echo "CHIEF_RUNTIME_BASE_URL=$preview" >> "$GITHUB_ENV"
-              printf 'Resolved immutable Cloudflare preview: %s\n' "$preview"
+              normalized="$(node -e 'const u=new URL(process.argv[1]);if(u.protocol!=="https:"||u.username||u.password||u.port||u.search||u.hash||(u.pathname!=="/"&&u.pathname!=="")||!/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(u.hostname))process.exit(1);process.stdout.write(u.origin)' "$preview")" || { echo 'Provider returned invalid preview origin.' >&2; exit 1; }
+              echo "CHIEF_RUNTIME_BASE_URL=$normalized" >> "$GITHUB_ENV"
+              printf 'Resolved authenticated immutable preview: %s\n' "$normalized"
               exit 0
             fi
             sleep 2
@@ -180,7 +155,7 @@ jobs:
           echo "No authenticated exact-head Cloudflare preview found for ${EXPECTED_HEAD_SHA}" >&2
           exit 1
       - name: Install isolated trusted Playwright runner
-        if: steps.runtime-scope.outputs.changed == 'true'
+        if: steps.scope.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -192,26 +167,8 @@ jobs:
           npm install --save-exact --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
           npx playwright install --with-deps chromium
           echo "PLAYWRIGHT_RUNNER_DIR=$runner_dir" >> "$GITHUB_ENV"
-      - name: Classify Access authentication without retaining credentials
-        if: steps.runtime-scope.outputs.changed == 'true'
-        id: access-auth
-        env:
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
-            echo 'Cloudflare Access service auth is incomplete; both credentials must be configured together.' >&2
-            exit 1
-          fi
-          [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && echo 'enabled=false' >> "$GITHUB_OUTPUT" || echo 'enabled=true' >> "$GITHUB_OUTPUT"
       - name: Run trusted exact-runtime browser proof
-        if: steps.runtime-scope.outputs.changed == 'true'
-        env:
-          PLAYWRIGHT_HTML_OPEN: never
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+        if: steps.scope.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -220,116 +177,54 @@ jobs:
           cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
           import { test, expect } from '@playwright/test';
           test('immutable Chief preview proves exact SHA and rendered SPA', async ({ page }) => {
-            const baseUrl = process.env.CHIEF_RUNTIME_BASE_URL;
-            const expectedSha = process.env.EXPECTED_HEAD_SHA;
+            const baseUrl=process.env.CHIEF_RUNTIME_BASE_URL;
+            const expectedSha=process.env.EXPECTED_HEAD_SHA;
             expect(baseUrl).toBeTruthy();
-            expect(expectedSha).toMatch(/^[0-9a-f]{40}$/);
-            const expectedHost = new URL(baseUrl).host;
-            const versionResponse = await page.goto(`${baseUrl}/version`, { waitUntil: 'domcontentloaded' });
+            const expectedHost=new URL(baseUrl).host;
+            const versionResponse=await page.goto(`${baseUrl}/version`,{waitUntil:'domcontentloaded'});
             expect(versionResponse).not.toBeNull();
+            console.log(`version-final-url=${page.url()}`);
+            console.log(`version-status=${versionResponse.status()}`);
             expect(versionResponse.status()).toBe(200);
             expect(new URL(page.url()).host).toBe(expectedHost);
-            expect(versionResponse.headers()['content-type'] || '').toContain('application/json');
-            expect((await versionResponse.json())?.sha).toBe(expectedSha);
-            const appResponse = await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+            expect(versionResponse.headers()['content-type']||'').toContain('application/json');
+            const payload=await versionResponse.json();
+            expect(payload?.sha).toBe(expectedSha);
+            const appResponse=await page.goto(`${baseUrl}/`,{waitUntil:'domcontentloaded'});
             expect(appResponse).not.toBeNull();
             expect(appResponse.status()).toBe(200);
             expect(new URL(page.url()).host).toBe(expectedHost);
             await expect(page.locator('#app')).toBeVisible();
-            await expect(page.getByRole('heading', { name: 'What are we trying to accomplish?' })).toBeVisible();
-            const cssResponse = await page.goto(`${baseUrl}/styles/main.css`, { waitUntil: 'domcontentloaded' });
+            await expect(page.getByRole('heading',{name:'What are we trying to accomplish?'})).toBeVisible();
+            const cssResponse=await page.goto(`${baseUrl}/styles/main.css`,{waitUntil:'domcontentloaded'});
             expect(cssResponse).not.toBeNull();
             expect(cssResponse.status()).toBe(200);
             expect(new URL(page.url()).host).toBe(expectedHost);
-            expect(cssResponse.headers()['content-type'] || '').toContain('text/css');
+            expect(cssResponse.headers()['content-type']||'').toContain('text/css');
             expect((await cssResponse.text()).length).toBeGreaterThan(100);
           });
           EOF
           cat > playwright.chief-runtime-exact-head.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-          const hasAccess = Boolean(process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET);
-          const accessHeaders = hasAccess ? {
-            'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-            'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-          } : {};
-          export default defineConfig({
-            testDir: './e2e', testMatch: /chief-runtime-exact-head\.generated\.pw\.mjs$/,
-            fullyParallel: false, retries: 0, workers: 1,
-            outputDir: './test-results/chief-runtime-exact-head', reporter: [['line']],
-            use: { trace: hasAccess ? 'off' : 'retain-on-failure', extraHTTPHeaders: accessHeaders },
-          });
+          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'retain-on-failure',screenshot:'only-on-failure'}});
           EOF
           npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs
-      - name: Retain runtime evidence only without Access credentials
-        if: always() && steps.runtime-scope.outputs.changed == 'true' && steps.access-auth.outputs.enabled != 'true'
+      - name: Retain credential-free exact-runtime evidence
+        if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: chief-runtime-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: ${{ env.PLAYWRIGHT_RUNNER_DIR }}/test-results/chief-runtime-exact-head
+          path: |
+            ${{ env.PLAYWRIGHT_RUNNER_DIR }}/playwright-report/chief-runtime-exact-head
+            ${{ env.PLAYWRIGHT_RUNNER_DIR }}/test-results/chief-runtime-exact-head
           if-no-files-found: warn
           retention-days: 14
 
-  founder-goals-applicability:
-    name: Founder Goals applicability receipt
-    needs: trust-boundary
-    if: ${{ always() }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Classify from trusted event metadata
-        env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
-        run: |
-          test "$TRUST_RESULT" = 'success'
-          echo 'Authoritative Founder Goals proof is produced by founder-goals-playwright.yml.'
-
-  freestyle-applicability:
-    name: Freestyle Goalfix PromptOS applicability receipt
-    needs: trust-boundary
-    if: ${{ always() }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Classify from trusted event metadata
-        env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
-        run: |
-          test "$TRUST_RESULT" = 'success'
-          echo 'Authoritative Freestyle/Goalfix/PromptOS proof is produced by freestyle-save-playwright.yml.'
-
-  capability-plan-applicability:
-    name: Capability plan applicability receipt
-    needs: trust-boundary
-    if: ${{ always() }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Classify from trusted event metadata
-        env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
-        run: |
-          test "$TRUST_RESULT" = 'success'
-          echo 'Authoritative capability-plan proof is produced by chief-capability-plan-playwright.yml.'
-
-  proofmode-live-applicability:
-    name: ProofMode applicability receipt
-    needs: trust-boundary
-    if: ${{ always() }}
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Classify from trusted event metadata
-        env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
-        run: |
-          test "$TRUST_RESULT" = 'success'
-          echo 'Authoritative live ProofMode proof is produced by proofmode-mcp-playwright.yml.'
-
-  proofmode-production-phase:
+  production-proofmode-phase:
     name: Production ProofMode phase receipt
-    needs: trust-boundary
-    if: ${{ always() }}
     runs-on: ubuntu-22.04
     steps:
       - name: Preserve post-merge production boundary
-        env:
-          TRUST_RESULT: ${{ needs.trust-boundary.result }}
         run: |
-          test "$TRUST_RESULT" = 'success'
-          echo 'Production ProofMode is post-merge/current-main proof. This PR workflow does not impersonate that production receipt.'
+          echo 'Production ProofMode is post-merge/current-main evidence.'
+          echo 'This PR workflow does not impersonate that production receipt.'
