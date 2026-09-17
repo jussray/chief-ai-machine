@@ -33,6 +33,41 @@ function readArray(key) {
   return value;
 }
 
+function commitPortableImport(imported) {
+  const writes = [
+    [INTELLIGENCE_STORAGE_KEY, imported.assets],
+    ['chief-custom', imported.customPrompts],
+    ['chief-stars', imported.stars],
+  ];
+  if (imported.goals !== null) writes.push([GOAL_STORAGE_KEY, imported.goals]);
+
+  const previous = new Map();
+  try {
+    for (const [key] of writes) previous.set(key, localStorage.getItem(key));
+  } catch {
+    throw new Error('Import failed: local storage is unavailable. Nothing was changed.');
+  }
+
+  try {
+    for (const [key, value] of writes) localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    let rollbackFailed = false;
+    for (const [key] of writes) {
+      try {
+        const before = previous.get(key);
+        if (before === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, before);
+      } catch {
+        rollbackFailed = true;
+      }
+    }
+    if (rollbackFailed) {
+      throw new Error('Import failed and previous local state could not be fully restored.');
+    }
+    throw new Error('Import failed; previous local state was restored.');
+  }
+}
+
 function mountBrainPortabilityControls() {
   const head = document.querySelector('#page-brain .page-head');
   if (!head || document.getElementById('brainExportBtn')) return;
@@ -89,8 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
         assets: readArray(INTELLIGENCE_STORAGE_KEY),
         customPrompts: readArray('chief-custom'),
         stars: readArray('chief-stars'),
+        goals: readArray(GOAL_STORAGE_KEY),
       });
-      snapshot.goals = readArray(GOAL_STORAGE_KEY);
       const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -118,14 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
-        localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
-        localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
-        localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
-        if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
+        commitPortableImport(imported);
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
-      } catch {
-        showToast('Import failed — unsupported or invalid file.');
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Import failed — unsupported or invalid file.');
       }
     };
     reader.readAsText(file);
