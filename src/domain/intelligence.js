@@ -195,8 +195,23 @@ export function migrateLegacyPrompt(prompt, now = new Date()) {
   }, now);
 }
 
+function requireExportableAssets(assets) {
+  if (!Array.isArray(assets)) {
+    throw new Error('Portable export blocked: intelligence assets must be an array');
+  }
+
+  for (let index = 0; index < assets.length; index += 1) {
+    const validation = validateIntelligenceAsset(assets[index]);
+    if (!validation.valid) {
+      throw new Error(`Portable export blocked: intelligence asset ${index + 1} is invalid (${validation.errors.join('; ')})`);
+    }
+  }
+
+  return assets;
+}
+
 export function createPortableSnapshot({ assets = [], customPrompts = [], stars = [], exportedAt = new Date().toISOString() } = {}) {
-  const safeAssets = assets.filter((asset) => validateIntelligenceAsset(asset).valid);
+  const safeAssets = requireExportableAssets(assets);
   return {
     product: 'chief-ai',
     format: 'founder-intelligence-snapshot',

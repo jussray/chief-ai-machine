@@ -97,6 +97,18 @@ describe('founder intelligence assets', () => {
     expect(parsed.stars).toEqual([1, 2]);
   });
 
+  it('fails closed instead of silently dropping invalid intelligence during export', () => {
+    const valid = createIntelligenceAsset({
+      title: 'Recovery-critical workflow',
+      kind: 'workflow',
+      content: 'This asset must never disappear from a successful-looking export.',
+    }, NOW);
+    const invalid = { ...valid, id: '' };
+
+    expect(() => createPortableSnapshot({ assets: [valid, invalid] }))
+      .toThrow('Portable export blocked: intelligence asset 2 is invalid (Missing id)');
+  });
+
   it('normalizes imported prompt object shape without treating prompt prose as markup', () => {
     const promptBody = '  <script>this is prompt text, not executable UI</script>\n';
     const prompt = normalizeCustomPrompt({

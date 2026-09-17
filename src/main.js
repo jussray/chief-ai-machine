@@ -48,19 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('exportBtn')?.addEventListener('click', () => {
-    const snapshot = createPortableSnapshot({
-      assets: readArray(INTELLIGENCE_STORAGE_KEY),
-      customPrompts: readArray('chief-custom'),
-      stars: readArray('chief-stars'),
-    });
-    snapshot.goals = readArray(GOAL_STORAGE_KEY);
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'chief-ai-founder-intelligence.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Portable company brain exported.');
+    try {
+      const snapshot = createPortableSnapshot({
+        assets: readArray(INTELLIGENCE_STORAGE_KEY),
+        customPrompts: readArray('chief-custom'),
+        stars: readArray('chief-stars'),
+      });
+      snapshot.goals = readArray(GOAL_STORAGE_KEY);
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'chief-ai-founder-intelligence.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('Portable company brain exported.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Portable company brain export blocked.');
+    }
   });
 
   document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
