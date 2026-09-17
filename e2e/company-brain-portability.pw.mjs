@@ -147,6 +147,28 @@ test('corrupt intelligence storage blocks export without leaking stored content'
   expect(await page.evaluate((key) => localStorage.getItem(key), INTELLIGENCE_STORAGE_KEY)).toBe(corruptPayload);
 });
 
+test('corrupt star storage leaves recovery UI reachable and preserves unknown state', async ({ page }) => {
+  const corruptPayload = '{"private":"star-do-not-echo"';
+  await page.evaluate(({ key, payload }) => localStorage.setItem(key, payload), {
+    key: STARS_KEY,
+    payload: corruptPayload,
+  });
+  await page.reload();
+
+  await expect(page.locator('#statStar')).toHaveText('?');
+  await openBrain(page);
+
+  let downloadObserved = false;
+  page.once('download', () => { downloadObserved = true; });
+  await page.locator('#brainExportBtn').click();
+
+  await expect(page.locator('#toast')).toContainText('Portable export blocked: chief-stars contains invalid JSON');
+  await expect(page.locator('#toast')).not.toContainText('star-do-not-echo');
+  await page.waitForTimeout(250);
+  expect(downloadObserved).toBe(false);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STARS_KEY)).toBe(corruptPayload);
+});
+
 test('invalid founder-goal state blocks export instead of creating an unrestorable backup', async ({ page }) => {
   const privateMarker = 'goal-private-marker';
   await page.evaluate(({ key, marker }) => localStorage.setItem(key, JSON.stringify([{
