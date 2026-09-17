@@ -27,12 +27,11 @@
   },
   "mergeCanon": {
     "mergeAuthorityAvailable": true,
-    "mergeApprovalRequired": true,
-    "approvalScope": "exact-repository-pr-base-head",
-    "approvalCarryForward": false,
-    "askFounderWhenApprovalMissingOrStale": true,
-    "reviewOrGreenChecksDoNotAuthorizeMerge": true,
-    "baseOrHeadMovementExpiresApproval": true
+    "actingOperatorMayMergeWhenSafetyConditionsPass": true,
+    "requiresExactRepositoryPrBaseHead": true,
+    "reviewOrGreenChecksAloneDoNotAuthorizeMerge": true,
+    "baseOrHeadMovementExpiresEvidence": true,
+    "separatelyGatedActionsRemainSeparatelyGated": true
   },
   "truthBoundary": {
     "doesNotGrantAuthority": true,
@@ -44,7 +43,8 @@
   },
   "continuity": {
     "bidirectionalFingerprintsAndCookies": true,
-    "incomingEvidenceMayInvalidateStaleState": true,
+    "incomingEvidenceMayInvalidateStaleStateAfterRecipientVerification": true,
+    "unverifiedIncomingEvidenceMayInvalidateState": false,
     "outgoingApprovedActionsEmitUpdatedMarkersAndReceipts": true
   },
   "loop": [
