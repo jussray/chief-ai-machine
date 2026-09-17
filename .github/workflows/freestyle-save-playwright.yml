@@ -1,6 +1,9 @@
 name: Freestyle Save Playwright
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   pull_request_target:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
@@ -21,12 +24,12 @@ env:
   TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
 
 concurrency:
-  group: freestyle-save-playwright-trusted-${{ github.event.pull_request.number || github.ref }}
+  group: freestyle-save-playwright-trusted-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    name: Verify Freestyle, Goalfix, and PromptOS in Chromium
+    name: ${{ github.event_name == 'pull_request_target' && 'Verify Freestyle, Goalfix, and PromptOS in Chromium' || 'Verify Freestyle, Goalfix, and PromptOS in Chromium (candidate evidence only)' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 18
     steps:
@@ -108,7 +111,7 @@ jobs:
         if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: freestyle-save-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          name: freestyle-save-playwright-${{ env.EXPECTED_HEAD_SHA }}-${{ github.event_name }}
           path: |
             playwright-report/freestyle-save
             test-results/freestyle-save
