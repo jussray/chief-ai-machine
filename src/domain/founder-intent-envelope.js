@@ -1,4 +1,5 @@
 import { validateGoalPlan } from './goal-plan.js';
+import { createPromptOSPeerIntegration } from './promptos-peer.js';
 
 export const FOUNDER_INTENT_ENVELOPE_CONTRACT = 'chief-ai/founder-intent-envelope@v1';
 export const PROMPTOS_MISSION_CONTRACT = 'founder-os-mission-v1';
@@ -23,6 +24,10 @@ export function createFounderIntentEnvelope(input = {}) {
   const decisionMetric = clean(input.decisionMetric, 500)
     || 'verified goal-state movement, not task-count completed';
   const projectHint = clean(input.projectHint, 160) || clean(goalPlan.project, 160);
+  const promptOSPeer = createPromptOSPeerIntegration({
+    consumer: 'chief-ai-machine',
+    targetProject: projectHint,
+  });
 
   return Object.freeze({
     contract: FOUNDER_INTENT_ENVELOPE_CONTRACT,
@@ -45,6 +50,11 @@ export function createFounderIntentEnvelope(input = {}) {
     delegation: Object.freeze({
       promptOS: Object.freeze({
         contract: PROMPTOS_MISSION_CONTRACT,
+        integration: promptOSPeer,
+        repository: promptOSPeer.repository,
+        relationship: promptOSPeer.relationship,
+        ownership: promptOSPeer.ownership,
+        portability: promptOSPeer.portability,
         responsibility: 'compile operating protocols, acceptance criteria, proof requirements, metrics, and stop conditions',
       }),
       fcr: Object.freeze({
@@ -69,6 +79,8 @@ export function createFounderIntentEnvelope(input = {}) {
     }),
     boundaries: Object.freeze([
       'Chief AI may recommend desired capability but does not grant execution authority.',
+      'PromptOS is an independent host-neutral product whose canonical repository is jussray/promptos; Chief AI is one consumer, not its owner.',
+      'PromptOS artifacts may be consumed by Chief AI, Founder Control Room, or other authorized hosts without merging product ownership.',
       'PromptOS compilation does not grant provider or production authority.',
       'FCR must resolve live project authority before mutation.',
       'The system may exercise granted authority but may never expand its own authority.',
