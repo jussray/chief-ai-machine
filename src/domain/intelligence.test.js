@@ -139,6 +139,21 @@ describe('founder intelligence assets', () => {
     })).toThrow('evidence must be an array');
   });
 
+  it('ignores object key order while rejecting lossy current state', () => {
+    const reordered = {
+      repos: [],
+      notes: '',
+      emoji: '✨',
+      versions: { chatgpt: 'Use supplied evidence only.' },
+      platforms: ['chatgpt'],
+      cat: 'research',
+      sub: '',
+      title: 'Legacy prompt',
+      id: 'legacy',
+    };
+    expect(() => createPortableSnapshot({ customPrompts: [reordered] })).not.toThrow();
+  });
+
   it('rejects lossy current-format snapshots instead of cleaning them during import', () => {
     expect(() => parsePortableSnapshot({
       format: 'founder-intelligence-snapshot',
@@ -149,7 +164,7 @@ describe('founder intelligence assets', () => {
         stars: [1, { injected: true }],
       },
       goals: [VALID_GOAL],
-    }, NOW)).toThrow('Portable export blocked: custom prompt state contains invalid or lossy data');
+    }, NOW)).toThrow('Import failed: custom prompt state contains invalid or lossy data');
   });
 
   it('keeps old current-format snapshots that predate goal portability non-destructive', () => {
