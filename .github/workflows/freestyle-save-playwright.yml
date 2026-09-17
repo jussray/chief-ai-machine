@@ -57,7 +57,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|scripts/generateCatalog\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|promptos-ui)\.js$|src/domain/evidence-first-prompt\.js$|src/promptos/|styles/promptos\.css$|e2e/(freestyle-save|goalfix-v1|promptos-catalog)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|scripts/generateCatalog\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|promptos-ui)\.js$|src/domain/evidence-first-prompt\.js$|src/promptos/|styles/promptos\.css$|e2e/(freestyle-save|goalfix-v1|promptos-catalog|company-brain-portability)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"

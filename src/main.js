@@ -20,11 +20,44 @@ function readArray(key) {
   const raw = localStorage.getItem(key);
   if (raw === null) return [];
 
-  const value = JSON.parse(raw);
+  let value;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new Error(`Portable export blocked: ${key} contains invalid JSON`);
+  }
+
   if (!Array.isArray(value)) {
     throw new Error(`Portable export blocked: ${key} is not an array`);
   }
   return value;
+}
+
+function mountBrainPortabilityControls() {
+  const head = document.querySelector('#page-brain .page-head');
+  if (!head || document.getElementById('brainExportBtn')) return;
+
+  const controls = document.createElement('div');
+  controls.style.display = 'flex';
+  controls.style.gap = '8px';
+  controls.style.flexWrap = 'wrap';
+  controls.style.marginTop = '14px';
+  controls.setAttribute('aria-label', 'Company brain portability');
+
+  const exportButton = document.createElement('button');
+  exportButton.type = 'button';
+  exportButton.id = 'brainExportBtn';
+  exportButton.className = 'mini-btn solid';
+  exportButton.textContent = '⬇️ Export company brain';
+
+  const importButton = document.createElement('button');
+  importButton.type = 'button';
+  importButton.id = 'brainImportBtn';
+  importButton.className = 'mini-btn';
+  importButton.textContent = '⬆️ Import company brain';
+
+  controls.append(exportButton, importButton);
+  head.appendChild(controls);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFreestyle(PUBLIC_PROMPTS);
   initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
+  mountBrainPortabilityControls();
 
   const tbody = document.getElementById('benchBody');
   if (tbody) {
@@ -49,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.getElementById('exportBtn')?.addEventListener('click', () => {
+  function exportCompanyBrain() {
     try {
       const snapshot = createPortableSnapshot({
         assets: readArray(INTELLIGENCE_STORAGE_KEY),
@@ -67,9 +101,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Portable company brain export blocked.');
     }
-  });
+  }
 
-  document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
+  document.getElementById('exportBtn')?.addEventListener('click', exportCompanyBrain);
+  document.getElementById('brainExportBtn')?.addEventListener('click', exportCompanyBrain);
+
+  const openImportPicker = () => document.getElementById('importFile')?.click();
+  document.getElementById('importBtn')?.addEventListener('click', openImportPicker);
+  document.getElementById('brainImportBtn')?.addEventListener('click', openImportPicker);
+
   document.getElementById('importFile')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
