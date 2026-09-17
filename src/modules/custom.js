@@ -30,7 +30,7 @@ function setCustomFormWritable(writable) {
   save.title = writable ? '' : 'Custom prompt storage must be readable before saving.';
 }
 
-export function initCustom(PROMPTS, modal) {
+export function initCustom(modal) {
   const titleEl = document.getElementById('cTitle');
   const subEl = document.getElementById('cSub');
   const catEl = document.getElementById('cCat');
@@ -70,7 +70,7 @@ export function initCustom(PROMPTS, modal) {
       return;
     }
 
-    custom.forEach((prompt, index) => {
+    custom.forEach((prompt) => {
       const item = document.createElement('div');
       item.className = 'citem';
       item.tabIndex = 0;
