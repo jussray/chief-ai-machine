@@ -2,7 +2,7 @@
 name: goalfix
 description: Use for repository repair, implementation blockers, CI failures, focused product fixes, and “repair, verify, and merge” work. Inspect the authoritative repo first, isolate one root cause, make the smallest reversible patch, prove the exact candidate with real-path evidence, and report REALITY/FIX/PROOF/RISK/ROLLBACK/NEXT GATE. Do not use for simple explanation-only questions or broad speculative rewrites.
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   owner: "Juss"
   category: "engineering"
 ---
@@ -35,6 +35,8 @@ STOP CONDITION:
 Start narrow. Prefer the exact error, failing test, workflow job/step, affected route, recent diff, and relevant configuration before whole-repo scanning.
 
 If repository evidence can answer a question, inspect it before asking the founder.
+
+Before creating a new branch or PR for governance or repair work, inspect active PRs/issues for an existing authoritative carrier with the same goal or failure boundary. Extend the existing carrier when scope matches. Duplicate carriers create conflicting truth, duplicate CI, and unnecessary merge pressure.
 
 ## Truth states
 
@@ -72,6 +74,7 @@ Inspect only the sources that can establish current reality, such as:
 
 - repository and repo instructions
 - target/base branch and exact SHA
+- active PRs/issues that may already carry the same repair
 - PR and recent diff
 - failing CI job/step
 - deployment/runtime evidence
@@ -104,9 +107,10 @@ Rules:
 - one root cause before many symptoms
 - smallest reversible patch
 - preserve unrelated work
-- use existing architecture before creating new systems
+- use existing architecture and active carrier before creating new systems or PRs
 - no unrelated refactors
 - no duplicate authority or parallel architecture
+- no duplicate repair/governance carrier when an existing PR owns the same scope
 - no deletion without explicit authority
 - no hidden fallback that suppresses a real failure
 - no merge of an obsolete candidate
@@ -153,6 +157,7 @@ For work with no meaningful browser path, mark Playwright `INAPPLICABLE` and sta
 Before merge, try to invalidate the fix:
 
 - Did this solve the root cause?
+- Did we accidentally create a duplicate carrier instead of extending the existing one?
 - Can stale state appear current?
 - Can expected evidence appear observed?
 - Can provider acceptance be mistaken for completion?
@@ -182,6 +187,36 @@ Before merge require, when applicable:
 Do not equate `code-ready`, `PR-open`, `workflow-started`, `deploy-requested`, or `provider-accepted` with verified, merged, deployed, or production-live.
 
 If the base moves, re-evaluate/replay as needed and prove the refreshed exact head.
+
+## Authority-aware blocker workflow
+
+When a repair crosses repository, CI, deployment, provider, runtime, or browser boundaries, use this sequence before changing more code:
+
+```text
+REACQUIRE EXACT HEAD + BASE
+→ FIND FIRST REAL FAILING STEP
+→ CLASSIFY THE PROOF PLANE
+→ TEST WHETHER CHANGED BEHAVIOR EXECUTED
+→ AUDIT THE AUTHORITY NEEDED FOR THE NEXT MOVE
+→ PATCH ONLY THE OWNED ROOT CAUSE
+→ RE-RUN ONLY AFTER MATERIAL STATE CHANGES
+→ UPDATE DURABLE EVIDENCE
+→ RE-PROVE FINAL EXACT HEAD
+```
+
+Rules:
+
+- Classify the failure as `SOURCE`, `BUILD/CI`, `PROVIDER`, `RUNTIME/BROWSER`, or `OUTCOME` before selecting a repair.
+- If source checks are green and the changed path never executes because a provider rejects access first, do not rewrite feature code to cure the provider failure.
+- Credential presence is not credential acceptance. Credential acceptance is not provider-administration authority. Prove each boundary separately.
+- Before attempting a provider-side mutation, verify that the available carrier actually owns the required read/write authority. If the provider account, policy, token record, or effective application cannot be read safely, return `BLOCKED` rather than guessing.
+- Do not repeatedly rerun the same failing workflow when candidate SHA and relevant external state are unchanged. Another identical red receipt is not new evidence.
+- Never make a failing gate green by skipping its real path, weakening authentication, adding broad bypass, loosening assertions, or accepting a different runtime identity.
+- When an exact-head diagnostic changes, treat prior green/red receipts as historical until the new head is re-proven.
+- Update the PR body, Control Room receipt, ledger, or other durable evidence carrier when the exact head or blocker classification changes so stale truth is not presented as current.
+- If a newly discovered fix is unrelated to the active focused PR, do not silently widen that PR. Create a separate focused branch or decision from the current authoritative base.
+- If the newly discovered work is related to an already-open authoritative carrier, extend that carrier rather than opening a duplicate repair PR.
+- Stop when the next legitimate action requires missing external authority. `BLOCKED` is a valid proof state; fake progress is not.
 
 ## Git convention
 
