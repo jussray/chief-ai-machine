@@ -11,6 +11,9 @@ const proofmode = await readFile('.github/workflows/proofmode-mcp-playwright.yml
 const productionProof = await readFile('.github/workflows/proofmode-production-playwright.yml', 'utf8');
 const manifest = JSON.parse(await readFile('.control-room/test-ledger.manifest.json', 'utf8'));
 
+const FREESTYLE_REQUIRED = 'Verify Freestyle, Goalfix, and PromptOS in Chromium';
+const FREESTYLE_CANDIDATE = `${FREESTYLE_REQUIRED} (candidate evidence only)`;
+
 describe('Control Room Test Ledger workflow contract', () => {
   it('materializes the ruleset-required ledger check and fails closed on prerequisite failure', () => {
     const publishSection = workflow.split('  publish-ledger:')[1];
@@ -76,25 +79,36 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$)'");
   });
 
-  it('gives each feature required context one trusted producer', () => {
+  it('gives each feature required context one authoritative producer without candidate impersonation', () => {
     expect(materializer).not.toContain('name: Verify Founder Goals desktop and mobile flow');
-    expect(materializer).not.toContain('name: Verify Freestyle, Goalfix, and PromptOS in Chromium');
+    expect(materializer).not.toContain(`name: ${FREESTYLE_REQUIRED}`);
     expect(materializer).not.toContain('name: Verify live Chief capability plan with Playwright');
     expect(materializer).not.toContain('name: Verify live ProofMode MCP with Playwright');
     expect(founderGoals).toContain('name: Verify Founder Goals desktop and mobile flow');
-    expect(freestyle).toContain('name: Verify Freestyle, Goalfix, and PromptOS in Chromium');
     expect(capability).toContain('name: Verify live Chief capability plan with Playwright');
     expect(proofmode).toContain('name: Verify live ProofMode MCP with Playwright');
+    expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_REQUIRED}'`);
+    expect(freestyle).toContain(`'${FREESTYLE_CANDIDATE}'`);
   });
 
-  it('runs all feature proof producers from trusted pull_request_target snapshots', () => {
-    for (const trustedWorkflow of [founderGoals, freestyle, capability, proofmode]) {
+  it('keeps authoritative feature proof on pull_request_target while allowing read-only candidate evidence', () => {
+    for (const trustedWorkflow of [founderGoals, capability, proofmode]) {
       expect(trustedWorkflow).toContain('pull_request_target:');
       expect(trustedWorkflow).not.toMatch(/\n {2}pull_request:\n/);
       expect(trustedWorkflow).toContain('TRUSTED_EVALUATOR_SHA: ${{ github.sha }}');
       expect(trustedWorkflow).toContain('git diff --no-renames --name-only');
       expect(trustedWorkflow).toContain('ref: ${{ env.TRUSTED_EVALUATOR_SHA }}');
     }
+
+    expect(freestyle).toContain('pull_request_target:');
+    expect(freestyle).toMatch(/\n {2}pull_request:\n/);
+    expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_REQUIRED}'`);
+    expect(freestyle).toContain(`'${FREESTYLE_CANDIDATE}'`);
+    expect(freestyle).toContain('${{ github.event_name }}');
+    expect(freestyle).toContain('permissions:\n  contents: read');
+    expect(freestyle).not.toContain('pull-requests: write');
+    expect(freestyle).not.toContain('checks: write');
+    expect(freestyle).not.toContain('secrets.');
   });
 
   it('keeps candidate runtime proof credential-free', () => {
