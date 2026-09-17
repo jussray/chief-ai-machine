@@ -8,6 +8,7 @@ import {
   validateCapabilityPlan,
 } from './capability-plan.js';
 import { validateGoalPlan } from './goal-plan.js';
+import { strategicLensPolicies } from './strategic-lens.js';
 
 export const CAPABILITY_REGISTRY_CONTRACT = 'juss-v10/capability-registry@v1';
 export const EXECUTION_HANDOFF_CONTRACT = 'juss-v10/execution-handoff@v1';
@@ -187,6 +188,8 @@ export function createExecutionHandoffReceipt(capabilityPlan) {
     registryHash: capabilityPlan.registryHash,
     requestedAuthority: capabilityPlan.requestedAuthority,
     capabilityIds: capabilityPlan.capabilities.map((capability) => capability.id),
+    strategicLenses: strategicLensPolicies(capabilityPlan.strategicLenses),
+    strategicLensesMayAuthorizeExecution: false,
     proofRequirements: [...capabilityPlan.proofRequirements],
     rollback: capabilityPlan.rollback,
     capabilityPlanHash: capabilityPlan.planHash,
