@@ -17,12 +17,14 @@ import { createPortableSnapshot, parsePortableSnapshot } from './domain/intellig
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
 function readArray(key) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
+  const raw = localStorage.getItem(key);
+  if (raw === null) return [];
+
+  const value = JSON.parse(raw);
+  if (!Array.isArray(value)) {
+    throw new Error(`Portable export blocked: ${key} is not an array`);
   }
+  return value;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
