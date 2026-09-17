@@ -5,6 +5,7 @@ import {
   migrateLegacyCustomStarIds,
   readCustomPromptState,
   readStarState,
+  remapStarReferences,
   writeStars,
 } from './prompt-state.js';
 
@@ -27,6 +28,7 @@ export function initLibrary(PROMPTS, modal) {
   const statPlatforms = document.getElementById('statPlatforms');
   const repoClear = document.getElementById('repoClear');
   const repoBtns = document.querySelectorAll('[data-repo]');
+  const reservedPromptIds = PROMPTS.map(prompt => prompt.id);
 
   let stars = [];
   let starState = 'ready';
@@ -46,13 +48,26 @@ export function initLibrary(PROMPTS, modal) {
   }
 
   function reloadState({ migrate = false } = {}) {
-    const customRead = readCustomPromptState();
+    const customRead = readCustomPromptState({ reservedIds: reservedPromptIds });
     customState = customRead.state;
     custom = customRead.state === 'ready' ? customRead.prompts : [];
 
     const starRead = readStarState();
     starState = starRead.state;
     stars = starRead.state === 'ready' ? starRead.stars : [];
+
+    if (customState === 'ready' && starState === 'ready') {
+      const identityMigration = remapStarReferences(stars, customRead.idRemap, customRead.ambiguousIds);
+      stars = identityMigration.stars;
+      if (identityMigration.changed) {
+        try {
+          writeStars(stars);
+        } catch {
+          starState = 'unavailable';
+          stars = [];
+        }
+      }
+    }
 
     if (migrate && customState === 'ready' && starState === 'ready') {
       const migration = migrateLegacyCustomStarIds(custom, stars);
