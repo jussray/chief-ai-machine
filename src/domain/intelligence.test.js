@@ -10,6 +10,31 @@ import {
 } from './intelligence.js';
 
 const NOW = new Date('2026-07-14T12:00:00.000Z');
+const CANONICAL_CUSTOM = {
+  id: 'legacy',
+  title: 'Legacy prompt',
+  sub: '',
+  cat: 'research',
+  platforms: ['chatgpt'],
+  versions: { chatgpt: 'Use supplied evidence only.' },
+  emoji: '✨',
+  notes: '',
+  repos: [],
+};
+const VALID_GOAL = {
+  goal: 'Recover founder intelligence',
+  project: 'Chief AI',
+  priority: 'now',
+  definitionOfDone: 'A clean browser can restore the exported state.',
+  evidence: ['Exact snapshot parses.'],
+  constraints: ['No silent data loss.'],
+  strategicLenses: ['portability'],
+  capabilities: ['company-brain'],
+  proofRequirements: ['Playwright clean-state restore'],
+  rollback: 'Restore the previous local snapshot.',
+  nextGate: 'Verify clean-state restore.',
+  createdAt: NOW.toISOString(),
+};
 
 describe('founder intelligence assets', () => {
   it('creates a provider-neutral portable asset', () => {
@@ -62,7 +87,7 @@ describe('founder intelligence assets', () => {
     expect(asset.provider).toBe('chatgpt');
   });
 
-  it('round-trips the portable snapshot format with bounded compatibility data', () => {
+  it('round-trips the portable snapshot format without changing founder-owned state', () => {
     const asset = createIntelligenceAsset({
       title: 'Founder voice',
       kind: 'brand-voice',
@@ -70,31 +95,17 @@ describe('founder intelligence assets', () => {
     }, NOW);
     const snapshot = createPortableSnapshot({
       assets: [asset],
-      customPrompts: [{
-        id: 'legacy',
-        title: 'Legacy prompt',
-        cat: 'research',
-        platforms: ['ChatGPT'],
-        versions: { chatgpt: 'Use supplied evidence only.' },
-      }],
-      stars: [1, 2],
+      customPrompts: [CANONICAL_CUSTOM],
+      stars: [1, 'legacy'],
+      goals: [VALID_GOAL],
       exportedAt: NOW.toISOString(),
     });
 
     const parsed = parsePortableSnapshot(snapshot, NOW);
     expect(parsed.assets).toEqual([asset]);
-    expect(parsed.customPrompts).toEqual([{
-      id: 'legacy',
-      title: 'Legacy prompt',
-      sub: '',
-      cat: 'research',
-      platforms: ['chatgpt'],
-      versions: { chatgpt: 'Use supplied evidence only.' },
-      emoji: '✨',
-      notes: '',
-      repos: [],
-    }]);
-    expect(parsed.stars).toEqual([1, 2]);
+    expect(parsed.customPrompts).toEqual([CANONICAL_CUSTOM]);
+    expect(parsed.stars).toEqual([1, 'legacy']);
+    expect(parsed.goals).toEqual([VALID_GOAL]);
   });
 
   it('fails closed instead of silently dropping invalid intelligence during export', () => {
@@ -107,6 +118,49 @@ describe('founder intelligence assets', () => {
 
     expect(() => createPortableSnapshot({ assets: [valid, invalid] }))
       .toThrow('Portable export blocked: intelligence asset 2 is invalid (Missing id)');
+  });
+
+  it('fails closed instead of normalizing lossy compatibility data during export', () => {
+    expect(() => createPortableSnapshot({
+      customPrompts: [{ ...CANONICAL_CUSTOM, versions: { chatgpt: 'Use supplied evidence only.', 'bad platform': 'must not vanish' } }],
+    })).toThrow('Portable export blocked: custom prompt state contains invalid or lossy data');
+
+    expect(() => createPortableSnapshot({ stars: [1, { private: 'must not vanish' }] }))
+      .toThrow('Portable export blocked: star state contains invalid or lossy data');
+  });
+
+  it('fails closed when founder goals cannot be restored as usable goals', () => {
+    expect(() => createPortableSnapshot({
+      goals: [{ ...VALID_GOAL, proofRequirements: [] }],
+    })).toThrow('Portable export blocked: founder goal 1 is invalid');
+
+    expect(() => createPortableSnapshot({
+      goals: [{ ...VALID_GOAL, evidence: 'not-an-array' }],
+    })).toThrow('evidence must be an array');
+  });
+
+  it('rejects lossy current-format snapshots instead of cleaning them during import', () => {
+    expect(() => parsePortableSnapshot({
+      format: 'founder-intelligence-snapshot',
+      schemaVersion: 1,
+      assets: [],
+      compatibility: {
+        customPrompts: [null, CANONICAL_CUSTOM],
+        stars: [1, { injected: true }],
+      },
+      goals: [VALID_GOAL],
+    }, NOW)).toThrow('Portable export blocked: custom prompt state contains invalid or lossy data');
+  });
+
+  it('keeps old current-format snapshots that predate goal portability non-destructive', () => {
+    const parsed = parsePortableSnapshot({
+      format: 'founder-intelligence-snapshot',
+      schemaVersion: 1,
+      assets: [],
+      compatibility: { customPrompts: [], stars: [] },
+    }, NOW);
+
+    expect(parsed.goals).toBeNull();
   });
 
   it('normalizes imported prompt object shape without treating prompt prose as markup', () => {
@@ -154,36 +208,21 @@ describe('founder intelligence assets', () => {
     })).toBeNull();
   });
 
-  it('bounds compatibility arrays and drops non-primitive star references', () => {
+  it('sanitizes the original legacy export format for backward compatibility only', () => {
     const parsed = parsePortableSnapshot({
-      format: 'founder-intelligence-snapshot',
-      schemaVersion: 1,
-      assets: [],
-      compatibility: {
-        customPrompts: [null, { title: 'Safe import', platforms: ['claude'], versions: { claude: 'Summarize.' } }],
-        stars: [1, 'custom-1', { injected: true }, null, 1.5],
-      },
-    }, NOW);
-
-    expect(parsed.customPrompts).toHaveLength(1);
-    expect(parsed.customPrompts[0].title).toBe('Safe import');
-    expect(parsed.stars).toEqual([1, 'custom-1']);
-  });
-
-  it('accepts the original export format for backward compatibility', () => {
-    const parsed = parsePortableSnapshot({
-      custom: [{
+      custom: [null, {
         id: 'custom-2',
         title: 'Old prompt',
         platforms: ['claude'],
         versions: { claude: 'Do the work.' },
       }],
-      stars: [4],
+      stars: [4, { injected: true }],
     }, NOW);
 
     expect(parsed.assets).toHaveLength(1);
     expect(parsed.assets[0].source).toBe('legacy-chief-prompt');
     expect(parsed.customPrompts[0].title).toBe('Old prompt');
     expect(parsed.stars).toEqual([4]);
+    expect(parsed.goals).toBeNull();
   });
 });
