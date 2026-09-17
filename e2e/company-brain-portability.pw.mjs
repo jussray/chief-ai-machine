@@ -7,7 +7,7 @@ const LOCAL_KEYS = [
   INTELLIGENCE_STORAGE_KEY,
   'chief-custom',
   'chief-stars',
-  'chief-founder-goals-v1',
+  'chief-goals-v1',
 ];
 
 async function openBrain(page) {
