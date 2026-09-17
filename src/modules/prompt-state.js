@@ -61,7 +61,11 @@ function text(value, fallback = '') {
   return typeof value === 'string' ? value : fallback;
 }
 
-const LOCAL_PROMPT_ID_PATTERN = /^(?:(?:custom|freestyle|builder)-.+|c_?\d+)$/;
+function normalizePromptId(value) {
+  if (typeof value !== 'string') return '';
+  const id = value.trim();
+  return id && id.length <= 180 ? id : '';
+}
 
 function sameStringArray(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
@@ -141,11 +145,11 @@ export function normalizeCustomPrompts(prompts, { reservedIds = [] } = {}) {
       changed = true;
     }
 
-    let id = prompt.id == null ? '' : String(prompt.id).trim();
-    if (!id || !LOCAL_PROMPT_ID_PATTERN.test(id) || seenIds.has(id)) {
+    let id = normalizePromptId(prompt.id);
+    if (!id || seenIds.has(id)) {
       id = createLocalPromptId('custom');
       changed = true;
-    } else if (typeof prompt.id !== 'string' || prompt.id !== id) {
+    } else if (prompt.id !== id) {
       changed = true;
     }
     seenIds.add(id);

@@ -30,18 +30,18 @@ describe('custom prompt shape membrane', () => {
     });
   });
 
-  test('keeps custom identity separate from reserved and duplicate prompt ids', () => {
+  test('preserves safe portable ids while repairing reserved and duplicate ids', () => {
     const result = normalizeCustomPrompts([
       { id: '1', title: 'Reserved collision', platforms: ['chatgpt'], versions: { chatgpt: 'A' } },
-      { id: 'dup', title: 'First duplicate', platforms: ['chatgpt'], versions: { chatgpt: 'B' } },
-      { id: 'dup', title: 'Second duplicate', platforms: ['chatgpt'], versions: { chatgpt: 'C' } },
+      { id: 'portable-prompt-alpha', title: 'Portable identity', platforms: ['chatgpt'], versions: { chatgpt: 'B' } },
+      { id: 'portable-prompt-alpha', title: 'Duplicate identity', platforms: ['chatgpt'], versions: { chatgpt: 'C' } },
     ], { reservedIds: [1] });
 
     const ids = result.prompts.map(prompt => prompt.id);
     expect(new Set(ids).size).toBe(3);
     expect(ids[0]).not.toBe('1');
     expect(ids[0]).toMatch(/^custom-/);
-    expect(ids[1]).toMatch(/^custom-/);
+    expect(ids[1]).toBe('portable-prompt-alpha');
     expect(ids[2]).toMatch(/^custom-/);
   });
 
