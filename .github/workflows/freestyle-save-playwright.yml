@@ -46,7 +46,7 @@ jobs:
           test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
           test "$BASE_REF" = 'main'
           test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
-      - name: Check out trusted evaluator snapshot
+      - name: Check out evaluator snapshot
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
@@ -64,7 +64,7 @@ jobs:
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
-            echo 'N/A proven from trusted exact-head diff: Freestyle/Goalfix/PromptOS surface unchanged.'
+            echo 'N/A proven from exact-head diff: Freestyle/Goalfix/PromptOS surface unchanged.'
           fi
       - name: Check out candidate assets without credentials
         if: steps.scope.outputs.changed == 'true'
@@ -73,16 +73,16 @@ jobs:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
           path: candidate
           persist-credentials: false
-      - name: Set up Node from trusted evaluator
+      - name: Set up Node from evaluator
         if: steps.scope.outputs.changed == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
           cache: npm
-      - name: Install trusted locked test dependencies
+      - name: Install evaluator locked test dependencies
         if: steps.scope.outputs.changed == 'true'
         run: npm ci
-      - name: Install trusted Playwright runner
+      - name: Install isolated Playwright runner
         if: steps.scope.outputs.changed == 'true'
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
       - name: Install Chromium
@@ -100,14 +100,14 @@ jobs:
           done
           cat /tmp/chief-ai-freestyle-server.log
           exit 1
-      - name: Run trusted rendered Freestyle Goalfix PromptOS proof
+      - name: Run rendered Freestyle Goalfix PromptOS proof
         if: steps.scope.outputs.changed == 'true'
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
       - name: Stop static server
         if: always() && steps.scope.outputs.changed == 'true'
         shell: bash
         run: test ! -f /tmp/chief-ai-freestyle-server.pid || kill "$(cat /tmp/chief-ai-freestyle-server.pid)" || true
-      - name: Retain trusted browser evidence
+      - name: Retain browser evidence
         if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
