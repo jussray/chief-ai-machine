@@ -31,11 +31,11 @@ describe('Chief capability-plan trusted runtime proof boundary', () => {
       'founder-content-visual-direction',
       'v4-advisory-handoff',
       'founder-content-current-review-regressions',
-      'chief-capability-plan.pw.mjs',
-      'chief-founder-content-proposal.pw.mjs',
     ]) {
       expect(workflow).toContain(expected);
     }
+    expect(workflow).toContain('e2e/(chief-capability-plan|chief-founder-content-proposal)\\.pw\\.mjs$');
+    expect(workflow).toContain('testMatch:/(?:chief-capability-plan|chief-founder-content-proposal)\\.pw\\.mjs$/');
     expect(workflow).not.toContain('config/operational-authority.json');
   });
 
