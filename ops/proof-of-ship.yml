@@ -1,0 +1,62 @@
+# Proof-of-Ship — build-in-public auto-post (MERGED COMMIT ONLY)
+#
+# No live hosted backend on this repo, so proof = merged PR/commit on main.
+# On meaningful merges to main (feat|fix|perf), POST the commit to a Zapier
+# Catch Hook with live_state="merged" (not "verified" — no live endpoint).
+# No deploy, no DB write, no secret change. Reads only.
+# Inert until wired: if ZAPIER_CATCH_HOOK_URL is unset it no-ops.
+
+name: proof-of-ship
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proof-of-ship:
+    name: Proof of Ship
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Classify commit
+        id: gate
+        run: |
+          set -euo pipefail
+          MSG="$(git log -1 --pretty=%s)"
+          echo "title=$MSG" >> "$GITHUB_OUTPUT"
+          if printf '%s' "$MSG" | grep -Eq '^(feat|fix|perf)(\(.+\))?!?:'; then
+            echo "meaningful=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "meaningful=false" >> "$GITHUB_OUTPUT"
+            echo "Commit '$MSG' is not feat|fix|perf — no post."
+          fi
+
+      - name: Notify Zapier (merged)
+        if: steps.gate.outputs.meaningful == 'true'
+        env:
+          HOOK: ${{ secrets.ZAPIER_CATCH_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOOK:-}" ]; then
+            echo "Merged proof-only. ZAPIER_CATCH_HOOK_URL is unset — no webhook yet. No-op."
+            exit 0
+          fi
+          jq -n \
+            --arg repo "${GITHUB_REPOSITORY}" \
+            --arg sha "${GITHUB_SHA}" \
+            --arg title "${{ steps.gate.outputs.title }}" \
+            --arg commit_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}" \
+            '{repo:$repo, commit_sha:$sha, commit_title:$title, commit_url:$commit_url, live_state:"merged", publish_allowed:false, idempotency_key:($repo+":"+$sha)}' \
+          | curl -sf -X POST "$HOOK" -H "Content-Type: application/json" -d @-
+          echo "Posted merged proof-of-ship to Zapier (no live backend to verify)."
