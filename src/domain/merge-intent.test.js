@@ -25,6 +25,9 @@ describe('merge intent gate', () => {
     ['[SUPERSEDED] old candidate', 'superseded'],
     ['[SUPERSEDED]: replaced by #123', 'superseded'],
     ['This PR is superseded pending rebuild.', 'superseded'],
+    ['This PR is [SUPERSEDED]: replaced by #123', 'superseded'],
+    ['This pull request is [SUPERSEDED].', 'superseded'],
+    ['Candidate is [SUPERSEDED] (replaced by #123)', 'superseded'],
     ['## VERIFICATION ONLY', 'verification-only'],
     ['MERGE BLOCKED until provider proof', 'merge-blocked'],
   ])('blocks explicit negative merge directive %s', (body, reason) => {
