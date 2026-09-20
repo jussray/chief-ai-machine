@@ -24,6 +24,17 @@ export const ASSET_STATUSES = Object.freeze([
 const KIND_SET = new Set(ASSET_KINDS);
 const STATUS_SET = new Set(ASSET_STATUSES);
 const CUSTOM_PROMPT_PLATFORM = /^[a-z0-9][a-z0-9._-]{0,39}$/;
+const CUSTOM_PROMPT_FIELDS = new Set([
+  'id',
+  'title',
+  'sub',
+  'cat',
+  'platforms',
+  'versions',
+  'emoji',
+  'notes',
+  'repos',
+]);
 const GOAL_LIST_FIELDS = Object.freeze([
   'evidence',
   'constraints',
@@ -119,6 +130,43 @@ export function normalizeCustomPrompts(prompts) {
     .slice(0, 500)
     .map((prompt, index) => normalizeCustomPrompt(prompt, index))
     .filter(Boolean);
+}
+
+function canonicalizeCompatibleCustomPrompt(prompt, index) {
+  if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt)) return null;
+  if (Object.keys(prompt).some((key) => !CUSTOM_PROMPT_FIELDS.has(key))) return null;
+
+  const normalized = normalizeCustomPrompt(prompt, index);
+  if (!normalized) return null;
+
+  // Identity and founder-authored prose may never be invented, trimmed, truncated, or rewritten.
+  if (typeof prompt.id !== 'string' || prompt.id !== normalized.id) return null;
+  if (typeof prompt.title !== 'string' || prompt.title !== normalized.title) return null;
+  for (const field of ['sub', 'cat', 'emoji', 'notes']) {
+    if (prompt[field] !== undefined && prompt[field] !== normalized[field]) return null;
+  }
+
+  // Version bodies and keys are authoritative. Any cleanup here would be real data loss.
+  if (!prompt.versions || typeof prompt.versions !== 'object' || Array.isArray(prompt.versions)) return null;
+  if (stableJson(prompt.versions) !== stableJson(normalized.versions)) return null;
+
+  // App writers historically omitted platforms or stored a subset while versions already
+  // carried the extra provider bodies. Deriving the union is non-lossy; rewriting an
+  // explicit invalid/duplicate platform is not.
+  const explicitPlatforms = prompt.platforms === undefined ? [] : prompt.platforms;
+  if (!Array.isArray(explicitPlatforms)) return null;
+  const cleanedExplicitPlatforms = explicitPlatforms.map(cleanPlatform);
+  if (cleanedExplicitPlatforms.some((platform, platformIndex) => (
+    !platform || platform !== explicitPlatforms[platformIndex]
+  ))) return null;
+  if (new Set(cleanedExplicitPlatforms).size !== cleanedExplicitPlatforms.length) return null;
+  const completePlatforms = [...new Set([...cleanedExplicitPlatforms, ...Object.keys(normalized.versions)])];
+  if (completePlatforms.length > 12 || stableJson(completePlatforms) !== stableJson(normalized.platforms)) return null;
+
+  // Missing repos means the app had no repo metadata. Existing repo metadata must survive byte-for-byte.
+  if (prompt.repos !== undefined && stableJson(prompt.repos) !== stableJson(normalized.repos)) return null;
+
+  return normalized;
 }
 
 function assetId(now, seed = '') {
@@ -231,11 +279,15 @@ function requireCanonicalCustomPrompts(customPrompts, prefix = 'Portable export 
   if (!Array.isArray(customPrompts)) {
     throw new Error(`${prefix}: custom prompts must be an array`);
   }
-  const normalized = normalizeCustomPrompts(customPrompts);
-  if (stableJson(normalized) !== stableJson(customPrompts)) {
+  if (customPrompts.length > 500) {
     throw new Error(`${prefix}: custom prompt state contains invalid or lossy data`);
   }
-  return customPrompts;
+
+  const canonical = customPrompts.map((prompt, index) => canonicalizeCompatibleCustomPrompt(prompt, index));
+  if (canonical.some((prompt) => !prompt)) {
+    throw new Error(`${prefix}: custom prompt state contains invalid or lossy data`);
+  }
+  return canonical;
 }
 
 function requireCanonicalStars(stars, prefix = 'Portable export blocked') {
@@ -293,9 +345,11 @@ export function parsePortableSnapshot(input, now = new Date()) {
     const invalid = assets.find((asset) => !validateIntelligenceAsset(asset).valid);
     if (invalid) throw new Error('Import failed: snapshot contains an invalid intelligence asset');
 
-    const customPrompts = readCurrentSnapshotArray(input.compatibility?.customPrompts, 'custom prompts');
+    const customPrompts = requireCanonicalCustomPrompts(
+      readCurrentSnapshotArray(input.compatibility?.customPrompts, 'custom prompts'),
+      'Import failed',
+    );
     const stars = readCurrentSnapshotArray(input.compatibility?.stars, 'stars');
-    requireCanonicalCustomPrompts(customPrompts, 'Import failed');
     requireCanonicalStars(stars, 'Import failed');
 
     const goals = input.goals === undefined ? null : readCurrentSnapshotArray(input.goals, 'founder goals');
