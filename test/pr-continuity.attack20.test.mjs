@@ -116,4 +116,11 @@ test('AT26 rollover requires a workflow-triggering credential and post-move reve
   assert.match(engine, /waitForReverification/);
   assert.match(engine, /BLOCKED_REVERIFY_TRIGGER/);
 });
+test('AT27 update-branch provider errors become blocked exact-head results instead of escaping rollover', () => {
+  const engine = readFileSync('scripts/pr-continuity.mjs', 'utf8');
+  assert.match(engine, /allow: \[202, 403, 409, 422, 500, 502, 503, 504\]/);
+  assert.match(engine, /catch \(error\) \{\s*return providerUpdateBlockedResult/);
+  assert.match(engine, /state: 'BLOCKED_PROVIDER_UPDATE'/);
+  assert.match(engine, /for \(const result of blocked\) await publishHeadFailure\(repo, result\)/);
+});
 test('schema remains stable', () => assert.equal(SCHEMA, 'juss/pr-continuity@v1'));
