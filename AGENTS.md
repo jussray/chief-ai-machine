@@ -88,6 +88,19 @@ OPENAI_API_KEY=replace_with_local_secret
 
 Never commit `.codex/.env`, `OPENAI_API_KEY`, `MODEL_API_KEY`, service-role keys, provider tokens, or any other secret. Model choice does not override this file, `CLAUDE.md`, repository skills, verification gates, or founder approval gates.
 
+## Provider spend mode
+
+Read `docs/ACTIONS_BUDGET_MODE.md` before using a paid model provider. While paid semantic peer review is paused:
+
+- do not invoke Claude/Anthropic, Codex/OpenAI, Gemini, Perplexity, DeepSeek, or another paid model solely to review another model's work;
+- focused research, proposal, implementation, debugging, and verification remain available when the task genuinely needs that provider;
+- use only already-configured secure provider-held keys or authorized connectors through approved repository/runtime paths;
+- never request, display, copy, move, rotate, recreate, or log a raw provider secret;
+- prefer deterministic repository checks, focused tests, lint/typecheck, Playwright, provider/runtime readback, exact-head evidence, and founder-final authority over billable review duplication;
+- never weaken merge, security, privacy, exact-head, or founder-authority gates merely because paid semantic review is paused.
+
+Paid semantic peer review resumes only after explicit founder re-enablement.
+
 ## Non-Negotiable Rules
 
 - Inspect before editing.
