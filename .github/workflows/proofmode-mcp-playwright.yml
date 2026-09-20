@@ -8,7 +8,11 @@ on:
       - "worker/proofmode-mcp.js"
       - "worker/index.js"
       - "wrangler.jsonc"
+      - ".assetsignore"
+      - ".gitignore"
+      - "test/static-assets-boundary.test.js"
       - "e2e/proofmode-mcp.pw.mjs"
+      - "e2e/static-assets-boundary.pw.mjs"
       - ".github/workflows/proofmode-mcp-playwright.yml"
   workflow_dispatch:
     inputs:
@@ -160,7 +164,7 @@ jobs:
           fi
           exit 1
 
-      - name: Run live ProofMode MCP Playwright proof
+      - name: Run live ProofMode and asset-boundary Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -177,7 +181,7 @@ jobs:
 
           export default defineConfig({
             testDir: './e2e',
-            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            testMatch: /(proofmode-mcp|static-assets-boundary)\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,
