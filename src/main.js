@@ -11,7 +11,6 @@ import { initModal } from './modules/modal.js';
 import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
-import { mountPromptOS } from './modules/promptos-ui.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence-history.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
@@ -98,7 +97,6 @@ function mountBrainPortabilityControls() {
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
   initFriendMode();
-  mountPromptOS();
   initNav();
   const modal = initModal(PUBLIC_PROMPTS);
   initGoals();

@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   verify:
-    name: ${{ github.event_name == 'pull_request_target' && 'Verify Freestyle, Goalfix, and PromptOS in Chromium' || 'Verify Freestyle, Goalfix, and PromptOS in Chromium (candidate evidence only)' }}
+    name: ${{ github.event_name == 'pull_request_target' && 'Verify Freestyle and Goalfix in Chromium' || 'Verify Freestyle and Goalfix in Chromium (candidate evidence only)' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 18
     steps:
@@ -52,7 +52,7 @@ jobs:
           ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Classify Freestyle Goalfix PromptOS applicability
+      - name: Classify Freestyle Goalfix applicability
         id: scope
         shell: bash
         run: |
@@ -60,11 +60,11 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|scripts/generateCatalog\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|promptos-ui|brain|library|modal|star-storage)\.js$|src/domain/(evidence-first-prompt|intelligence|intelligence-history|goal-plan)\.js$|src/promptos/|styles/promptos\.css$|e2e/(freestyle-save|goalfix-v1|promptos-catalog|company-brain-portability|company-brain-app-prompt-export|company-brain-version-history)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|brain|library|modal|star-storage)\.js$|src/domain/(evidence-first-prompt|intelligence|intelligence-history|goal-plan)\.js$|e2e/(freestyle-save|goalfix-v1|company-brain-portability|company-brain-app-prompt-export|company-brain-version-history)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
-            echo 'N/A proven from exact-head diff: Freestyle/Goalfix/PromptOS/Company Brain surface unchanged.'
+            echo 'N/A proven from exact-head diff: Freestyle/Goalfix/Company Brain surface unchanged.'
           fi
       - name: Check out candidate assets without credentials
         if: steps.scope.outputs.changed == 'true'
@@ -100,7 +100,7 @@ jobs:
           done
           cat /tmp/chief-ai-freestyle-server.log
           exit 1
-      - name: Run rendered Freestyle Goalfix PromptOS proof
+      - name: Run rendered Freestyle Goalfix proof
         if: steps.scope.outputs.changed == 'true'
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
       - name: Stop static server
@@ -146,7 +146,7 @@ jobs:
             conclusion,
             output: {
               title: `${process.env.REQUIRED_CHECK_NAME}: ${conclusion}`,
-              summary: `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${process.env.SOURCE_RESULT}.`,
+              summary: `Legacy required-context name retained for active repository ruleset compatibility. PromptOS product implementation is not exercised by this Chief workflow. Trusted result bound to candidate ${expected}. Source job result: ${process.env.SOURCE_RESULT}.`,
             },
           };
           const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
