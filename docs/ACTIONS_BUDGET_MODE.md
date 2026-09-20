@@ -1,6 +1,6 @@
 # Actions Budget Mode
 
-This private repository should preserve GitHub Actions checks without spending hosted-runner minutes or model-provider budget on routine review fan-out.
+This repository should preserve GitHub Actions checks without spending hosted-runner minutes or model-provider budget on routine review fan-out. Repository visibility is provider-managed state and must be re-read from GitHub rather than inferred from this document.
 
 ## Policy
 
