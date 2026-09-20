@@ -160,6 +160,22 @@ async function publishHeadFailure(repo, result) {
     },
   });
 }
+async function providerUpdateBlockedResult(repo, pr, rootBaseRef, rootBaseSha, providerMessage) {
+  let metadata;
+  try {
+    metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, 'BLOCKED_PROVIDER_UPDATE', 'BLOCKED'));
+  } catch (error) {
+    metadata = { updated: false, blocked: true, reason: `METADATA_WRITE_FAILED: ${error.message}` };
+  }
+  return {
+    number: pr.number,
+    state: 'BLOCKED_PROVIDER_UPDATE',
+    headRef: pr.head.ref,
+    headSha: pr.head.sha,
+    metadata,
+    providerMessage,
+  };
+}
 async function updateOnePull(repo, number, rootBaseRef) {
   let pr = await getPull(repo, number);
   const rootBaseSha = await branchSha(repo, rootBaseRef);
@@ -174,7 +190,25 @@ async function updateOnePull(repo, number, rootBaseRef) {
   }
 
   const before = pr.head.sha;
-  const update = await github(`/repos/${repo}/pulls/${number}/update-branch`, { method: 'PUT', body: { expected_head_sha: before }, allow: [202, 422] });
+  let update;
+  try {
+    update = await github(`/repos/${repo}/pulls/${number}/update-branch`, {
+      method: 'PUT',
+      body: { expected_head_sha: before },
+      allow: [202, 403, 409, 422, 500, 502, 503, 504],
+    });
+  } catch (error) {
+    return providerUpdateBlockedResult(repo, pr, rootBaseRef, rootBaseSha, error.message);
+  }
+  if (update.status !== 202 && update.status !== 422) {
+    return providerUpdateBlockedResult(
+      repo,
+      pr,
+      rootBaseRef,
+      rootBaseSha,
+      `GITHUB_API_${update.status}: ${update.payload?.message || 'update-branch failed'}`,
+    );
+  }
   if (update.status === 422) {
     pr = await getPull(repo, number);
     status = sameRepositoryPull(pr, repo) ? await compare(repo, pr.base.sha, pr.head.sha) : 'fork';
