@@ -12,7 +12,8 @@ const productionProof = await readFile('.github/workflows/proofmode-production-p
 const manifest = JSON.parse(await readFile('.control-room/test-ledger.manifest.json', 'utf8'));
 
 const FREESTYLE_REQUIRED = 'Verify Freestyle, Goalfix, and PromptOS in Chromium';
-const FREESTYLE_CANDIDATE = `${FREESTYLE_REQUIRED} (candidate evidence only)`;
+const FREESTYLE_TRUSTED = 'Verify Freestyle and Goalfix in Chromium';
+const FREESTYLE_CANDIDATE = `${FREESTYLE_TRUSTED} (candidate evidence only)`;
 
 describe('Control Room Test Ledger workflow contract', () => {
   it('materializes the ruleset-required ledger check and fails closed on prerequisite failure', () => {
@@ -87,8 +88,9 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(founderGoals).toContain('name: Verify Founder Goals desktop and mobile flow');
     expect(capability).toContain('name: Verify live Chief capability plan with Playwright');
     expect(proofmode).toContain('name: Verify live ProofMode MCP with Playwright');
-    expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_REQUIRED}'`);
+    expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_TRUSTED}'`);
     expect(freestyle).toContain(`'${FREESTYLE_CANDIDATE}'`);
+    expect(freestyle).toContain(`REQUIRED_CHECK_NAME: ${FREESTYLE_REQUIRED}`);
   });
 
   it('keeps authoritative feature proof on pull_request_target while allowing read-only candidate evidence', () => {
@@ -105,8 +107,9 @@ describe('Control Room Test Ledger workflow contract', () => {
 
     expect(freestyle).toContain('pull_request_target:');
     expect(freestyle).toMatch(/\n {2}pull_request:\n/);
-    expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_REQUIRED}'`);
+    expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_TRUSTED}'`);
     expect(freestyle).toContain(`'${FREESTYLE_CANDIDATE}'`);
+    expect(freestyle).toContain(`REQUIRED_CHECK_NAME: ${FREESTYLE_REQUIRED}`);
     expect(freestyle).toContain('${{ github.event_name }}');
     expect(freestyle).toContain('permissions:\n  contents: read');
 
