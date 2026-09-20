@@ -6,8 +6,10 @@ const workflow = await readFile('.github/workflows/freestyle-save-playwright.yml
 const COMPANY_BRAIN_PATHS = [
   'src/main\\.js$',
   'src/modules/(freestyle|custom|promptos-ui|brain|library|modal|star-storage)\\.js$',
-  'src/domain/(evidence-first-prompt|intelligence|goal-plan)\\.js$',
+  'src/domain/(evidence-first-prompt|intelligence|intelligence-history|goal-plan)\\.js$',
   'company-brain-portability',
+  'company-brain-app-prompt-export',
+  'company-brain-version-history',
 ];
 
 describe('Company Brain browser-proof scope', () => {
