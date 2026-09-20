@@ -100,15 +100,25 @@ describe('Control Room Test Ledger workflow contract', () => {
       expect(trustedWorkflow).toContain('ref: ${{ env.TRUSTED_EVALUATOR_SHA }}');
     }
 
+    const freestyleVerifySection = freestyle.split('  verify:')[1].split('  publish-candidate-required-check:')[0];
+    const freestylePublisherSection = freestyle.split('  publish-candidate-required-check:')[1];
+
     expect(freestyle).toContain('pull_request_target:');
     expect(freestyle).toMatch(/\n {2}pull_request:\n/);
     expect(freestyle).toContain(`github.event_name == 'pull_request_target' && '${FREESTYLE_REQUIRED}'`);
     expect(freestyle).toContain(`'${FREESTYLE_CANDIDATE}'`);
     expect(freestyle).toContain('${{ github.event_name }}');
     expect(freestyle).toContain('permissions:\n  contents: read');
-    expect(freestyle).not.toContain('pull-requests: write');
-    expect(freestyle).not.toContain('checks: write');
-    expect(freestyle).not.toContain('secrets.');
+
+    expect(freestyleVerifySection).not.toContain('pull-requests: write');
+    expect(freestyleVerifySection).not.toContain('checks: write');
+    expect(freestyleVerifySection).not.toContain('secrets.');
+
+    expect(freestylePublisherSection).toContain("if: always() && github.event_name == 'pull_request_target'");
+    expect(freestylePublisherSection).toContain('permissions:\n      checks: write');
+    expect(freestylePublisherSection).toContain('head_sha: process.env.EXPECTED_HEAD_SHA');
+    expect(freestylePublisherSection).not.toContain('pull-requests: write');
+    expect(freestylePublisherSection).not.toContain('secrets.');
   });
 
   it('keeps candidate runtime proof credential-free', () => {
