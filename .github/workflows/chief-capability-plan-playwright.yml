@@ -188,3 +188,47 @@ jobs:
             test-results/chief-capability-plan
           if-no-files-found: warn
           retention-days: 14
+
+  publish-candidate-required-check:
+    name: Publish candidate-bound capability-plan check
+    if: always() && github.event_name == 'pull_request_target'
+    needs: verify
+    runs-on: ubuntu-22.04
+    permissions:
+      checks: write
+    steps:
+      - name: Publish required context on candidate SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REQUIRED_CHECK_NAME: Verify live Chief capability plan with Playwright
+          SOURCE_RESULT: ${{ needs.verify.result }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const expected = process.env.EXPECTED_HEAD_SHA;
+          if (!/^[0-9a-f]{40}$/.test(expected || '')) throw new Error('INVALID_EXPECTED_HEAD_SHA');
+          const conclusion = process.env.SOURCE_RESULT === 'success' ? 'success' : 'failure';
+          const payload = {
+            name: process.env.REQUIRED_CHECK_NAME,
+            head_sha: process.env.EXPECTED_HEAD_SHA,
+            status: 'completed',
+            conclusion,
+            output: {
+              title: `${process.env.REQUIRED_CHECK_NAME}: ${conclusion}`,
+              summary: `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${process.env.SOURCE_RESULT}.`,
+            },
+          };
+          const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              'Content-Type': 'application/json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) throw new Error(`CHECK_RUN_${response.status}: ${await response.text()}`);
+          NODE
