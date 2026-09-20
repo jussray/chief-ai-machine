@@ -14,6 +14,7 @@ import {
   collectRolloverOrder,
   sameRepositoryPull,
   samePullSnapshot,
+  humanOwnedMetadata,
 } from '../scripts/pr-continuity.mjs';
 
 const repo = 'jussray/example';
@@ -32,12 +33,12 @@ test('AT06 expected head mismatch fails', () => assert.throws(() => assertExpect
 test('AT07 exact head match passes', () => assert.equal(assertExpectedHead('a'.repeat(40), 'a'.repeat(40)), true));
 test('AT08 fork pull is not same-repository authority', () => assert.equal(sameRepositoryPull(pr(1, 'main', 'fork', 'open', { full_name: 'other/repo' }), repo), false));
 test('AT09 same-repo pull qualifies', () => assert.equal(sameRepositoryPull(pr(1, 'main', 'feature'), repo), true));
-test('AT10 append managed block preserves body', () => {
+test('AT10 legacy formatter can append a historical managed block without losing prose', () => {
   const next = replaceManagedBlock('Human scope', `${START_MARKER}\nreceipt\n${END_MARKER}`);
   assert.ok(next.startsWith('Human scope'));
   assert.match(next, /receipt/);
 });
-test('AT11 refresh managed block preserves surrounding prose', () => {
+test('AT11 legacy formatter preserves surrounding prose', () => {
   const body = `Before\n\n${START_MARKER}\nold\n${END_MARKER}\n\nAfter`;
   const next = replaceManagedBlock(body, `${START_MARKER}\nnew\n${END_MARKER}`);
   assert.ok(next.startsWith('Before'));
@@ -45,9 +46,9 @@ test('AT11 refresh managed block preserves surrounding prose', () => {
   assert.doesNotMatch(next, /old/);
   assert.ok(next.endsWith('After'));
 });
-test('AT12 duplicate markers block metadata mutation', () => assert.throws(() => replaceManagedBlock(`${START_MARKER}${START_MARKER}${END_MARKER}`, 'x'), /MALFORMED/));
-test('AT13 orphan start marker blocks', () => assert.throws(() => replaceManagedBlock(`${START_MARKER}x`, 'x'), /MALFORMED/));
-test('AT14 orphan end marker blocks', () => assert.throws(() => replaceManagedBlock(`x${END_MARKER}`, 'x'), /MALFORMED/));
+test('AT12 duplicate legacy markers fail closed', () => assert.throws(() => replaceManagedBlock(`${START_MARKER}${START_MARKER}${END_MARKER}`, 'x'), /MALFORMED/));
+test('AT13 orphan legacy start marker blocks', () => assert.throws(() => replaceManagedBlock(`${START_MARKER}x`, 'x'), /MALFORMED/));
+test('AT14 orphan legacy end marker blocks', () => assert.throws(() => replaceManagedBlock(`x${END_MARKER}`, 'x'), /MALFORMED/));
 test('AT15 proof subject equals live head', () => {
   const block = continuityBlock({ repository: repo, prNumber: 7, rootBaseRef: 'main', rootBaseSha: '1'.repeat(40), baseRef: 'main', baseSha: '1'.repeat(40), headRef: 'feature', headSha: '2'.repeat(40), continuityState: 'CURRENT', proofState: 'EXACT_HEAD_PROOF_SEPARATE' });
   assert.ok(block.includes('proof_subject: `' + '2'.repeat(40) + '`'));
@@ -62,7 +63,7 @@ test('AT21 fork head names cannot authorize traversal into a local stack', () =>
   const localChild = pr(2, 'shared-name', 'local-child');
   assert.deepEqual(collectRolloverOrder([fork, localChild], 'main', repo), []);
 });
-test('AT22 metadata snapshots fail closed on concurrent body or head movement', () => {
+test('AT22 snapshots still detect concurrent body or head movement for historical/read-only validation', () => {
   const first = pr(3, 'main', 'feature', 'open', baseRepo, 'first');
   const same = clone(first);
   const bodyMoved = { ...clone(first), body: 'changed' };
@@ -101,7 +102,7 @@ test('AT24 workflows separate candidate, trusted, and rollover authority without
   assert.doesNotMatch(rollover, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
   assert.doesNotMatch(rollover, /github\.event_name/);
 });
-test('AT25 managed receipt replacement preserves surrounding whitespace byte-for-byte', () => {
+test('AT25 legacy formatter preserves surrounding whitespace byte-for-byte', () => {
   const before = 'Human prose  \n    indented-before\n';
   const after = '\n    indented-after  \nTail\t\n';
   const body = `${before}${START_MARKER}\nold\n${END_MARKER}${after}`;
@@ -121,6 +122,41 @@ test('AT27 update-branch provider errors become blocked exact-head results inste
   assert.match(engine, /allow: \[202, 403, 409, 422, 500, 502, 503, 504\]/);
   assert.match(engine, /catch \(error\) \{\s*return providerUpdateBlockedResult/);
   assert.match(engine, /state: 'BLOCKED_PROVIDER_UPDATE'/);
-  assert.match(engine, /for \(const result of blocked\) await publishHeadFailure\(repo, result\)/);
+  assert.match(engine, /for \(const result of blocked\)/);
+});
+test('AT28 any per-PR rollover API failure becomes a known-head blocked result', () => {
+  const engine = readFileSync('scripts/pr-continuity.mjs', 'utf8');
+  assert.match(engine, /const pullByNumber = new Map\(pulls\.map/);
+  assert.match(engine, /try \{\s*results\.push\(await updateOnePull/);
+  assert.match(engine, /catch \(error\) \{\s*results\.push\(providerApiBlockedResult\(pullByNumber\.get\(number\), error\)\)/);
+  assert.match(engine, /state: 'BLOCKED_PROVIDER_API'/);
+});
+test('AT29 automated continuity metadata never patches the human-owned PR body', () => {
+  const engine = readFileSync('scripts/pr-continuity.mjs', 'utf8');
+  assert.deepEqual(humanOwnedMetadata('CURRENT'), {
+    updated: false,
+    blocked: false,
+    humanOwnedPrBody: true,
+    bodyMutation: false,
+    destination: 'artifact-and-checks',
+    state: 'CURRENT',
+  });
+  assert.doesNotMatch(engine, /pulls\/\$\{[^}]+\}.*method:\s*'PATCH'/s);
+  assert.doesNotMatch(engine, /body:\s*\{\s*body:/);
+});
+test('AT30 trusted required-context workflows contain candidate-SHA check publishers', () => {
+  const files = [
+    '.github/workflows/governance-required-check-materializer.yml',
+    '.github/workflows/founder-goals-playwright.yml',
+    '.github/workflows/freestyle-save-playwright.yml',
+    '.github/workflows/chief-capability-plan-playwright.yml',
+    '.github/workflows/proofmode-mcp-playwright.yml',
+  ];
+  for (const file of files) {
+    const workflow = readFileSync(file, 'utf8');
+    assert.match(workflow, /checks: write/);
+    assert.match(workflow, /head_sha: process\.env\.EXPECTED_HEAD_SHA/);
+    assert.match(workflow, /github\.event_name == 'pull_request_target'/);
+  }
 });
 test('schema remains stable', () => assert.equal(SCHEMA, 'juss/pr-continuity@v1'));
