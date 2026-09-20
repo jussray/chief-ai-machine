@@ -16,6 +16,9 @@ export function assertExpectedHead(expected, actual) {
   if (!expected || expected !== actual) throw new Error(`HEAD_MOVED: expected ${expected || '<missing>'}, live ${actual || '<missing>'}`);
   return true;
 }
+
+// Legacy formatter retained for reading/testing historical receipts. Automation no longer
+// writes continuity markers into human-owned PR bodies.
 export function replaceManagedBlock(body = '', block) {
   const starts = body.split(START_MARKER).length - 1;
   const ends = body.split(END_MARKER).length - 1;
@@ -76,6 +79,17 @@ export function collectRolloverOrder(pulls, rootRef = 'main', repository = '') {
   return order;
 }
 
+export function humanOwnedMetadata(state = 'READ_ONLY') {
+  return Object.freeze({
+    updated: false,
+    blocked: false,
+    humanOwnedPrBody: true,
+    bodyMutation: false,
+    destination: 'artifact-and-checks',
+    state,
+  });
+}
+
 const env = (name, fallback = '') => process.env[name] || fallback;
 const artifactPath = () => env('ARTIFACT_PATH', 'artifacts/pr-continuity.json');
 function writeReceipt(value) {
@@ -124,28 +138,6 @@ async function waitForReverification(repo, sha) {
   }
   return false;
 }
-async function patchBody(repo, pr, block) {
-  const live = await getPull(repo, pr.number);
-  if (!samePullSnapshot(pr, live)) return { updated: false, blocked: true, reason: 'METADATA_RACE' };
-
-  let next;
-  try { next = replaceManagedBlock(live.body || '', block); }
-  catch (error) { return { updated: false, blocked: true, reason: error.message }; }
-  if (next === (live.body || '')) return { updated: false, blocked: false };
-
-  const beforePatch = await getPull(repo, pr.number);
-  if (!samePullSnapshot(live, beforePatch)) return { updated: false, blocked: true, reason: 'METADATA_RACE' };
-
-  await github(`/repos/${repo}/pulls/${pr.number}`, { method: 'PATCH', body: { body: next } });
-  return { updated: true, blocked: false };
-}
-function blockFor(repo, pr, rootBaseRef, rootBaseSha, continuityState, proofState) {
-  return continuityBlock({
-    repository: repo, prNumber: pr.number, rootBaseRef, rootBaseSha,
-    baseRef: pr.base.ref, baseSha: pr.base.sha, headRef: pr.head.ref, headSha: pr.head.sha,
-    continuityState, proofState,
-  });
-}
 async function publishHeadFailure(repo, result) {
   if (!result?.headSha) return;
   const summary = `Continuity rollover blocked for PR #${result.number}: ${result.state}. Exact-head proof must be reacquired after the block is cleared.`;
@@ -160,33 +152,35 @@ async function publishHeadFailure(repo, result) {
     },
   });
 }
-async function providerUpdateBlockedResult(repo, pr, rootBaseRef, rootBaseSha, providerMessage) {
-  let metadata;
-  try {
-    metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, 'BLOCKED_PROVIDER_UPDATE', 'BLOCKED'));
-  } catch (error) {
-    metadata = { updated: false, blocked: true, reason: `METADATA_WRITE_FAILED: ${error.message}` };
-  }
+function providerUpdateBlockedResult(pr, providerMessage) {
   return {
     number: pr.number,
     state: 'BLOCKED_PROVIDER_UPDATE',
     headRef: pr.head.ref,
     headSha: pr.head.sha,
-    metadata,
+    metadata: humanOwnedMetadata('BLOCKED_PROVIDER_UPDATE'),
     providerMessage,
+  };
+}
+function providerApiBlockedResult(pr, error) {
+  return {
+    number: pr.number,
+    state: 'BLOCKED_PROVIDER_API',
+    headRef: pr.head?.ref || null,
+    headSha: pr.head?.sha || null,
+    metadata: humanOwnedMetadata('BLOCKED_PROVIDER_API'),
+    providerMessage: error?.message || String(error || 'unknown provider error'),
   };
 }
 async function updateOnePull(repo, number, rootBaseRef) {
   let pr = await getPull(repo, number);
-  const rootBaseSha = await branchSha(repo, rootBaseRef);
+  await branchSha(repo, rootBaseRef);
   if (!sameRepositoryPull(pr, repo)) {
-    const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, 'BLOCKED_FORK', 'BLOCKED'));
-    return { number, state: 'BLOCKED_FORK', headRef: pr.head.ref, headSha: pr.head.sha, metadata };
+    return { number, state: 'BLOCKED_FORK', headRef: pr.head.ref, headSha: pr.head.sha, metadata: humanOwnedMetadata('BLOCKED_FORK') };
   }
   let status = await compare(repo, pr.base.sha, pr.head.sha);
   if (isCurrentCompareStatus(status)) {
-    const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, 'CURRENT', 'EXACT_HEAD_PROOF_SEPARATE'));
-    return { number, state: metadata.blocked ? 'BLOCKED_METADATA' : 'CURRENT', headRef: pr.head.ref, headSha: pr.head.sha, metadata };
+    return { number, state: 'CURRENT', headRef: pr.head.ref, headSha: pr.head.sha, metadata: humanOwnedMetadata('CURRENT') };
   }
 
   const before = pr.head.sha;
@@ -198,14 +192,11 @@ async function updateOnePull(repo, number, rootBaseRef) {
       allow: [202, 403, 409, 422, 500, 502, 503, 504],
     });
   } catch (error) {
-    return providerUpdateBlockedResult(repo, pr, rootBaseRef, rootBaseSha, error.message);
+    return providerUpdateBlockedResult(pr, error.message);
   }
   if (update.status !== 202 && update.status !== 422) {
     return providerUpdateBlockedResult(
-      repo,
       pr,
-      rootBaseRef,
-      rootBaseSha,
       `GITHUB_API_${update.status}: ${update.payload?.message || 'update-branch failed'}`,
     );
   }
@@ -213,8 +204,14 @@ async function updateOnePull(repo, number, rootBaseRef) {
     pr = await getPull(repo, number);
     status = sameRepositoryPull(pr, repo) ? await compare(repo, pr.base.sha, pr.head.sha) : 'fork';
     if (isCurrentCompareStatus(status)) return updateOnePull(repo, number, rootBaseRef);
-    const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, 'BLOCKED_CONFLICT_OR_RACE', 'BLOCKED'));
-    return { number, state: 'BLOCKED_CONFLICT_OR_RACE', headRef: pr.head.ref, headSha: pr.head.sha, metadata, providerMessage: update.payload?.message || null };
+    return {
+      number,
+      state: 'BLOCKED_CONFLICT_OR_RACE',
+      headRef: pr.head.ref,
+      headSha: pr.head.sha,
+      metadata: humanOwnedMetadata('BLOCKED_CONFLICT_OR_RACE'),
+      providerMessage: update.payload?.message || null,
+    };
   }
 
   for (let attempt = 0; attempt < 15; attempt += 1) {
@@ -230,10 +227,15 @@ async function updateOnePull(repo, number, rootBaseRef) {
     reverifyTriggered = await waitForReverification(repo, pr.head.sha);
     if (!reverifyTriggered) state = 'BLOCKED_REVERIFY_TRIGGER';
   }
-  const proofState = state === 'ROLLED_FORWARD' ? 'REVERIFY_REQUIRED' : (state === 'CURRENT_AFTER_RACE' ? 'EXACT_HEAD_PROOF_SEPARATE' : 'BLOCKED');
-  const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, state, proofState));
-  if (metadata.blocked) state = 'BLOCKED_METADATA';
-  return { number, state, headRef: pr.head.ref, headBefore: before, headSha: pr.head.sha, reverifyTriggered, metadata };
+  return {
+    number,
+    state,
+    headRef: pr.head.ref,
+    headBefore: before,
+    headSha: pr.head.sha,
+    reverifyTriggered,
+    metadata: humanOwnedMetadata(state),
+  };
 }
 
 export async function auditMode() {
@@ -263,28 +265,52 @@ export async function metadataMode() {
   if (!repo || !prNumber) throw new Error('METADATA_INPUT_REQUIRED');
   const pr = await getPull(repo, prNumber), rootBaseSha = await branchSha(repo, rootBaseRef);
   const state = sameRepositoryPull(pr, repo) ? classifyCompareStatus(await compare(repo, pr.base.sha, pr.head.sha)) : 'BLOCKED_FORK';
-  const metadata = await patchBody(repo, pr, blockFor(repo, pr, rootBaseRef, rootBaseSha, state, state === 'CURRENT' ? 'EXACT_HEAD_PROOF_SEPARATE' : 'REVERIFY_OR_ROLLOVER_REQUIRED'));
-  const receipt = { schema: SCHEMA, mode: 'metadata', repository: repo, prNumber, state, metadata, authorizesMerge: false, authorizesDeploy: false };
+  const receipt = {
+    schema: SCHEMA,
+    mode: 'metadata',
+    repository: repo,
+    prNumber,
+    rootBaseRef,
+    rootBaseSha,
+    state,
+    proofSubjectSha: pr.head?.sha || null,
+    metadata: humanOwnedMetadata(state),
+    authorizesMerge: false,
+    authorizesDeploy: false,
+  };
   writeReceipt(receipt);
-  if (metadata.blocked) throw new Error(`METADATA_BLOCKED: ${metadata.reason}`);
   console.log(JSON.stringify(receipt));
 }
 
 export async function rolloverMode() {
   const repo = env('GITHUB_REPOSITORY'), rootBaseRef = env('ROOT_BASE_REF', 'main');
   if (!repo) throw new Error('GITHUB_REPOSITORY_REQUIRED');
-  const order = collectRolloverOrder(await listOpenPulls(repo), rootBaseRef, repo), results = [];
-  for (const number of order) results.push(await updateOnePull(repo, number, rootBaseRef));
+  const rootBaseSha = await branchSha(repo, rootBaseRef);
+  const pulls = await listOpenPulls(repo);
+  const pullByNumber = new Map(pulls.map((pr) => [pr.number, pr]));
+  const order = collectRolloverOrder(pulls, rootBaseRef, repo), results = [];
+  for (const number of order) {
+    try {
+      results.push(await updateOnePull(repo, number, rootBaseRef));
+    } catch (error) {
+      results.push(providerApiBlockedResult(pullByNumber.get(number), error));
+    }
+  }
   const blocked = results.filter((r) => r.state.startsWith('BLOCKED'));
   const receipt = {
     schema: SCHEMA, mode: 'rollover', repository: repo, rootBaseRef,
-    rootBaseSha: await branchSha(repo, rootBaseRef), order, results, blockedCount: blocked.length,
+    rootBaseSha, order, results, blockedCount: blocked.length,
     predecessorProofExpiresOnHeadMove: true, authorizesMerge: false, authorizesDeploy: false,
   };
   writeReceipt(receipt);
   console.log(JSON.stringify(receipt));
   if (blocked.length) {
-    for (const result of blocked) await publishHeadFailure(repo, result);
+    const publishErrors = [];
+    for (const result of blocked) {
+      try { await publishHeadFailure(repo, result); }
+      catch (error) { publishErrors.push(`#${result.number}:${error.message}`); }
+    }
+    if (publishErrors.length) console.error(`HEAD_FAILURE_PUBLISH_ERRORS: ${publishErrors.join(',')}`);
     throw new Error(`ROLLOVER_BLOCKED: ${blocked.map((r) => `#${r.number}:${r.state}`).join(',')}`);
   }
 }
