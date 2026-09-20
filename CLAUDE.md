@@ -16,6 +16,19 @@ Chief AI is the coordination layer. It may route work across projects, but it mu
 
 Every model, connector, framework, deployment service, and vendor is a capability, not the foundation of the product. Preserve portable data, portable prompts, replaceable adapters, and documented recovery paths.
 
+## Provider Spend Mode
+
+`docs/ACTIONS_BUDGET_MODE.md` is the repository cost-control contract. While it says paid semantic peer review is paused:
+
+- do not invoke Claude/Anthropic, Codex/OpenAI, Gemini, Perplexity, DeepSeek, or another paid model solely to review another model's work;
+- keep focused research, proposal, implementation, debugging, and verification work available when the task genuinely needs that provider;
+- use only already-configured secure provider-held keys or authorized connectors through the approved server-side/runtime path;
+- never request, display, copy, move, rotate, recreate, or log a raw provider secret;
+- prefer deterministic repository checks, focused tests, lint/typecheck, Playwright, provider/runtime readback, exact-head evidence, and founder-final authority over billable review duplication;
+- never weaken merge, security, privacy, exact-head, or founder-authority gates merely because paid semantic review is paused.
+
+The founder must explicitly re-enable paid semantic peer review before it resumes.
+
 ## Truth Hierarchy
 
 When sources conflict, use this order:
