@@ -1,12 +1,22 @@
 # Chief AI Repair Authority
 
-Chief remains the reasoning/composition layer. More intelligence never means more authority. This contract defines the repairs Chief and its trusted operators may perform without converting recommendations, fingerprints, proof cookies, or model output into execution permission.
+Chief remains the reasoning/composition layer. More intelligence never means more authority. This contract defines the repairs Chief and its trusted operators may perform without converting recommendations, fingerprints, proof cookies, attack output, or model output into execution permission.
 
 ## Standing necessary-fix rule
 
 When current evidence proves a defect inside Chief's own repository or governance surface, a trusted acting operator may implement the smallest focused reversible repair, add/update the narrowest useful test, refresh documentation, and rerun the relevant exact-head proof without waiting for a second approval that adds no new authority information.
 
 Every repair must bind to the canonical repository, current base/head, affected surface, failure fingerprint, evidence-only proof cookies, rollback, and post-repair verification. Head/base movement expires predecessor proof.
+
+## Repair OS inheritance
+
+Chief uses the PromptOS/FCR fused repair loop for consequential fixes:
+
+`LINDY → RED TEAM I → ATTACK TEN → OODA OBSERVE → OODA ORIENT → OODA DECIDE → L99 AUTHORITY → ACT → RED TEAM II → RECURSIVE HARDENING → VERIFY → LOOP/STOP`.
+
+The loop is constrained by Chief's local authority ceiling. Lindy selects the durable carrier; Red Team I attacks the premise; ATTACK TEN pressures the proposed change; OODA reacquires and narrows reality; L99 verifies subject, authority, evidence, rollback, and consequence before Act; Red Team II attacks the implementation; recursive hardening pressure-tests authority inversion, evidence falsification, human outcome, and temporal races; verification uses the highest relevant truth plane.
+
+Attack/Lindy/Red Team/OODA/L99 outputs are reasoning and evidence only. They may narrow, revise, or block a repair. They cannot create provider credentials, execution authority, merge approval, deployment permission, publication rights, or spending authority.
 
 ## Chief-owned repair authority
 
