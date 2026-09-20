@@ -1,8 +1,58 @@
 const CREATIVE_MODES = new Set(['cinematic-proof', 'mythic-founder', 'dream-product', 'character-story', 'product-experience']);
 const FORMS = new Set(['hero-still-4x5', 'short-video-9x16', 'carousel', 'loop-clip', 'product-surface']);
+const MOVING_FORMS = new Set(['short-video-9x16', 'loop-clip', 'product-surface']);
 const EMOTIONS = new Set(['wonder', 'awe', 'tension', 'revelation', 'elegance', 'ambition', 'intimacy', 'inevitability', 'joy', 'safety', 'belonging']);
 const SECRET_LIKE = /(gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._~+/-]{16,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:api|access|auth)[_-]?token\s*[:=]\s*\S+)/i;
 const PRIVATE_DETAIL = /\b(?:system prompt|private prompt|chain[- ]of[- ]thought|raw diff|database password|service[_ -]?role|provider payload|environment variable|secret algorithm|routing weights?|scoring formula)\b/i;
+
+const LEEVIZE_VIDEO_WORKFLOW = Object.freeze({
+  version: 1,
+  workflow: 'LEEVIZE',
+  shot_contract: 'shot-dna@v1',
+  compile_order: Object.freeze(['director-brief', 'model-neutral-shot-spec', 'renderer-adapter']),
+  open_source_first: true,
+  deterministic_post_tools: Object.freeze(['ffmpeg', 'ffprobe']),
+  optional_open_source_candidates: Object.freeze(['remotion', 'comfyui', 'whisper-compatible']),
+  candidate_availability_is_runtime_fact: true,
+  open_source_label_does_not_prove_license_or_commercial_use: true,
+  unknown_license_classify_as: 'BLOCKED_LICENSE_REVIEW',
+  renderer_adapters_replaceable: true,
+  generated_ui_may_prove_product_behavior: false,
+  real_product_capture_requires_playwright: true,
+  final_audio_precedes_caption_timing: true,
+  attack_6000: Object.freeze({
+    reasoning_pressure_budget: 6000,
+    external_test_count_claimed: false,
+    deduplicate_failure_classes: true,
+    required_families: Object.freeze([
+      'story',
+      'continuity',
+      'camera',
+      'physics',
+      'product-truth',
+      'evidence',
+      'pacing',
+      'audio',
+      'voice',
+      'lip-sync',
+      'captions',
+      'brand',
+      'accessibility',
+      'platform',
+      'model-fit',
+      'cost',
+      'provenance',
+      'release',
+    ]),
+  }),
+  authority: Object.freeze({
+    routing_preference_only: true,
+    runtime_availability_must_be_reacquired: true,
+    license_and_commercial_use_must_be_verified: true,
+    may_authorize_publish: false,
+    may_expand_claim_scope: false,
+  }),
+});
 
 function text(value, max = 360) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -42,6 +92,7 @@ export function buildFounderContentVisualDirection(input = {}, context = {}) {
   const thesis = text(context.thesis, 360);
   const creativeMode = text(input.creative_mode, 80).toLowerCase();
   const form = text(input.form, 80).toLowerCase();
+  const movingMedia = MOVING_FORMS.has(form);
   const emotionalIntent = list(input.emotional_intent, 2).map((value) => value.toLowerCase());
   const visualHook = text(input.visual_hook, 360);
   const sceneConcept = text(input.scene_concept, 420);
@@ -72,7 +123,7 @@ export function buildFounderContentVisualDirection(input = {}, context = {}) {
   if (norm(visualHook) === norm(thesis)) {
     errors.push('visual_hook must create curiosity rather than restate the thesis');
   }
-  if ((form === 'short-video-9x16' || form === 'loop-clip' || form === 'product-surface') && !motionLanguage) {
+  if (movingMedia && !motionLanguage) {
     errors.push('motion_language is required for moving or interactive media');
   }
   if (input.preserves_human_agency !== true) errors.push('preserves_human_agency must be true');
@@ -112,6 +163,7 @@ export function buildFounderContentVisualDirection(input = {}, context = {}) {
       concept_attack_required: true,
       rendered_artifact_attack_required: true,
     }),
+    video_workflow: movingMedia ? LEEVIZE_VIDEO_WORKFLOW : null,
     doctrine: Object.freeze({
       allure_before_explanation: true,
       proof_is_anchor_not_default_composition: true,
