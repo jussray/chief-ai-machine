@@ -7,7 +7,9 @@ import {
 } from './intelligence.js';
 
 function cloneHistoricalSnapshot(asset) {
-  const { history, historyComplete, ...snapshot } = asset || {};
+  const snapshot = { ...(asset || {}) };
+  delete snapshot.history;
+  delete snapshot.historyComplete;
   return {
     ...snapshot,
     tags: Array.isArray(snapshot.tags) ? [...snapshot.tags] : snapshot.tags,

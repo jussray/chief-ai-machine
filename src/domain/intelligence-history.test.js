@@ -23,6 +23,10 @@ function assetAt(content, now, input = {}) {
   }, now);
 }
 
+function deepCopy(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 describe('Company Brain immutable version history', () => {
   it('retains each prior version while keeping one current asset record', () => {
     const v1 = assetAt('Version one decision.', T0);
@@ -83,12 +87,12 @@ describe('Company Brain immutable version history', () => {
     let assets = upsertIntelligenceAsset([], assetAt('Safe v1.', T0));
     assets = upsertIntelligenceAsset(assets, assetAt('Safe v2.', T1));
 
-    const wrongId = structuredClone(assets[0]);
+    const wrongId = deepCopy(assets[0]);
     wrongId.history[0].id = 'different-asset';
     expect(() => createPortableSnapshot({ assets: [wrongId] }))
       .toThrow('invalid version history');
 
-    const missingVersion = structuredClone(assets[0]);
+    const missingVersion = deepCopy(assets[0]);
     missingVersion.history = [];
     missingVersion.historyComplete = true;
     const portable = createPortableSnapshot({ assets });
