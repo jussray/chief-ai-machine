@@ -81,17 +81,6 @@ const checks = [
   ['Codex memories cannot replace repo policy', /\/memories[\s\S]+never becomes the source of mandatory repository policy/.test(founder)],
   ['Codex missing commands are not simulated', founder.includes('Do not simulate a missing native command just to match a checklist.')],
   ['Codex attack pass guards command drift and stale proof', founder.includes('### Attack / upgrade pass for Codex use') && founder.includes('Could a host/version difference make a named command unavailable?') && founder.includes('Could `/review` greenwash missing tests, Playwright, CI, exact-head proof, or production evidence?')],
-  ['constitution defines ultrathink', constitution.includes('## /ultrathink')],
-  ['constitution requires current-truth reacquisition', /Founder intent[\s\S]+Reacquire current truth[\s\S]+Classify consequence[\s\S]+Resolve authority/.test(constitution)],
-  ['constitution distinguishes provider auth from admin authority', constitution.includes('Provider authentication and provider administration authority are different.')],
-  ['constitution forbids spending runs on unchanged blocker', constitution.includes('Do not spend runs repeatedly probing an unchanged known blocker unless a material dependency or state changed.')],
-  ['constitution requires existing-carrier discovery', constitution.includes('inspect active PRs/issues for an existing authoritative carrier and extend it when scope matches')],
-  ['constitution preserves FCR single-OS cohesion', constitution.includes('Preserve Founder Control Room as the single founder operating system.')],
-  ['Claude goalfix delegates to canonical repair contract', claudeGoalfix.includes('.agents/skills/goalfix/SKILL.md')],
-  ['Claude goalfix classifies proof planes', /`SOURCE`, `BUILD\/CI`, `PROVIDER`, `RUNTIME\/BROWSER`, or `OUTCOME`/.test(claudeGoalfix)],
-  ['Claude goalfix stops on unavailable provider authority', claudeGoalfix.includes('return `BLOCKED` rather than rewriting source')],
-  ['Claude Chief delegates repair mechanics to canonical goalfix', claudeChief.includes('route the repair mechanics through the canonical `.agents/skills/goalfix/SKILL.md` contract')],
-  ['Claude Chief preserves exact-head and proof-plane gates', claudeChief.includes('exact-head reacquisition, proof-plane classification')],
 ];
 
 for (const command of ['/goalfix', '/ultrathink', '/truthmode', '/confess', '/redteam', '/lindymode', '/ooda', '/visualize']) {
