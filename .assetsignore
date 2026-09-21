@@ -7,6 +7,18 @@
 # committed to it) ships as publicly servable files.
 .git/
 **/.git
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.db
+*.sqlite
+*.sqlite-*
 CLAUDE.md
 AGENTS.md
 AGENTS_FOUNDER_INTELLIGENCE.md
