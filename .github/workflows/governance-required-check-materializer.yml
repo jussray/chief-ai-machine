@@ -11,7 +11,7 @@ permissions:
 
 env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-  BASE_SHA: ${{ github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
   TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
   CLOUDFLARE_CHECK_APP_ID: '85455'
 
@@ -61,7 +61,6 @@ jobs:
                 const run=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===expected && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
                 process.exit(run?0:1);
               });
-            '
           }
           if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
             echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
@@ -79,7 +78,7 @@ jobs:
           changed_since_receipt="$(git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
           printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
           printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
-          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$|.*\.test\.js$)' || true)"
+          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$)' || true)"
           if [ -n "$unsafe_since_receipt" ]; then
             printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
             exit 1
@@ -117,10 +116,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          # Test-only files never ship: .assetsignore excludes **/*.test.{js,mjs,ts}
-          # from the deployed bundle, so they cannot change the exact Chief runtime.
-          runtime_candidates="$(printf '%s\n' "$changed" | grep -Ev '(^|/)[^/]+\.test\.(js|mjs|ts)$' || true)"
-          if printf '%s\n' "$runtime_candidates" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
@@ -180,14 +176,6 @@ jobs:
           mkdir -p e2e
           cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
           import { test, expect } from '@playwright/test';
-          function assertExactRuntimeHost(pageUrl, expectedHost) {
-            const actualHost=new URL(pageUrl).host;
-            if (actualHost===expectedHost) return;
-            if (actualHost.endsWith('.cloudflareaccess.com')) {
-              throw new Error(`Cloudflare Access blocks candidate proof (redirected to ${actualHost}). Long-lived Access credentials are intentionally withheld from candidate runtime.`);
-            }
-            expect(actualHost).toBe(expectedHost);
-          }
           test('immutable Chief preview proves exact SHA and rendered SPA', async ({ page }) => {
             const baseUrl=process.env.CHIEF_RUNTIME_BASE_URL;
             const expectedSha=process.env.EXPECTED_HEAD_SHA;
@@ -198,20 +186,20 @@ jobs:
             console.log(`version-final-url=${page.url()}`);
             console.log(`version-status=${versionResponse.status()}`);
             expect(versionResponse.status()).toBe(200);
-            assertExactRuntimeHost(page.url(), expectedHost);
+            expect(new URL(page.url()).host).toBe(expectedHost);
             expect(versionResponse.headers()['content-type']||'').toContain('application/json');
             const payload=await versionResponse.json();
             expect(payload?.sha).toBe(expectedSha);
             const appResponse=await page.goto(`${baseUrl}/`,{waitUntil:'domcontentloaded'});
             expect(appResponse).not.toBeNull();
             expect(appResponse.status()).toBe(200);
-            assertExactRuntimeHost(page.url(), expectedHost);
+            expect(new URL(page.url()).host).toBe(expectedHost);
             await expect(page.locator('#app')).toBeVisible();
             await expect(page.getByRole('heading',{name:'What are we trying to accomplish?'})).toBeVisible();
             const cssResponse=await page.goto(`${baseUrl}/styles/main.css`,{waitUntil:'domcontentloaded'});
             expect(cssResponse).not.toBeNull();
             expect(cssResponse.status()).toBe(200);
-            assertExactRuntimeHost(page.url(), expectedHost);
+            expect(new URL(page.url()).host).toBe(expectedHost);
             expect(cssResponse.headers()['content-type']||'').toContain('text/css');
             expect((await cssResponse.text()).length).toBeGreaterThan(100);
           });

@@ -1,4 +1,6 @@
 import { normalizeCustomPrompts } from '../domain/intelligence.js';
+import { readStarStorage, writeStarStorage } from './star-storage.js';
+import { showToast } from './ui.js';
 
 function makeTextElement(tag, className, text) {
   const element = document.createElement(tag);
@@ -40,7 +42,8 @@ export function initLibrary(PROMPTS, modal) {
   const repoClear = document.getElementById('repoClear');
   const repoBtns = document.querySelectorAll('[data-repo]');
 
-  let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
+  let starRead = readStarStorage();
+  let stars = starRead.stars;
   const customRead = readCustomPromptStorage();
   let custom = customRead.prompts;
   let allPrompts = [...PROMPTS, ...custom.map((c, i) => ({ ...c, id: 'c' + i, cat: c.cat || 'custom' }))];
@@ -51,14 +54,29 @@ export function initLibrary(PROMPTS, modal) {
   const CATS = [...new Set(allPrompts.map(p => p.cat))];
   const PLATFORMS = [...new Set(allPrompts.flatMap(p => p.platforms || []))];
 
+  function refreshStars() {
+    starRead = readStarStorage();
+    stars = starRead.stars;
+  }
+
   function buildChips() {
+    refreshStars();
     chips.replaceChildren();
     const all = makeTextElement('button', 'chip' + (!activeFilter ? ' active' : ''), 'All');
     all.addEventListener('click', () => { activeFilter = null; render(); buildChips(); });
     chips.appendChild(all);
 
     const starChip = makeTextElement('button', 'chip c-star' + (activeFilter === '__star' ? ' active' : ''), '★ Starred');
-    starChip.addEventListener('click', () => { activeFilter = activeFilter === '__star' ? null : '__star'; render(); buildChips(); });
+    const starReady = starRead.state === 'ready';
+    starChip.disabled = !starReady;
+    starChip.setAttribute('aria-disabled', starReady ? 'false' : 'true');
+    starChip.title = starReady ? '' : 'Saved star state is UNKNOWN and has not been treated as empty.';
+    starChip.addEventListener('click', () => {
+      if (!starReady) return;
+      activeFilter = activeFilter === '__star' ? null : '__star';
+      render();
+      buildChips();
+    });
     chips.appendChild(starChip);
 
     const sep = document.createElement('div');
@@ -85,10 +103,14 @@ export function initLibrary(PROMPTS, modal) {
   }
 
   function render() {
+    refreshStars();
     const list = filtered();
     grid.replaceChildren();
     if (!list.length) {
-      grid.appendChild(makeTextElement('div', 'empty', 'No prompts match. Try a different filter.'));
+      const message = activeFilter === '__star' && starRead.state !== 'ready'
+        ? 'Saved star state is UNKNOWN. Repair or reset local state before using Starred.'
+        : 'No prompts match. Try a different filter.';
+      grid.appendChild(makeTextElement('div', 'empty', message));
     } else {
       list.forEach(p => grid.appendChild(makeCard(p)));
     }
@@ -96,7 +118,10 @@ export function initLibrary(PROMPTS, modal) {
     countPill.textContent = count + ' prompt' + (count !== 1 ? 's' : '');
     navCount.textContent = count;
     statTotal.textContent = allPrompts.length;
-    statStar.textContent = stars.length;
+    statStar.textContent = starRead.state === 'ready' ? String(stars.length) : '?';
+    statStar.title = starRead.state === 'ready'
+      ? ''
+      : 'Saved star state is UNKNOWN and has not been treated as empty.';
     statCustom.textContent = customRead.state === 'ready' ? String(custom.length) : '?';
     statCustom.title = customRead.state === 'ready'
       ? ''
@@ -107,7 +132,8 @@ export function initLibrary(PROMPTS, modal) {
   function makeCard(p) {
     const card = document.createElement('div');
     card.className = 'pcard';
-    const starred = stars.includes(p.id);
+    const starReady = starRead.state === 'ready';
+    const starred = starReady && stars.includes(p.id);
     const vcount = Object.keys(p.versions || {}).length;
 
     const top = document.createElement('div');
@@ -123,8 +149,11 @@ export function initLibrary(PROMPTS, modal) {
     );
     top.appendChild(heading);
 
-    const starButton = makeTextElement('button', `star-btn${starred ? ' on' : ''}`, starred ? '★' : '☆');
+    const starButton = makeTextElement('button', `star-btn${starred ? ' on' : ''}`, starReady ? (starred ? '★' : '☆') : '?');
     starButton.dataset.id = String(p.id ?? '');
+    starButton.disabled = !starReady;
+    starButton.setAttribute('aria-disabled', starReady ? 'false' : 'true');
+    starButton.title = starReady ? '' : 'Saved star state is UNKNOWN. Nothing will be overwritten.';
     top.appendChild(starButton);
 
     const badges = document.createElement('div');
@@ -146,9 +175,19 @@ export function initLibrary(PROMPTS, modal) {
 
     starButton.addEventListener('click', (e) => {
       e.stopPropagation();
+      refreshStars();
+      if (starRead.state !== 'ready') {
+        showToast('Star state is UNKNOWN. Nothing was changed.');
+        render();
+        return;
+      }
       const idx = stars.indexOf(p.id);
       if (idx === -1) stars.push(p.id); else stars.splice(idx, 1);
-      localStorage.setItem('chief-stars', JSON.stringify(stars));
+      try {
+        writeStarStorage(stars);
+      } catch {
+        showToast('Star storage is unavailable. Nothing else was changed.');
+      }
       render();
     });
     openButton.addEventListener('click', (e) => { e.stopPropagation(); modal.open(p); });

@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
@@ -63,17 +62,6 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).not.toContain('CF-Access-Client-Secret');
   });
 
-  it('labels a Cloudflare Access redirect as a receipted provider blocker instead of a raw host-mismatch assertion', () => {
-    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
-    expect(runtimeSection).toContain('function assertExactRuntimeHost(pageUrl, expectedHost)');
-    expect(runtimeSection).toContain("actualHost.endsWith('.cloudflareaccess.com')");
-    expect(runtimeSection).toContain('Cloudflare Access blocks candidate proof');
-    expect(runtimeSection).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');
-    expect(runtimeSection).not.toContain('expect(new URL(page.url()).host).toBe(expectedHost)');
-    const assertionCalls = runtimeSection.match(/assertExactRuntimeHost\(page\.url\(\), expectedHost\);/g) || [];
-    expect(assertionCalls.length).toBe(3);
-  });
-
   it('treats deployed SPA assets and both sides of renames as runtime changes', () => {
     const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
     expect(runtimeSection).toContain('index\\.html$');
@@ -83,26 +71,13 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('git diff --no-renames --name-only');
   });
 
-  it('skips runtime proof only for test files that the deployed bundle already excludes', () => {
-    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
-    const assetsignore = readFileSync('.assetsignore', 'utf8').split('\n');
-    for (const pattern of ['**/*.test.js', '**/*.test.mjs', '**/*.test.ts']) {
-      expect(assetsignore).toContain(pattern);
-    }
-    expect(runtimeSection).toContain(
-      "runtime_candidates=\"$(printf '%s\\n' \"$changed\" | grep -Ev '(^|/)[^/]+\\.test\\.(js|mjs|ts)$' || true)\"",
-    );
-    expect(runtimeSection).toContain("if printf '%s\\n' \"$runtime_candidates\" | grep -Eq '^(index\\.html$|styles/|src/|");
-    expect(runtimeSection).not.toContain("if printf '%s\\n' \"$changed\" | grep -Eq");
-  });
-
   it('authenticates Cloudflare provenance and includes the base in inheritance search', () => {
     const providerSection = materializer.split('  provider-receipt:')[1].split('  runtime-proof:')[0];
     expect(materializer).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
     expect(providerSection).toContain('x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID)');
     expect(providerSection).toContain("printf '%s\\n' \"$BASE_SHA\"");
     expect(providerSection).toContain('git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA"');
-    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$|.*\\.test\\.js$)'");
+    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$)'");
   });
 
   it('gives each feature required context one authoritative producer without candidate impersonation', () => {
