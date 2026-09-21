@@ -34,6 +34,11 @@ function decodeBase64Url(value) {
 }
 
 describe('Chief GitHub App boundary', () => {
+  it('uses the Node Web API globals required by this boundary', () => {
+    expect(globalThis.Request).toBeTypeOf('function');
+    expect(globalThis.Response).toBeTypeOf('function');
+  });
+
   it('reports configuration state without leaking credentials', async () => {
     const response = await handleGitHubAppRequest(
       new globalThis.Request('https://chief-ai.example/github/status'),
