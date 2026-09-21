@@ -1,4 +1,5 @@
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
+import { handleChiefControlRoomRecommendation } from './chief-control-room-recommendation.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { getReleaseSha } from './fcr-service.js';
 import { handleGitHubAppRequest } from './github-app.js';
@@ -31,6 +32,10 @@ const httpWorker = {
 
     if (url.pathname === '/api/chief/capability-plan') {
       return handleChiefCapabilityPlan(request);
+    }
+
+    if (url.pathname === '/api/chief/control-room-recommendation') {
+      return handleChiefControlRoomRecommendation(request);
     }
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
