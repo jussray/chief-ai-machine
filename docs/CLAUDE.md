@@ -1,6 +1,6 @@
 # Claude Operating Guide
 
-Claude and Claude Code must read the root `CLAUDE.md`, `AGENTS.md`, and project-local instructions before acting.
+Claude and Claude Code must read the root `CLAUDE.md`, `AGENTS.md`, `docs/ACTIONS_BUDGET_MODE.md`, and project-local instructions before acting.
 
 This guide clarifies release-truth behavior that applies across the Chief AI ecosystem.
 
@@ -15,6 +15,17 @@ The first redteam attacks the premise. The second redteam attacks the selected i
 ## Work rule
 
 Continue the requested task until it is done or until a real blocker is reached. Do not stop at a plan when a focused implementation, verification, or documentation update is available.
+
+## Provider spend mode
+
+While `docs/ACTIONS_BUDGET_MODE.md` says paid semantic peer review is paused:
+
+- do not invoke Claude/Anthropic, Codex/OpenAI, Gemini, Perplexity, DeepSeek, or another paid model solely to review another model's work;
+- keep focused research/propose/implement work available when the task explicitly needs it;
+- use only the repository/runtime's already-configured secure provider key or authorized connector;
+- never request, display, copy, rotate, recreate, or move a raw provider secret;
+- prefer deterministic checks, focused tests, lint/typecheck, Playwright, provider/runtime readback, and exact-head evidence for verification;
+- do not treat the absence of a paid semantic review as permission to weaken merge, security, privacy, or founder-authority gates.
 
 ## GitHub Actions outage classification
 
