@@ -1,6 +1,7 @@
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { getReleaseSha } from './fcr-service.js';
+import { handleGitHubAppRequest } from './github-app.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 
 // Runtime-neutral HTTP Worker surface.
@@ -22,6 +23,10 @@ const httpWorker = {
 
     if (url.pathname === '/mcp') {
       return handleProofModeMcp(request, env);
+    }
+
+    if (url.pathname.startsWith('/github/')) {
+      return handleGitHubAppRequest(request, env);
     }
 
     if (url.pathname === '/api/chief/capability-plan') {
