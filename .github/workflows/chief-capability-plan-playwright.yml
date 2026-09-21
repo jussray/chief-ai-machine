@@ -22,7 +22,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha }}
-  BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+  BASE_SHA: ${{ github.sha }}
   TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_CHECK_APP_ID: '85455'
