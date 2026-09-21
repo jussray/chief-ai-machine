@@ -5,7 +5,7 @@ import {
   createLocalPromptId,
   readCustomPromptState,
   writeCustomPrompts,
-} from './prompt-state.js';
+} from './local-first-prompt-state.js';
 
 export { CUSTOM_PROMPTS_UPDATED_EVENT };
 
