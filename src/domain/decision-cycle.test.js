@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DECISION_CYCLE_CONTRACT,
+  PROMPTOS_CHALLENGE_LENS_CONTRACT,
+  V10_CHALLENGE_LENS_CONFORMANCE,
   V10_DECISION_LENSES,
   createDecisionCycle,
   decisionCycleHash,
@@ -60,6 +62,35 @@ function baseDecision(overrides = {}) {
 }
 
 describe('V10 parallel decision cycle', () => {
+  it('pins Bill Gates and Elon Musk to the canonical PromptOS semantics without changing authority', () => {
+    expect(PROMPTOS_CHALLENGE_LENS_CONTRACT).toBe('promptos/ai-mastery-v6@6.0.0');
+    expect(V10_CHALLENGE_LENS_CONFORMANCE.contract).toBe(PROMPTOS_CHALLENGE_LENS_CONTRACT);
+    expect(V10_CHALLENGE_LENS_CONFORMANCE.authorityEffect).toBe('none');
+
+    expect(V10_CHALLENGE_LENS_CONFORMANCE.billgates).toEqual({
+      role: 'durable-leverage',
+      objective: 'durable_growth',
+      behaviors: [
+        'identify-the-bottleneck-and-highest-leverage-point',
+        'prefer-stable-options-and-reversible-changes',
+        'prefer-generated-docs-shared-fixtures-and-reusable-artifacts',
+        'standardize-a-proven-path-before-scaling',
+        'do-not-scale-an-unproven-path',
+      ],
+    });
+    expect(V10_CHALLENGE_LENS_CONFORMANCE.elonmusk).toEqual({
+      role: 'first-principles-execution',
+      objective: 'upside_growth',
+      behaviors: [
+        'question-requirements-before-accepting-them',
+        'delete-before-optimizing',
+        'simplify-from-first-principles',
+        'prefer-fast-small-reversible-experiments',
+        'accelerate-feedback-and-automate-last',
+      ],
+    });
+  });
+
   it('creates a deterministic proposal-only decision receipt with every required lens', () => {
     const cycle = baseDecision();
 

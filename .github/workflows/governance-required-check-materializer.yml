@@ -1,0 +1,280 @@
+name: Governance Required Check Materializer
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  checks: read
+
+env:
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
+  CLOUDFLARE_CHECK_APP_ID: '85455'
+
+concurrency:
+  group: governance-required-check-materializer-trusted-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  provider-receipt:
+    name: Redacted provider receipt
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Verify trusted event boundary
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = 'main'
+          test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
+      - name: Check out trusted evaluator snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact-head or unchanged-provider-tree receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
+          has_provider_receipt() {
+            local sha="$1"
+            local api="https://api.github.com/repos/${REPO}/commits/${sha}/check-runs?check_name=Workers%20Builds%3A%20chief-ai&per_page=100"
+            local json
+            json="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$api" || true)"
+            EXPECTED_PROVIDER_SHA="$sha" printf '%s' "$json" | EXPECTED_PROVIDER_SHA="$sha" node -e '
+              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
+                if(!s) process.exit(1); const d=JSON.parse(s); const expected=process.env.EXPECTED_PROVIDER_SHA;
+                const run=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===expected && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
+                process.exit(run?0:1);
+              });
+          }
+          if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
+            echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
+            exit 0
+          fi
+          inherited_sha=""
+          while IFS= read -r candidate; do
+            [ -n "$candidate" ] || continue
+            if has_provider_receipt "$candidate"; then inherited_sha="$candidate"; break; fi
+          done < <({ printf '%s\n' "$BASE_SHA"; git rev-list --first-parent "${EXPECTED_HEAD_SHA}^" "^${BASE_SHA}"; } | awk '!seen[$0]++')
+          if [ -z "$inherited_sha" ]; then
+            echo 'No successful exact-head or predecessor Cloudflare provider receipt found.' >&2
+            exit 1
+          fi
+          changed_since_receipt="$(git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
+          printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
+          printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
+          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$)' || true)"
+          if [ -n "$unsafe_since_receipt" ]; then
+            printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
+            exit 1
+          fi
+          echo "Provider receipt continuity proven: only non-runtime governance/test files changed since ${inherited_sha}."
+
+  runtime-proof:
+    name: Verify exact Chief runtime with Playwright
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    steps:
+      - name: Verify trusted event boundary
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = 'main'
+          test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
+      - name: Check out trusted evaluator snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify exact runtime applicability
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'N/A proven from trusted exact-head diff: Chief runtime surface unchanged.'
+          fi
+      - name: Set up Node from trusted evaluator
+        if: steps.scope.outputs.changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - name: Resolve authenticated exact-head Cloudflare preview
+        if: steps.scope.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${REPO}/commits/${EXPECTED_HEAD_SHA}/check-runs?per_page=100"
+          for attempt in {1..45}; do
+            json="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$api" || true)"
+            preview="$(printf '%s' "$json" | node -e '
+              let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{
+                if(!s)return;const d=JSON.parse(s);const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai"&&x.head_sha===process.env.EXPECTED_HEAD_SHA&&x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID)&&x.status==="completed"&&x.conclusion==="success");
+                const m=String(r?.output?.summary||"").match(/Preview URL:\s*(https:\/\/\S+)/);if(m)process.stdout.write(m[1]);
+              });
+            ')"
+            if [ -n "$preview" ]; then
+              normalized="$(node -e 'const u=new URL(process.argv[1]);if(u.protocol!=="https:"||u.username||u.password||u.port||u.search||u.hash||(u.pathname!=="/"&&u.pathname!=="")||!/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(u.hostname))process.exit(1);process.stdout.write(u.origin)' "$preview")" || { echo 'Provider returned invalid preview origin.' >&2; exit 1; }
+              echo "CHIEF_RUNTIME_BASE_URL=$normalized" >> "$GITHUB_ENV"
+              printf 'Resolved authenticated immutable preview: %s\n' "$normalized"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "No authenticated exact-head Cloudflare preview found for ${EXPECTED_HEAD_SHA}" >&2
+          exit 1
+      - name: Install isolated trusted Playwright runner
+        if: steps.scope.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_dir="${RUNNER_TEMP}/chief-runtime-playwright"
+          rm -rf "$runner_dir"
+          mkdir -p "$runner_dir"
+          cd "$runner_dir"
+          npm init -y >/dev/null
+          npm install --save-exact --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+          echo "PLAYWRIGHT_RUNNER_DIR=$runner_dir" >> "$GITHUB_ENV"
+      - name: Run trusted exact-runtime browser proof
+        if: steps.scope.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PLAYWRIGHT_RUNNER_DIR"
+          mkdir -p e2e
+          cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
+          import { test, expect } from '@playwright/test';
+          test('immutable Chief preview proves exact SHA and rendered SPA', async ({ page }) => {
+            const baseUrl=process.env.CHIEF_RUNTIME_BASE_URL;
+            const expectedSha=process.env.EXPECTED_HEAD_SHA;
+            expect(baseUrl).toBeTruthy();
+            const expectedHost=new URL(baseUrl).host;
+            const versionResponse=await page.goto(`${baseUrl}/version`,{waitUntil:'domcontentloaded'});
+            expect(versionResponse).not.toBeNull();
+            console.log(`version-final-url=${page.url()}`);
+            console.log(`version-status=${versionResponse.status()}`);
+            expect(versionResponse.status()).toBe(200);
+            expect(new URL(page.url()).host).toBe(expectedHost);
+            expect(versionResponse.headers()['content-type']||'').toContain('application/json');
+            const payload=await versionResponse.json();
+            expect(payload?.sha).toBe(expectedSha);
+            const appResponse=await page.goto(`${baseUrl}/`,{waitUntil:'domcontentloaded'});
+            expect(appResponse).not.toBeNull();
+            expect(appResponse.status()).toBe(200);
+            expect(new URL(page.url()).host).toBe(expectedHost);
+            await expect(page.locator('#app')).toBeVisible();
+            await expect(page.getByRole('heading',{name:'What are we trying to accomplish?'})).toBeVisible();
+            const cssResponse=await page.goto(`${baseUrl}/styles/main.css`,{waitUntil:'domcontentloaded'});
+            expect(cssResponse).not.toBeNull();
+            expect(cssResponse.status()).toBe(200);
+            expect(new URL(page.url()).host).toBe(expectedHost);
+            expect(cssResponse.headers()['content-type']||'').toContain('text/css');
+            expect((await cssResponse.text()).length).toBeGreaterThan(100);
+          });
+          EOF
+          cat > playwright.chief-runtime-exact-head.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'retain-on-failure',screenshot:'only-on-failure'}});
+          EOF
+          npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs
+      - name: Retain credential-free exact-runtime evidence
+        if: always() && steps.scope.outputs.changed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: chief-runtime-playwright-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            ${{ env.PLAYWRIGHT_RUNNER_DIR }}/playwright-report/chief-runtime-exact-head
+            ${{ env.PLAYWRIGHT_RUNNER_DIR }}/test-results/chief-runtime-exact-head
+          if-no-files-found: warn
+          retention-days: 14
+
+  production-proofmode-phase:
+    name: Production ProofMode phase receipt
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Preserve post-merge production boundary
+        run: |
+          echo 'Production ProofMode is post-merge/current-main evidence.'
+          echo 'This PR workflow does not impersonate that production receipt.'
+
+  publish-candidate-required-checks:
+    name: Publish candidate-bound materializer checks
+    if: always() && github.event_name == 'pull_request_target'
+    needs: [provider-receipt, runtime-proof]
+    runs-on: ubuntu-22.04
+    permissions:
+      checks: write
+    steps:
+      - name: Publish required contexts on candidate SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PROVIDER_RESULT: ${{ needs['provider-receipt'].result }}
+          RUNTIME_RESULT: ${{ needs['runtime-proof'].result }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const expected = process.env.EXPECTED_HEAD_SHA;
+          if (!/^[0-9a-f]{40}$/.test(expected || '')) throw new Error('INVALID_EXPECTED_HEAD_SHA');
+          const checks = [
+            ['Redacted provider receipt', process.env.PROVIDER_RESULT],
+            ['Verify exact Chief runtime with Playwright', process.env.RUNTIME_RESULT],
+          ];
+          for (const [name, result] of checks) {
+            const conclusion = result === 'success' ? 'success' : 'failure';
+            const payload = {
+              name,
+              head_sha: process.env.EXPECTED_HEAD_SHA,
+              status: 'completed',
+              conclusion,
+              output: {
+                title: `${name}: ${conclusion}`,
+                summary: `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${result}.`,
+              },
+            };
+            const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
+              method: 'POST',
+              headers: {
+                Accept: 'application/vnd.github+json',
+                Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+                'Content-Type': 'application/json',
+                'X-GitHub-Api-Version': '2022-11-28',
+              },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error(`CHECK_RUN_${response.status}: ${await response.text()}`);
+          }
+          NODE

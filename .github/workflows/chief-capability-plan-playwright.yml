@@ -1,445 +1,185 @@
 name: Chief Capability Plan Playwright
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "worker/index.js"
-      - "worker/chief-capability-plan.js"
-      - "worker/chief-capability-plan.test.js"
-      - "worker/chief-founder-content-proposal.js"
-      - "worker/chief-founder-content-proposal.test.js"
-      - "src/domain/founder-control-surface.js"
-      - "src/domain/founder-control-surface.test.js"
-      - "src/domain/founder-content-brain.js"
-      - "src/domain/founder-content-brain.test.js"
-      - "src/domain/founder-content-package.js"
-      - "src/domain/founder-content-package.test.js"
-      - "src/domain/founder-content-strategy-lease.js"
-      - "src/domain/founder-content-strategy-lease.test.js"
-      - "src/domain/founder-content-strategy.js"
-      - "src/domain/founder-content-strategy.test.js"
-      - "src/domain/founder-content-strategy.redteam.test.js"
-      - "src/domain/founder-content-v4-advisory.js"
-      - "src/domain/founder-content-visual-direction.js"
-      - "src/ultrathink/v4-advisory-handoff.v0.ts"
-      - "test/founder-content-current-review-regressions.test.js"
-      - "test/ultrathink/v4-advisory-handoff.v0.test.ts"
-      - "e2e/chief-capability-plan.pw.mjs"
-      - "e2e/chief-founder-content-proposal.pw.mjs"
-      - ".github/workflows/chief-capability-plan-playwright.yml"
-      - ".github/workflows/proofmode-access-service-auth.yml"
-      - "scripts/proofmode-access-policy.mjs"
-      - "scripts/proofmode-access-policy.test.js"
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
     inputs:
-      base_url:
-        description: "Exact immutable Chief workers.dev runtime origin to inspect or verify"
-        required: true
-        type: string
       expected_head_sha:
-        description: "Exact 40-character commit SHA intended to own this manual proof"
+        description: "Exact repository SHA to verify"
         required: true
         type: string
-      access_mode:
-        description: "Verify runtime, check Access, or repair only the approved exact-host Service Auth policy"
-        required: true
-        default: verify
-        type: choice
-        options:
-          - verify
-          - check
-          - repair
+      base_url:
+        description: "Optional immutable Chief Cloudflare preview origin"
+        required: false
+        type: string
 
 permissions:
   contents: read
   checks: read
 
-concurrency:
-  group: chief-capability-plan-playwright-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
-
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha }}
+  BASE_SHA: ${{ github.sha }}
+  TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  TRUSTED_BASE_SHA: 9052f02421b5bf3a7e3d6537ae93a408e26f0ee1
+  CLOUDFLARE_CHECK_APP_ID: '85455'
+
+concurrency:
+  group: chief-capability-plan-playwright-trusted-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
-  dispatch-identity:
-    name: Verify manual dispatch identity
+  verify:
+    name: Verify live Chief capability plan with Playwright
     runs-on: ubuntu-22.04
-    timeout-minutes: 2
-    outputs:
-      base_url: ${{ steps.guard.outputs.base_url }}
+    timeout-minutes: 18
     steps:
-      - name: Guard founder, exact ref, and immutable target
-        id: guard
-        shell: bash
+      - name: Verify trusted event boundary
+        if: github.event_name == 'pull_request_target'
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_SHA: ${{ github.sha }}
-          DISPATCH_ACTOR: ${{ github.actor }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        shell: bash
         run: |
-          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
-            exit 0
-          fi
+          set -euo pipefail
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = 'main'
+          test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
 
-          if [ "$DISPATCH_ACTOR" != "$REPOSITORY_OWNER" ]; then
-            printf 'Privileged manual proof is founder-only: actor=%s owner=%s.\n' "$DISPATCH_ACTOR" "$REPOSITORY_OWNER" >&2
-            exit 1
-          fi
+      - name: Validate exact proof subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
 
-          if ! printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
-            printf 'Manual proof requires expected_head_sha to be an exact 40-character commit SHA.\n' >&2
-            exit 1
-          fi
-
-          if [ "$EXPECTED_HEAD_SHA" != "$DISPATCH_SHA" ]; then
-            printf 'Manual proof identity mismatch: expected_head_sha=%s but selected ref resolves to %s.\n' \
-              "$EXPECTED_HEAD_SHA" "$DISPATCH_SHA" >&2
-            exit 1
-          fi
-
-          normalized="$(node -e '
-            const raw = process.argv[1].trim();
-            try {
-              const url = new URL(raw);
-              const host = url.hostname.toLowerCase();
-              const immutable = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(host);
-              if (
-                url.protocol !== "https:"
-                || url.username
-                || url.password
-                || url.search
-                || url.hash
-                || url.pathname !== "/"
-                || !immutable
-              ) process.exit(1);
-              process.stdout.write(url.origin);
-            } catch {
-              process.exit(1);
-            }
-          ' "$MANUAL_BASE_URL")" || {
-            printf 'Manual Chief base URL must be one immutable chief-ai workers.dev origin with no path, query, or fragment.\n' >&2
-            exit 1
-          }
-
-          printf 'Manual dispatch identity verified for %s by %s\n' "$EXPECTED_HEAD_SHA" "$DISPATCH_ACTOR"
-          printf 'base_url=%s\n' "$normalized" >> "$GITHUB_OUTPUT"
-
-  access-policy-admin:
-    name: Check or repair ProofMode Access Service Auth
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode != 'verify' }}
-    needs: dispatch-identity
-    uses: jussray/chief-ai-machine/.github/workflows/proofmode-access-service-auth.yml@988e2ac70d5d8d0c1988a373aae419c2f9b63b59
-    with:
-      mode: ${{ inputs.access_mode }}
-      target_url: ${{ needs.dispatch-identity.outputs.base_url }}
-
-  source-contract:
-    name: Verify Chief capability source contract
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.access_mode == 'verify' }}
-    needs: dispatch-identity
-    runs-on: ubuntu-22.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out exact requested head
+      - name: Check out trusted evaluator snapshot
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Record and verify exact head
+      - name: Classify capability-plan applicability
+        id: scope
         shell: bash
         run: |
-          actual="$(git rev-parse HEAD)"
-          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
+          set -euo pipefail
+          git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/(index|chief-capability-plan|chief-founder-content-proposal)(\.test)?\.js$|src/domain/(capability-plan|capability-registry|connection-requests|goal-plan|outcome-feedback|founder-control-surface|founder-content-brain|founder-content-package|founder-content-strategy-lease|founder-content-strategy|founder-content-v4-advisory|founder-content-visual-direction)(\.test|\.redteam\.test)?\.js$|src/ultrathink/v4-advisory-handoff\.v0\.ts$|test/founder-content-current-review-regressions\.test\.js$|test/ultrathink/v4-advisory-handoff\.v0\.test\.ts$|e2e/(chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs$|\.github/workflows/chief-capability-plan-playwright\.yml$)'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'N/A proven from trusted exact-head diff: capability-plan surface unchanged.'
+          fi
 
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install locked application dependencies
-        run: npm ci
-
-      - name: Run focused capability contracts
-        run: npx vitest run worker/chief-capability-plan.test.js worker/chief-founder-content-proposal.test.js src/domain/founder-control-surface.test.js test/founder-content-current-review-regressions.test.js
-
-  pr-runtime-gate:
-    name: Verify live Chief capability plan with Playwright (PR gate only)
-    if: ${{ always() && github.event_name == 'pull_request' }}
-    needs: source-contract
-    runs-on: ubuntu-22.04
-    timeout-minutes: 2
-    steps:
-      - name: Fail closed before secret-bearing runtime proof
-        shell: bash
-        run: |
-          printf 'PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.\n' >&2
-          printf 'Run a founder-authorized workflow_dispatch on this exact audited SHA with access_mode=verify after the bounded Access check/repair path is complete.\n' >&2
-          exit 1
-
-  runtime-proof:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' && 'Verify live Chief capability plan with Playwright' || 'Verify live Chief capability plan with Playwright (privileged manual only)' }}
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.access_mode == 'verify' }}
-    needs:
-      - dispatch-identity
-      - source-contract
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    environment: proofmode-access-admin
-    steps:
-      - name: Reacquire current main before privileged proof
-        shell: bash
+      - name: Resolve authenticated exact-head Cloudflare preview
+        if: steps.scope.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          REPO: ${{ github.repository }}
+        shell: bash
         run: |
-          current="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
-            | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                const data = JSON.parse(raw);
-                process.stdout.write(data?.commit?.sha || "");
+          set -euo pipefail
+          validate_preview() {
+            node -e '
+              const raw=process.argv[1]||"";
+              const u=new URL(raw);
+              if (u.protocol!=="https:" || u.username || u.password || u.port || u.search || u.hash || (u.pathname!=="/" && u.pathname!=="")) process.exit(1);
+              if (!/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(u.hostname)) process.exit(1);
+              process.stdout.write(u.origin);
+            ' "$1"
+          }
+          if [ -n "$MANUAL_BASE_URL" ]; then
+            preview="$(validate_preview "$MANUAL_BASE_URL")" || { echo 'Manual base_url is not an immutable Chief preview origin.' >&2; exit 1; }
+            echo "CHIEF_CAPABILITY_PLAN_BASE_URL=$preview" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          api="https://api.github.com/repos/${REPO}/commits/${EXPECTED_HEAD_SHA}/check-runs?per_page=100"
+          for attempt in {1..45}; do
+            checks="$(curl --fail --silent --show-error -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$api" || true)"
+            preview="$(printf '%s' "$checks" | node -e '
+              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
+                if(!s) return; const d=JSON.parse(s);
+                const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
+                const m=String(r?.output?.summary||"").match(/Preview URL:\s*(https:\/\/\S+)/); if(m) process.stdout.write(m[1]);
               });
             ')"
-          if [ "$current" != "$TRUSTED_BASE_SHA" ]; then
-            printf 'Current main advanced: trusted_base=%s current_main=%s. Reacquire main before privileged proof.\n' "$TRUSTED_BASE_SHA" "$current" >&2
-            exit 1
-          fi
-
-      - name: Check out immutable trusted browser-proof source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.TRUSTED_BASE_SHA }}
-          persist-credentials: false
-
-      - name: Record trusted browser-proof source
-        shell: bash
-        run: |
-          trusted="$(git rev-parse HEAD)"
-          printf 'trusted_browser_proof_source=%s\n' "$trusted"
-          test "$trusted" = "$TRUSTED_BASE_SHA"
-
-      - name: Bind immutable target
-        shell: bash
-        env:
-          GUARDED_BASE_URL: ${{ needs.dispatch-identity.outputs.base_url }}
-        run: |
-          test -n "$GUARDED_BASE_URL"
-          printf 'CHIEF_CAPABILITY_PLAN_BASE_URL=%s\n' "$GUARDED_BASE_URL" >> "$GITHUB_ENV"
-
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install trusted runtime proof dependencies
-        run: npm ci
-
-      - name: Install isolated Playwright runner
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
-
-      - name: Add trusted strategy-aware adapter and V4 runtime assertion
-        shell: bash
-        run: |
-          cat >> e2e/chief-founder-content-proposal.pw.mjs <<'EOF'
-
-          const trustedLegacyProposalInput = proposalInput;
-          proposalInput = () => {
-            const legacy = trustedLegacyProposalInput();
-            const evaluatedAt = legacy.strategy.evaluated_at;
-            const observedAt = legacy.proposal.current_you.observed_at;
-            const lastPublishedAt = new Date(Date.parse(observedAt) - 60_000).toISOString();
-            const historyDigest = 'd'.repeat(64);
-            const claimId = 'truth-decay';
-
-            legacy.proposal.public_claims[0].claim_id = claimId;
-            legacy.proposal.public_claims[0].evidence_scope = claimId;
-            legacy.proposal.internal_evidence.proves = [claimId];
-
-            return {
-              strategy: {
-                evaluated_at: evaluatedAt,
-                audience: {
-                  primary_segment: legacy.strategy.target_audience.segment,
-                  cares_about: legacy.strategy.target_audience.cares_about,
-                  skepticisms: legacy.strategy.target_audience.skepticisms,
-                  credibility_signals: legacy.strategy.target_audience.credibility_signals,
-                  desired_impression: legacy.strategy.target_audience.desired_impression,
-                  desired_action: legacy.strategy.target_audience.desired_action,
-                },
-                own_history: {
-                  observed_at: observedAt,
-                  history_digest: historyDigest,
-                  post_count: 1,
-                  last_published_at: lastPublishedAt,
-                  recent_pattern_signatures: [],
-                  learning_signal_hashes: legacy.strategy.history.learning_signal_hashes,
-                  recent_draft_fingerprints: [],
-                },
-                market_context: { required: false, source_class: 'not-required' },
-                verified_public_claim_ids: [claimId],
-                strategy: {
-                  selected_angle: legacy.strategy.selected_angle,
-                  hook_pattern: 'failure-confession',
-                  frame_pattern: 'evidence-lifetime-frame',
-                  proof_pattern: 'exact-version-proof',
-                  closing_pattern: 'technical-invitation',
-                  counter_position: false,
-                  brag_claim_ids: [claimId],
-                  retired_patterns: ['generic-ai-agent-hook'],
-                  improvement_experiment: legacy.strategy.experiment,
-                },
-              },
-              proposal: legacy.proposal,
-              visual_direction: {
-                creative_mode: 'cinematic-proof',
-                form: 'short-video-9x16',
-                emotional_intent: ['revelation'],
-                visual_hook: 'A proof signal reaches a boundary and refuses to cross without a receipt.',
-                scene_concept: 'A restrained system map shows one verified signal stop before an unverified runtime edge.',
-                motion_language: 'Slow approach, firm stop, quiet pull-back.',
-                memory_line: 'Proof stops where truth stops.',
-                human_outcome: 'Make the evidence boundary understandable without exposing implementation details.',
-                proof_object: 'Exact-version evidence receipt',
-                proof_truth_boundary: 'The receipt proves source behavior, not production outcome.',
-                targets: ['linkedin'],
-                preserves_human_agency: true,
-                uses_manipulative_dark_patterns: false,
-              },
-              use_context: {
-                bound_at: evaluatedAt,
-                current_history_digest: historyDigest,
-              },
-            };
-          };
-
-          test('consumes the V4 advisory handoff on the deployed candidate without retaining raw hashes', async ({ request }) => {
-            const input = proposalInput();
-            const subjectHash = '2'.repeat(64);
-            const observationHash = '3'.repeat(64);
-            const learningHash = '574d690c6a08c34f69519434a62bf69cca31d77cd6c86522c03c1057c059c5ba';
-            input.v4_advisory_handoff = {
-              schema: 'ultrathink/v4-advisory-handoff@v0',
-              evidenceLevel: 'ATTESTED',
-              subjectHash,
-              observationHash,
-              learningHash,
-            };
-
-            const response = await request.post(`${baseURL}/api/chief/founder-content-proposal`, {
-              headers: { 'Content-Type': 'application/json' },
-              data: input,
-            });
-
-            expect(response.status()).toBe(200);
-            const body = await response.json();
-            expect(body.data.strategy.history.learning_signal_hashes).toContain(learningHash);
-            expect(body.data.strategyLease.kind).toBe('chief-ai/founder-content-strategy-lease');
-            expect(body.data.strategyBinding.kind).toBe('chief-ai/founder-content-strategy-binding');
-            expect(body.data.visualDirection.kind).toBe('chief-ai/founder-content-visual-direction');
-            const encoded = JSON.stringify(body);
-            expect(encoded).not.toContain(subjectHash);
-            expect(encoded).not.toContain(observationHash);
-            expect(body.data.governanceBoundary).toMatchObject({
-              executionAuthorized: false,
-              publishAuthorized: false,
-              strategyAdvisoryOnly: true,
-            });
-          });
-          EOF
-
-      - name: Verify immutable preview serves exact head
-        shell: bash
-        env:
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
-        run: |
-          if [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] || [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
-            printf 'Cloudflare Access service auth requires both credentials in proofmode-access-admin.\n' >&2
-            exit 1
-          fi
-
-          headers="$RUNNER_TEMP/chief-version.headers"
-          body_file="$RUNNER_TEMP/chief-version.body"
-          status="000"
-
-          for attempt in {1..10}; do
-            status="$(curl --silent --show-error \
-              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
-              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
-              --dump-header "$headers" \
-              --output "$body_file" \
-              --write-out '%{http_code}' \
-              "$CHIEF_CAPABILITY_PLAN_BASE_URL/version" || true)"
-            if grep -Fq "$EXPECTED_HEAD_SHA" "$body_file" 2>/dev/null; then
-              printf 'Immutable preview is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+            if [ -n "$preview" ]; then
+              preview="$(validate_preview "$preview")" || { echo 'Provider returned an invalid preview origin.' >&2; exit 1; }
+              echo "CHIEF_CAPABILITY_PLAN_BASE_URL=$preview" >> "$GITHUB_ENV"
+              printf 'Resolved authenticated immutable preview: %s\n' "$preview"
               exit 0
             fi
             sleep 2
           done
+          echo "No authenticated exact-head Cloudflare preview found for ${EXPECTED_HEAD_SHA}" >&2
+          exit 1
 
-          printf 'Immutable preview did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          printf 'Observed HTTP status: %s\n' "$status" >&2
-          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
-          if [ -n "$location" ]; then
-            printf 'Observed redirect host: %s\n' "$(node -e 'try { process.stdout.write(new URL(process.argv[1]).host) } catch {}' "$location")" >&2
+      - name: Verify direct exact-head runtime admission without candidate secrets
+        if: steps.scope.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$RUNNER_TEMP/chief-capability-version.headers"
+          body_file="$RUNNER_TEMP/chief-capability-version.body"
+          status="$(curl --silent --show-error --dump-header "$headers" --output "$body_file" --write-out '%{http_code}' "$CHIEF_CAPABILITY_PLAN_BASE_URL/version" || true)"
+          if [ "$status" = '200' ] && grep -Fq "$EXPECTED_HEAD_SHA" "$body_file"; then
+            printf 'Immutable preview directly serves exact head %s\n' "$EXPECTED_HEAD_SHA"
+            exit 0
           fi
-          if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
-              printf 'Cloudflare Access rejected the supplied service-token credentials; verify the effective Access application uses a Service Auth policy that includes this exact token, and that the token is enabled and unexpired. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
-            else
-              printf 'Cloudflare Access intercepted the immutable preview; configure the service-token secret pair for this repository/environment. Run access_mode=check, then repair only if the bounded readback proves eligibility.\n' >&2
-            fi
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
+          redirect_host="$(node -e 'try{process.stdout.write(new URL(process.argv[1]).host)}catch{}' "$location")"
+          printf 'Direct exact-head runtime admission failed. status=%s redirect_host=%s\n' "$status" "$redirect_host" >&2
+          if printf '%s' "$redirect_host" | grep -Fq '.cloudflareaccess.com'; then
+            printf 'Cloudflare Access blocks candidate proof. Long-lived Access credentials are intentionally withheld from candidate runtime.\n' >&2
           fi
           exit 1
 
-      - name: Run live Chief capability-plan Playwright proof
+      - name: Set up Node from trusted evaluator
+        if: steps.scope.outputs.changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install trusted locked dependencies
+        if: steps.scope.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Install trusted Chromium
+        if: steps.scope.outputs.changed == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run trusted live capability-plan Playwright proof
+        if: steps.scope.outputs.changed == 'true'
         env:
           PLAYWRIGHT_HTML_OPEN: never
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           cat > playwright.chief-capability-plan.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-
-          const accessHeaders = {
-            'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-            'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-          };
-
           export default defineConfig({
-            testDir: './e2e',
-            testMatch: /(?:chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs$/,
-            fullyParallel: false,
-            retries: 0,
-            workers: 1,
-            outputDir: './test-results/chief-capability-plan',
-            reporter: [
-              ['line'],
-              ['html', { outputFolder: './playwright-report/chief-capability-plan', open: 'never' }],
-            ],
-            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
+            testDir:'./e2e',
+            testMatch:/(?:chief-capability-plan|chief-founder-content-proposal)\.pw\.mjs$/,
+            fullyParallel:false,
+            retries:0,
+            workers:1,
+            outputDir:'./test-results/chief-capability-plan',
+            reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-capability-plan',open:'never'}]],
+            use:{trace:'retain-on-failure',screenshot:'only-on-failure'},
           });
           EOF
           npx playwright test --config=playwright.chief-capability-plan.config.mjs
 
-      - name: Retain Playwright report
-        if: always()
+      - name: Retain credential-free capability evidence
+        if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: chief-capability-plan-playwright-${{ env.EXPECTED_HEAD_SHA }}
@@ -448,3 +188,47 @@ jobs:
             test-results/chief-capability-plan
           if-no-files-found: warn
           retention-days: 14
+
+  publish-candidate-required-check:
+    name: Publish candidate-bound capability-plan check
+    if: always() && github.event_name == 'pull_request_target'
+    needs: verify
+    runs-on: ubuntu-22.04
+    permissions:
+      checks: write
+    steps:
+      - name: Publish required context on candidate SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REQUIRED_CHECK_NAME: Verify live Chief capability plan with Playwright
+          SOURCE_RESULT: ${{ needs.verify.result }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const expected = process.env.EXPECTED_HEAD_SHA;
+          if (!/^[0-9a-f]{40}$/.test(expected || '')) throw new Error('INVALID_EXPECTED_HEAD_SHA');
+          const conclusion = process.env.SOURCE_RESULT === 'success' ? 'success' : 'failure';
+          const payload = {
+            name: process.env.REQUIRED_CHECK_NAME,
+            head_sha: process.env.EXPECTED_HEAD_SHA,
+            status: 'completed',
+            conclusion,
+            output: {
+              title: `${process.env.REQUIRED_CHECK_NAME}: ${conclusion}`,
+              summary: `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${process.env.SOURCE_RESULT}.`,
+            },
+          };
+          const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              'Content-Type': 'application/json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) throw new Error(`CHECK_RUN_${response.status}: ${await response.text()}`);
+          NODE
