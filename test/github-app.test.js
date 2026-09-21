@@ -36,7 +36,7 @@ function decodeBase64Url(value) {
 describe('Chief GitHub App boundary', () => {
   it('reports configuration state without leaking credentials', async () => {
     const response = await handleGitHubAppRequest(
-      new Request('https://chief-ai.example/github/status'),
+      new globalThis.Request('https://chief-ai.example/github/status'),
       {
         GITHUB_APP_ID: '12345',
         GITHUB_PRIVATE_KEY: 'private-key-value',
@@ -61,7 +61,7 @@ describe('Chief GitHub App boundary', () => {
 
   it('fails closed when webhook verification is not configured', async () => {
     const response = await handleGitHubAppRequest(
-      new Request('https://chief-ai.example/github/webhook', {
+      new globalThis.Request('https://chief-ai.example/github/webhook', {
         method: 'POST',
         body: '{}',
       }),
@@ -77,7 +77,7 @@ describe('Chief GitHub App boundary', () => {
 
   it('rejects an invalid webhook signature', async () => {
     const response = await handleGitHubAppRequest(
-      new Request('https://chief-ai.example/github/webhook', {
+      new globalThis.Request('https://chief-ai.example/github/webhook', {
         method: 'POST',
         headers: {
           'X-GitHub-Event': 'push',
@@ -106,7 +106,7 @@ describe('Chief GitHub App boundary', () => {
     expect(await verifyGitHubWebhookSignature(body, signature, secret)).toBe(true);
 
     const response = await handleGitHubAppRequest(
-      new Request('https://chief-ai.example/github/webhook', {
+      new globalThis.Request('https://chief-ai.example/github/webhook', {
         method: 'POST',
         headers: {
           'X-GitHub-Event': 'ping',
@@ -178,7 +178,7 @@ describe('Chief GitHub App boundary', () => {
       jwtFactory: async () => 'signed-app-jwt',
       fetchImpl: async (url, options) => {
         calls.push({ url, options });
-        return new Response(JSON.stringify({
+        return new globalThis.Response(JSON.stringify({
           token: 'installation-token',
           expires_at: '2026-09-21T05:00:00Z',
         }), { status: 201 });
