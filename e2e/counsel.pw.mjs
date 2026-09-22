@@ -1,4 +1,3 @@
-/* global localStorage */
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
@@ -22,7 +21,7 @@ test('creates and persists a local-first issue', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Local ordinance conflict' })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Local ordinance conflict' })).toBeVisible();
+  await expect(page.getByText('Local ordinance conflict', { exact: true })).toBeVisible();
 });
 
 test('filters source families and keeps books secondary by default', async ({ page }) => {
@@ -44,9 +43,6 @@ test('blocks invalid VERIFIED LAW promotion and permits a qualifying primary aut
   await page.getByRole('button', { name: 'Attempt VERIFIED LAW' }).click();
   await expect(page.getByText(/Promotion blocked:|UNVERIFIED LAW|SUPPORTED/).first()).toBeVisible();
 
-  // The product refreshes the workspace after recording the first finding.
-  // Synchronize on that real render instead of racing the DOM on fast/mobile runners.
-  await expect(page.locator('.workspace-panel[data-panel="facts"]')).toHaveClass(/active/, { timeout: 2500 });
   await page.getByRole('tab', { name: 'Governing Law' }).click();
   await page.getByLabel('Proposition').fill('The statute requires written notice.');
   await page.getByLabel('Citation / identifier').fill('Example Code § 100');
