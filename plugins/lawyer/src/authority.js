@@ -52,15 +52,15 @@ export function classifyLegalSource(source = {}) {
   const sourceType = normalize(source.sourceType).toLowerCase();
   const sourceRole = normalize(source.sourceRole).toLowerCase();
 
-  if (sourceRole === 'primary' || PRIMARY_SOURCE_TYPES.has(sourceType)) {
-    return 'primary';
-  }
-  if (sourceRole === 'secondary' || SECONDARY_SOURCE_TYPES.has(sourceType)) {
-    return 'secondary';
-  }
-  if (sourceRole === 'discovery') {
-    return 'discovery';
-  }
+  // Explicit, jurisdiction-reviewed registry roles outrank generic type
+  // fallbacks. A research guide can be a discovery bridge without becoming a
+  // secondary authority merely because its generic type is research_guide.
+  if (sourceRole === 'primary') return 'primary';
+  if (sourceRole === 'secondary') return 'secondary';
+  if (sourceRole === 'discovery') return 'discovery';
+
+  if (PRIMARY_SOURCE_TYPES.has(sourceType)) return 'primary';
+  if (SECONDARY_SOURCE_TYPES.has(sourceType)) return 'secondary';
   return 'unknown';
 }
 
