@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'counsel.html'
+      - 'public-face.html'
       - 'styles/counsel.css'
       - 'src/counsel.js'
       - 'plugins/lawyer/**'
