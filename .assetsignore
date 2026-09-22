@@ -12,6 +12,7 @@
 .env.*
 .dev.vars
 .dev.vars.*
+.npmrc
 **/*.pem
 **/*.key
 **/*.p12
@@ -21,6 +22,7 @@
 **/*.jks
 **/*.keystore
 **/*.sqlite
+**/*.sqlite-*
 **/*.db
 CLAUDE.md
 CHATGPT.md
@@ -65,4 +67,5 @@ config/
 .mcp.json
 .mcp.example.json
 .agents/
+skills/
 skills-lock.json

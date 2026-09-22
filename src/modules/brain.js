@@ -3,9 +3,11 @@ import {
   ASSET_KINDS,
   ASSET_STATUSES,
   createIntelligenceAsset,
+} from '../domain/intelligence.js';
+import {
   upsertIntelligenceAsset,
   validateIntelligenceAsset,
-} from '../domain/intelligence.js';
+} from '../domain/intelligence-history.js';
 
 export const INTELLIGENCE_STORAGE_KEY = 'chief-intelligence-assets-v1';
 
