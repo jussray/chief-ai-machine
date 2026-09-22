@@ -1,3 +1,4 @@
+/* global FormData */
 import {
   LEGAL_AREA_TAXONOMY,
   LEGAL_BOOK_CATEGORIES,
@@ -181,7 +182,7 @@ function renderAuthorityMap() {
 }
 
 function coverageState(source) {
-  if (source.id === 'us-code-house' || source.id === 'supreme-court-opinions') return 'implemented';
+  if (source.adapterImplemented === true) return 'implemented';
   return source.baseUrl ? 'linked' : 'missing';
 }
 
@@ -285,7 +286,7 @@ function bindWorkspace(issue) {
     renderWorkspace();
     toast('Local issue deleted');
   });
-  $('#issueDescription')?.addEventListener('change', (event) => { issue.description = event.target.value; addResearchLog(issue, 'Issue description updated'); persistIssues(); renderIssues(); });
+  $('#issueDescription')?.addEventListener('change', (event) => updateIssue({ description: event.target.value }, 'Issue description updated'));
   $('#issueFacts')?.addEventListener('change', (event) => { issue.facts = event.target.value; addResearchLog(issue, 'Facts updated'); persistIssues(); });
   $('#issueJurisdiction')?.addEventListener('change', (event) => { issue.jurisdiction = event.target.value; addResearchLog(issue, 'Jurisdiction edited', event.target.value); persistIssues(); renderIssues(); });
   $('#issueAsOf')?.addEventListener('change', (event) => { issue.asOfDate = event.target.value; addResearchLog(issue, 'As-of date updated', event.target.value); persistIssues(); });
