@@ -1,3 +1,4 @@
+/* global localStorage */
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
