@@ -36,7 +36,7 @@ jobs:
         run: npx vitest run plugins/lawyer/src/authority.test.js
       - name: Start static server
         run: |
-          python3 -m http.server 4173 --bind 127.0.0.1:4173 > /tmp/counsel-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/counsel-http.log 2>&1 &
           echo $! > /tmp/counsel-http.pid
           for i in {1..20}; do
             curl --fail --silent http://127.0.0.1:4173/counsel.html >/dev/null && exit 0
