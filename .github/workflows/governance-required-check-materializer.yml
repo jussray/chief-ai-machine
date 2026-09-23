@@ -61,6 +61,7 @@ jobs:
                 const run=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===expected && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
                 process.exit(run?0:1);
               });
+            '
           }
           if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
             echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
