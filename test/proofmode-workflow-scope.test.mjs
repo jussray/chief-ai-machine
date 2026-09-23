@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'vitest';
 
 const workflow = readFileSync('.github/workflows/proofmode-mcp-playwright.yml', 'utf8');
 
