@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-09-13.2",
+  "contractVersion": "2026-09-23.1",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
@@ -43,6 +43,16 @@
     },
     "continuityBoundary": "Fingerprints and proof cookies remain separate, non-secret, non-authorizing state markers for each system. Cross-system evidence may update or invalidate the recipient's state only after recipient-side verification; it never transfers authority.",
     "cooperationBoundary": "Founder Control Room and Chief AI may call, observe, and inform one another while remaining independently valid systems. A joint claim requires distinct receipts for each participating system; one system's green or red state never silently replaces the other's."
+  },
+  "commercialPackaging": {
+    "technicalTopology": "standalone-peers",
+    "defaultPublicFounderSoftwareIdentity": "Founder Control Room",
+    "chiefTechnicalIndependence": true,
+    "chiefDefaultCommercialRole": "monetizable-module",
+    "chiefDefaultCommercialPackaging": "inside-founder-control-room",
+    "customerAcquisitionRule": "Chief may remain independently callable and portable without requiring a separate customer-acquisition funnel, price, or competing founder-OS story.",
+    "separateOfferGate": "A separate Chief commercial offer requires independent customer, payer, distinct value, revenue mechanism, repeat-payment evidence, and proof that separate packaging improves paid demand rather than fragmenting the Founder Control Room offer.",
+    "truthBoundary": "Technical independence, repository existence, runtime separation, internal usage, or successful tests do not prove that Chief should be marketed or priced as a separate company."
   },
   "roles": {
     "controlRoom": [
