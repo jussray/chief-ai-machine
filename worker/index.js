@@ -2,6 +2,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import {
   createFounderControlRoomCapabilityPlan,
   getFounderControlRoomServiceVersion,
+  ingestFounderControlRoomBipEvidence,
 } from './fcr-service.js';
 import httpWorker from './http-worker.js';
 
@@ -12,6 +13,10 @@ export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
 
   async createCapabilityPlan(input) {
     return createFounderControlRoomCapabilityPlan(this.env, input);
+  }
+
+  async ingestBipEvidence(input) {
+    return ingestFounderControlRoomBipEvidence(this.env, input);
   }
 }
 
