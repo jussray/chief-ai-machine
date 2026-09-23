@@ -1,5 +1,9 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
+import {
+  BIP_FCR_EVIDENCE_CONTRACT,
+  ingestBipFounderControlRoomEvidence,
+} from '../src/domain/bip-fcr-evidence.js';
 
 export const CHIEF_FCR_RPC_CONTRACT = 'juss-v10/chief-fcr-rpc@v1';
 export const CHIEF_CAPABILITY_PLAN_CONTRACT = 'juss-v10/capability-plan@v1';
@@ -38,6 +42,7 @@ export function getFounderControlRoomServiceVersion(_env, artifactReleaseSha = B
     service: CHIEF_SERVICE_IDENTITY,
     rpcContract: CHIEF_FCR_RPC_CONTRACT,
     capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
+    bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
     releaseSha: getArtifactReleaseSha(artifactReleaseSha),
   };
 }
@@ -63,4 +68,33 @@ export async function createFounderControlRoomCapabilityPlan(
     releaseSha: getArtifactReleaseSha(artifactReleaseSha),
     result: await response.json(),
   };
+}
+
+export function ingestFounderControlRoomBipEvidence(
+  _env,
+  input,
+  artifactReleaseSha = BUILD_RELEASE_SHA,
+) {
+  try {
+    const result = ingestBipFounderControlRoomEvidence(input);
+    return {
+      ok: true,
+      status: 200,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
+      releaseSha: getArtifactReleaseSha(artifactReleaseSha),
+      result,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 422,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
+      releaseSha: getArtifactReleaseSha(artifactReleaseSha),
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
