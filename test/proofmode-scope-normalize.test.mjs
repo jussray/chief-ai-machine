@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
-import test from 'node:test';
+import { test } from 'vitest';
 
 function normalize(mode, input) {
   const result = spawnSync(
