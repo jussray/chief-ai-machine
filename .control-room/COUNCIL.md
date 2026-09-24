@@ -4,6 +4,21 @@ Status: active control-room documentation for `jussray/chief-ai-machine`.
 
 The Council is a multi-model reasoning and review layer. It does not replace current repository/provider/runtime evidence or the founder's exact authority gate.
 
+## Resident Council invariant
+
+The Council is resident in two places at once:
+
+1. **Founder assistant host**: ChatGPT or a successor founder-facing host carries standing Council selection, challenge, reconciliation, continuity, and evidence discipline for founder work.
+2. **This project Control Room**: this repository carries the project-local Council contract and machine-readable residency contract at `.control-room/council-residency.contract.json`.
+
+These are two residences of the same logical Founder Council, not one centralized executor. Project agents must read the residency contract with this file before material Council work.
+
+Default invocation is automatic when Council participation is materially useful. Route the smallest useful task-specific set of seats rather than waking every provider by default. Product-user workflows may invoke the Council behind the scenes only when project policy allows it; users receive the governed product outcome, not raw Council deliberation, founder controls, provider credentials, or cross-project private data.
+
+A named Council seat counts as **live** only when an actual connector/API/runtime call is verified by provider evidence. Simulated role analysis must never be labeled as a live provider response.
+
+All execution remains inside the owning Control Room's local authority membrane. Cross-project Council reasoning may coordinate evidence and recommendations, but cross-project mutation must be handed to the Control Room that owns the affected system.
+
 ## Members
 
 - **Founder**: final human authority for separately gated actions.
