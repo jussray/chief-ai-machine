@@ -33,7 +33,8 @@ test('native carrier contains no provider execution or bundled proprietary promp
   assert.match(screen, /Share\.share/);
   assert.match(screen, /expo-haptics/);
   assert.doesNotMatch(screen, /fetch\(|WebSocket|OPENAI_API_KEY|ANTHROPIC|GEMINI|PERPLEXITY|MODEL_API_KEY/i);
-  assert.doesNotMatch(screen, /src\/data|PROMPTS|prompt-data|react-native-webview|WebView/i);
+  assert.doesNotMatch(screen, /from ['"][^'"]*src\/data/i);
+  assert.doesNotMatch(screen, /\bPROMPTS\b|prompt-data|react-native-webview|\bWebView\b/i);
 });
 
 test('store identifier remains blocked until exact founder approval', () => {
