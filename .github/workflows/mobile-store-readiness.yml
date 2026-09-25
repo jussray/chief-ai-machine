@@ -56,6 +56,14 @@ jobs:
       - name: Install mobile dependencies
         run: npm install --prefix mobile --no-audit --no-fund
 
+      - name: Retain generated dependency lock
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: chief-mobile-lock-${{ steps.proof.outputs.head }}
+          path: mobile/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Verify canonical schema and privacy contract
         run: npm --prefix mobile run verify
 
