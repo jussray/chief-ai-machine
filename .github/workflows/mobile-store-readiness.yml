@@ -43,7 +43,11 @@ jobs:
           persist-credentials: false
 
       - name: Record exact proof subject
-        run: echo "proof_subject=$(git rev-parse HEAD)"
+        id: proof
+        run: |
+          head="$(git rev-parse HEAD)"
+          echo "proof_subject=$head"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -64,7 +68,7 @@ jobs:
       - name: Retain bundle proof
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: chief-mobile-bundles-${{ github.sha }}
+          name: chief-mobile-bundles-${{ steps.proof.outputs.head }}
           path: |
             mobile/dist/android
             mobile/dist/ios
