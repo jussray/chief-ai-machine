@@ -33,7 +33,7 @@ WHAT user outcome stays stable?
 WHERE does truth live and which project owns writes?
 WHEN is evidence stale or the workflow stopped?
 WHY should this be reusable instead of one-off?
-HOW does FCR run, verify, and roll it back?
+HOW does FCR run, verify, roll it back, and know the task is actually clear?
 ```
 
 Then emit this minimum packet:
@@ -57,6 +57,8 @@ Then emit this minimum packet:
   "model_route": [],
   "council_route": [],
   "proof_required": [],
+  "required_proof_stage": "goal-matched proof stage",
+  "task_clearance_rule": "predicate that must be true before CLEARED",
   "rollback": [],
   "privacy_class": "bounded classification",
   "cost_budget": "bounded budget or unknown",
@@ -74,6 +76,28 @@ Then emit this minimum packet:
 Do not expose `internal_stack` as a required user ritual.
 
 The user asks for the outcome. Chief/FCR route the machinery.
+
+## Task clearance
+
+Chief must compile the task-clearance predicate from the original goal instead of assuming every successful action means the task is done.
+
+Use the shared lifecycle:
+
+`OPEN | ACTIVE | BLOCKED | PROOF_PENDING | PROVEN | CLEARED`
+
+Chief must include the goal-matched `required_proof_stage` and `task_clearance_rule` in the candidate so FCR can keep the task open until the right evidence exists.
+
+Examples:
+
+- source-authoring goal → source proof may be sufficient;
+- merge goal → source/CI is not sufficient; require `MERGED`;
+- deploy goal → merged is not sufficient; require `DEPLOYED`;
+- live-fix goal → deployment is not sufficient; require `RUNTIME VERIFIED`;
+- real user/business outcome goal → runtime success is not automatically sufficient; require `OUTCOME VERIFIED` or the applicable domain outcome contract.
+
+When evidence is partial, Chief reports the achieved proof stage plus `remaining_gate`; it must not recommend `CLEARED`.
+
+If the exact proof subject changes, stale predecessor proof is preserved as history but the task returns to `PROOF_PENDING` until the successor is re-proven.
 
 ## Council
 
@@ -128,6 +152,8 @@ Chief sends the candidate to FCR for one of these dispositions:
 
 Chief may recommend a disposition. FCR/founder policy controls the durable state transition.
 
+Workflow disposition and task clearance are separate. A workflow may be `active` while a particular run remains `PROOF_PENDING`; a workflow may be `candidate` while its source-authoring task is already `CLEARED`. Do not collapse these state machines.
+
 ## Learning loop
 
 After FCR runs the workflow, Chief may consume sanitized outcome receipts to improve routing and recommend changes.
@@ -136,4 +162,6 @@ Repeated success is evidence for promotion, not automatic authority. Repeated fa
 
 ## Definition of done for this handoff
 
-A candidate is ready for FCR evaluation when another authorized session can understand the intended user outcome, run requirements, proof, failure/rollback behavior, model/Council routing, and authority boundaries without needing the original chat transcript.
+A candidate is ready for FCR evaluation when another authorized session can understand the intended user outcome, run requirements, proof, required proof stage, task-clearance predicate, failure/rollback behavior, model/Council routing, and authority boundaries without needing the original chat transcript.
+
+The handoff task itself clears only when those requirements are proven in the exact candidate artifact. It does not clear merely because a candidate object was generated.
