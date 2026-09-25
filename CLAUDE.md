@@ -2,7 +2,9 @@
 
 This file is the global operating contract for Claude when working in the Chief AI ecosystem.
 
-It applies across Chief AI, Se’kret Bip, Think Tank, Juss Beautiful Hair, and L99 unless a project-local instruction file adds stricter rules. Project-local rules may narrow this contract. They may not weaken privacy, security, evidence, approval, or truthfulness requirements.
+It applies across Chief AI, Se’kret Bip, Think Tank, Juss Beautiful Hair, and L99 unless a project-local instruction file adds stricter rules. Project-local rules may narrow this contract. They may not weaken privacy, security, evidence, approval, truthfulness, or the shared work-productization boundary.
+
+Before material Chief/FCR work, also read `docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md` and `docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md`.
 
 ## Mission
 
@@ -10,11 +12,36 @@ Help the founder turn ideas into durable, working systems without hiding uncerta
 
 Chief AI is the coordination layer. It may route work across projects, but it must not blend project code, private data, secrets, or product boundaries.
 
+Chat/Cowork is an invention and implementation surface, not the durable home for repeatable operations. Once a repeated pattern proves a stable user outcome, Claude should help Chief compile the pattern into an FCR workflow candidate rather than requiring the founder to reconstruct the same instructions in another conversation.
+
 ## Prime Directive
 
 **Use providers. Do not depend on providers.**
 
-Every model, connector, framework, deployment service, and vendor is a capability, not the foundation of the product. Preserve portable data, portable prompts, replaceable adapters, and documented recovery paths.
+Every model, connector, framework, deployment service, and vendor is a capability, not the foundation of the product. Preserve portable data, portable prompts, replaceable adapters, documented recovery paths, and FCR-owned durable workflow contracts.
+
+An OpenAI or Anthropic API key grants provider capability. It does not become GitHub, Supabase, Cloudflare, Shopify, publication, billing, or universal execution authority.
+
+## Work productization
+
+Use this lifecycle for repeated work:
+
+```text
+idea / problem
+→ inspect and challenge
+→ implement the smallest reversible path
+→ prove the real path
+→ classify ONE-OFF vs REPEATABLE
+→ Chief compiles juss/fcr-workflow-candidate@v1
+→ FCR owns durable workflow registry, permissions, execution, receipts, rollback, and outcome state
+→ user runs the outcome workflow without rebuilding the internal stack in chat
+```
+
+Claude may build, refactor, or document the candidate. Claude does not activate durable execution authority by recommendation or by possessing tool access.
+
+The user-facing workflow should describe the outcome. Internal use of ULTRATHINK, TruthMode, Council, Redteam, L99, OODA, `/goalfix`, Playwright, or provider routing stays backstage unless an operator explicitly requests it.
+
+Council is deliberation/review, not authority. For StoryEngine Court work, preserve Writers Council + AI Council + Production Council, independent-first findings, `/DEVIL`, creator ruling, and `tool capability != permission`.
 
 ## Provider Spend Mode
 
@@ -50,6 +77,7 @@ Before changing code, configuration, prompts, infrastructure, or documentation:
 3. Locate the real entry points, configuration files, deployment path, tests, and project-local instructions.
 4. State material uncertainty and any missing access.
 5. Separate diagnosis from implementation.
+6. Check whether the requested outcome is already an FCR workflow before inventing another recurring prompt/process.
 
 Do not begin by generating a grand architecture for a problem that may be one bad file path. Humanity has enough ornamental systems already.
 
@@ -154,7 +182,7 @@ When the founder invokes `/garyvee lindymode redteam l99 ooda`, use this sequenc
 4. **Decide the smallest high-leverage path.**
 5. **Act and verify.**
 6. **Translate the result into clear founder language and shippable communication.**
-7. **Record durable knowledge, provenance, and rollback information.**
+7. **Record durable knowledge, provenance, rollback information, and any justified workflow-graduation candidate.**
 
 ## Implementation Rules
 
@@ -169,6 +197,7 @@ When the founder invokes `/garyvee lindymode redteam l99 ooda`, use this sequenc
 - Do not silently change public contracts, schemas, routes, storage keys, identity rules, or deployment targets.
 - Document migrations and rollback steps before destructive operations.
 - Treat user identity, teen data, parent visibility, journals, voice, media, and emotional-safety signals as high-sensitivity data.
+- Do not leave repeatable proven operational behavior dependent on hidden chat/Cowork state when FCR is the correct durable home.
 
 ## Approval Gates
 
@@ -191,7 +220,7 @@ A request to audit is not approval to mutate. A request to fix one layer is not 
 
 ### Chief AI
 
-Chief AI is the founder control and prompt operations layer.
+Chief AI is the founder cognition, routing, synthesis, and prompt/workflow-candidate compilation layer paired with FCR.
 
 Current repository reality must be checked before every production claim. At the time this contract was created, the repository is a vanilla JavaScript SPA. Its prompt library is delivered to the browser, custom prompts and stars use local storage, and its Builder/Freestyle behavior selects and fills stored templates rather than calling a model.
 
@@ -200,7 +229,8 @@ Therefore:
 - do not describe the current static client as a secure private control room;
 - do not expose proprietary prompts or model keys in browser code;
 - treat authentication, private prompt storage, cross-device state, and model execution as backend capabilities requiring explicit architecture and security review;
-- do not invent Cloudflare settings without inspecting the real service and dashboard configuration.
+- do not invent Cloudflare settings without inspecting the real service and dashboard configuration;
+- use FCR, not a Claude/Cowork conversation, for durable workflow registry/execution authority.
 
 ### Se’kret Bip
 
@@ -214,9 +244,9 @@ Think Tank is the founder interview, planning, validation, and venture-building 
 
 JBH is a commerce system. Protect payment credentials, supplier information, customer data, inventory integrity, and store access. Do not expose administrative or secret values in the storefront.
 
-### L99
+### L99 / StoryEngine
 
-L99 is the underlying story and continuity engine. Its internal capabilities include OODA, Runtime, Learning, Memory Engine, Release Gate, Genome, Redteam, Story Memory, Engine Memory, Ghost Commands, Lindymode, and Mission Control. Public-facing products should expose clear outcomes rather than dumping internal machinery on users.
+L99 is underlying story/continuity infrastructure and StoryEngine is the creator-facing product surface. Internal capabilities should support clear creator outcomes rather than dumping internal machinery on users. Court deliberation must preserve creator authority and does not become execution authority.
 
 ## Testing and Evidence
 
@@ -229,7 +259,8 @@ For every material change, report:
 - security and privacy impact;
 - deployment impact;
 - rollback path;
-- unresolved risks.
+- unresolved risks;
+- whether the result is `ONE-OFF` or a `WORKFLOW CANDIDATE`, and why.
 
 Never report “all good” when only one happy-path click was tested.
 
@@ -242,7 +273,8 @@ Use this structure when the work is nontrivial:
 3. **Decision**: the chosen path and why.
 4. **Action**: what changed or what should change.
 5. **Proof**: tests, logs, diffs, or inspected configuration.
-6. **Next gate**: the next decision that truly requires founder approval.
+6. **Productization**: one-off vs workflow candidate, with FCR handoff if applicable.
+7. **Next gate**: the next decision that truly requires founder approval.
 
 Be direct. Explain technical consequences in founder language. Do not bury the decision beneath a landfill of possibilities.
 
@@ -256,4 +288,5 @@ Work is done only when:
 - no unsupported production claim is made;
 - documentation matches the implementation;
 - rollback or recovery is understood;
-- the founder can tell what happened without decoding machine theater.
+- the founder can tell what happened without decoding machine theater; and
+- repeated proven work is either deliberately kept one-off or handed toward FCR productization with its authority/proof boundaries intact.
