@@ -53,8 +53,10 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Resolve mobile dependencies for lock refresh
-        run: npm install --prefix mobile --no-audit --no-fund
+      - name: Resolve clean Expo SDK 57 dependency graph
+        run: |
+          rm -f mobile/package-lock.json
+          npm install --prefix mobile --no-audit --no-fund
 
       - name: Update generated lockfile only when changed
         if: github.event_name == 'push'
@@ -91,7 +93,7 @@ jobs:
             method: 'PUT',
             headers,
             body: JSON.stringify({
-              message: 'chore(mobile): align Expo SDK 56 dependency lock',
+              message: 'chore(mobile): lock Expo SDK 57 dependencies',
               content: generatedBase64,
               sha: current.sha,
               branch: GH_BRANCH,
