@@ -5,7 +5,15 @@ on:
     paths:
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
+      - 'docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md'
+      - 'docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'CHATGPT.md'
+      - 'PERPLEXITY.md'
       - 'scripts/verify-founder-chief-pair.mjs'
+      - 'scripts/verify-work-productization-contract.mjs'
+      - '.control-room/COUNCIL.md'
       - '.claude/skills/juss-chief-ai/SKILL.md'
       - 'src/domain/capability-plan.js'
       - 'src/domain/capability-outcome.js'
@@ -15,7 +23,15 @@ on:
     paths:
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
+      - 'docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md'
+      - 'docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'CHATGPT.md'
+      - 'PERPLEXITY.md'
       - 'scripts/verify-founder-chief-pair.mjs'
+      - 'scripts/verify-work-productization-contract.mjs'
+      - '.control-room/COUNCIL.md'
       - '.claude/skills/juss-chief-ai/SKILL.md'
       - 'src/domain/capability-plan.js'
       - 'src/domain/capability-outcome.js'
@@ -177,3 +193,7 @@ jobs:
           PAIR_SELECTED_SHA: ${{ steps.pair-ref.outputs.sha }}
           PAIR_SELECTION_MODE: ${{ steps.pair-ref.outputs.source }}
         run: node scripts/verify-founder-chief-pair.mjs
+
+      - name: Verify work productization doctrine
+        working-directory: chief-ai-machine
+        run: node scripts/verify-work-productization-contract.mjs
