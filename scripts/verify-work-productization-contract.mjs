@@ -31,11 +31,18 @@ const requireText = (label, source, expected) => {
 for (const marker of [
   'Chat is the invention lab. Founder Control Room is the durable workflow product layer.',
   '## WorkflowCandidate contract',
+  'required_proof_stage',
   'OpenAI API key != GitHub authority',
   'Anthropic API key != Supabase authority',
   '## Council productization rule',
   '## Court productization rule',
   '## Instruction inheritance',
+  '## Task clearance invariant',
+  'A task clears only when the proof required by the original goal is satisfied by current evidence.',
+  'OPEN | ACTIVE | BLOCKED | PROOF_PENDING | PROVEN | CLEARED',
+  '`PROVEN` is an evidence predicate. `CLEARED` is the task-state transition',
+  'Earlier stages never silently satisfy a later-stage goal.',
+  'For assistant behavior, words such as `done`, `complete`, `fixed`, `cleared`, `live`, or `working` are proof claims',
 ]) requireText('shared contract', contract, marker);
 
 for (const marker of [
@@ -43,6 +50,12 @@ for (const marker of [
   'juss/fcr-workflow-candidate@v1',
   '## Detection rule',
   '## Compile before handoff',
+  'required_proof_stage',
+  'task_clearance_rule',
+  '## Task clearance',
+  'OPEN | ACTIVE | BLOCKED | PROOF_PENDING | PROVEN | CLEARED',
+  'When evidence is partial, Chief reports the achieved proof stage plus `remaining_gate`; it must not recommend `CLEARED`.',
+  'Workflow disposition and task clearance are separate.',
   '## Council',
   '## Court',
   '## Provider routing',
@@ -101,9 +114,10 @@ for (const forbidden of [
   'OpenAI API key grants GitHub authority',
   'Anthropic API key grants Supabase authority',
   'Claude activates durable execution authority',
+  'a PR exists, therefore the task is complete',
 ]) {
   const all = [contract, handoff, agents, claude, perplexity, chiefSkill, council].join('\n');
-  if (all.includes(forbidden)) failures.push(`forbidden productization authority claim: ${forbidden}`);
+  if (all.includes(forbidden)) failures.push(`forbidden productization authority/clearance claim: ${forbidden}`);
 }
 
 if (failures.length) {
@@ -113,5 +127,5 @@ if (failures.length) {
 }
 
 console.log('Chief work productization contract passed.');
-console.log('Chief routing, Claude, Perplexity, Council, provider boundaries, and FCR WorkflowCandidate handoff are aligned in source.');
+console.log('Chief routing, Claude, Perplexity, Council, provider boundaries, FCR WorkflowCandidate handoff, and proven-only task clearance are aligned in source.');
 console.log('This verifier proves source contract alignment only; it does not prove FCR workflow runtime or user outcomes.');
