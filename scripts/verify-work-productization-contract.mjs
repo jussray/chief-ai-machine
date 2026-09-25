@@ -81,6 +81,7 @@ for (const marker of [
   'Copy the control-plane mechanism. Re-express it in portfolio-neutral contracts.',
   'Chief creates/decomposes the mission envelope',
   'FCR validates, persists, executes through authorized paths, records evidence, and controls task clearance.',
+  'FCR execution accepts only registered/allowlisted workflow or action IDs whose authority policy is known.',
   '## Provenance and supersession',
 ]) requireText('Twin Core donor contract', twinCore, marker);
 
@@ -139,16 +140,18 @@ for (const marker of [
   'mission identity cannot change across append-only successors',
   'compileFcrWorkflowCandidate',
   'FCR clears only after required proof is proven',
-  'isRegisteredActionId',
+  'isActionIdSyntaxValid',
+  'does not claim registry membership',
+  'FCR must validate the identifier against its',
 ]) requireText('Chief mission-plan source', missionPlan, marker);
 
 for (const marker of [
   'creates the complete Bip-derived artifact spine while keeping role ownership distinct',
   'rejects any attempt by Chief to become final proof or task-clearance authority',
   'keeps append-only mission lineage and mission identity',
-  'allows only registered action identifiers, never raw shell text',
+  'accepts only bounded action-ID syntax and leaves registry membership to FCR',
   'compiles an FCR workflow candidate without donating Chief identity or authority',
-  "expect(isRegisteredActionId('npm run test')).toBe(false)",
+  "expect(isActionIdSyntaxValid('npm run test')).toBe(false)",
 ]) requireText('Chief mission-plan tests', missionPlanTest, marker);
 
 for (const marker of [
@@ -204,6 +207,7 @@ for (const forbidden of [
   'Anthropic API key grants Supabase authority',
   'Claude activates durable execution authority',
   'a PR exists, therefore the task is complete',
+  'Chief action-ID syntax validation proves registry membership',
 ]) {
   const all = [contract, twinCore, handoff, missionPlan, agents, claude, perplexity, chiefSkill, council].join('\n');
   if (all.includes(forbidden)) failures.push(`forbidden productization/anti-collapse claim: ${forbidden}`);
