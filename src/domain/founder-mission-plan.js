@@ -35,7 +35,7 @@ export const FOUNDER_MISSION_TASK_STATES = Object.freeze([
 const PROOF_LEVEL_SET = new Set(FOUNDER_MISSION_PROOF_LEVELS);
 const TASK_STATE_SET = new Set(FOUNDER_MISSION_TASK_STATES);
 const HASH = /^[0-9a-f]{64}$/i;
-const REGISTERED_ACTION_ID = /^[a-z0-9][a-z0-9:_-]{0,127}$/;
+const ACTION_ID_SYNTAX = /^[a-z0-9][a-z0-9:_-]{0,127}$/;
 
 const DEFAULT_OWNER_BY_ARTIFACT = Object.freeze({
   'mission-brief': 'chief-ai',
@@ -84,8 +84,11 @@ export function founderMissionFingerprint(value) {
   return sha256Hex(canonicalMissionJson(value));
 }
 
-export function isRegisteredActionId(value) {
-  return REGISTERED_ACTION_ID.test(cleanText(value, 256));
+// This checks only the transport-safe identifier shape. It deliberately does
+// not claim registry membership. FCR must validate the identifier against its
+// current action/workflow registry before any execution can be authorized.
+export function isActionIdSyntaxValid(value) {
+  return ACTION_ID_SYNTAX.test(cleanText(value, 256));
 }
 
 function defaultArtifact(artifactId) {
@@ -207,7 +210,7 @@ export function validateFounderMissionPlan(plan) {
   }
 
   for (const actionId of plan?.requestedActionIds ?? []) {
-    if (!isRegisteredActionId(actionId)) errors.push(`unregistered/free-form action identifier: ${actionId}`);
+    if (!isActionIdSyntaxValid(actionId)) errors.push(`invalid/free-form action identifier syntax: ${actionId}`);
   }
 
   if (!cleanText(plan?.rollback)) errors.push('rollback is required');
