@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mobile-store-readiness-${{ github.event.pull_request.number || github.ref }}
@@ -52,62 +52,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
 
-      - name: Install mobile dependencies
-        run: npm install --prefix mobile --no-audit --no-fund
-
-      - name: Commit generated lockfile once
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPOSITORY: ${{ github.repository }}
-          GH_BRANCH: ${{ github.ref_name }}
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-
-          const { GH_TOKEN, GH_REPOSITORY, GH_BRANCH } = process.env;
-          const path = 'mobile/package-lock.json';
-          const api = `https://api.github.com/repos/${GH_REPOSITORY}/contents/${path}`;
-          const headers = {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${GH_TOKEN}`,
-            'X-GitHub-Api-Version': '2022-11-28',
-            'Content-Type': 'application/json',
-          };
-
-          const current = await fetch(`${api}?ref=${encodeURIComponent(GH_BRANCH)}`, { headers });
-          if (current.status === 200) {
-            console.log('mobile/package-lock.json is already tracked; no branch write needed.');
-            process.exit(0);
-          }
-          if (current.status !== 404) {
-            throw new Error(`Could not check lockfile state: HTTP ${current.status}`);
-          }
-
-          const content = fs.readFileSync(path).toString('base64');
-          const created = await fetch(api, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify({
-              message: 'chore(mobile): lock Expo dependencies',
-              content,
-              branch: GH_BRANCH,
-            }),
-          });
-          if (!created.ok) {
-            throw new Error(`Could not commit generated lockfile: HTTP ${created.status}`);
-          }
-          console.log('Committed generated mobile/package-lock.json to the feature branch.');
-          NODE
-
-      - name: Retain generated dependency lock
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: chief-mobile-lock-${{ steps.proof.outputs.head }}
-          path: mobile/package-lock.json
-          if-no-files-found: error
-          retention-days: 1
+      - name: Install locked mobile dependencies
+        run: npm ci --prefix mobile --no-audit --no-fund
 
       - name: Verify canonical schema and privacy contract
         run: npm --prefix mobile run verify
