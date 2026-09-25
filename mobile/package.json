@@ -1,0 +1,28 @@
+{
+  "name": "chief-ai-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "test:contract": "node --test test/*.test.mjs",
+    "export:android": "expo export --platform android --output-dir dist/android",
+    "export:ios": "expo export --platform ios --output-dir dist/ios",
+    "verify": "npm run test:contract"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~56.0.15",
+    "expo": "^56.0.12",
+    "expo-haptics": "~56.0.3",
+    "expo-router": "^56.2.11",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.7",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.25.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "babel-preset-expo": "~56.0.0"
+  }
+}
