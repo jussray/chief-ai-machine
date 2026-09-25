@@ -125,6 +125,7 @@ connected_tools
 model_route
 council_route
 proof_required
+required_proof_stage
 rollback
 privacy_class
 cost_budget
@@ -236,6 +237,56 @@ Leaf `SKILL.md` files do not need copied prose. They inherit this contract unles
 - create a competing execution/control plane.
 
 Repository verification should fail when first-class agent/provider/Council/Chief instructions materially contradict these invariants.
+
+## Task clearance invariant
+
+A task does not clear because work started, code changed, a PR opened, CI ran, models agreed, or an agent said `done`.
+
+A task clears only when the proof required by the original goal is satisfied by current evidence.
+
+Use this task lifecycle:
+
+`OPEN | ACTIVE | BLOCKED | PROOF_PENDING | PROVEN | CLEARED`
+
+`PROVEN` is an evidence predicate. `CLEARED` is the task-state transition permitted only when that predicate is true for the task's declared `required_proof_stage` and acceptance criteria.
+
+At task creation or first serious execution, bind:
+
+```text
+task_id
+original_goal
+owning_system
+acceptance_criteria
+required_proof_stage
+required_evidence
+current_proof_stage
+status
+blockers
+remaining_gate
+proof_subject / exact version when applicable
+cleared_by_evidence
+cleared_at
+supersedes / superseded_by
+```
+
+Proof-stage matching is goal-sensitive:
+
+- a task whose goal is source authoring may clear at `SOURCE IMPLEMENTED` when its acceptance criteria and exact-source checks pass;
+- a task whose goal includes merge stays open until `MERGED` is proven;
+- a task whose goal includes deployment stays open until `DEPLOYED` is proven;
+- a task whose goal says fix the live/runtime path stays open until `RUNTIME VERIFIED` is proven;
+- a task whose goal is a real user/business outcome stays open until `OUTCOME VERIFIED` is proven;
+- research/current-fact tasks use their own evidence/freshness contract rather than pretending a software proof stage applies.
+
+Earlier stages never silently satisfy a later-stage goal. `SOURCE IMPLEMENTED` is not `MERGED`; `MERGED` is not `DEPLOYED`; `DEPLOYED` is not `RUNTIME VERIFIED`; `RUNTIME VERIFIED` is not automatically `OUTCOME VERIFIED`.
+
+When some work succeeds but the required proof is incomplete, report the achieved stage and leave the task `PROOF_PENDING` or `BLOCKED` with the exact `remaining_gate`. Do not mark it complete, close it, archive it, remove it from the active ledger, or tell the user it cleared.
+
+Exact-head/version movement invalidates proof that was bound to the predecessor where that evidence no longer applies. The task returns to `PROOF_PENDING` until the successor state is re-proven. Preserve predecessor evidence as history rather than deleting it.
+
+A previously cleared task may be reopened when new authoritative evidence proves that its clearance predicate no longer holds and the task contract is still meant to guarantee the condition. Record the invalidating evidence and successor task state.
+
+For assistant behavior, words such as `done`, `complete`, `fixed`, `cleared`, `live`, or `working` are proof claims and must obey this rule.
 
 ## Proof vocabulary
 
