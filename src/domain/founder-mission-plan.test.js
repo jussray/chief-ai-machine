@@ -114,12 +114,13 @@ describe('Chief founder mission planning', () => {
       repeatabilityEvidence: ['same repair pattern recurs'],
     });
 
+    const { candidateFingerprint, ...candidatePayload } = candidate;
     expect(candidate.compiledBy).toBe('chief-ai-machine');
     expect(candidate.sourceMissionFingerprint).toBe(plan.missionFingerprint);
     expect(candidate.publicLabel).toBe('Repair my app');
     expect(candidate.authorizesExecution).toBe(false);
     expect(candidate.authorizesClearance).toBe(false);
     expect(candidate.taskClearanceRule).toContain('FCR clears only after required proof is proven');
-    expect(candidate.candidateFingerprint).toBe(founderMissionFingerprint({ ...candidate, candidateFingerprint: undefined }));
+    expect(candidateFingerprint).toBe(founderMissionFingerprint(candidatePayload));
   });
 });
