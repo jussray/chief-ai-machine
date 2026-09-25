@@ -6,7 +6,7 @@ import {
   createFounderMissionPlan,
   createFounderMissionPlanSuccessor,
   founderMissionFingerprint,
-  isRegisteredActionId,
+  isActionIdSyntaxValid,
   validateFounderMissionPlan,
 } from './founder-mission-plan.js';
 
@@ -79,14 +79,14 @@ describe('Chief founder mission planning', () => {
     );
   });
 
-  it('allows only registered action identifiers, never raw shell text', () => {
-    expect(isRegisteredActionId('verify:frontend')).toBe(true);
-    expect(isRegisteredActionId('recover-system')).toBe(true);
-    expect(isRegisteredActionId('npm run test')).toBe(false);
-    expect(isRegisteredActionId('verify; rm -rf /')).toBe(false);
+  it('accepts only bounded action-ID syntax and leaves registry membership to FCR', () => {
+    expect(isActionIdSyntaxValid('verify:frontend')).toBe(true);
+    expect(isActionIdSyntaxValid('recover-system')).toBe(true);
+    expect(isActionIdSyntaxValid('npm run test')).toBe(false);
+    expect(isActionIdSyntaxValid('verify; rm -rf /')).toBe(false);
 
     const rawCommandPlan = basePlan({ requestedActionIds: ['npm run test'] });
-    expect(validateFounderMissionPlan(rawCommandPlan).errors).toContain('unregistered/free-form action identifier: npm run test');
+    expect(validateFounderMissionPlan(rawCommandPlan).errors).toContain('invalid/free-form action identifier syntax: npm run test');
   });
 
   it('compiles an FCR workflow candidate without donating Chief identity or authority', () => {
