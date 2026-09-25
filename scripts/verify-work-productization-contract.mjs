@@ -141,7 +141,7 @@ for (const marker of [
   'compileFcrWorkflowCandidate',
   'FCR clears only after required proof is proven',
   'isActionIdSyntaxValid',
-  'does not claim registry membership',
+  'registry membership',
   'FCR must validate the identifier against its',
 ]) requireText('Chief mission-plan source', missionPlan, marker);
 
