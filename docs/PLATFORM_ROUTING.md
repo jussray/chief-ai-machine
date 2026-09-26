@@ -8,16 +8,6 @@ Chief AI routes work to the tool best suited for the job while keeping knowledge
 
 No provider owns the architecture. Provider-specific strengths belong behind replaceable workflows, adapters, or documented handoffs.
 
-## Model-native execution
-
-Chief may compile different execution plans for `chatgpt-sol` and `claude-code`, but both plans consume the same evidence-backed truth spine. The executable contract lives in `src/domain/model-execution-profile.js`.
-
-Per-model differences may change context packaging, reasoning strategy, tool selection, handoff format, verification planning, and execution bias. They may not change truth state, authority state, founder approval, proof state, or project canon.
-
-Runtime model identity and tool availability are observed per run rather than assumed from a provider name. Missing capabilities are not simulated. Model consensus is never proof; any truth upgrade requires independent evidence from the owning repository, provider/runtime, tests, Playwright when applicable, or another current authoritative source.
-
-Chief compiles the plan only. `executionAuthorized`, `authorityTransferred`, and `founderApprovalCarriedForward` remain false in the model-execution plan. Founder Control Room remains the shared truth/authority/evidence plane and PromptOS remains the prompt/protocol/workflow compiler.
-
 ## Shared Requirements
 
 Every platform must:
