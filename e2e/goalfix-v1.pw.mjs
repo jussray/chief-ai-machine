@@ -64,10 +64,11 @@ test('Goalfix v1 public pack is discoverable, selectable, and truth-bounded', as
   });
 });
 
-test('PromptOS recovered pack renders 204 built-ins and routes distinct recovered jobs', async ({ page }, testInfo) => {
+test('PromptOS recovered pack renders 204 built-ins and exposes distinct recovered jobs', async ({ page }, testInfo) => {
   await openPage(page, 'library');
   await expect(page.locator('#statTotal')).toHaveText('204');
   await expect(page.locator('#countPill')).toHaveText('204 prompts');
+  await expect(page.locator('#grid .pcard')).toHaveCount(204);
 
   const search = page.locator('#search');
   await search.fill('Outcome-Verified Launch Proof');
@@ -87,12 +88,16 @@ test('PromptOS recovered pack renders 204 built-ins and routes distinct recovere
   await expect(body).toContainText('VERIFIED TARGETS');
   await page.locator('#mClose').click();
 
-  await openPage(page, 'builder');
-  const pack = page.locator('#bPack');
-  await expect(pack.locator('option[value="prompt:recovered-next-level-breakpoint-simulator"]')).toHaveCount(1);
-  await pack.selectOption('prompt:recovered-next-level-breakpoint-simulator');
-  await expect(page.locator('#builderOut')).toContainText('BREAKPOINT');
-  await expect(page.locator('#builderOut')).toContainText('TRIGGER METRIC');
+  await search.fill('Next-Level Breakpoint Simulator');
+  body = await openPrompt(page, 'Next-Level Breakpoint Simulator');
+  await expect(body).toContainText('BREAKPOINT');
+  await expect(body).toContainText('TRIGGER METRIC');
+  await page.locator('#mClose').click();
+
+  await search.fill('Revenue-to-Ops Leak Audit');
+  body = await openPrompt(page, 'Revenue-to-Ops Leak Audit');
+  await expect(body).toContainText('MONEY PATH');
+  await expect(body).toContainText('LEAKS');
 
   await page.screenshot({
     path: testInfo.outputPath(`${testInfo.project.name}-promptos-204.png`),
