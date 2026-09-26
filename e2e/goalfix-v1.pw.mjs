@@ -63,3 +63,39 @@ test('Goalfix v1 public pack is discoverable, selectable, and truth-bounded', as
     fullPage: true,
   });
 });
+
+test('PromptOS recovered pack renders 204 built-ins and routes distinct recovered jobs', async ({ page }, testInfo) => {
+  await openPage(page, 'library');
+  await expect(page.locator('#statTotal')).toHaveText('204');
+  await expect(page.locator('#countPill')).toHaveText('204 prompts');
+
+  const search = page.locator('#search');
+  await search.fill('Outcome-Verified Launch Proof');
+  let body = await openPrompt(page, 'Outcome-Verified Launch Proof');
+  await expect(body).toContainText('RUNTIME VERIFIED');
+  await expect(body).toContainText('OUTCOME VERIFIED');
+  await page.locator('#mClose').click();
+
+  await search.fill('Trust Boundary Abuse Matrix');
+  body = await openPrompt(page, 'Trust Boundary Abuse Matrix');
+  await expect(body).toContainText('BOUNDARY');
+  await expect(body).toContainText('INVARIANT');
+  await page.locator('#mClose').click();
+
+  await search.fill('Investor Fit Evidence Finder');
+  body = await openPrompt(page, 'Investor Fit Evidence Finder');
+  await expect(body).toContainText('VERIFIED TARGETS');
+  await page.locator('#mClose').click();
+
+  await openPage(page, 'builder');
+  const pack = page.locator('#bPack');
+  await expect(pack.locator('option[value="prompt:recovered-next-level-breakpoint-simulator"]')).toHaveCount(1);
+  await pack.selectOption('prompt:recovered-next-level-breakpoint-simulator');
+  await expect(page.locator('#builderOut')).toContainText('BREAKPOINT');
+  await expect(page.locator('#builderOut')).toContainText('TRIGGER METRIC');
+
+  await page.screenshot({
+    path: testInfo.outputPath(`${testInfo.project.name}-promptos-204.png`),
+    fullPage: true,
+  });
+});
