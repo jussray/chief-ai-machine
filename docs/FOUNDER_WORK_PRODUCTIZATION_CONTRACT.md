@@ -4,6 +4,14 @@ Status: active constitutional workflow contract
 Owner: founder
 Applies to: Founder Control Room, Chief AI, PromptOS, project Control Rooms, ChatGPT/Codex, Claude/Claude Code/Cowork, Perplexity, Muse, Council members, Court participants, and repository-local skills unless a stricter local contract applies.
 
+## Constitutional imports
+
+This contract must be read with `docs/TWIN_CORE_CONTROL_PLANE_CONTRACT.md`.
+
+The Twin Core contract is inherited anywhere this productization contract is inherited. It preserves Founder Control Room and Chief AI as standalone peers, imports the portfolio-neutral control-plane mechanics extracted from the Se'kret Bip Control Room, and forbids either peer from absorbing the other's identity, lifecycle, receipts, failure state, continuity, or authority.
+
+Use the donor mechanics. Do not transplant Bip product identity or domain-specific data.
+
 ## Purpose
 
 Chat is the invention lab. Founder Control Room is the durable workflow product layer.
@@ -227,13 +235,14 @@ A repeated Court pattern may become an FCR/StoryEngine workflow with a stable pu
 
 This contract is shared doctrine. Root `AGENTS.md`, provider operating contracts, Council/Court documents, and constitutional skills should either reference this contract directly or inherit it through a repository parent contract.
 
-Leaf `SKILL.md` files do not need copied prose. They inherit this contract unless a stricter local rule applies. A leaf skill may specialize the workflow but may not:
+Leaf `SKILL.md` files do not need copied prose. They inherit this contract, including its `docs/TWIN_CORE_CONTROL_PLANE_CONTRACT.md` constitutional import, unless a stricter local rule applies. A leaf skill may specialize the workflow but may not:
 
 - make chat the permanent state store for repeatable operations;
 - bypass FCR workflow authority;
 - expose founder-only internal machinery as a user requirement;
 - turn a model/provider key into unrelated service authority;
-- convert Council/Court consensus into approval; or
+- convert Council/Court consensus into approval;
+- collapse FCR into Chief or Chief into FCR; or
 - create a competing execution/control plane.
 
 Repository verification should fail when first-class agent/provider/Council/Chief instructions materially contradict these invariants.
