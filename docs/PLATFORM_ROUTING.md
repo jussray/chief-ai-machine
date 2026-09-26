@@ -14,7 +14,7 @@ Chief may compile different execution plans for `chatgpt-sol` and `claude-code`,
 
 Per-model differences may change context packaging, reasoning strategy, tool selection, handoff format, verification planning, and execution bias. They may not change truth state, authority state, founder approval, proof state, or project canon.
 
-Runtime model identity and tool availability are observed per run rather than assumed from a provider name. Missing capabilities are not simulated. Model consensus is never proof; any truth upgrade requires independent evidence from the owning repository, provider/runtime, tests, Playwright when applicable, or another current authoritative source.
+Provider identity, runtime model identity, and tool availability are observed per run rather than inferred from a profile or provider name. The observed provider must match the selected profile before Chief applies its model-native bias. Missing capabilities are not simulated. Model consensus is never proof; any truth upgrade requires independent evidence from the owning repository, provider/runtime, tests, Playwright when applicable, or another current authoritative source.
 
 Chief compiles the plan only. `executionAuthorized`, `authorityTransferred`, and `founderApprovalCarriedForward` remain false in the model-execution plan. Founder Control Room remains the shared truth/authority/evidence plane and PromptOS remains the prompt/protocol/workflow compiler.
 
