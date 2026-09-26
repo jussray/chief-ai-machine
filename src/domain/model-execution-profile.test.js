@@ -10,6 +10,7 @@ import {
 function baseInput(profileId, observedRuntimeModel) {
   return {
     profileId,
+    observedProvider: profileId === 'chatgpt-sol' ? 'openai' : 'anthropic',
     observedRuntimeModel,
     observedCapabilities: ['github', 'playwright'],
     sourceTruthRefs: ['repo:jussray/chief-ai-machine@exact-head', 'runtime:playwright-receipt'],
@@ -33,6 +34,8 @@ describe('Chief model-native execution profiles', () => {
     expect(claude.mayAdapt.some((field) => claude.mayNotAdapt.includes(field))).toBe(false);
     expect(sol.truthSource).toBe('shared-evidence-spine');
     expect(claude.truthSource).toBe('shared-evidence-spine');
+    expect(sol.observedProvider).toBe('openai');
+    expect(claude.observedProvider).toBe('anthropic');
     expect(sol.toolUseRule).toBe('observed-only-no-simulation');
     expect(claude.toolUseRule).toBe('observed-only-no-simulation');
   });
@@ -58,7 +61,17 @@ describe('Chief model-native execution profiles', () => {
     }
   });
 
-  test('fails closed when runtime identity, truth source, or continuity was not observed', () => {
+  test('fails closed when provider, runtime identity, truth source, or continuity was not observed', () => {
+    expect(() => compileModelExecutionPlan({
+      ...baseInput('chatgpt-sol', 'gpt-5.6-sol'),
+      observedProvider: '',
+    })).toThrow('observed_provider_required');
+
+    expect(() => compileModelExecutionPlan({
+      ...baseInput('claude-code', 'claude-runtime-observed'),
+      observedProvider: 'openai',
+    })).toThrow('observed_provider_profile_mismatch');
+
     expect(() => compileModelExecutionPlan({
       ...baseInput('chatgpt-sol', 'gpt-5.6-sol'),
       observedRuntimeModel: '',
