@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildStrategyAwareFounderContentPackage,
+  extractPublishableFounderContent,
   founderContentDraftFingerprint,
 } from './founder-content-package.js';
 import { buildFounderContentVisualDirection } from './founder-content-visual-direction.js';
@@ -301,5 +302,29 @@ describe('strategy-aware founder content package', () => {
         market_context: { ...strategyInput.market_context, raw_feed_text: 'private feed capture' },
       },
     })).toThrow(/raw_feed_text is forbidden/);
+  });
+
+  it('extracts only the publishable subset, never the not_for_publication internal evidence or source repo/commit', () => {
+    const result = build();
+    const publishable = extractPublishableFounderContent(result);
+
+    expect(publishable.kind).toBe('chief-ai/founder-content-publishable-payload');
+    expect(publishable.draft_text).toBe(result.proposal.public_payload.draft_text);
+    expect(publishable.public_claims).toEqual(result.proposal.public_payload.public_claims);
+    expect(publishable.visual_direction).toEqual(result.visual_direction);
+    expect(publishable.proposal_hash).toBe(result.proposal.proposal_hash);
+    expect(publishable.publish_authorized).toBe(false);
+
+    expect(publishable.internal_evidence).toBeUndefined();
+    const encoded = JSON.stringify(publishable);
+    expect(encoded).not.toContain(result.proposal.internal_evidence.digest);
+    expect(encoded).not.toContain(result.proposal.internal_evidence.does_not_prove[0]);
+    expect(publishable.source).toBeUndefined();
+  });
+
+  it('rejects extraction from anything that is not a built proposal package', () => {
+    expect(() => extractPublishableFounderContent(null)).toThrow(/FOUNDER_CONTENT_PUBLISH_REJECTED/);
+    expect(() => extractPublishableFounderContent({})).toThrow(/FOUNDER_CONTENT_PUBLISH_REJECTED/);
+    expect(() => extractPublishableFounderContent({ proposal: {} })).toThrow(/FOUNDER_CONTENT_PUBLISH_REJECTED/);
   });
 });
