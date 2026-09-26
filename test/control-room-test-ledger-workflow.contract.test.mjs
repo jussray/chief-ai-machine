@@ -77,7 +77,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(providerSection).toContain('x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID)');
     expect(providerSection).toContain("printf '%s\\n' \"$BASE_SHA\"");
     expect(providerSection).toContain('git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA"');
-    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$)'");
+    expect(providerSection).toContain("grep -Ev '^(\\.github/|test/|vitest\\.config\\.js$|.*\\.test\\.js$)'");
   });
 
   it('gives each feature required context one authoritative producer without candidate impersonation', () => {
