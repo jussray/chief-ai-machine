@@ -52,8 +52,14 @@ jobs:
       - name: Verify recovered catalog contract
         run: npm test -- src/data/recovered-prompts.test.js
 
-      - name: Lint touched runtime and proof files
-        run: npx eslint src/data/recovered-prompts.js src/data/recovered-prompts.test.js src/main.js e2e/goalfix-v1.pw.mjs
+      - name: Typecheck repository
+        run: npm run typecheck
+
+      - name: Lint repository
+        run: npm run lint
+
+      - name: Run full unit suite
+        run: npm test
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
