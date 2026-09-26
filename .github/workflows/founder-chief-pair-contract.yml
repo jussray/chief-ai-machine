@@ -3,6 +3,7 @@ name: Founder Control Room / Chief AI Pair Contract
 on:
   pull_request:
     paths:
+      - '.control-room/necessary-fix-policy.json'
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md'
@@ -21,6 +22,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.control-room/necessary-fix-policy.json'
       - 'config/founder-chief-pair.contract.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md'
@@ -87,10 +89,12 @@ jobs:
             main_digest="$(sha256sum "$main_contract" | awk '{print $1}')"
 
             if [ "$local_digest" != "$main_digest" ]; then
-              primary_chief_pr="$(jq -r '.candidatePairing.chiefAIPullRequest // empty' "$local_contract")"
+              pair_chief_pr="$(jq -r '.candidatePairing.chiefAIPullRequest // empty' "$local_contract")"
+              policy_chief_pr="$(jq -r '.candidatePairing.chiefAINecessaryFixPolicyPullRequest // empty' "$local_contract")"
               candidate_pr="$(jq -r '.candidatePairing.founderControlRoomPullRequest // empty' "$local_contract")"
 
-              printf '%s' "$primary_chief_pr" | grep -Eq '^[1-9][0-9]*$'
+              printf '%s' "$pair_chief_pr" | grep -Eq '^[1-9][0-9]*$'
+              printf '%s' "$policy_chief_pr" | grep -Eq '^[1-9][0-9]*$'
 
               if printf '%s' "$candidate_pr" | grep -Eq '^[1-9][0-9]*$'; then
                 candidate_json="$(curl --fail --silent --show-error \
@@ -119,21 +123,39 @@ jobs:
                   .schema == "fcr/founder-chief-pair-peer-lock@v1"
                   and .repository == "jussray/founder-control-room"
                   and .scope == "pull-request-candidate-only"
-                  and .chiefAIFounderContentStrategy.repository == "jussray/chief-ai-machine"
-                  and (.chiefAIFounderContentStrategy.expectedHeadSha | test("^[0-9a-f]{40}$"))
+                  and .chiefAIPair.repository == "jussray/chief-ai-machine"
+                  and .chiefAINecessaryFixPolicy.repository == "jussray/chief-ai-machine"
+                  and (.chiefAIPair.expectedHeadSha | test("^[0-9a-f]{40}$"))
+                  and (.chiefAINecessaryFixPolicy.expectedHeadSha | test("^[0-9a-f]{40}$"))
                   and .authorizesMerge == false
                   and .authorizesDeployment == false
                   and .authorizesProviderMutation == false
                   and .runtimeTruthProven == false
                 ' <<<"$peer_lock" >/dev/null
-                locked_content_pr="$(jq -r '.chiefAIFounderContentStrategy.pullRequest' <<<"$peer_lock")"
-                locked_content_sha="$(jq -r '.chiefAIFounderContentStrategy.expectedHeadSha' <<<"$peer_lock")"
-                test "$locked_content_pr" = "$CHIEF_PR_NUMBER"
-                test "$locked_content_sha" = "$CHIEF_HEAD_SHA"
+
+                if [ "$CHIEF_PR_NUMBER" = "$pair_chief_pr" ]; then
+                  locked_current_pr="$(jq -r '.chiefAIPair.pullRequest' <<<"$peer_lock")"
+                  locked_current_sha="$(jq -r '.chiefAIPair.expectedHeadSha' <<<"$peer_lock")"
+                  carrier_role="pair"
+                elif [ "$CHIEF_PR_NUMBER" = "$policy_chief_pr" ]; then
+                  locked_current_pr="$(jq -r '.chiefAINecessaryFixPolicy.pullRequest' <<<"$peer_lock")"
+                  locked_current_sha="$(jq -r '.chiefAINecessaryFixPolicy.expectedHeadSha' <<<"$peer_lock")"
+                  carrier_role="necessary-fix-policy"
+                else
+                  locked_content_pr="$(jq -r '.chiefAIFounderContentStrategy.pullRequest // empty' <<<"$peer_lock")"
+                  locked_content_sha="$(jq -r '.chiefAIFounderContentStrategy.expectedHeadSha // empty' <<<"$peer_lock")"
+                  test "$locked_content_pr" = "$CHIEF_PR_NUMBER"
+                  locked_current_pr="$locked_content_pr"
+                  locked_current_sha="$locked_content_sha"
+                  carrier_role="founder-content-strategy"
+                fi
+
+                test "$locked_current_pr" = "$CHIEF_PR_NUMBER"
+                test "$locked_current_sha" = "$CHIEF_HEAD_SHA"
 
                 selected_ref="pull/$candidate_pr/head"
                 selected_sha="$candidate_sha"
-                source="paired-contract-candidate"
+                source="paired-contract-candidate:${carrier_role}"
               elif [ -n "$CHIEF_HEAD_REF" ]; then
                 git check-ref-format --branch "$CHIEF_HEAD_REF" >/dev/null
                 if git ls-remote --exit-code --heads "$remote" "refs/heads/$CHIEF_HEAD_REF" >/dev/null 2>&1; then
@@ -156,9 +178,9 @@ jobs:
             printf -- '- FCR logical ref selected: `%s`\n' "$selected_ref"
             printf -- '- FCR exact SHA selected: `%s`\n' "$selected_sha"
             printf -- '- Selection mode: `%s`\n' "$source"
-            if [ "$source" = "paired-contract-candidate" ]; then
-              echo '- Active carrier: Chief founder-content strategy; FCR peer-lock acknowledgement is exact-head bound.'
-              echo '- The shared contract may name a different primary Chief pair carrier; carrier identity and shared policy are separate evidence planes.'
+            if [[ "$source" == paired-contract-candidate:* ]]; then
+              echo '- Active Chief carrier role is resolved from the shared candidate contract and exact FCR peer lock.'
+              echo '- Pair, policy, and historical content carriers remain separate evidence planes and do not donate proof to one another.'
               echo '- Truth boundary: candidate alignment does not grant main, merge, runtime, deployment, publication, or founder authority.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -188,6 +210,7 @@ jobs:
         working-directory: chief-ai-machine
         env:
           PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
+          PAIR_NECESSARY_FIX_POLICY_PATH: ../founder-control-room/src/lib/standingFounderPolicy.ts
           PAIR_CROSS_REPO_REQUIRED: 'true'
           PAIR_SELECTED_REF: ${{ steps.pair-ref.outputs.ref }}
           PAIR_SELECTED_SHA: ${{ steps.pair-ref.outputs.sha }}
