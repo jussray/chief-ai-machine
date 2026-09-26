@@ -62,6 +62,17 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).not.toContain('CF-Access-Client-Secret');
   });
 
+  it('labels a Cloudflare Access redirect as a receipted provider blocker instead of a raw host-mismatch assertion', () => {
+    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
+    expect(runtimeSection).toContain('function assertExactRuntimeHost(pageUrl, expectedHost)');
+    expect(runtimeSection).toContain("actualHost.endsWith('.cloudflareaccess.com')");
+    expect(runtimeSection).toContain('Cloudflare Access blocks candidate proof');
+    expect(runtimeSection).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');
+    expect(runtimeSection).not.toContain('expect(new URL(page.url()).host).toBe(expectedHost)');
+    const assertionCalls = runtimeSection.match(/assertExactRuntimeHost\(page\.url\(\), expectedHost\);/g) || [];
+    expect(assertionCalls.length).toBe(3);
+  });
+
   it('treats deployed SPA assets and both sides of renames as runtime changes', () => {
     const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
     expect(runtimeSection).toContain('index\\.html$');
