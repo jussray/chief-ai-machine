@@ -73,7 +73,7 @@ jobs:
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
 
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -180,7 +180,7 @@ jobs:
         if: steps.scope.outputs.changed == 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Run trusted live ProofMode MCP Playwright proof
+      - name: Run trusted live ProofMode and asset-boundary Playwright proof
         if: steps.scope.outputs.changed == 'true'
         env:
           PLAYWRIGHT_HTML_OPEN: never
@@ -190,7 +190,7 @@ jobs:
           import { defineConfig } from '@playwright/test';
           export default defineConfig({
             testDir:'./e2e',
-            testMatch:/proofmode-mcp\.pw\.mjs$/,
+            testMatch:/(proofmode-mcp|static-assets-boundary)\.pw\.mjs$/,
             fullyParallel:false,
             retries:0,
             workers:1,
