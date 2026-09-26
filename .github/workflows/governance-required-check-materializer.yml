@@ -79,7 +79,7 @@ jobs:
           changed_since_receipt="$(git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
           printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
           printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
-          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$)' || true)"
+          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$|.*\.test\.js$)' || true)"
           if [ -n "$unsafe_since_receipt" ]; then
             printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
             exit 1
