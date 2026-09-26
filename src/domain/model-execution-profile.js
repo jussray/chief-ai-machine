@@ -23,6 +23,7 @@ export const MODEL_EXECUTION_PROFILES = Object.freeze({
     profileId: 'chatgpt-sol',
     provider: 'openai',
     runtimeIdentitySource: 'observe-per-run',
+    providerIdentitySource: 'observe-per-run',
     toolAvailabilitySource: 'observe-per-run',
     truthSource: 'shared-evidence-spine',
     executionBias: Object.freeze([
@@ -36,6 +37,7 @@ export const MODEL_EXECUTION_PROFILES = Object.freeze({
     profileId: 'claude-code',
     provider: 'anthropic',
     runtimeIdentitySource: 'observe-per-run',
+    providerIdentitySource: 'observe-per-run',
     toolAvailabilitySource: 'observe-per-run',
     truthSource: 'shared-evidence-spine',
     executionBias: Object.freeze([
@@ -57,12 +59,18 @@ function cleanStringList(values, maxItems = 100, maxLength = 1000) {
 }
 
 export function modelExecutionProfile(profileId) {
-  return MODEL_EXECUTION_PROFILES[profileId] ?? null;
+  return Object.prototype.hasOwnProperty.call(MODEL_EXECUTION_PROFILES, profileId)
+    ? MODEL_EXECUTION_PROFILES[profileId]
+    : null;
 }
 
 export function compileModelExecutionPlan(input = {}) {
   const profile = modelExecutionProfile(cleanText(input.profileId, 80));
   if (!profile) throw new Error('unknown_model_execution_profile');
+
+  const observedProvider = cleanText(input.observedProvider, 120);
+  if (!observedProvider) throw new Error('observed_provider_required');
+  if (observedProvider !== profile.provider) throw new Error('observed_provider_profile_mismatch');
 
   const observedRuntimeModel = cleanText(input.observedRuntimeModel, 200);
   if (!observedRuntimeModel) throw new Error('runtime_model_identity_required');
@@ -77,6 +85,7 @@ export function compileModelExecutionPlan(input = {}) {
     contract: MODEL_EXECUTION_PLAN_CONTRACT,
     profileId: profile.profileId,
     provider: profile.provider,
+    observedProvider,
     observedRuntimeModel,
     observedCapabilities: cleanStringList(input.observedCapabilities, 100, 240),
     sourceTruthRefs,
