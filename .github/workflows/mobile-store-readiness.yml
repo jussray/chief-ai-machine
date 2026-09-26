@@ -1,0 +1,78 @@
+name: Mobile Store Readiness
+
+on:
+  push:
+    branches:
+      - feat/mobile-founder-intelligence-client
+    paths:
+      - mobile/**
+      - src/domain/intelligence.js
+      - src/domain/goal-plan.js
+      - AGENTS.md
+      - .github/workflows/mobile-store-readiness.yml
+  pull_request:
+    paths:
+      - mobile/**
+      - src/domain/intelligence.js
+      - src/domain/goal-plan.js
+      - AGENTS.md
+      - .github/workflows/mobile-store-readiness.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-readiness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CI: true
+
+jobs:
+  native-source-contract:
+    name: Native source contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Record exact proof subject
+        id: proof
+        run: |
+          head="$(git rev-parse HEAD)"
+          echo "proof_subject=$head"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install locked mobile dependencies
+        run: npm ci --prefix mobile --no-audit --no-fund
+
+      - name: Verify canonical schema and privacy contract
+        run: npm --prefix mobile run verify
+
+      - name: Export Android JavaScript bundle
+        run: npm --prefix mobile run export:android
+
+      - name: Export iOS JavaScript bundle
+        run: npm --prefix mobile run export:ios
+
+      - name: Retain bundle proof
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: chief-mobile-bundles-${{ steps.proof.outputs.head }}
+          path: |
+            mobile/dist/android
+            mobile/dist/ios
+          if-no-files-found: error
+          retention-days: 30
