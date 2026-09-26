@@ -29,8 +29,12 @@ describe('Chief model-native execution profiles', () => {
     expect(sol.sourceTruthRefs).toEqual(claude.sourceTruthRefs);
     expect(sol.mayAdapt).toEqual(claude.mayAdapt);
     expect(sol.mayNotAdapt).toEqual(claude.mayNotAdapt);
+    expect(sol.mayAdapt.some((field) => sol.mayNotAdapt.includes(field))).toBe(false);
+    expect(claude.mayAdapt.some((field) => claude.mayNotAdapt.includes(field))).toBe(false);
     expect(sol.truthSource).toBe('shared-evidence-spine');
     expect(claude.truthSource).toBe('shared-evidence-spine');
+    expect(sol.toolUseRule).toBe('observed-only-no-simulation');
+    expect(claude.toolUseRule).toBe('observed-only-no-simulation');
   });
 
   test('neither model profile can carry execution, authority, approval, or consensus proof', () => {
@@ -54,7 +58,7 @@ describe('Chief model-native execution profiles', () => {
     }
   });
 
-  test('fails closed when the actual runtime model or truth source was not observed', () => {
+  test('fails closed when runtime identity, truth source, or continuity was not observed', () => {
     expect(() => compileModelExecutionPlan({
       ...baseInput('chatgpt-sol', 'gpt-5.6-sol'),
       observedRuntimeModel: '',
@@ -65,16 +69,23 @@ describe('Chief model-native execution profiles', () => {
       sourceTruthRefs: [],
     })).toThrow('source_truth_reference_required');
 
+    expect(() => compileModelExecutionPlan({
+      ...baseInput('claude-code', 'claude-runtime-observed'),
+      continuityFingerprint: '',
+    })).toThrow('continuity_fingerprint_required');
+
     expect(modelExecutionProfile('unknown')).toBeNull();
     expect(() => compileModelExecutionPlan(baseInput('unknown', 'anything'))).toThrow('unknown_model_execution_profile');
   });
 
   test('records only observed capabilities and never invents unavailable tools', () => {
     const plan = compileModelExecutionPlan({
-      ...baseInput('chatgpt-sol', 'gpt-5.6-sol'),
-      observedCapabilities: ['github', 'github', '', 'playwright'],
+      ...baseInput('claude-code', 'claude-runtime-observed'),
+      observedCapabilities: ['github', 'github', ''],
     });
 
-    expect(plan.observedCapabilities).toEqual(['github', 'playwright']);
+    expect(plan.observedCapabilities).toEqual(['github']);
+    expect(plan.observedCapabilities).not.toContain('playwright');
+    expect(plan.toolUseRule).toBe('observed-only-no-simulation');
   });
 });
