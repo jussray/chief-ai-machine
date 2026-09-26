@@ -1,0 +1,40 @@
+{
+  "contract": "juss/founder-council-residency@v1",
+  "project": "jussray/chief-ai-machine",
+  "owner": "founder",
+  "purpose": "Keep one logical Founder Council resident in the founder assistant host and this project Control Room so it can serve the founder, the project, and project users behind the scenes without centralizing execution authority.",
+  "residency": {
+    "assistantHost": {"required": true, "standing": true, "role": "Select, coordinate, challenge, and reconcile the smallest useful task-specific Council for founder work."},
+    "projectControlRoom": {"required": true, "path": ".control-room", "role": "Own project-local Council policy, routing constraints, evidence bindings, receipts, and authority boundaries."},
+    "sameLogicalCouncil": true,
+    "centralizedExecutionAuthority": false
+  },
+  "invocation": {
+    "founderTasks": "automatic_when_material",
+    "projectUserTasks": "behind_the_scenes_when_project_policy_allows",
+    "seatSelection": "smallest_useful_task_specific_council",
+    "allSeatsByDefault": false,
+    "liveProviderInvocationMustBeVerified": true
+  },
+  "userBoundary": {
+    "usersReceiveOutcomesNotCouncilControls": true,
+    "internalDeliberationIsNotProductData": true,
+    "exposeFounderControls": false,
+    "exposeProviderCredentials": false,
+    "exposeCrossProjectPrivateData": false
+  },
+  "authority": {
+    "founderIsConsequentialAuthority": true,
+    "localProjectAuthorityMembraneWins": true,
+    "councilConsensusGrantsMutationAuthority": false,
+    "crossProjectExecutionRequiresOwningControlRoom": true,
+    "providerAvailabilityGrantsAuthority": false
+  },
+  "evidence": {
+    "statuses": ["VERIFIED", "INFERRED", "UNKNOWN", "BLOCKED"],
+    "preserveMeaningfulDissent": true,
+    "requireRuntimeProofForRuntimeClaims": true,
+    "requireProviderReceiptForLiveProviderClaims": true,
+    "bindFingerprintsAndContinuityReceipts": true
+  }
+}
