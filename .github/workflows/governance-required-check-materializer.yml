@@ -177,6 +177,14 @@ jobs:
           mkdir -p e2e
           cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
           import { test, expect } from '@playwright/test';
+          function assertExactRuntimeHost(pageUrl, expectedHost) {
+            const actualHost=new URL(pageUrl).host;
+            if (actualHost===expectedHost) return;
+            if (actualHost.endsWith('.cloudflareaccess.com')) {
+              throw new Error(`Cloudflare Access blocks candidate proof (redirected to ${actualHost}). Long-lived Access credentials are intentionally withheld from candidate runtime.`);
+            }
+            expect(actualHost).toBe(expectedHost);
+          }
           test('immutable Chief preview proves exact SHA and rendered SPA', async ({ page }) => {
             const baseUrl=process.env.CHIEF_RUNTIME_BASE_URL;
             const expectedSha=process.env.EXPECTED_HEAD_SHA;
@@ -187,20 +195,20 @@ jobs:
             console.log(`version-final-url=${page.url()}`);
             console.log(`version-status=${versionResponse.status()}`);
             expect(versionResponse.status()).toBe(200);
-            expect(new URL(page.url()).host).toBe(expectedHost);
+            assertExactRuntimeHost(page.url(), expectedHost);
             expect(versionResponse.headers()['content-type']||'').toContain('application/json');
             const payload=await versionResponse.json();
             expect(payload?.sha).toBe(expectedSha);
             const appResponse=await page.goto(`${baseUrl}/`,{waitUntil:'domcontentloaded'});
             expect(appResponse).not.toBeNull();
             expect(appResponse.status()).toBe(200);
-            expect(new URL(page.url()).host).toBe(expectedHost);
+            assertExactRuntimeHost(page.url(), expectedHost);
             await expect(page.locator('#app')).toBeVisible();
             await expect(page.getByRole('heading',{name:'What are we trying to accomplish?'})).toBeVisible();
             const cssResponse=await page.goto(`${baseUrl}/styles/main.css`,{waitUntil:'domcontentloaded'});
             expect(cssResponse).not.toBeNull();
             expect(cssResponse.status()).toBe(200);
-            expect(new URL(page.url()).host).toBe(expectedHost);
+            assertExactRuntimeHost(page.url(), expectedHost);
             expect(cssResponse.headers()['content-type']||'').toContain('text/css');
             expect((await cssResponse.text()).length).toBeGreaterThan(100);
           });
