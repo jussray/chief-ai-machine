@@ -70,6 +70,9 @@ export function compileModelExecutionPlan(input = {}) {
   const sourceTruthRefs = cleanStringList(input.sourceTruthRefs, 100, 1000);
   if (sourceTruthRefs.length === 0) throw new Error('source_truth_reference_required');
 
+  const continuityFingerprint = cleanText(input.continuityFingerprint, 500);
+  if (!continuityFingerprint) throw new Error('continuity_fingerprint_required');
+
   return Object.freeze({
     contract: MODEL_EXECUTION_PLAN_CONTRACT,
     profileId: profile.profileId,
@@ -81,11 +84,12 @@ export function compileModelExecutionPlan(input = {}) {
     proofRequired: cleanStringList(input.proofRequired, 50, 500),
     claims: cleanStringList(input.claims, 100, 2000),
     unknowns: cleanStringList(input.unknowns, 100, 2000),
-    continuityFingerprint: cleanText(input.continuityFingerprint, 500),
+    continuityFingerprint,
     executionBias: profile.executionBias,
     mayAdapt: SHARED_MAY_ADAPT,
     mayNotAdapt: SHARED_MAY_NOT_ADAPT,
     truthSource: profile.truthSource,
+    toolUseRule: 'observed-only-no-simulation',
     acceptsModelConsensusAsProof: false,
     requiresIndependentEvidenceForTruthUpgrade: true,
     executionAuthorized: false,
