@@ -1,71 +1,34 @@
 {
-  "contract": "juss/founder-council-residency@v1",
-  "project": "jussray/chief-ai-machine",
+  "contract": "juss/founder-council-federation@v2",
   "owner": "founder",
-  "purpose": "Keep one logical Founder Council resident in the founder assistant host and this project Control Room so it can serve the founder, the project, and project users behind the scenes without centralizing execution authority.",
-  "residency": {
-    "assistantHost": {"required": true, "standing": true, "role": "Select, coordinate, challenge, and reconcile the smallest useful task-specific Council for founder work."},
-    "projectControlRoom": {"required": true, "path": ".control-room", "role": "Own project-local Council policy, routing constraints, evidence bindings, receipts, and authority boundaries."},
-    "sameLogicalCouncil": true,
+  "purpose": "Connect Founder Control Room, Chief AI, Sol, and PromptOS as first-class standalone peer systems through a neutral shared Council protocol/ledger while keeping external AI providers replaceable and non-load-bearing.",
+  "topology": {
+    "sharedCouncilLayer": {
+      "neutral": true,
+      "ownedByCoreSystem": false,
+      "ownedByExternalProvider": false,
+      "role": "Shared protocol/ledger for council messages, plans, architecture, decisions, evidence, receipts, fingerprints, authority, lineage, and state.",
+      "mustRemainAvailableAcrossExternalProviderReplacement": true,
+      "mustNotBecomeCoreDependencyForPeerOperation": true,
+      "physicalBacking": "UNDECIDED_UNTIL_SEPARATELY_AUTHORIZED"
+    },
+    "coreSystems": [
+      {"id":"fcr","name":"Founder Control Room","repository":"jussray/founder-control-room","standalone":true,"peer":true,"coreFunctionSurvivesCouncilUnavailable":true,"role":"founder_operating_build_intelligence","description":"Standalone founder operating/build intelligence for planning, inspecting, building, repairing, verifying, operating, and advancing the portfolio without requiring an external AI host."},
+      {"id":"chief","name":"Chief AI","repository":"jussray/chief-ai-machine","standalone":true,"peer":true,"coreFunctionSurvivesCouncilUnavailable":true,"role":"executive_synthesis_reasoning_intelligence","description":"Standalone executive synthesis, decomposition, orchestration, routing, and decision-quality intelligence."},
+      {"id":"sol","name":"Sol","repository":"jussray/solcontinuity","standalone":true,"peer":true,"coreFunctionSurvivesCouncilUnavailable":true,"role":"challenge_evaluation_continuity_intelligence","description":"Standalone challenge, evaluation, continuity, state-recovery, drift-detection, and evidence-lineage intelligence."},
+      {"id":"promptos","name":"PromptOS","repository":"jussray/promptos","standalone":true,"peer":true,"coreFunctionSurvivesCouncilUnavailable":true,"role":"prompt_workflow_compiler_routing_intelligence","description":"Standalone prompt/workflow compilation, routing, evaluation, promotion, and reusable protocol intelligence."}
+    ],
+    "externalProviderSeats": {"replaceable":true,"coreDependency":false,"mayParticipateThroughSharedCouncilLayer":true,"mayBeInvokedFromFCR":true,"providerLossMustNotErasePortfolioState":true,"examples":["ChatGPT","Claude","Muse","DeepSeek","Perplexity"]},
+    "localProjectAdapter": {"required":true,"path":".control-room","role":"Own only this repository's local Council policy, routing constraints, evidence bindings, receipts, and authority membrane; it does not own the shared Council layer."},
     "centralizedExecutionAuthority": false
   },
-  "invocation": {
-    "founderTasks": "automatic_when_material",
-    "projectUserTasks": "behind_the_scenes_when_project_policy_allows",
-    "seatSelection": "smallest_useful_task_specific_council",
-    "allSeatsByDefault": false,
-    "liveProviderInvocationMustBeVerified": true
-  },
-  "jurisdiction": {
-    "sameCourtCouncilKernel": true,
-    "repoProductProductionScoped": true,
-    "subjects": [
-      "intent_compression",
-      "agent_and_model_routing",
-      "delegation",
-      "executive_synthesis",
-      "decision_quality",
-      "authority",
-      "mcp_and_tool_behavior",
-      "workflow_candidate_compilation",
-      "provider_disagreement",
-      "production_proof"
-    ]
-  },
-  "intelligenceBoundary": {
-    "principle": "learn_encode_verify_compound_expose_value_protect_machinery",
-    "reusableIntelligenceMustBecomeDurableCapability": true,
-    "intelligenceMustNotDependOnFounderMemory": true,
-    "durableForms": ["code", "internal_modules", "policies", "evaluators", "workflow_engines", "tests", "receipts"],
-    "internalOnly": ["internal_orchestration", "hidden_prompts", "private_reasoning", "evaluator_notes", "private_learning_records", "proprietary_lineage"],
-    "usersOwnTheirDataAndOutputs": true,
-    "externalProvidersReplaceable": true
-  },
-  "userBoundary": {
-    "usersReceiveOutcomesNotCouncilControls": true,
-    "internalDeliberationIsNotProductData": true,
-    "exposeFounderControls": false,
-    "exposeProviderCredentials": false,
-    "exposeCrossProjectPrivateData": false
-  },
-  "authority": {
-    "founderIsConsequentialAuthority": true,
-    "localProjectAuthorityMembraneWins": true,
-    "councilConsensusGrantsMutationAuthority": false,
-    "crossProjectExecutionRequiresOwningControlRoom": true,
-    "providerAvailabilityGrantsAuthority": false
-  },
-  "evidence": {
-    "statuses": ["VERIFIED", "INFERRED", "UNKNOWN", "BLOCKED"],
-    "preserveMeaningfulDissent": true,
-    "requireRuntimeProofForRuntimeClaims": true,
-    "requireProviderReceiptForLiveProviderClaims": true,
-    "bindFingerprintsAndContinuityReceipts": true
-  },
-  "completion": {
-    "affectedLiveProjectsRequireEndToEndRuntimeProof": true,
-    "doneWordsRequireRuntimeVerificationWhenLiveGoal": true,
-    "earlierStagesDoNotSatisfyLive": true,
-    "requiredLiveProof": ["source_head", "deployment_identity", "runtime_path", "playwright_evidence", "successor_fingerprint"]
-  }
+  "invocation": {"founderTasks":"automatic_when_material","projectUserTasks":"behind_the_scenes_when_project_policy_allows","seatSelection":"smallest_useful_task_specific_council","allSeatsByDefault":false,"liveProviderInvocationMustBeVerified":true},
+  "jurisdiction": {"sameCourtCouncilKernel":true,"repoProductProductionScoped":true,"subjects":["intent_compression","agent_and_model_routing","delegation","executive_synthesis","decision_quality","authority","mcp_and_tool_behavior","workflow_candidate_compilation","provider_disagreement","production_proof"]},
+  "intelligenceBoundary": {"principle":"learn_encode_verify_compound_expose_value_protect_machinery","reusableIntelligenceMustBecomeDurableCapability":true,"intelligenceMustNotDependOnFounderMemory":true,"durableForms":["code","internal_modules","policies","evaluators","workflow_engines","tests","receipts"],"internalOnly":["internal_orchestration","hidden_prompts","private_reasoning","evaluator_notes","private_learning_records","proprietary_lineage"],"usersOwnTheirDataAndOutputs":true,"externalProvidersReplaceable":true},
+  "userBoundary": {"usersReceiveOutcomesNotCouncilControls":true,"internalDeliberationIsNotProductData":true,"exposeFounderControls":false,"exposeProviderCredentials":false,"exposeCrossProjectPrivateData":false},
+  "authority": {"founderIsConsequentialAuthority":true,"localProjectAuthorityMembraneWins":true,"councilConsensusGrantsMutationAuthority":false,"crossProjectExecutionRequiresOwningProject":true,"providerAvailabilityGrantsAuthority":false,"sharedCouncilLayerGrantsExecutionAuthority":false},
+  "evidence": {"statuses":["VERIFIED","INFERRED","UNKNOWN","BLOCKED"],"preserveMeaningfulDissent":true,"requireRuntimeProofForRuntimeClaims":true,"requireProviderReceiptForLiveProviderClaims":true,"bindFingerprintsAndContinuityReceipts":true},
+  "completion": {"affectedLiveProjectsRequireEndToEndRuntimeProof":true,"doneWordsRequireRuntimeVerificationWhenLiveGoal":true,"earlierStagesDoNotSatisfyLive":true,"requiredLiveProof":["source_head","deployment_identity","runtime_path","playwright_evidence","successor_fingerprint"]},
+  "project": "jussray/chief-ai-machine",
+  "projectRole": "executive_synthesis_reasoning_intelligence"
 }
