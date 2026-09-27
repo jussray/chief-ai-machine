@@ -48,7 +48,7 @@ export function chiefProviderStates(env = {}) {
     return [provider, {
       state: config.key ? 'INTEGRATED' : 'ABSENT',
       model: config.modelName,
-      secretName: config.key,
+      secretName: PROVIDERS[provider].key,
     }];
   }));
 }
