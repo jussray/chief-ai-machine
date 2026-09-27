@@ -6,9 +6,11 @@ on:
     paths:
       - security/reciprocal-defense.mjs
       - security/reciprocal-ingress.mjs
+      - security/full-attack-unit.mjs
       - security/*-edge-entry.*
       - test/reciprocal-defense.test.mjs
       - test/reciprocal-ingress.test.mjs
+      - test/full-attack-unit.test.mjs
       - wrangler.jsonc
       - .github/workflows/reciprocal-defense.yml
   workflow_dispatch:
@@ -25,9 +27,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
-      - name: Verify reciprocal defense and ingress invariants
-        run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs
+      - name: Verify reciprocal defense, ingress, and full-unit invariants
+        run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs test/full-attack-unit.test.mjs
       - name: Verify Chief edge wiring
         run: |
           grep -q '"main": "security/chief-edge-entry.js"' wrangler.jsonc
           grep -q "export \* from '../worker/index.js'" security/chief-edge-entry.js
+          grep -q "runFullAttackUnit" security/reciprocal-ingress.mjs
+          node --check security/chief-edge-entry.js
