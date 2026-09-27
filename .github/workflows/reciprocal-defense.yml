@@ -5,7 +5,10 @@ on:
       - feat/reciprocal-defense-hallway
     paths:
       - security/reciprocal-defense.mjs
+      - security/reciprocal-ingress.mjs
+      - security/*-edge-entry.*
       - test/reciprocal-defense.test.mjs
+      - test/reciprocal-ingress.test.mjs
       - .github/workflows/reciprocal-defense.yml
   workflow_dispatch:
 permissions:
@@ -19,5 +22,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Verify reciprocal defense invariants
-        run: node --test test/reciprocal-defense.test.mjs
+      - name: Verify reciprocal defense and ingress invariants
+        run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs
