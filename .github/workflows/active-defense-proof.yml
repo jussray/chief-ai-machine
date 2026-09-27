@@ -1,0 +1,35 @@
+name: Active Defense Proof
+
+on:
+  push:
+    branches:
+      - feat/active-defense-hallway-48000
+    paths:
+      - 'worker/active-defense-assessment.js'
+      - 'worker/active-defense-assessment.test.js'
+      - 'worker/index.js'
+      - '.github/workflows/active-defense-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Focused unit proof
+        run: npx vitest run worker/active-defense-assessment.test.js
+      - name: Type proof
+        run: npm run typecheck
+      - name: Lint proof
+        run: npm run lint
