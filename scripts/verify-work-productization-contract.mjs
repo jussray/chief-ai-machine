@@ -12,6 +12,7 @@ const [
   perplexity,
   chiefSkill,
   council,
+  councilContractRaw,
 ] = await Promise.all([
   read('docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md'),
   read('docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md'),
@@ -21,12 +22,26 @@ const [
   read('PERPLEXITY.md'),
   read('.claude/skills/juss-chief-ai/SKILL.md'),
   read('.control-room/COUNCIL.md'),
+  read('.control-room/council-residency.contract.json'),
 ]);
 
 const failures = [];
 const requireText = (label, source, expected) => {
   if (!source.includes(expected)) failures.push(`${label}: missing ${JSON.stringify(expected)}`);
 };
+const requireTrue = (label, value) => {
+  if (value !== true) failures.push(`${label}: expected true`);
+};
+const requireIncludes = (label, values, expected) => {
+  if (!Array.isArray(values) || !values.includes(expected)) failures.push(`${label}: missing ${JSON.stringify(expected)}`);
+};
+
+let councilContract;
+try {
+  councilContract = JSON.parse(councilContractRaw);
+} catch (error) {
+  failures.push(`Council machine contract: invalid JSON (${error.message})`);
+}
 
 for (const marker of [
   'Chat is the invention lab. Founder Control Room is the durable workflow product layer.',
@@ -109,6 +124,47 @@ for (const marker of [
   'StoryEngine creative work',
 ]) requireText('Council productization', council, marker);
 
+if (councilContract) {
+  if (councilContract.contract !== 'juss/founder-council-residency@v1') failures.push('Council machine contract: wrong contract id');
+  if (councilContract.project !== 'jussray/chief-ai-machine') failures.push('Council machine contract: wrong project');
+
+  requireTrue('Council jurisdiction same kernel', councilContract.jurisdiction?.sameCourtCouncilKernel);
+  requireTrue('Council jurisdiction repo/product/production scoped', councilContract.jurisdiction?.repoProductProductionScoped);
+  for (const subject of [
+    'intent_compression',
+    'agent_and_model_routing',
+    'delegation',
+    'executive_synthesis',
+    'decision_quality',
+    'authority',
+    'mcp_and_tool_behavior',
+    'workflow_candidate_compilation',
+    'provider_disagreement',
+    'production_proof',
+  ]) requireIncludes('Chief Council subjects', councilContract.jurisdiction?.subjects, subject);
+
+  if (councilContract.intelligenceBoundary?.principle !== 'learn_encode_verify_compound_expose_value_protect_machinery') {
+    failures.push('Council intelligence boundary: wrong principle');
+  }
+  requireTrue('Reusable intelligence becomes durable capability', councilContract.intelligenceBoundary?.reusableIntelligenceMustBecomeDurableCapability);
+  requireTrue('Intelligence must not depend on founder memory', councilContract.intelligenceBoundary?.intelligenceMustNotDependOnFounderMemory);
+  requireTrue('Users own data and outputs', councilContract.intelligenceBoundary?.usersOwnTheirDataAndOutputs);
+  requireTrue('External providers stay replaceable', councilContract.intelligenceBoundary?.externalProvidersReplaceable);
+  for (const form of ['code', 'internal_modules', 'policies', 'evaluators', 'workflow_engines', 'tests', 'receipts']) {
+    requireIncludes('Durable intelligence forms', councilContract.intelligenceBoundary?.durableForms, form);
+  }
+  for (const protectedItem of ['internal_orchestration', 'hidden_prompts', 'private_reasoning', 'evaluator_notes', 'private_learning_records', 'proprietary_lineage']) {
+    requireIncludes('Protected internal intelligence', councilContract.intelligenceBoundary?.internalOnly, protectedItem);
+  }
+
+  requireTrue('Affected live projects require end-to-end runtime proof', councilContract.completion?.affectedLiveProjectsRequireEndToEndRuntimeProof);
+  requireTrue('Done words require live verification', councilContract.completion?.doneWordsRequireRuntimeVerificationWhenLiveGoal);
+  requireTrue('Earlier stages do not satisfy live', councilContract.completion?.earlierStagesDoNotSatisfyLive);
+  for (const proof of ['source_head', 'deployment_identity', 'runtime_path', 'playwright_evidence', 'successor_fingerprint']) {
+    requireIncludes('Required live proof', councilContract.completion?.requiredLiveProof, proof);
+  }
+}
+
 for (const forbidden of [
   'Council consensus authorizes mutation',
   'OpenAI API key grants GitHub authority',
@@ -127,5 +183,5 @@ if (failures.length) {
 }
 
 console.log('Chief work productization contract passed.');
-console.log('Chief routing, Claude, Perplexity, Council, provider boundaries, FCR WorkflowCandidate handoff, and proven-only task clearance are aligned in source.');
-console.log('This verifier proves source contract alignment only; it does not prove FCR workflow runtime or user outcomes.');
+console.log('Chief routing, Council jurisdiction, protected intelligence, provider boundaries, FCR WorkflowCandidate handoff, and proven-only task clearance are aligned in source.');
+console.log('Live completion still requires deployment identity, runtime-path proof, Playwright evidence, and a successor fingerprint.');
