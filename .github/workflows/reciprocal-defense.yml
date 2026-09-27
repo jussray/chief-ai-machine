@@ -9,6 +9,7 @@ on:
       - security/*-edge-entry.*
       - test/reciprocal-defense.test.mjs
       - test/reciprocal-ingress.test.mjs
+      - wrangler.jsonc
       - .github/workflows/reciprocal-defense.yml
   workflow_dispatch:
 permissions:
@@ -18,9 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          node-version: "22"
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
       - name: Verify reciprocal defense and ingress invariants
         run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs
+      - name: Verify Chief edge wiring
+        run: |
+          grep -q '"main": "security/chief-edge-entry.js"' wrangler.jsonc
+          grep -q "export \* from '../worker/index.js'" security/chief-edge-entry.js
