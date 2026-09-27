@@ -1,0 +1,23 @@
+name: Reciprocal Defense Contract
+on:
+  push:
+    branches:
+      - feat/reciprocal-defense-hallway
+    paths:
+      - security/reciprocal-defense.mjs
+      - test/reciprocal-defense.test.mjs
+      - .github/workflows/reciprocal-defense.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reciprocal-defense:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify reciprocal defense invariants
+        run: node --test test/reciprocal-defense.test.mjs
