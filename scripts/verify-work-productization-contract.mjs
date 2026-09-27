@@ -32,6 +32,9 @@ const requireText = (label, source, expected) => {
 const requireTrue = (label, value) => {
   if (value !== true) failures.push(`${label}: expected true`);
 };
+const requireFalse = (label, value) => {
+  if (value !== false) failures.push(`${label}: expected false`);
+};
 const requireIncludes = (label, values, expected) => {
   if (!Array.isArray(values) || !values.includes(expected)) failures.push(`${label}: missing ${JSON.stringify(expected)}`);
 };
@@ -44,7 +47,7 @@ try {
 }
 
 for (const marker of [
-  'Chat is the invention lab. Founder Control Room is the durable workflow product layer.',
+  'Founder Control Room is a standalone founder operating/build intelligence',
   '## WorkflowCandidate contract',
   'required_proof_stage',
   'OpenAI API key != GitHub authority',
@@ -125,8 +128,49 @@ for (const marker of [
 ]) requireText('Council productization', council, marker);
 
 if (councilContract) {
-  if (councilContract.contract !== 'juss/founder-council-residency@v1') failures.push('Council machine contract: wrong contract id');
+  if (councilContract.contract !== 'juss/founder-council-federation@v2') failures.push('Council machine contract: wrong contract id');
   if (councilContract.project !== 'jussray/chief-ai-machine') failures.push('Council machine contract: wrong project');
+  if (councilContract.projectRole !== 'executive_synthesis_reasoning_intelligence') failures.push('Council machine contract: wrong Chief role');
+
+  const shared = councilContract.topology?.sharedCouncilLayer;
+  requireTrue('Shared Council layer is neutral', shared?.neutral);
+  requireFalse('Shared Council layer is not owned by a core system', shared?.ownedByCoreSystem);
+  requireFalse('Shared Council layer is not owned by an external provider', shared?.ownedByExternalProvider);
+  requireTrue('Shared Council survives provider replacement', shared?.mustRemainAvailableAcrossExternalProviderReplacement);
+  requireTrue('Shared Council is not required for peer core operation', shared?.mustNotBecomeCoreDependencyForPeerOperation);
+  if (shared?.physicalBacking !== 'UNDECIDED_UNTIL_SEPARATELY_AUTHORIZED') failures.push('Shared Council physical backing was pre-selected without authority');
+
+  const requiredPeers = new Map([
+    ['jussray/founder-control-room', 'founder_operating_build_intelligence'],
+    ['jussray/chief-ai-machine', 'executive_synthesis_reasoning_intelligence'],
+    ['jussray/solcontinuity', 'challenge_evaluation_continuity_intelligence'],
+    ['jussray/promptos', 'prompt_workflow_compiler_routing_intelligence'],
+  ]);
+  const peers = Array.isArray(councilContract.topology?.coreSystems) ? councilContract.topology.coreSystems : [];
+  for (const [repository, role] of requiredPeers) {
+    const peer = peers.find((entry) => entry?.repository === repository);
+    if (!peer) {
+      failures.push(`Council machine contract: missing core peer ${repository}`);
+      continue;
+    }
+    requireTrue(`${repository} standalone`, peer.standalone);
+    requireTrue(`${repository} peer`, peer.peer);
+    requireTrue(`${repository} survives Council unavailability`, peer.coreFunctionSurvivesCouncilUnavailable);
+    if (peer.role !== role) failures.push(`${repository}: wrong role ${String(peer.role)}`);
+  }
+
+  const fcr = peers.find((entry) => entry?.repository === 'jussray/founder-control-room');
+  requireText('FCR core capability', String(fcr?.description ?? ''), 'planning, inspecting, building, repairing, verifying, operating, and advancing the portfolio');
+
+  const external = councilContract.topology?.externalProviderSeats;
+  requireTrue('External providers are replaceable seats', external?.replaceable);
+  requireFalse('External providers are not core dependencies', external?.coreDependency);
+  requireTrue('External providers may be invoked from FCR', external?.mayBeInvokedFromFCR);
+  requireTrue('Provider loss cannot erase portfolio state', external?.providerLossMustNotErasePortfolioState);
+  requireTrue('Local adapter required', councilContract.topology?.localProjectAdapter?.required);
+  if (councilContract.topology?.localProjectAdapter?.path !== '.control-room') failures.push('Council local adapter path drifted');
+  requireFalse('Council does not centralize execution authority', councilContract.topology?.centralizedExecutionAuthority);
+  requireFalse('Shared Council layer grants no execution authority', councilContract.authority?.sharedCouncilLayerGrantsExecutionAuthority);
 
   requireTrue('Council jurisdiction same kernel', councilContract.jurisdiction?.sameCourtCouncilKernel);
   requireTrue('Council jurisdiction repo/product/production scoped', councilContract.jurisdiction?.repoProductProductionScoped);
@@ -183,5 +227,5 @@ if (failures.length) {
 }
 
 console.log('Chief work productization contract passed.');
-console.log('Chief routing, Council jurisdiction, protected intelligence, provider boundaries, FCR WorkflowCandidate handoff, and proven-only task clearance are aligned in source.');
+console.log('Chief routing, neutral Council topology, standalone core peers, protected intelligence, provider boundaries, FCR WorkflowCandidate handoff, and proven-only task clearance are aligned in source.');
 console.log('Live completion still requires deployment identity, runtime-path proof, Playwright evidence, and a successor fingerprint.');
