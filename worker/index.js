@@ -1,4 +1,5 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
+import { assessActiveDefenseEvidence } from './active-defense-assessment.js';
 import {
   createFounderControlRoomCapabilityPlan,
   getFounderControlRoomServiceVersion,
@@ -18,6 +19,10 @@ export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
   async ingestBipEvidence(input) {
     return ingestFounderControlRoomBipEvidence(this.env, input);
   }
+
+  async assessActiveDefense(input) {
+    return assessActiveDefenseEvidence(input);
+  }
 }
 
 // Chief AI Worker composition root.
@@ -25,5 +30,6 @@ export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
 // HTTP routing lives in a runtime-neutral module so Node/Vitest can verify the
 // /version and request-routing contract without loading Cloudflare's RPC-only
 // virtual module. Named WorkerEntrypoint exports remain here for the FCR
-// Cloudflare Service Binding.
+// Cloudflare Service Binding. Active-defense assessment is private RPC only and
+// deliberately has no public HTTP route.
 export default httpWorker;
