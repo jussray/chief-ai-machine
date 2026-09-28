@@ -29,6 +29,17 @@ export default [
     },
   },
   {
+    files: ['security/**/*.js', 'security/**/*.mjs', 'test/reciprocal-ingress.test.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
+        crypto: 'readonly', TextEncoder: 'readonly', console: 'readonly',
+      },
+    },
+  },
+  {
     files: [
       'scripts/**/*.js', 'scripts/**/*.mjs', 'scripts/**/*.cjs',
       'tools/**/scripts/**/*.js', 'tools/**/scripts/**/*.mjs', 'tools/**/scripts/**/*.cjs',
