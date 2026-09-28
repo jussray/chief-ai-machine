@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import worker from '../worker/index.js';
+import worker from '../worker/http-worker.js';
 
 const wranglerConfig = readFileSync(
   new URL('../wrangler.jsonc', import.meta.url),
