@@ -2,7 +2,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    exclude: [...configDefaults.exclude, 'test/pr-continuity.attack20.test.mjs'],
+    exclude: [...configDefaults.exclude, 'test/pr-continuity.attack20.test.mjs', 'mobile/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json'],
