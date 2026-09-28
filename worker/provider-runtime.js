@@ -56,7 +56,7 @@ export function chiefProviderStates(env = {}) {
 async function readBoundedText(response) {
   const declared = Number(response.headers.get('content-length') || 0);
   if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
-    try { await response.body?.cancel(); } catch {}
+    try { await response.body?.cancel(); } catch { /* best-effort cancellation */ }
     throw new Error('provider response too large');
   }
   if (!response.body) return '';
@@ -159,14 +159,14 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
       headers,
       body: JSON.stringify(body),
       redirect: 'error',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: globalThis.AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
     throw new Error(`${provider} provider request failed`);
   }
 
   if (!response.ok) {
-    try { await response.body?.cancel(); } catch {}
+    try { await response.body?.cancel(); } catch { /* best-effort cancellation */ }
     throw new Error(`${provider} provider failed with HTTP ${response.status}`);
   }
 
