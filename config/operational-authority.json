@@ -49,6 +49,14 @@
       "tracking": "#96",
       "rationale": "The standalone pair workflow executes the same verifier with exact cross-repository FCR SHA selection and PAIR_CROSS_REPO_REQUIRED=true, so the repeated command has a distinct evidence scope.",
       "removalGate": "Remove only if the authoritative owner acquires equivalent exact cross-repository FCR proof and live provider readback confirms the standalone check identity can be retired."
+    },
+    {
+      "command": "node scripts/verify-work-productization-contract.mjs",
+      "owner": ".github/workflows/control-room-contracts.yml",
+      "mirror": ".github/workflows/founder-chief-pair-contract.yml",
+      "tracking": "#96",
+      "rationale": "Control Room Contracts owns the protected-intelligence and work-productization doctrine check; the founder-pair workflow intentionally mirrors it so exact cross-repository pairing cannot proceed when the local Chief doctrine is invalid.",
+      "removalGate": "Remove the mirror only when the founder-pair workflow consumes an immutable successful owner receipt for the same exact Chief SHA, or when live provider and ruleset evidence proves the standalone pair check no longer needs to carry this doctrine gate."
     }
   ],
   "workflowAuthorityWaivers": [],
