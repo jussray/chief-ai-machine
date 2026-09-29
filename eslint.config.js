@@ -2,7 +2,7 @@ import js from '@eslint/js';
 
 export default [
   {
-    ignores: ['docs/**', 'global/**', '.wrangler/**'],
+    ignores: ['docs/**', 'global/**', '.wrangler/**', 'mobile/**'],
   },
   js.configs.recommended,
   {

@@ -8,6 +8,7 @@ export default defineConfig({
       'test/full-attack-unit.test.mjs',
       'test/reciprocal-defense.test.mjs',
       'test/reciprocal-ingress.test.mjs',
+      'mobile/**',
     ],
     coverage: {
       provider: 'v8',

@@ -112,3 +112,37 @@ export function buildStrategyAwareFounderContentPackage(input = {}) {
     },
   });
 }
+
+/**
+ * The package bundles proposal.internal_evidence (explicitly
+ * not_for_publication) alongside proposal.public_payload in one object.
+ * No current caller sends this package to an external destination, but the
+ * package itself has no boundary stopping a future publish integration from
+ * serializing the whole thing. This is the one function that integration
+ * should call: it returns only fields safe to leave this process, and never
+ * copies proposal.internal_evidence or proposal.source (private repo/commit
+ * reference) into its output.
+ */
+export function extractPublishableFounderContent(pkg) {
+  if (!pkg || typeof pkg !== 'object' || !pkg.proposal || typeof pkg.proposal !== 'object') {
+    throw new Error('FOUNDER_CONTENT_PUBLISH_REJECTED: a founder content package with a proposal is required');
+  }
+  const { public_payload: publicPayload, authority } = pkg.proposal;
+  if (!publicPayload || typeof publicPayload !== 'object') {
+    throw new Error('FOUNDER_CONTENT_PUBLISH_REJECTED: proposal.public_payload is required');
+  }
+
+  return deepFreeze({
+    version: pkg.version,
+    kind: 'chief-ai/founder-content-publishable-payload',
+    platform: publicPayload.platform,
+    story_type: publicPayload.story_type,
+    draft_text: publicPayload.draft_text,
+    public_claims: publicPayload.public_claims,
+    proof_link: publicPayload.proof_link,
+    proof_link_policy: publicPayload.proof_link_policy,
+    visual_direction: pkg.visual_direction ?? null,
+    publish_authorized: authority?.publish_authorized === true,
+    proposal_hash: pkg.proposal.proposal_hash,
+  });
+}
