@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "appName": "Chief AI",
+  "runtime": "cloudflare-worker",
+  "webhookPath": "/github/webhook",
+  "statusPath": "/github/status",
+  "githubApiVersion": "2026-03-10",
+  "authority": {
+    "mode": "read-only-observer",
+    "repositoryWrites": false,
+    "merge": false,
+    "deployment": false,
+    "providerSpend": false
+  },
+  "repositoryPermissions": {
+    "metadata": "read",
+    "contents": "read",
+    "pull_requests": "read",
+    "checks": "read",
+    "actions": "read"
+  },
+  "events": [
+    "installation",
+    "installation_repositories",
+    "check_run",
+    "check_suite",
+    "pull_request",
+    "push",
+    "workflow_run"
+  ],
+  "requiredSecrets": [
+    "GITHUB_APP_ID",
+    "GITHUB_PRIVATE_KEY",
+    "GITHUB_WEBHOOK_SECRET"
+  ]
+}

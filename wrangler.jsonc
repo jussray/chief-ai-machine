@@ -9,6 +9,6 @@
     "directory": "./",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/version", "/mcp"]
+    "run_worker_first": ["/api/*", "/github/*", "/version", "/mcp"]
   }
 }
