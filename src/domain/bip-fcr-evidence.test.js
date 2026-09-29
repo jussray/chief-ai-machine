@@ -86,4 +86,19 @@ describe('Bip FCR evidence recipient boundary', () => {
     });
     expect(validateBipFounderControlRoomEvidence(escalated).valid).toBe(false);
   });
+
+  it('rejects a short or malformed source revision', () => {
+    const shortSha = SHA.slice(0, 10);
+    const result = validateBipFounderControlRoomEvidence(receipt({ sourceRevision: shortSha }));
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Bip evidence source revision must be an exact SHA');
+  });
+
+  it('rejects a receipt issued to the wrong workspace or project', () => {
+    expect(validateBipFounderControlRoomEvidence(receipt({ workspaceId: 'someone-else' })).errors)
+      .toContain('Bip evidence workspace mismatch');
+
+    expect(validateBipFounderControlRoomEvidence(receipt({ projectId: 'other-project' })).errors)
+      .toContain('Bip evidence project mismatch');
+  });
 });
