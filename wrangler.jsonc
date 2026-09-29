@@ -1,7 +1,7 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
-  "main": "worker/index.js",
+  "main": "security/chief-edge-entry.js",
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
