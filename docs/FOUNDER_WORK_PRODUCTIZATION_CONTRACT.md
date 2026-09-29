@@ -14,16 +14,16 @@ Use the donor mechanics. Do not transplant Bip product identity or domain-specif
 
 ## Purpose
 
-Chat is the invention lab. Founder Control Room is the durable workflow product layer.
+Founder Control Room is a standalone founder operating/build intelligence and durable workflow product environment. Chat and external models are optional invention, implementation, research, and challenge surfaces; they are not the source of FCR's core capability.
 
-A useful idea may begin in conversation, research, a Council round, a Court session, a repair, or a one-off founder task. Once the work becomes repeatable and proves a stable user outcome, it must stop depending on the founder remembering prompts, slash commands, old chats, provider quirks, or hidden model context. It should graduate into Founder Control Room as a governed reusable workflow that the founder or an authorized product user can run again.
+A useful idea may begin in FCR itself, conversation, research, a Council round, a Court session, a repair, or a one-off founder task. Once the work becomes repeatable and proves a stable user outcome, it must stop depending on the founder remembering prompts, slash commands, old chats, provider quirks, or hidden model context. It should become durable product capability that FCR can run directly or coordinate through the owning standalone system.
 
-The goal is not to move every conversation into software. The goal is to move repeated operational burden out of conversation so the founder can use future chats for new ideas, perspective, challenge, research, and decisions.
+The goal is not to move every conversation into software. The goal is to move repeated operational burden out of provider-specific conversation so the founder can build and operate from FCR even when an external AI provider changes or disappears.
 
 ## Canonical productization loop
 
 ```text
-IDEA / PROBLEM IN CHAT
+IDEA / PROBLEM
 → recover the real user outcome
 → classify the owning OS, lane, project, and authority domain
 → challenge the premise and alternatives
@@ -31,12 +31,12 @@ IDEA / PROBLEM IN CHAT
 → prove the real path
 → decide ONE-OFF vs REPEATABLE
 → compile repeatable inputs, outputs, authority, tools, proof, rollback, privacy, cost, and stop gates
-→ register the workflow in FCR
+→ register the workflow in FCR or the owning standalone peer
 → expose a user-facing workflow contract
-→ run through FCR
+→ run through the owning product surface
 → capture receipts and outcomes
 → promote, revise, pause, or retire from evidence
-→ free chat for the next idea
+→ keep external chat optional, not load-bearing
 ```
 
 ## No chat captivity
@@ -45,7 +45,7 @@ A graduated workflow must not require the founder to reconstruct the same intern
 
 Manual commands such as `ULTRATHINK`, `/truthmode`, `/confess`, `redteam`, `lindymode`, `L99`, `OODA`, `/goalfix`, `attack N`, `/MAKEVIDEO`, `/LEEVIZE`, Council routing, Playwright proof, fingerprints, continuity cookies, or receipts remain valid expert controls and explicit overrides. They are not a tax the founder must repeatedly pay to receive behavior that already belongs to the workflow.
 
-When a workflow is registered, the workflow owns its required internal composition. The user supplies the goal and required inputs. FCR routes the internal machinery.
+When a workflow is registered, the workflow owns its required internal composition. The user supplies the goal and required inputs. FCR or the owning standalone peer routes the internal machinery.
 
 ## User-facing abstraction
 
@@ -67,7 +67,9 @@ The internal stack remains inspectable in receipts for authorized operators, but
 
 ### Founder Control Room
 
-FCR owns the durable workflow product plane:
+FCR is a full standalone founder operating/build intelligence. It can accept founder intent, reason, plan, inspect projects, build, repair, verify, operate, preserve continuity, and advance the portfolio without requiring ChatGPT, Claude, Muse, DeepSeek, Perplexity, or another external AI product to remain available.
+
+FCR also owns its durable workflow product plane:
 
 - workflow registry / library;
 - user-facing workflow definitions and versions;
@@ -80,6 +82,8 @@ FCR owns the durable workflow product plane:
 - current provider/runtime readback where required;
 - outcome observations; and
 - the public/product surface through which authorized users run workflows.
+
+FCR may expose a first-class Council view and invoke external AI seats, but it does not own the neutral shared Council layer and must not depend on external providers for its core operating/build capability.
 
 FCR does not need to expose the founder's private internal stack to product users.
 
@@ -96,7 +100,7 @@ Chief owns intent compression and capability composition:
 - preserve lane-specific North Stars and success/failure signals; and
 - recommend promotion, revision, or retirement from outcome evidence.
 
-Chief is not the durable execution authority. A `WorkflowCandidate` is a proposal package, not permission to mutate external systems.
+Chief is a standalone executive synthesis/reasoning intelligence. It is not the durable execution authority. A `WorkflowCandidate` is a proposal package, not permission to mutate external systems.
 
 ### PromptOS
 
@@ -110,7 +114,11 @@ PromptOS owns prompt/protocol/workflow compilation and lineage within its lanes:
 - successful reusable prompt assets; and
 - revision memory for unsuccessful or unproven variants.
 
-PromptOS may contribute compiled components to an FCR workflow. It does not create execution authority by promoting a prompt.
+PromptOS is a standalone prompt/workflow/compiler/routing intelligence. It may contribute compiled components to an FCR workflow. It does not create execution authority by promoting a prompt.
+
+### Sol
+
+Sol is a standalone challenge, evaluation, continuity, state-recovery, drift-detection, and evidence-lineage intelligence. It may participate in shared Council work without becoming dependent on FCR, Chief, PromptOS, or an external provider for its core function.
 
 ## WorkflowCandidate contract
 
@@ -188,11 +196,11 @@ A provider may reason about an action only with the evidence it is allowed to se
 
 ### ChatGPT / Codex
 
-Use chat as a high-value invention, synthesis, debugging, implementation, challenge, and decision surface. When repeated operational work is proved, stop treating the conversation as the durable runtime and create or update the FCR workflow candidate instead.
+Use ChatGPT/Codex as optional high-value invention, synthesis, debugging, implementation, challenge, and decision seats. Repeated operational work must not make FCR or the other core systems depend on a provider-specific conversation or hidden context.
 
 ### Claude / Claude Code / Cowork
 
-Use Claude as an implementation/architecture operator when routed. Repository and provider state must return to the shared source of truth. A Claude workspace or conversation is not the durable workflow product plane.
+Use Claude as an optional implementation/architecture operator when routed. Repository and provider state must return to the shared source of truth. A Claude workspace or conversation is not the durable workflow product plane or the owner of the shared Council layer.
 
 ### Perplexity
 
@@ -204,7 +212,9 @@ Council members independently challenge, compare, implement when separately auth
 
 ## Council productization rule
 
-The Founder Council remains a backstage reasoning/review layer resident in the founder assistant host and project Control Rooms.
+The Founder Council is a neutral shared protocol/ledger connecting FCR, Chief, Sol, and PromptOS as first-class standalone peers. It is not owned by FCR, any other core system, or an external model provider. Each repository keeps a project-local Council adapter and its own authority membrane.
+
+External providers participate as replaceable seats. Their loss must not erase plans, architecture, decisions, prompts, receipts, fingerprints, state, evidence, or operating capability. The physical backing of the neutral shared layer remains a separate founder-authorized implementation decision.
 
 For user-facing FCR workflows:
 
@@ -214,7 +224,7 @@ For user-facing FCR workflows:
 - preserve meaningful dissent in operator receipts; and
 - never convert Council agreement into execution authority.
 
-When a Council pattern repeatedly produces a useful outcome, package the routing pattern into the FCR workflow rather than requiring the founder to manually reconvene the same seats in chat.
+When a Council pattern repeatedly produces a useful outcome, package the routing pattern into the owning product capability rather than requiring the founder to manually reconvene the same seats in chat.
 
 ## Court productization rule
 
@@ -309,6 +319,6 @@ A workflow can remain a workflow when blocked or unverified. Lack of runtime pro
 
 ## Launch priority
 
-Before adding another conceptual subsystem, ask whether an existing proven chat pattern can be turned into a runnable FCR workflow that reduces founder repetition and produces user value.
+Before adding another conceptual subsystem, ask whether an existing proven pattern can be turned into a runnable FCR or owning-peer workflow that reduces founder repetition and produces user value.
 
-The launch metric is not number of smart chats, prompts, Council rounds, or architectural documents. The stronger evidence is that a founder or authorized user can run a useful workflow through FCR, receive a truthful result and receipt, and do it again without rebuilding the system in conversation.
+The launch metric is not number of smart chats, prompts, Council rounds, or architectural documents. The stronger evidence is that the founder or an authorized user can run a useful workflow through FCR or the owning standalone system, receive a truthful result and receipt, and do it again without rebuilding the system in conversation.
