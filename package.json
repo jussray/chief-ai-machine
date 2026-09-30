@@ -18,7 +18,7 @@
     "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.19.0",
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.11.0",
     "typescript": "^7.0.2",
