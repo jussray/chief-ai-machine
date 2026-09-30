@@ -72,6 +72,30 @@ describe('credential membrane workflow validation', () => {
     const failures = validateWorkflow('test.yml', bad);
     expect(failures).toContainEqual(expect.stringContaining('jobs block missing'));
   });
+
+  it('rejects checking out the candidate head as the working tree (pwn-request)', () => {
+    for (const ref of [
+      '${{ github.event.pull_request.head.sha }}',
+      '${{ github.event.pull_request.head.ref }}',
+      '${{ github.head_ref }}',
+      '${{ env.EXPECTED_HEAD_SHA }}',
+    ]) {
+      const bad = VALID_WORKFLOW.replace(
+        'persist-credentials: false',
+        `persist-credentials: false\n          ref: ${ref}`,
+      );
+      const failures = validateWorkflow('test.yml', bad);
+      expect(failures, `ref: ${ref} must be rejected`).toContainEqual(
+        expect.stringContaining('checkout must not use the candidate head as ref'),
+      );
+    }
+
+    const trusted = VALID_WORKFLOW.replace(
+      'persist-credentials: false',
+      'persist-credentials: false\n          ref: ${{ env.TRUSTED_EVALUATOR_SHA }}',
+    );
+    expect(validateWorkflow('test.yml', trusted)).toEqual([]);
+  });
 });
 
 describe('credential membrane skill authority validation', () => {
