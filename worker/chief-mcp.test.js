@@ -174,6 +174,58 @@ describe('Chief MCP', () => {
     expect(payload.result.structuredContent.capabilityPlan.strategicLenses).not.toContain('caller-injected-mode');
   });
 
+  it('rejects requests missing required authentication context (missing Content-Type)', async () => {
+    const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+      method: 'POST',
+      body: JSON.stringify({ jsonrpc: '2.0', id: 10, method: 'initialize', params: {} }),
+    }));
+
+    expect(response.status).toBe(415);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32600);
+  });
+
+  it('rejects requests with invalid authentication (forged cross-origin)', async () => {
+    const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        Origin: 'https://attacker.example',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 11, method: 'tools/list', params: {} }),
+    }));
+
+    expect(response.status).toBe(403);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32000);
+    expect(payload.error.message).toContain('Origin');
+  });
+
+  it('rejects project scope mismatch via unexpected fields in capability-plan proposal', async () => {
+    const response = await handleChiefMcp(legacyRequest({
+      jsonrpc: '2.0',
+      id: 12,
+      method: 'tools/call',
+      params: {
+        name: 'compose_capability_plan',
+        arguments: {
+          proposal: {
+            goalPlan: goal(),
+            registrySnapshot: registry(),
+            expectedHeadSha,
+            projectOverride: 'attacker/other-repo',
+          },
+        },
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32602);
+    expect(payload.error.message).toContain('unexpected fields: projectOverride');
+  });
+
   it('fails closed on authority-shaped or unknown proposal fields', async () => {
     const response = await handleChiefMcp(legacyRequest({
       jsonrpc: '2.0',
