@@ -1,0 +1,57 @@
+name: PR Continuity
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - edited
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-continuity-candidate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-observation:
+    name: PR Continuity Candidate Observation
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact PR head as untrusted data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+
+      - name: Observe candidate continuity contract
+        run: node --test test/pr-continuity.attack20.test.mjs
+
+      - name: Observe live base ancestry and exact head
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ROOT_BASE_REF: main
+        run: node scripts/pr-continuity.mjs audit
+
+      - name: Retain candidate continuity receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr-continuity-observation-${{ github.event.pull_request.head.sha }}
+          path: artifacts/pr-continuity.json
+          if-no-files-found: ignore
+          retention-days: 14

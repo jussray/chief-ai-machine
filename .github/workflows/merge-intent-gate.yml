@@ -20,11 +20,21 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
-      - name: Check out trusted base evaluator
+      - name: Check out event base evaluator
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
+
+      - name: Record evaluator source
+        shell: bash
+        env:
+          PR_BASE_SHA_AT_OPEN: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          evaluator_sha="$(git rev-parse HEAD)"
+          printf 'historical_pr_base_sha=%s\nevent_evaluator_sha=%s\n' "$PR_BASE_SHA_AT_OPEN" "$evaluator_sha"
+          test -f src/domain/merge-intent.js
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020

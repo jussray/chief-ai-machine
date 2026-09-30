@@ -1,7 +1,9 @@
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
+import { handleChiefControlRoomRecommendation } from './chief-control-room-recommendation.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { getReleaseSha } from './fcr-service.js';
 import { handleChiefMcp } from './chief-mcp.js';
+import { handleGitHubAppRequest } from './github-app.js';
 
 // Runtime-neutral HTTP Worker surface.
 //
@@ -24,8 +26,16 @@ const httpWorker = {
       return handleChiefMcp(request, env);
     }
 
+    if (url.pathname.startsWith('/github/')) {
+      return handleGitHubAppRequest(request, env);
+    }
+
     if (url.pathname === '/api/chief/capability-plan') {
       return handleChiefCapabilityPlan(request);
+    }
+
+    if (url.pathname === '/api/chief/control-room-recommendation') {
+      return handleChiefControlRoomRecommendation(request);
     }
 
     if (url.pathname === '/api/chief/founder-content-proposal') {

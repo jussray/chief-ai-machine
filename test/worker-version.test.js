@@ -18,7 +18,7 @@ const releaseBakeScript = readFileSync(
 describe('Chief AI Worker version receipt', () => {
   it('routes runtime endpoints through the Worker before asset fallback', () => {
     expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
+      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/github\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
     );
   });
 
@@ -66,6 +66,27 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: 'unknown',
+    });
+  });
+
+  it('routes GitHub App status through the Worker without touching assets', async () => {
+    const response = await worker.fetch(
+      new Request('https://chief-ai.example/github/status'),
+      {
+        ASSETS: {
+          fetch: () => {
+            throw new Error('GitHub routes should not fall through to assets');
+          },
+        },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      configured: false,
+      authority: 'read-only',
+      webhookPath: '/github/webhook',
     });
   });
 });
