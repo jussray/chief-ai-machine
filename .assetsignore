@@ -53,6 +53,10 @@ eslint.config.js
 vitest.config.js
 LICENSE
 **/*.test.js
+**/*.test.mjs
+**/*.test.ts
+test/
+mobile/
 coverage/
 scripts/
 e2e/

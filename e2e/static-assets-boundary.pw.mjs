@@ -18,6 +18,10 @@ const forbiddenPaths = [
   '/docs/CODEX.md',
   '/plugins/proofmode/src/audit.js',
   '/testdata/',
+  '/test/static-assets-boundary.test.js',
+  '/test/pr-continuity.attack20.test.mjs',
+  '/test/ultrathink/v4-advisory-handoff.v0.test.ts',
+  '/mobile/app.json',
 ];
 
 test.describe('Chief static asset release boundary', () => {
