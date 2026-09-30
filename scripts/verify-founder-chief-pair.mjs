@@ -171,6 +171,27 @@ for (const marker of [
 }
 
 for (const marker of [
+  'DEMONSTRATED',
+  'ARCHITECTURE CLAIM',
+  'MIXED',
+  'NEW PROOF',
+  'STILL VALID',
+  'STALE/SUPERSEDED',
+  'Research evidence intake',
+  'Evidence from research, competitor analysis, or external sources',
+  'Bind evidence to the exact artifact, version, and retrieval date',
+  'Do not present research evidence as repository or runtime proof',
+  'architecture claim that has not been independently verified',
+  'Evidence that passed independent verification since the claim',
+  'Evidence that predates a material change in the inspected artifact',
+  'Mixed-evidence items carry forward as candidates',
+  'newly retrieved evidence that independently confirms',
+  'stale or superseded evidence from the plan',
+]) {
+  requireValue(chiefSkill.includes(marker), `juss-chief-ai skill missing research evidence marker ${JSON.stringify(marker)}`);
+}
+
+for (const marker of [
   'Repository/provider/runtime evidence inspected now outranks stale prose',
   'Founder Control Room remains the governance/execution authority',
   'Product Design + Data Analytics',
@@ -279,7 +300,7 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
-console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, Sauce Guard, merge canon, continuity, and necessary-fix controls verified.');
+console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, Sauce Guard, research evidence, merge canon, continuity, and necessary-fix controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
