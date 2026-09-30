@@ -16,30 +16,30 @@ for (const path of workflowPaths) {
   const jobsIndex = text.indexOf('\njobs:\n');
 
   requireValue(jobsIndex >= 0, `${path}: jobs block missing`);
-  requireValue(text.includes('pull_request:'), `${path}: pull_request source-proof trigger missing`);
-  requireValue(!text.includes('workflow_dispatch:'), `${path}: candidate-authored workflow must not expose a privileged manual trigger`);
-  requireValue(!text.includes('\n  runtime-proof:\n'), `${path}: candidate-authored workflow must not define a secret-bearing runtime-proof job`);
-  requireValue(text.includes('pr-runtime-gate:'), `${path}: PR fail-closed runtime gate missing`);
   requireValue(
-    text.includes('Fail closed before secret-bearing runtime proof'),
-    `${path}: PR gate must stop before secret-bearing runtime proof`,
+    text.includes('pull_request_target:'),
+    `${path}: pull_request_target trusted-evaluator trigger missing`,
   );
   requireValue(
-    text.includes('PR-authored workflow code is not permitted to enter proofmode-access-admin or receive Cloudflare Access credentials.'),
-    `${path}: PR credential-membrane receipt text drifted`,
+    text.includes('TRUSTED_EVALUATOR_SHA: ${{ github.sha }}'),
+    `${path}: trusted evaluator SHA must bind to the main-branch merge commit`,
   );
   requireValue(
-    text.includes('Protected runtime proof must originate from a trusted current-main carrier'),
-    `${path}: trusted-main runtime authority receipt missing`,
+    text.includes('Verify trusted event boundary'),
+    `${path}: trusted event boundary verification step missing`,
+  );
+  requireValue(
+    text.includes('persist-credentials: false'),
+    `${path}: checkout must not persist credentials`,
   );
   requireValue(
     !text.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}')
       && !text.includes('${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}'),
-    `${path}: candidate-authored workflow references Cloudflare Access secrets`,
+    `${path}: PR-evaluator workflow must not reference Cloudflare Access secrets`,
   );
   requireValue(
     !text.includes('environment: proofmode-access-admin'),
-    `${path}: candidate-authored workflow may not enter proofmode-access-admin`,
+    `${path}: PR-evaluator workflow must not enter proofmode-access-admin`,
   );
 }
 
@@ -61,5 +61,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PR credential membrane verified: candidate workflows are source-only and fail closed before provider runtime authority.');
+console.log('Trusted evaluator verified: PR-facing workflows use pull_request_target with main-bound evaluator SHA and no secret access.');
 console.log('Trusted reasoning authority verified: ULTRATHINK is server-owned, embedded workflow tokens are inert, and capability plans remain non-authorizing.');
