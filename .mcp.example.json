@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "founder-control-room": {
+      "type": "http",
+      "url": "https://api.foundercontrolroom.org/mcp"
+    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
@@ -7,6 +11,10 @@
         "X-MCP-Toolsets": "repos,issues,pull_requests,actions,code_security,secret_protection",
         "X-MCP-Lockdown": "true"
       }
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_CHIEF_PROJECT_REF&read_only=true&features=database,docs"
     },
     "context7": {
       "type": "http",

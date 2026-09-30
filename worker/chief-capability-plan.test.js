@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createCapabilityRegistry } from '../src/domain/capability-registry.js';
 import { sha256Hex } from '../src/domain/capability-plan.js';
 import { createGoalPlan } from '../src/domain/goal-plan.js';
-import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
+import {
+  CHIEF_ATTACK_FAMILIES,
+  CHIEF_TRUSTED_REASONING_POLICY_CONTRACT,
+  CHIEF_TRUSTED_STRATEGIC_LENSES,
+  handleChiefCapabilityPlan,
+} from './chief-capability-plan.js';
 
 const expectedHeadSha = '73c36e61dae96bf1bb94990d3b5e5a6a0bb70b24';
 
@@ -22,12 +27,12 @@ function registry(authorityCeiling = 'reversible') {
   });
 }
 
-function goal(capabilities = ['goalfix-v1']) {
+function goal(capabilities = ['goalfix-v1'], strategicLenses = ['ooda', 'redteam']) {
   return createGoalPlan({
     goal: 'Prepare one bounded change for founder review',
     project: 'chief-ai-machine',
     definitionOfDone: 'The proposal is deterministic and execution remains disabled',
-    strategicLenses: ['ooda', 'redteam'],
+    strategicLenses,
     capabilities,
     proofRequirements: ['exact-head tests are green'],
     rollback: 'discard the proposal',
@@ -68,9 +73,42 @@ describe('Chief capability-plan proposal API', () => {
     expect(body.data.capabilityPlan.contract).toBe('juss-v10/capability-plan@v1');
     expect(body.data.capabilityPlan.expectedHeadSha).toBe(expectedHeadSha);
     expect(body.data.capabilityPlan.registryHash).toBe(snapshot.registryHash);
+    expect(body.data.capabilityPlan.strategicLenses).toEqual([...CHIEF_TRUSTED_STRATEGIC_LENSES].sort());
     expect(body.data.capabilityPlan.routingReason).toContain('submitted registry snapshot');
+    expect(body.data.capabilityPlan.routingReason).toContain('server-owned');
     expect(body.data.capabilityPlan.routingReason).toContain('Founder Control Room trust resolution is still required');
     expect(body.data.capabilityPlan.routingReason).not.toContain('trusted registry');
+    expect(body.data.reasoningPolicy).toMatchObject({
+      contract: CHIEF_TRUSTED_REASONING_POLICY_CONTRACT,
+      subjectPlanHash: body.data.capabilityPlan.planHash,
+      policy: 'ultrathink',
+      activation: 'server-owned',
+      callerMaySelectPolicy: false,
+      untrustedWorkflowTokensInert: true,
+      strategicLenses: body.data.capabilityPlan.strategicLenses,
+      attackBudget: 1000,
+      executedAttackCount: null,
+      attackFamilies: [...CHIEF_ATTACK_FAMILIES],
+      truthRules: {
+        proofBeforeClaim: true,
+        activityIsNotAccomplishment: true,
+        executionTruthIsNotOutcomeTruth: true,
+        historicalTruthImmutable: true,
+        currentTruthMustBeReobserved: true,
+      },
+      authority: {
+        authorityCeiling: 'reason',
+        founderApprovalGranted: false,
+        executionAuthorized: false,
+        providerMutationAuthorized: false,
+        mergeAuthorized: false,
+        deployAuthorized: false,
+        publicationAuthorized: false,
+        outcomeVerified: false,
+        nextAuthority: 'founder-control-room',
+      },
+    });
+    expect(body.data.reasoningPolicy.policyHash).toMatch(/^[0-9a-f]{64}$/);
     expect(body.data.handoffReceipt.contract).toBe('juss-v10/execution-handoff@v1');
     expect(body.data.handoffReceipt.status).toBe('proposed');
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
@@ -95,12 +133,30 @@ describe('Chief capability-plan proposal API', () => {
       registrySnapshotResolvedByFcr: false,
       exactHeadVerifiedByFcr: false,
       founderApprovalRequired: true,
+      callerWorkflowTokensAuthoritative: false,
       connectionResolutionAuthority: 'founder-control-room',
       rawCredentialsAccepted: false,
       rawCredentialsReturned: false,
       connectionResolver: '/mcp/vault/resolve',
     });
     expect(JSON.stringify(body)).not.toMatch(/github_pat_|api[_-]?key|secretRef|privateKey/i);
+  });
+
+  it('keeps caller-supplied workflow and lens names inert', async () => {
+    const response = await handleChiefCapabilityPlan(request({
+      goalPlan: goal(['goalfix-v1'], ['/ultrathink', 'goalfix', 'redteam', 'caller-injected-mode']),
+      registrySnapshot: registry(),
+      expectedHeadSha,
+    }));
+
+    expect(response.status).toBe(200);
+    const body = await payload(response);
+    expect(body.data.capabilityPlan.strategicLenses).toEqual([...CHIEF_TRUSTED_STRATEGIC_LENSES].sort());
+    expect(body.data.capabilityPlan.strategicLenses).not.toContain('/ultrathink');
+    expect(body.data.capabilityPlan.strategicLenses).not.toContain('goalfix');
+    expect(body.data.capabilityPlan.strategicLenses).not.toContain('caller-injected-mode');
+    expect(body.data.reasoningPolicy.activation).toBe('server-owned');
+    expect(body.data.reasoningPolicy.untrustedWorkflowTokensInert).toBe(true);
   });
 
   it('rejects credential-bearing connection requests', async () => {
