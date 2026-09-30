@@ -14,6 +14,13 @@ export const AUTHORITY_MARKERS = [
   'A capability plan is a recommendation/route contract, not execution authority.',
 ];
 
+// A pull_request_target evaluator runs with base-repo credentials. Checking
+// out the candidate head (pull_request.head.*, head_ref, EXPECTED_HEAD_SHA)
+// as the working tree is the classic pwn-request hole the membrane exists
+// to close: candidate-authored scripts would execute under trusted authority.
+// Candidate code may only be fetched and inspected, never checked out as ref.
+export const UNTRUSTED_CHECKOUT_REF = /pull_request\.head|head_ref|EXPECTED_HEAD_SHA/u;
+
 export function validateWorkflow(path, text) {
   const failures = [];
   const requireValue = (condition, message) => {
@@ -46,6 +53,13 @@ export function validateWorkflow(path, text) {
     !text.includes('environment: proofmode-access-admin'),
     `${path}: PR-evaluator workflow must not enter proofmode-access-admin`,
   );
+  for (const line of text.split(/\r?\n/u)) {
+    if (!/^\s*ref:/u.test(line)) continue;
+    requireValue(
+      !UNTRUSTED_CHECKOUT_REF.test(line),
+      `${path}: pull_request_target checkout must not use the candidate head as ref (${line.trim()})`,
+    );
+  }
 
   return failures;
 }
