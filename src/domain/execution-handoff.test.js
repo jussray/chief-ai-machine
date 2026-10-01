@@ -19,7 +19,7 @@ function plan() {
     expectedHeadSha: 'c5ab1674e2a46eed1d0ee4cadf59053026679b3a',
     registryHash: sha256Hex('registry'),
     requestedAuthority: 'reason',
-    strategicLenses: ['ooda'],
+    strategicLenses: ['hormozi', 'garyvee', 'ooda'],
     routingReason: 'test fixture',
     capabilities: [{
       id: 'goalfix-v1',
@@ -44,6 +44,12 @@ describe('execution handoff receipt', () => {
     expect(receipt.status).toBe('proposed');
     expect(receipt.actionAuthority).toBe(false);
     expect(receipt.requiresFounderApproval).toBe(true);
+    expect(receipt.strategicLensesMayAuthorizeExecution).toBe(false);
+    expect(receipt.strategicLenses).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'hormozi', kind: 'hypothesis_generator', mayAuthorizeExecution: false }),
+      expect.objectContaining({ id: 'garyvee', kind: 'hypothesis_generator', mayAffectAuthority: false }),
+      expect.objectContaining({ id: 'ooda', kind: 'reasoning_lens', maySatisfyEvidence: false }),
+    ]));
     expect(receipt.capabilityPlanHash).toBe(capabilityPlan.planHash);
     expect(receipt.expectedHeadSha).toBe(capabilityPlan.expectedHeadSha);
     expect(receipt.outcomeSignals).toEqual(capabilityPlan.outcomeSignals);
@@ -67,6 +73,8 @@ describe('execution handoff receipt', () => {
       'rollback',
       'selectedBy',
       'status',
+      'strategicLenses',
+      'strategicLensesMayAuthorizeExecution',
     ].sort());
 
     for (const forbidden of [
