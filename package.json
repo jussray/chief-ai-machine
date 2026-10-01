@@ -13,6 +13,7 @@
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs && node scripts/verify-work-productization-contract.mjs",
     "verify:work-productization": "node scripts/verify-work-productization-contract.mjs",
     "verify:pr-credential-membrane": "node scripts/verify-pr-credential-membrane.mjs",
+    "verify:browser-reality": "vitest run test/browser-reality-contract.test.mjs test/browser-reality-network.test.mjs",
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
     "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"

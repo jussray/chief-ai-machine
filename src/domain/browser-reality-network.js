@@ -170,33 +170,6 @@ export async function assertBrowserRealityPublicTarget(rawUrl, resolveHost) {
   };
 }
 
-/**
- * Confirm the browser transport is connected to an address that was admitted
- * for this exact navigation. The peerAddress MUST come from the transport's
- * actual connected socket, not DNS lookup, URL parsing, or a page's claim.
- *
- * A browser lacking verified-peer reporting must stop rather than assume
- * pre-navigation DNS checks prevent a DNS-rebinding race.
- *
- * @param {BrowserRealityNetworkAdmission} admission
- * @param {string} peerAddress
- * @returns {string} the admitted URL, only once its connected peer is verified
- */
-export function assertBrowserRealityConnectedPeer(admission, peerAddress) {
-  if (!admission || typeof admission.url !== 'string'
-    || !Array.isArray(admission.resolvedAddresses)
-    || !admission.resolvedAddresses.length
-    || typeof peerAddress !== 'string') {
-    throw new Error('Browser Reality requires verified browser peer evidence');
-  }
-  const peer = normalizeHostname(peerAddress);
-  if (!isPublicBrowserRealityAddress(peer)
-    || !admission.resolvedAddresses.includes(peer)) {
-    throw new Error('Browser Reality connected peer differs from public admission');
-  }
-  return admission.url;
-}
-
 /** @param {number} redirectCount */
 export function assertBrowserRealityRedirectBudget(redirectCount) {
   if (!Number.isInteger(redirectCount) || redirectCount < 0) {

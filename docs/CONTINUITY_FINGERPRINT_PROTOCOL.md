@@ -35,6 +35,14 @@ Keep idea genesis, repo genesis, first recorded build, first substantive build, 
 
 Always distinguish VERIFIED, INFERRED, REMEMBERED, UNKNOWN, STALE, and BLOCKED.
 
+## Browser and device boundary
+
+In this protocol, a “fingerprint” is a deterministic retrieval, provenance, history, or evidence identity. It is not a probabilistic browser/device identity.
+
+For the `juss/browser-reality@v1` read-only inspection profile, never collect canvas, WebGL, audio, font, user-agent, hardware-signal aggregation, or similar entropy; never alter a browser fingerprint; and never perform cross-site tracking. The browser may reuse normal browser-held first-party session state when appropriate without inspecting, extracting, exporting, copying, logging, altering, or synthesizing its contents. Do not create a pseudonymous continuity ID unless an existing reviewed first-party app seam requires it; any such ID must be cryptographically random, never device-derived, purpose-limited, resettable, disclosed, consent-aware, first-party, and unavailable for cross-site correlation.
+
+The `juss-browser-reality-canonical-json-v1` SHA-256 digest is a separate evidence/content fingerprint. It binds a sanitized browser observation receipt; it must never enter identity continuity, identify a person/device, or correlate activity across sites.
+
 ## Supersession and decay
 
 Prior plans, prompts, branches, screenshots, PR descriptions, or deploy claims lose authority when `main`, runtime, provider state, or governing contracts change. Revalidate before reuse.
