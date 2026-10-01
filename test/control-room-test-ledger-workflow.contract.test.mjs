@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
@@ -80,6 +81,19 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('src/');
     expect(runtimeSection).toContain('\\.assetsignore$');
     expect(runtimeSection).toContain('git diff --no-renames --name-only');
+  });
+
+  it('skips runtime proof only for test files that the deployed bundle already excludes', () => {
+    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
+    const assetsignore = readFileSync('.assetsignore', 'utf8').split('\n');
+    for (const pattern of ['**/*.test.js', '**/*.test.mjs', '**/*.test.ts']) {
+      expect(assetsignore).toContain(pattern);
+    }
+    expect(runtimeSection).toContain(
+      "runtime_candidates=\"$(printf '%s\\n' \"$changed\" | grep -Ev '(^|/)[^/]+\\.test\\.(js|mjs|ts)$' || true)\"",
+    );
+    expect(runtimeSection).toContain("if printf '%s\\n' \"$runtime_candidates\" | grep -Eq '^(index\\.html$|styles/|src/|");
+    expect(runtimeSection).not.toContain("if printf '%s\\n' \"$changed\" | grep -Eq");
   });
 
   it('authenticates Cloudflare provenance and includes the base in inheritance search', () => {
