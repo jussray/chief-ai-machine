@@ -161,6 +161,29 @@ When the founder says `ULTRATHINK`, `steal`, or `steal me too`:
 6. Convert repeated insight into a decision, test, template, skill, or FCR workflow candidate when repetition justifies it.
 7. Keep discoveries outside the authorized task as candidates until the active gate is complete.
 
+## Research evidence intake
+
+Evidence from research, competitor analysis, or external sources enters the same truth hierarchy but carries a distinct classification:
+
+- `DEMONSTRATED`: evidence that was observed first-hand in a live system, repository, or runtime path and can be independently reproduced.
+- `ARCHITECTURE CLAIM`: an architecture claim that has not been independently verified against the real system at use time.
+- `MIXED`: a claim combining verified fragments with unverified assertions. Mixed-evidence items carry forward as candidates, not as proof.
+- `NEW PROOF`: newly retrieved evidence that independently confirms or supersedes a prior claim.
+- `STILL VALID`: Evidence that passed independent verification since the claim was first recorded.
+- `STALE/SUPERSEDED`: Evidence that predates a material change in the inspected artifact, repository, runtime, or deployment.
+
+Rules:
+
+1. Bind evidence to the exact artifact, version, and retrieval date.
+2. Do not present research evidence as repository or runtime proof without independent verification.
+3. When research evidence contradicts repository state, repository state wins (truth hierarchy).
+4. Classify every incoming research finding before adding it to the plan.
+5. Mixed-evidence items carry forward as candidates, not as conclusions.
+6. Remove stale or superseded evidence from the plan when the replacement is verified.
+7. Keep the research evidence classification visible in the capability plan and execution handoff.
+8. Do not auto-promote an architecture claim to DEMONSTRATED based on model inference alone.
+9. A competitor analysis or external report is ARCHITECTURE CLAIM until confirmed by first-hand inspection.
+
 ## Scaling default
 
 Scalability is a default design constraint, not permission to overbuild.
