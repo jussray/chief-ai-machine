@@ -102,9 +102,7 @@ const failed = checks.filter(([, passed]) => !passed);
 
 if (failed.length) {
   console.error('Goalfix skill verification failed:');
-  for (const [name] of failed) {
-    console.error(`- ${name}`);
-  }
+  for (const [name] of failed) console.error(`- ${name}`);
   process.exit(1);
 }
 
