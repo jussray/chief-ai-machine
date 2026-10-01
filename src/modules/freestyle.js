@@ -3,6 +3,16 @@ import { showToast, copyText } from './ui.js';
 
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 
+const PROTECTED_CONTROL_TOKEN_PATTERN = /\b(?:goalfix|ultrathink|truthmode|confess|redteam|attackten|lindymode|ooda|proofmode|l99)\b/gi;
+
+export function stripProtectedControlTokens(rawText) {
+  return String(rawText || '')
+    .replace(/(?:^|\s)\/(?:goalfix|ultrathink|truthmode|confess|redteam|attackten|lindymode|ooda|proofmode|l99)\b/gi, '')
+    .replace(PROTECTED_CONTROL_TOKEN_PATTERN, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 const GOALFIX_FREESTYLE_ROUTES = [
   {
     id: 'goalfix-v1-friend-mode',
@@ -14,7 +24,7 @@ const GOALFIX_FREESTYLE_ROUTES = [
   },
   {
     id: 'goalfix-v1-verified-loop',
-    pattern: /(?:^|\s)\/goalfix\b|\bgoalfix\b|\bfinish line\b|\bbottleneck\b/i,
+    pattern: /\bfinish line\b|\bbottleneck\b/i,
   },
 ];
 
@@ -38,8 +48,8 @@ function inferCat(text) {
   const t = text.toLowerCase();
   if (t.includes('shopify') || t.includes('store') || t.includes('jbh')) return 'shopify';
   if (t.includes('launch') || t.includes('ship') || t.includes('release')) return 'shipping';
-  if (t.includes('ooda') || t.includes('lindy') || t.includes('strategy') || t.includes('roadmap')) return 'strategy';
-  if (t.includes('red team') || t.includes('abuse') || t.includes('attack')) return 'redteam';
+  if (t.includes('strategy') || t.includes('roadmap')) return 'strategy';
+  if (t.includes('abuse') || t.includes('attack')) return 'redteam';
   if (t.includes('ad') || t.includes('campaign') || t.includes('growth')) return 'growth';
   if (t.includes('persona') || t.includes('act as') || t.includes('talk like') || t.includes('voice of')) return 'persona';
   if (t.includes('audit') || t.includes('debug') || t.includes('fix') || t.includes('repo')) return 'coding';
@@ -47,7 +57,7 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
-  const text = String(rawText || '');
+  const text = stripProtectedControlTokens(rawText);
   const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
 
   for (const route of GOALFIX_FREESTYLE_ROUTES) {
