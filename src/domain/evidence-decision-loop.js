@@ -1,0 +1,486 @@
+export const EVIDENCE_DECISION_LOOP_CONTRACT = 'juss/evidence-decision-loop@v1';
+
+export const EVIDENCE_PLANES = Object.freeze(['source', 'execution', 'outcome']);
+export const CLAIM_STATES = Object.freeze(['VERIFIED', 'OBSERVED', 'INFERRED', 'UNKNOWN', 'BLOCKED']);
+export const DIVERGENCE_DISPOSITIONS = Object.freeze([
+  'NONE',
+  'REJECTED_BOUNDARY',
+  'NEEDS_RECONSTRUCTION',
+  'TEST_ALTERNATIVE',
+  'RESOLVED',
+]);
+export const DIVERGENCE_RESOLUTIONS = Object.freeze([
+  'expected',
+  'candidate',
+  'both-contextual',
+  'neither',
+  'unresolved',
+]);
+export const MERGE_REVIEW_DISPOSITIONS = Object.freeze([
+  'NOT_APPLICABLE',
+  'REOBSERVE',
+  'GOVERNANCE_DEADLOCK',
+  'WAIT_REQUIRED_CHECKS',
+  'WAIT_CODE_SCANNING',
+  'WAIT_REQUIRED_DEPLOYMENTS',
+  'WAIT_FOUNDER_SELF_AUDIT',
+  'WAIT_INDEPENDENT_APPROVAL',
+  'WAIT_FOUNDER_AUTHORITY',
+  'HOLD_METHOD',
+  'READY',
+]);
+
+function normalizeEvidence(evidence) {
+  return Array.isArray(evidence) ? evidence : [];
+}
+
+function hasVerifiedPlane(evidence, plane) {
+  return evidence.some((item) => item?.plane === plane && item?.state === 'VERIFIED' && item?.ref);
+}
+
+function bestNonVerifiedState(evidence) {
+  if (evidence.some((item) => item?.state === 'BLOCKED')) return 'BLOCKED';
+  if (evidence.some((item) => item?.state === 'OBSERVED')) return 'OBSERVED';
+  if (evidence.some((item) => item?.state === 'INFERRED')) return 'INFERRED';
+  return 'UNKNOWN';
+}
+
+function evaluateDivergence(divergence = {}) {
+  const observed = divergence?.observed === true;
+  if (!observed) {
+    return {
+      observed: false,
+      reviewRequired: false,
+      disposition: 'NONE',
+      resolution: 'unresolved',
+      reconstructable: false,
+      assumptions: [],
+      falsifier: null,
+      errors: [],
+    };
+  }
+
+  const assumptions = Array.isArray(divergence.assumptions)
+    ? divergence.assumptions.filter((item) => typeof item === 'string' && item.trim())
+    : [];
+  const falsifier = typeof divergence.falsifier === 'string' && divergence.falsifier.trim()
+    ? divergence.falsifier.trim()
+    : null;
+  const resolutionEvidence = normalizeEvidence(divergence.resolutionEvidence);
+  const requestedResolution = DIVERGENCE_RESOLUTIONS.includes(divergence.resolution)
+    ? divergence.resolution
+    : 'unresolved';
+  const errors = [];
+
+  for (const item of resolutionEvidence) {
+    if (!CLAIM_STATES.includes(item?.state)) errors.push(`invalid divergence evidence state: ${item?.state ?? 'missing'}`);
+    if (item?.state === 'VERIFIED' && !item?.ref) errors.push('verified divergence evidence requires ref');
+  }
+
+  const boundaryBlocked = divergence.safetyBlocked === true || divergence.authorityViolation === true;
+  const reconstructable = assumptions.length > 0 && Boolean(falsifier);
+  const verifiedResolution = resolutionEvidence.some((item) => item?.state === 'VERIFIED' && item?.ref);
+
+  let disposition = 'NEEDS_RECONSTRUCTION';
+  let resolution = 'unresolved';
+
+  if (boundaryBlocked) {
+    disposition = 'REJECTED_BOUNDARY';
+  } else if (!reconstructable) {
+    disposition = 'NEEDS_RECONSTRUCTION';
+  } else if (verifiedResolution && requestedResolution !== 'unresolved') {
+    disposition = 'RESOLVED';
+    resolution = requestedResolution;
+  } else {
+    disposition = 'TEST_ALTERNATIVE';
+  }
+
+  return {
+    observed,
+    reviewRequired: true,
+    disposition,
+    resolution,
+    reconstructable,
+    assumptions,
+    falsifier,
+    boundaryBlocked,
+    verifiedResolution,
+    errors,
+  };
+}
+
+function normalizeCheckRuns(checkRuns) {
+  return Array.isArray(checkRuns) ? checkRuns : [];
+}
+
+function successfulCheckNames(checkRuns, headSha) {
+  return new Set(
+    checkRuns
+      .filter((item) => item?.headSha === headSha && item?.status === 'completed' && item?.conclusion === 'success')
+      .map((item) => item?.name)
+      .filter(Boolean),
+  );
+}
+
+function uniqueNames(values) {
+  return Array.isArray(values)
+    ? [...new Set(values.filter((name) => typeof name === 'string' && name.trim()))]
+    : [];
+}
+
+export function evaluateMergeReview(mergeReview = {}) {
+  const requested = mergeReview?.requested === true;
+  if (!requested) {
+    return {
+      requested: false,
+      disposition: 'NOT_APPLICABLE',
+      mergeAllowed: false,
+      recommendedMergeMethod: null,
+      selfAuthorize: false,
+      bypassSuggested: false,
+      governanceDeadlock: false,
+      governanceDeadlockReasons: [],
+      safeRulesetDelta: null,
+      rulesetMutationSuggested: false,
+      missingRequiredChecks: [],
+      codeScanningSatisfied: false,
+      missingRequiredDeployments: [],
+      requiredDeploymentsSatisfied: false,
+      founderSelfAuditRequired: false,
+      founderSelfAuditSatisfied: false,
+      founderSelfAuditHeadMatches: false,
+      founderSelfAuditDisposition: 'UNKNOWN',
+      independentApprovalSatisfied: false,
+      independentApprovalHeadMatches: false,
+      founderAuthoritySatisfied: false,
+      founderAuthorityHeadMatches: false,
+      headMatchesReview: false,
+    };
+  }
+
+  const currentHeadSha = typeof mergeReview.currentHeadSha === 'string' ? mergeReview.currentHeadSha : '';
+  const reviewedHeadSha = typeof mergeReview.reviewedHeadSha === 'string' ? mergeReview.reviewedHeadSha : '';
+  const headMatchesReview = Boolean(currentHeadSha && reviewedHeadSha && currentHeadSha === reviewedHeadSha);
+  const checkRuns = normalizeCheckRuns(mergeReview.checkRuns);
+  const successfulChecks = successfulCheckNames(checkRuns, currentHeadSha);
+  const requiredChecks = uniqueNames(mergeReview.requiredChecks);
+  const missingRequiredChecks = requiredChecks.filter((name) => !successfulChecks.has(name));
+
+  const codeScanningRequired = mergeReview.rules?.codeScanningRequired === true;
+  const codeScanningTool = typeof mergeReview.rules?.codeScanningTool === 'string'
+    ? mergeReview.rules.codeScanningTool
+    : 'CodeQL';
+  const codeScanningSatisfied = !codeScanningRequired || successfulChecks.has(codeScanningTool);
+
+  const requiredDeployments = uniqueNames(mergeReview.rules?.requiredDeployments);
+  const deploymentStatuses = Array.isArray(mergeReview.deploymentStatuses) ? mergeReview.deploymentStatuses : [];
+  const successfulDeployments = new Set(
+    deploymentStatuses
+      .filter((item) => item?.headSha === currentHeadSha && item?.state === 'success')
+      .map((item) => item?.environment)
+      .filter(Boolean),
+  );
+  const missingRequiredDeployments = requiredDeployments.filter((name) => !successfulDeployments.has(name));
+  const requiredDeploymentsSatisfied = missingRequiredDeployments.length === 0;
+
+  const founderSelfAuditRequired = mergeReview.rules?.founderSelfAuditRequired === true;
+  const founderActor = typeof mergeReview.founderActor === 'string' ? mergeReview.founderActor.trim() : '';
+  const founderSelfAuditReviewer = typeof mergeReview.founderSelfAudit?.reviewer === 'string'
+    ? mergeReview.founderSelfAudit.reviewer.trim()
+    : '';
+  const founderSelfAuditReviewedHeadSha = typeof mergeReview.founderSelfAudit?.reviewedHeadSha === 'string'
+    ? mergeReview.founderSelfAudit.reviewedHeadSha.trim()
+    : '';
+  const founderSelfAuditHeadMatches = Boolean(
+    currentHeadSha
+      && founderSelfAuditReviewedHeadSha
+      && founderSelfAuditReviewedHeadSha === currentHeadSha,
+  );
+  const founderSelfAuditDisposition = ['ACCEPT', 'REVISE', 'HOLD'].includes(mergeReview.founderSelfAudit?.disposition)
+    ? mergeReview.founderSelfAudit.disposition
+    : 'UNKNOWN';
+  const founderSelfAuditCoverageSatisfied = [
+    'diffReviewed',
+    'requiredChecksReviewed',
+    'codeScanningReviewed',
+    'runtimeEvidenceReviewed',
+    'knownRisksReviewed',
+  ].every((field) => mergeReview.founderSelfAudit?.[field] === true);
+  const founderSelfAuditSatisfied = !founderSelfAuditRequired || Boolean(
+    mergeReview.founderSelfAudit?.completed === true
+      && founderActor
+      && founderSelfAuditReviewer === founderActor
+      && founderSelfAuditHeadMatches
+      && founderSelfAuditDisposition === 'ACCEPT'
+      && founderSelfAuditCoverageSatisfied,
+  );
+
+  const requireLastPushApproval = mergeReview.rules?.requireLastPushApproval === true;
+  const lastPusher = typeof mergeReview.lastPusher === 'string' ? mergeReview.lastPusher.trim() : '';
+  const reviewer = typeof mergeReview.independentApproval?.reviewer === 'string'
+    ? mergeReview.independentApproval.reviewer.trim()
+    : '';
+  const independentApprovalReviewedHeadSha = typeof mergeReview.independentApproval?.reviewedHeadSha === 'string'
+    ? mergeReview.independentApproval.reviewedHeadSha.trim()
+    : '';
+  const independentApprovalHeadMatches = Boolean(
+    currentHeadSha
+      && independentApprovalReviewedHeadSha
+      && independentApprovalReviewedHeadSha === currentHeadSha,
+  );
+  const independentApprovalSatisfied = !requireLastPushApproval || Boolean(
+    mergeReview.independentApproval?.approved === true
+      && reviewer
+      && lastPusher
+      && reviewer !== lastPusher
+      && independentApprovalHeadMatches,
+  );
+
+  const postMergeOnlyChecks = uniqueNames(mergeReview.rules?.postMergeOnlyChecks);
+  const postMergeOnlyDeployments = uniqueNames(mergeReview.rules?.postMergeOnlyDeployments);
+  const impossibleRequiredChecks = requiredChecks.filter((name) => postMergeOnlyChecks.includes(name));
+  const impossibleRequiredDeployments = requiredDeployments.filter((name) => postMergeOnlyDeployments.includes(name));
+  const soleFounderMode = mergeReview.rules?.soleFounderMode === true;
+  const independentReviewAvailable = mergeReview.rules?.independentReviewAvailable !== false;
+  const lastPushApprovalDeadlock = Boolean(
+    requireLastPushApproval
+      && soleFounderMode
+      && !independentReviewAvailable
+      && founderSelfAuditRequired,
+  );
+  const governanceDeadlockReasons = [];
+  if (impossibleRequiredChecks.length > 0) {
+    governanceDeadlockReasons.push('post-merge-only check is required before merge');
+  }
+  if (impossibleRequiredDeployments.length > 0) {
+    governanceDeadlockReasons.push('post-merge-only deployment is required before merge');
+  }
+  if (lastPushApprovalDeadlock) {
+    governanceDeadlockReasons.push('sole-founder last-push approval has no independent satisfier');
+  }
+  const governanceDeadlock = governanceDeadlockReasons.length > 0;
+  const rulesetMode = mergeReview.rules?.rulesetMode === 'as-is' ? 'as-is' : 'repairable';
+  const safeRulesetDelta = governanceDeadlock && rulesetMode !== 'as-is' ? {
+    removePreMergeRequiredChecks: impossibleRequiredChecks,
+    preservePreMergeRequiredChecks: requiredChecks.filter((name) => !impossibleRequiredChecks.includes(name)),
+    moveToPostMergeChecks: impossibleRequiredChecks,
+    removePreMergeRequiredDeployments: impossibleRequiredDeployments,
+    preservePreMergeRequiredDeployments: requiredDeployments.filter((name) => !impossibleRequiredDeployments.includes(name)),
+    moveToPostMergeDeployments: impossibleRequiredDeployments,
+    disableLastPushApproval: lastPushApprovalDeadlock,
+    replacementReviewGate: lastPushApprovalDeadlock
+      ? 'founder-self-audit-plus-explicit-current-head-founder-authority'
+      : null,
+    weakenProofSemantics: false,
+    bypassRequired: false,
+  } : null;
+  const rulesetMutationSuggested = Boolean(safeRulesetDelta);
+
+  const founderAuthorityHeadSha = typeof mergeReview.founderAuthorityHeadSha === 'string'
+    ? mergeReview.founderAuthorityHeadSha.trim()
+    : '';
+  const founderAuthorityHeadMatches = Boolean(
+    currentHeadSha
+      && founderAuthorityHeadSha
+      && founderAuthorityHeadSha === currentHeadSha,
+  );
+  const founderAuthoritySatisfied = Boolean(
+    mergeReview.founderAuthorityExplicit === true
+      && founderAuthorityHeadMatches,
+  );
+  const allowedMergeMethods = Array.isArray(mergeReview.rules?.allowedMergeMethods)
+    ? mergeReview.rules.allowedMergeMethods.filter((method) => ['merge', 'squash', 'rebase'].includes(method))
+    : ['merge', 'squash', 'rebase'];
+  const requestedMethod = ['merge', 'squash', 'rebase'].includes(mergeReview.requestedMethod)
+    ? mergeReview.requestedMethod
+    : null;
+  const requiredLinearHistory = mergeReview.rules?.requiredLinearHistory === true;
+
+  let recommendedMergeMethod = null;
+  if (requiredLinearHistory) {
+    if (requestedMethod && requestedMethod !== 'merge' && allowedMergeMethods.includes(requestedMethod)) {
+      recommendedMergeMethod = requestedMethod;
+    } else if (allowedMergeMethods.includes('squash')) {
+      recommendedMergeMethod = 'squash';
+    } else if (allowedMergeMethods.includes('rebase')) {
+      recommendedMergeMethod = 'rebase';
+    }
+  } else if (requestedMethod && allowedMergeMethods.includes(requestedMethod)) {
+    recommendedMergeMethod = requestedMethod;
+  } else {
+    recommendedMergeMethod = allowedMergeMethods[0] ?? null;
+  }
+
+  let disposition = 'READY';
+  if (!headMatchesReview) disposition = 'REOBSERVE';
+  else if (governanceDeadlock) disposition = 'GOVERNANCE_DEADLOCK';
+  else if (missingRequiredChecks.length > 0) disposition = 'WAIT_REQUIRED_CHECKS';
+  else if (!codeScanningSatisfied) disposition = 'WAIT_CODE_SCANNING';
+  else if (!requiredDeploymentsSatisfied) disposition = 'WAIT_REQUIRED_DEPLOYMENTS';
+  else if (!founderSelfAuditSatisfied) disposition = 'WAIT_FOUNDER_SELF_AUDIT';
+  else if (!independentApprovalSatisfied) disposition = 'WAIT_INDEPENDENT_APPROVAL';
+  else if (!founderAuthoritySatisfied) disposition = 'WAIT_FOUNDER_AUTHORITY';
+  else if (!recommendedMergeMethod) disposition = 'HOLD_METHOD';
+
+  return {
+    requested: true,
+    disposition,
+    mergeAllowed: disposition === 'READY',
+    recommendedMergeMethod,
+    selfAuthorize: false,
+    bypassSuggested: false,
+    governanceDeadlock,
+    governanceDeadlockReasons,
+    rulesetMode,
+    safeRulesetDelta,
+    rulesetMutationSuggested,
+    currentHeadSha,
+    reviewedHeadSha,
+    headMatchesReview,
+    requiredChecks,
+    postMergeOnlyChecks,
+    impossibleRequiredChecks,
+    missingRequiredChecks,
+    codeScanningRequired,
+    codeScanningTool,
+    codeScanningSatisfied,
+    requiredDeployments,
+    postMergeOnlyDeployments,
+    impossibleRequiredDeployments,
+    missingRequiredDeployments,
+    requiredDeploymentsSatisfied,
+    founderSelfAuditRequired,
+    founderActor,
+    founderSelfAuditReviewer,
+    founderSelfAuditReviewedHeadSha,
+    founderSelfAuditHeadMatches,
+    founderSelfAuditDisposition,
+    founderSelfAuditCoverageSatisfied,
+    founderSelfAuditSatisfied,
+    requireLastPushApproval,
+    soleFounderMode,
+    independentReviewAvailable,
+    lastPushApprovalDeadlock,
+    lastPusher,
+    reviewer,
+    independentApprovalReviewedHeadSha,
+    independentApprovalHeadMatches,
+    independentApprovalSatisfied,
+    founderAuthorityHeadSha,
+    founderAuthorityHeadMatches,
+    founderAuthoritySatisfied,
+    requiredLinearHistory,
+    requestedMethod,
+    allowedMergeMethods,
+  };
+}
+
+export function evaluateEvidenceDecision(input = {}) {
+  const evidence = normalizeEvidence(input.evidence);
+  const errors = [];
+
+  if (!input.subjectFingerprint || typeof input.subjectFingerprint !== 'string') {
+    errors.push('subjectFingerprint is required');
+  }
+
+  for (const item of evidence) {
+    if (!EVIDENCE_PLANES.includes(item?.plane)) errors.push(`invalid evidence plane: ${item?.plane ?? 'missing'}`);
+    if (!CLAIM_STATES.includes(item?.state)) errors.push(`invalid claim state: ${item?.state ?? 'missing'}`);
+  }
+
+  const divergence = evaluateDivergence(input.divergence);
+  errors.push(...divergence.errors);
+  const mergeReview = evaluateMergeReview(input.mergeReview);
+
+  const subjectChanged = Boolean(
+    input.expectedFingerprint
+      && input.subjectFingerprint
+      && input.expectedFingerprint !== input.subjectFingerprint,
+  );
+  const staleEvidence = evidence.some((item) => item?.stale === true);
+  const executionVerified = hasVerifiedPlane(evidence, 'execution');
+  const outcomeVerified = hasVerifiedPlane(evidence, 'outcome');
+  const primarySignal = input.signals?.primary ?? 'unknown';
+  const secondarySignal = input.signals?.secondary ?? 'unknown';
+
+  const winnerAllowed = Boolean(
+    !subjectChanged
+      && !staleEvidence
+      && outcomeVerified
+      && primarySignal === 'improved',
+  );
+
+  let claimState = 'UNKNOWN';
+  if (subjectChanged || staleEvidence) {
+    claimState = 'UNKNOWN';
+  } else if (outcomeVerified) {
+    claimState = 'VERIFIED';
+  } else if (executionVerified) {
+    claimState = 'OBSERVED';
+  } else {
+    claimState = bestNonVerifiedState(evidence);
+  }
+
+  let recommendation = 'HOLD';
+  if (errors.length) {
+    recommendation = 'HOLD';
+  } else if (subjectChanged || staleEvidence) {
+    recommendation = 'REOBSERVE';
+  } else if (divergence.observed && divergence.disposition === 'TEST_ALTERNATIVE') {
+    recommendation = 'INVESTIGATE_DIVERGENCE';
+  } else if (mergeReview.requested && mergeReview.disposition === 'REOBSERVE') {
+    recommendation = 'REOBSERVE';
+  } else if (mergeReview.requested && mergeReview.disposition === 'READY') {
+    recommendation = 'PROPOSE_MERGE';
+  } else if (mergeReview.requested) {
+    recommendation = 'HOLD';
+  } else if (winnerAllowed) {
+    recommendation = 'PROPOSE_KEEP';
+  } else if (outcomeVerified && primarySignal === 'degraded') {
+    recommendation = 'PROPOSE_TUNE';
+  } else if (outcomeVerified && primarySignal === 'unchanged') {
+    recommendation = 'REVIEW';
+  } else if (executionVerified && !outcomeVerified) {
+    recommendation = 'MEASURE';
+  } else if (secondarySignal === 'improved' && !outcomeVerified) {
+    recommendation = 'MEASURE';
+  }
+
+  return {
+    contract: EVIDENCE_DECISION_LOOP_CONTRACT,
+    valid: errors.length === 0,
+    errors,
+    subjectChanged,
+    staleEvidence,
+    executionVerified,
+    outcomeVerified,
+    claimState,
+    winnerAllowed,
+    recommendation,
+    divergence,
+    mergeReview,
+    selfAuthorize: false,
+    founderReviewRequired: Boolean(input.consequentialAction ?? true),
+    invariants: {
+      executionIsNotOutcome: true,
+      secondarySignalCannotWinAlone: true,
+      changedFingerprintInvalidatesPriorProof: true,
+      differenceIsNotAutomaticallyError: true,
+      alternativePathIsHypothesisUntilVerified: true,
+      safetyAndAuthorityCannotBeReasonedAround: true,
+      requiredChecksMustMaterializeOnReviewedHead: true,
+      codeScanningIsSeparateMergeEvidence: true,
+      requiredDeploymentsAreSeparateMergeEvidence: true,
+      postMergeProofCannotBeRequiredPreMerge: true,
+      soleFounderGovernanceMustRemainSatisfiable: true,
+      governanceDeadlockNeverImpliesBypass: true,
+      asIsRulesetModeNeverSuggestsMutation: true,
+      founderSelfAuditIsBoundToExactHead: true,
+      founderSelfAuditDoesNotGrantMergeAuthority: true,
+      independentApprovalCannotBeSelfSatisfied: true,
+      independentApprovalIsBoundToExactHead: true,
+      founderMergeAuthorityIsBoundToExactHead: true,
+      linearHistoryForbidsMergeCommitFallback: true,
+    },
+  };
+}
