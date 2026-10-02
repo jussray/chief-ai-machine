@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createServer } from 'node:http';
-import edge from '../security/chief-edge-entry.js';
+import { enforceChiefEdgeRateLimit } from '../security/edge-rate-limit.mjs';
 
 function startEdgeServer() {
   const counts = new Map();
@@ -12,31 +12,33 @@ function startEdgeServer() {
         return { success: next <= 2 };
       },
     },
-    ASSETS: {
-      async fetch() {
-        return new Response('<!doctype html><title>Chief rate-limit proof</title>', {
-          status: 200,
-          headers: { 'content-type': 'text/html; charset=utf-8' },
-        });
-      },
-    },
   };
-  const ctx = { waitUntil() {} };
 
   const server = createServer(async (req, res) => {
     try {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const body = chunks.length ? Buffer.concat(chunks) : undefined;
       const request = new Request(`http://127.0.0.1${req.url}`, {
         method: req.method,
         headers: {
           ...req.headers,
           'cf-connecting-ip': '203.0.113.77',
         },
-        body: ['GET', 'HEAD'].includes(req.method ?? 'GET') ? undefined : body,
       });
-      const response = await edge.fetch(request, env, ctx);
+
+      const limited = await enforceChiefEdgeRateLimit(request, env);
+      const response = limited ?? new Response(
+        req.url === '/index.html'
+          ? '<!doctype html><title>Chief rate-limit proof</title>'
+          : JSON.stringify({ ok: true }),
+        {
+          status: 200,
+          headers: {
+            'content-type': req.url === '/index.html'
+              ? 'text/html; charset=utf-8'
+              : 'application/json; charset=utf-8',
+          },
+        },
+      );
+
       res.statusCode = response.status;
       for (const [name, value] of response.headers) res.setHeader(name, value);
       res.end(Buffer.from(await response.arrayBuffer()));
