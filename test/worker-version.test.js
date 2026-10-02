@@ -18,7 +18,7 @@ const releaseBakeScript = readFileSync(
 describe('Chief AI Worker version receipt', () => {
   it('routes runtime endpoints through the Worker before asset fallback', () => {
     expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/github\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
+      /"run_worker_first":\s*\[\s*"\/api"\s*,\s*"\/api\/\*"\s*,\s*"\/github"\s*,\s*"\/github\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
     );
   });
 
