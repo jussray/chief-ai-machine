@@ -10,6 +10,7 @@ test('all dynamic Chief ingress paths are in the baseline scope', () => {
   for (const path of [
     '/version',
     '/mcp',
+    '/github',
     '/github/install',
     '/api',
     '/api/chief/capability-plan',
@@ -46,6 +47,23 @@ test('rate-limited ingress returns 429 with Retry-After', async () => {
   assert.equal(response?.status, 429);
   assert.equal(response.headers.get('retry-after'), '60');
   assert.deepEqual(await response.json(), { ok: false, error: 'rate_limit_exceeded' });
+});
+
+test('client-controlled forwarding headers cannot choose a limiter bucket', async () => {
+  const keys = [];
+  const env = {
+    CHIEF_RATE_LIMITER: {
+      async limit({ key }) {
+        keys.push(key);
+        return { success: true };
+      },
+    },
+  };
+
+  await enforceChiefEdgeRateLimit(request('/api', { 'x-forwarded-for': '198.51.100.10' }), env);
+  await enforceChiefEdgeRateLimit(request('/api', { 'x-forwarded-for': '198.51.100.11' }), env);
+
+  assert.deepEqual(keys, ['ip:unknown', 'ip:unknown']);
 });
 
 test('allowed dynamic ingress continues and static assets bypass the limiter', async () => {
