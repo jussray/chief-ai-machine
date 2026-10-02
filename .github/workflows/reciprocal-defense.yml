@@ -3,19 +3,24 @@ on:
   push:
     branches:
       - feat/reciprocal-defense-hallway
+      - 'security/**'
     paths:
       - security/reciprocal-defense.mjs
       - security/reciprocal-ingress.mjs
       - security/full-attack-unit.mjs
+      - security/edge-rate-limit.mjs
       - security/*-edge-entry.*
       - test/reciprocal-defense.test.mjs
       - test/reciprocal-ingress.test.mjs
       - test/full-attack-unit.test.mjs
+      - test/edge-rate-limit.test.mjs
       - wrangler.jsonc
       - .github/workflows/reciprocal-defense.yml
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  EXPECTED_HEAD_SHA: ${{ github.sha }}
 jobs:
   reciprocal-defense:
     runs-on: ubuntu-latest
@@ -24,14 +29,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+      - name: Verify immutable head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
-      - name: Verify reciprocal defense, ingress, and full-unit invariants
-        run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs test/full-attack-unit.test.mjs
+      - name: Verify reciprocal defense, ingress, edge limiting, and full-unit invariants
+        run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs test/full-attack-unit.test.mjs test/edge-rate-limit.test.mjs
       - name: Verify Chief edge wiring
         run: |
           grep -q '"main": "security/chief-edge-entry.js"' wrangler.jsonc
+          grep -q '"name": "CHIEF_RATE_LIMITER"' wrangler.jsonc
+          grep -q '"namespace_id": "1002"' wrangler.jsonc
           grep -q "export \* from '../worker/index.js'" security/chief-edge-entry.js
+          grep -q "enforceChiefEdgeRateLimit" security/chief-edge-entry.js
           grep -q "runFullAttackUnit" security/reciprocal-ingress.mjs
           node --check security/chief-edge-entry.js
+          node --check security/edge-rate-limit.mjs
