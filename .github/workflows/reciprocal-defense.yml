@@ -15,7 +15,9 @@ on:
       - test/reciprocal-ingress.test.mjs
       - test/full-attack-unit.test.mjs
       - test/edge-rate-limit.test.mjs
+      - test/worker-version.test.js
       - e2e/chief-edge-rate-limit.spec.mjs
+      - vitest.config.js
       - wrangler.jsonc
       - .github/workflows/reciprocal-defense.yml
   workflow_dispatch:
@@ -26,7 +28,7 @@ env:
 jobs:
   reciprocal-defense:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -42,6 +44,13 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run repository lint
+        run: npm run lint
+      - name: Run repository unit tests with coverage
+        run: npm test -- --coverage
       - name: Verify reciprocal defense, ingress, edge limiting, and full-unit invariants
         run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs test/full-attack-unit.test.mjs test/edge-rate-limit.test.mjs
       - name: Verify Chief edge wiring
