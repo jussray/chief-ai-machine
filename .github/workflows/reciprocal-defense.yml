@@ -2,6 +2,7 @@ name: Reciprocal Defense Contract
 on:
   push:
     branches:
+      - main
       - feat/reciprocal-defense-hallway
       - 'security/**'
     paths:
@@ -25,7 +26,7 @@ env:
 jobs:
   reciprocal-defense:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -48,14 +49,42 @@ jobs:
           grep -q '"main": "security/chief-edge-entry.js"' wrangler.jsonc
           grep -q '"name": "CHIEF_RATE_LIMITER"' wrangler.jsonc
           grep -q '"namespace_id": "1002"' wrangler.jsonc
+          grep -q '"/api"' wrangler.jsonc
+          grep -q '"/github"' wrangler.jsonc
           grep -q "export \* from '../worker/index.js'" security/chief-edge-entry.js
           grep -q "enforceChiefEdgeRateLimit" security/chief-edge-entry.js
           grep -q "runFullAttackUnit" security/reciprocal-ingress.mjs
           node --check security/chief-edge-entry.js
           node --check security/edge-rate-limit.mjs
-      - name: Install pinned Playwright test runner
-        run: npm install --no-save --package-lock=false --ignore-scripts @playwright/test@1.61.1
+      - name: Install pinned Wrangler and Playwright
+        run: npm install --no-save --package-lock=false wrangler@4.118.0 @playwright/test@1.61.1
       - name: Install pinned Playwright Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run Chief edge rate-limit Playwright witness
+      - name: Start exact-head Chief Worker locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler dev --local --ip 127.0.0.1 --port 8791 > "$RUNNER_TEMP/chief-wrangler.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/chief-wrangler.pid"
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8791/README.md >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/chief-wrangler.log" >&2
+          exit 1
+      - name: Run Chief edge rate-limit Playwright witness through Wrangler
+        env:
+          CHIEF_EDGE_BASE_URL: http://127.0.0.1:8791
         run: npx playwright test e2e/chief-edge-rate-limit.spec.mjs --workers=1 --reporter=line
+      - name: Stop local Chief Worker
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/chief-wrangler.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/chief-wrangler.pid")" 2>/dev/null || true
+          fi
+          if [ -f "$RUNNER_TEMP/chief-wrangler.log" ]; then
+            cat "$RUNNER_TEMP/chief-wrangler.log"
+          fi
