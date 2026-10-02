@@ -1,3 +1,5 @@
+/* global Request */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { enforceChiefEdgeRateLimit, isChiefDynamicPath } from '../security/edge-rate-limit.mjs';
