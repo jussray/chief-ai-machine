@@ -1,3 +1,5 @@
+/* global process, fetch */
+
 import { test, expect } from '@playwright/test';
 
 const baseURL = process.env.CHIEF_EDGE_BASE_URL;
