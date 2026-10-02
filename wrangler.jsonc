@@ -5,6 +5,16 @@
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
+  "ratelimits": [
+    {
+      "name": "CHIEF_RATE_LIMITER",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
