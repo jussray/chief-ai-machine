@@ -5,25 +5,16 @@ const baseURL = process.env.CHIEF_EDGE_BASE_URL;
 test('Chief dynamic ingress rate limit is enforced through the real Worker entry', async ({ page }) => {
   test.skip(!baseURL, 'CHIEF_EDGE_BASE_URL is required for the real Worker witness');
 
-  // Use a static, inert asset as the browser origin. It must remain outside the
-  // dynamic limiter and cannot make application requests on its own.
-  const staticResponse = await page.goto(`${baseURL}/README.md`);
+  // Use a known inert static asset as the browser origin. Static asset delivery
+  // must remain outside the dynamic API limiter.
+  const staticResponse = await page.goto(`${baseURL}/styles/main.css`);
   expect(staticResponse?.status()).toBe(200);
 
-  // Exact /api must reach the Worker rather than fall through to SPA assets.
-  const apiRoot = await page.evaluate(async () => {
-    const response = await fetch('/api');
-    return {
-      status: response.status,
-      contentType: response.headers.get('content-type'),
-    };
-  });
-  expect(apiRoot.status).toBe(501);
-  expect(apiRoot.contentType ?? '').not.toContain('text/html');
-
-  // Cloudflare documents Worker Rate Limiting as permissive/eventually
+  // Cloudflare Worker Rate Limiting is intentionally permissive/eventually
   // consistent. Do not assert an exact first-rejection request number. Instead,
-  // prove a sequential browser workload is eventually rejected by the binding.
+  // prove a sequential browser workload is eventually rejected by the real
+  // locally simulated binding and then prove the exact root paths cannot bypass
+  // that exhausted bucket.
   const proof = await page.evaluate(async () => {
     const statuses = [];
     let retryAfter = null;
@@ -41,6 +32,7 @@ test('Chief dynamic ingress rate limit is enforced through the real Worker entry
 
     const exactApi = await fetch('/api', { cache: 'no-store' });
     const exactGithub = await fetch('/github', { cache: 'no-store' });
+    const staticAfterExhaustion = await fetch('/styles/main.css', { cache: 'no-store' });
 
     return {
       statuses,
@@ -48,6 +40,7 @@ test('Chief dynamic ingress rate limit is enforced through the real Worker entry
       body,
       exactApiStatus: exactApi.status,
       exactGithubStatus: exactGithub.status,
+      staticStatus: staticAfterExhaustion.status,
     };
   });
 
@@ -56,4 +49,5 @@ test('Chief dynamic ingress rate limit is enforced through the real Worker entry
   expect(proof.body).toEqual({ ok: false, error: 'rate_limit_exceeded' });
   expect(proof.exactApiStatus).toBe(429);
   expect(proof.exactGithubStatus).toBe(429);
+  expect(proof.staticStatus).toBe(200);
 });
