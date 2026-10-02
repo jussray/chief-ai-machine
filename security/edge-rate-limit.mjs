@@ -4,21 +4,19 @@ const RATE_LIMIT_WINDOW_SECONDS = 60;
 export function isChiefDynamicPath(pathname) {
   return pathname === '/version'
     || pathname === '/mcp'
+    || pathname === '/github'
     || pathname.startsWith('/github/')
     || pathname === '/api'
     || pathname.startsWith('/api/');
 }
 
 function clientKey(request) {
+  // Cloudflare supplies CF-Connecting-IP at the trusted edge. Do not fall back
+  // to client-controlled forwarding headers, which would make the limiter key
+  // attacker-selectable. Missing edge identity collapses into one fail-safe
+  // bucket rather than silently weakening the limit.
   const cfIp = String(request.headers.get('cf-connecting-ip') || '').trim();
-  if (cfIp) return `ip:${cfIp}`;
-
-  const forwarded = String(request.headers.get('x-forwarded-for') || '')
-    .split(',')[0]
-    .trim();
-  if (forwarded) return `ip:${forwarded}`;
-
-  return 'ip:unknown';
+  return cfIp ? `ip:${cfIp}` : 'ip:unknown';
 }
 
 function json(status, body, extraHeaders = {}) {
