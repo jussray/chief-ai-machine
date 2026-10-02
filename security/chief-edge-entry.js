@@ -4,12 +4,16 @@ import {
   observeFetchRequest,
   syntheticFetchResponse,
 } from './reciprocal-ingress.mjs';
+import { enforceChiefEdgeRateLimit } from './edge-rate-limit.mjs';
 
 export * from '../worker/index.js';
 
 const edge = {
   ...upstream,
   async fetch(request, env, ctx) {
+    const limited = await enforceChiefEdgeRateLimit(request, env);
+    if (limited) return limited;
+
     const observation = await observeFetchRequest(request, env, 'chief-ai');
     emitReciprocalTelemetry(observation, ctx);
     const hallway = syntheticFetchResponse(observation);
