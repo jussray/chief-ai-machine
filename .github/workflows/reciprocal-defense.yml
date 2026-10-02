@@ -14,7 +14,7 @@ on:
       - test/reciprocal-ingress.test.mjs
       - test/full-attack-unit.test.mjs
       - test/edge-rate-limit.test.mjs
-      - e2e/chief-edge-rate-limit.pw.mjs
+      - e2e/chief-edge-rate-limit.spec.mjs
       - wrangler.jsonc
       - .github/workflows/reciprocal-defense.yml
   workflow_dispatch:
@@ -56,4 +56,4 @@ jobs:
       - name: Install pinned Playwright Chromium
         run: npx --yes @playwright/test@1.61.1 install --with-deps chromium
       - name: Run Chief edge rate-limit Playwright witness
-        run: npx --yes @playwright/test@1.61.1 test e2e/chief-edge-rate-limit.pw.mjs --workers=1 --reporter=line
+        run: npx --yes @playwright/test@1.61.1 test e2e/chief-edge-rate-limit.spec.mjs --workers=1 --reporter=line
