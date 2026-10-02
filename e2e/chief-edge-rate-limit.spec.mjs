@@ -1,83 +1,59 @@
 import { test, expect } from '@playwright/test';
-import { createServer } from 'node:http';
-import { enforceChiefEdgeRateLimit } from '../security/edge-rate-limit.mjs';
 
-function startEdgeServer() {
-  const counts = new Map();
-  const env = {
-    CHIEF_RATE_LIMITER: {
-      async limit({ key }) {
-        const next = (counts.get(key) ?? 0) + 1;
-        counts.set(key, next);
-        return { success: next <= 2 };
-      },
-    },
-  };
+const baseURL = process.env.CHIEF_EDGE_BASE_URL;
 
-  const server = createServer(async (req, res) => {
-    try {
-      const request = new Request(`http://127.0.0.1${req.url}`, {
-        method: req.method,
-        headers: {
-          ...req.headers,
-          'cf-connecting-ip': '203.0.113.77',
-        },
-      });
+test('Chief dynamic ingress rate limit is enforced through the real Worker entry', async ({ page }) => {
+  test.skip(!baseURL, 'CHIEF_EDGE_BASE_URL is required for the real Worker witness');
 
-      const limited = await enforceChiefEdgeRateLimit(request, env);
-      const response = limited ?? new Response(
-        req.url === '/index.html'
-          ? '<!doctype html><title>Chief rate-limit proof</title>'
-          : JSON.stringify({ ok: true }),
-        {
-          status: 200,
-          headers: {
-            'content-type': req.url === '/index.html'
-              ? 'text/html; charset=utf-8'
-              : 'application/json; charset=utf-8',
-          },
-        },
-      );
+  // Use a static, inert asset as the browser origin. It must remain outside the
+  // dynamic limiter and cannot make application requests on its own.
+  const staticResponse = await page.goto(`${baseURL}/README.md`);
+  expect(staticResponse?.status()).toBe(200);
 
-      res.statusCode = response.status;
-      for (const [name, value] of response.headers) res.setHeader(name, value);
-      res.end(Buffer.from(await response.arrayBuffer()));
-    } catch (error) {
-      res.statusCode = 500;
-      res.end(String(error));
+  // Exact /api must reach the Worker rather than fall through to SPA assets.
+  const apiRoot = await page.evaluate(async () => {
+    const response = await fetch('/api');
+    return {
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+    };
+  });
+  expect(apiRoot.status).toBe(501);
+  expect(apiRoot.contentType ?? '').not.toContain('text/html');
+
+  // Cloudflare documents Worker Rate Limiting as permissive/eventually
+  // consistent. Do not assert an exact first-rejection request number. Instead,
+  // prove a sequential browser workload is eventually rejected by the binding.
+  const proof = await page.evaluate(async () => {
+    const statuses = [];
+    let retryAfter = null;
+    let body = null;
+
+    for (let i = 0; i < 160; i += 1) {
+      const response = await fetch('/version', { cache: 'no-store' });
+      statuses.push(response.status);
+      if (response.status === 429) {
+        retryAfter = response.headers.get('retry-after');
+        body = await response.json();
+        break;
+      }
     }
+
+    const exactApi = await fetch('/api', { cache: 'no-store' });
+    const exactGithub = await fetch('/github', { cache: 'no-store' });
+
+    return {
+      statuses,
+      retryAfter,
+      body,
+      exactApiStatus: exactApi.status,
+      exactGithubStatus: exactGithub.status,
+    };
   });
 
-  return new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      resolve({ server, baseURL: `http://127.0.0.1:${address.port}` });
-    });
-  });
-}
-
-test('Chief dynamic ingress rate limit is enforced in the browser path', async ({ page }) => {
-  const { server, baseURL } = await startEdgeServer();
-  try {
-    const staticResponse = await page.goto(`${baseURL}/index.html`);
-    expect(staticResponse?.status()).toBe(200);
-
-    const result = await page.evaluate(async () => {
-      const first = await fetch('/version');
-      const second = await fetch('/version');
-      const third = await fetch('/version');
-      return {
-        statuses: [first.status, second.status, third.status],
-        retryAfter: third.headers.get('retry-after'),
-        body: await third.json(),
-      };
-    });
-
-    expect(result.statuses).toEqual([200, 200, 429]);
-    expect(result.retryAfter).toBe('60');
-    expect(result.body).toEqual({ ok: false, error: 'rate_limit_exceeded' });
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
+  expect(proof.statuses).toContain(429);
+  expect(proof.retryAfter).toBe('60');
+  expect(proof.body).toEqual({ ok: false, error: 'rate_limit_exceeded' });
+  expect(proof.exactApiStatus).toBe(429);
+  expect(proof.exactGithubStatus).toBe(429);
 });
