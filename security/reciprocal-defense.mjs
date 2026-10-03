@@ -23,6 +23,11 @@ function digest(value) {
   return createHash("sha256").update(JSON.stringify(stable(value))).digest("hex");
 }
 
+function keyedFingerprint(secret, label, value) {
+  if (value == null || value === "") return null;
+  return createHmac("sha256", secret).update(`${label}:${String(value)}`).digest("hex");
+}
+
 function boundedExpansion(secret, eventDigest) {
   const hex = createHmac("sha256", secret).update(eventDigest).digest("hex").slice(0, 12);
   return Number.parseInt(hex, 16) % (HALLWAY_RANDOM_MAX + 1);
@@ -41,7 +46,7 @@ export function reciprocalDefenseStep(input, secret) {
   if (!secret) throw new Error("hallway secret required");
   const event = {
     actor: input.actor ?? "unknown",
-    sourceIp: input.sourceIp ?? null,
+    sourceFingerprint: keyedFingerprint(secret, "ip", input.sourceIp),
     asn: input.asn ?? null,
     userAgent: input.userAgent ?? null,
     tlsFingerprint: input.tlsFingerprint ?? null,
@@ -82,7 +87,7 @@ export function reciprocalDefenseStep(input, secret) {
     },
     attribution: {
       goal: "strongest-evidence-bound-technical-identity",
-      signals: ["source-ip","asn","rdns-verification","user-agent","tls-http-fingerprint","behavior","canary-events"],
+      signals: ["source-ip-pseudonym","asn","rdns-verification","user-agent","tls-http-fingerprint","behavior","canary-events"],
       humanIdentityRequiresIndependentEvidence: true,
     },
     authorization,
