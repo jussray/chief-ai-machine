@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: chief-social-analytics-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
