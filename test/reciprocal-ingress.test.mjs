@@ -1,8 +1,67 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FULL_ATTACK_UNIT, observeFetchRequest, syntheticFetchResponse } from '../security/reciprocal-ingress.mjs';
-function request(path = '/', headers = {}) { return new Request(`https://example.test${path}`, { headers }); }
-test('obvious probe enters hallway without logging raw source IP', async () => { const sourceIp = '203.0.113.7'; const observation = await observeFetchRequest(request('/.env', { 'user-agent': 'curl/8.0', 'cf-connecting-ip': sourceIp }), { RECIPROCAL_DEFENSE_SECRET: 'test-only-secret' }, 'test-service'); assert.equal(observation.verdict, 'HALLWAY'); assert.equal(observation.meaningful, true); assert.deepEqual(observation.attackUnit, [...FULL_ATTACK_UNIT]); assert.equal(observation.hallway.baseExpansion, 48_000); assert.ok(observation.hallway.randomExpansion >= 0 && observation.hallway.randomExpansion <= 47_999); assert.ok(observation.hallway.logicalExpansion >= 48_000 && observation.hallway.logicalExpansion <= 95_999); assert.equal(observation.hallway.productionExposure, 0); assert.equal(observation.hallway.realCustomerData, false); assert.equal(observation.hallway.realCredentials, false); assert.ok(observation.technicalIdentity.actorFingerprint); assert.equal(JSON.stringify(observation).includes(sourceIp), false); const response = syntheticFetchResponse(observation); assert.equal(response?.status, 404); assert.deepEqual(await response.json(), { error: 'not_found' }); });
-test('ordinary browser traffic stays on the normal application path', async () => { const observation = await observeFetchRequest(request('/', { 'user-agent': 'Mozilla/5.0' }), {}, 'test-service'); assert.equal(observation.verdict, 'OBSERVE'); assert.equal(observation.meaningful, false); assert.equal(observation.hallway.active, false); assert.equal(observation.hallway.logicalExpansion, 0); assert.equal(syntheticFetchResponse(observation), null); });
-test('claimed crawler identity is not treated as verified identity', async () => { const observation = await observeFetchRequest(request('/robots.txt', { 'user-agent': 'Googlebot/2.1' }), {}, 'test-service'); assert.equal(observation.verdict, 'CLAIMED_AUTOMATION'); assert.equal(observation.technicalIdentity.claimedCrawler, 'googlebot'); assert.equal(observation.technicalIdentity.verifiedBot, false); assert.equal(observation.technicalIdentity.attributionConfidence, 'low'); });
-test('source address is never fingerprinted without a server-held secret', async () => { const observation = await observeFetchRequest(request('/api/test', { 'user-agent': 'curl/8.0', 'cf-connecting-ip': '198.51.100.19' }), {}, 'test-service'); assert.equal(observation.verdict, 'UNKNOWN_AUTOMATION'); assert.equal(observation.technicalIdentity.actorFingerprint, null); });
+
+function request(path = '/', headers = {}) {
+  return new Request(`https://example.test${path}`, { headers });
+}
+
+test('obvious probe enters hallway without logging raw source IP or inventing authorization', async () => {
+  const sourceIp = '203.0.113.7';
+  const observation = await observeFetchRequest(
+    request('/.env', { 'user-agent': 'curl/8.0', 'cf-connecting-ip': sourceIp }),
+    { RECIPROCAL_DEFENSE_SECRET: 'test-only-secret' },
+    'test-service',
+  );
+
+  assert.equal(observation.verdict, 'HALLWAY');
+  assert.equal(observation.meaningful, true);
+  assert.deepEqual(observation.attackUnit, [...FULL_ATTACK_UNIT]);
+  assert.equal(observation.hallway.baseExpansion, 48_000);
+  assert.ok(observation.hallway.randomExpansion >= 0 && observation.hallway.randomExpansion <= 47_999);
+  assert.ok(observation.hallway.logicalExpansion >= 48_000 && observation.hallway.logicalExpansion <= 95_999);
+  assert.equal(observation.hallway.productionExposure, 0);
+  assert.equal(observation.hallway.realCustomerData, false);
+  assert.equal(observation.hallway.realCredentials, false);
+  assert.equal(observation.boundaries.ownedSurfaceOnly, true);
+  assert.equal(observation.boundaries.authorizationInferred, false);
+  assert.equal(observation.authorization.state, 'NOT_EVALUATED');
+  assert.equal(observation.authorization.derivedFromRuntimeSignals, false);
+  assert.equal(observation.unit.authorization.state, 'NOT_EVALUATED');
+  assert.ok(observation.technicalIdentity.actorFingerprint);
+  assert.equal(JSON.stringify(observation).includes(sourceIp), false);
+
+  const response = syntheticFetchResponse(observation);
+  assert.equal(response?.status, 404);
+  assert.deepEqual(await response.json(), { error: 'not_found' });
+});
+
+test('ordinary browser traffic stays on the normal application path', async () => {
+  const observation = await observeFetchRequest(request('/', { 'user-agent': 'Mozilla/5.0' }), {}, 'test-service');
+  assert.equal(observation.verdict, 'OBSERVE');
+  assert.equal(observation.meaningful, false);
+  assert.equal(observation.hallway.active, false);
+  assert.equal(observation.hallway.logicalExpansion, 0);
+  assert.equal(observation.authorization.state, 'NOT_EVALUATED');
+  assert.equal(syntheticFetchResponse(observation), null);
+});
+
+test('claimed crawler identity is not treated as verified identity or authority', async () => {
+  const observation = await observeFetchRequest(request('/robots.txt', { 'user-agent': 'Googlebot/2.1' }), {}, 'test-service');
+  assert.equal(observation.verdict, 'CLAIMED_AUTOMATION');
+  assert.equal(observation.technicalIdentity.claimedCrawler, 'googlebot');
+  assert.equal(observation.technicalIdentity.verifiedBot, false);
+  assert.equal(observation.technicalIdentity.attributionConfidence, 'low');
+  assert.equal(observation.authorization.state, 'NOT_EVALUATED');
+});
+
+test('source address is never fingerprinted without a server-held secret', async () => {
+  const observation = await observeFetchRequest(
+    request('/api/test', { 'user-agent': 'curl/8.0', 'cf-connecting-ip': '198.51.100.19' }),
+    {},
+    'test-service',
+  );
+  assert.equal(observation.verdict, 'UNKNOWN_AUTOMATION');
+  assert.equal(observation.technicalIdentity.actorFingerprint, null);
+  assert.equal(observation.authorization.derivedFromRuntimeSignals, false);
+});
