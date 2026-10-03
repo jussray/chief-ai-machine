@@ -9,9 +9,10 @@ import {
 } from "../security/reciprocal-defense.mjs";
 
 test("every meaningful probe activates the full unit and expands 48k plus bounded entropy", () => {
+  const sourceIp = "203.0.113.7";
   const step = reciprocalDefenseStep({
     actor: "unknown-crawler",
-    sourceIp: "203.0.113.7",
+    sourceIp,
     route: "/probe",
     method: "GET",
     timestamp: "2026-09-27T21:00:00.000Z",
@@ -32,6 +33,8 @@ test("every meaningful probe activates the full unit and expands 48k plus bounde
   assert.equal(step.authorization.state, "NOT_EVALUATED");
   assert.equal(step.authorization.derivedFromRuntimeSignals, false);
   assert.equal(step.boundaries.externalCompromise, false);
+  assert.match(step.event.sourceFingerprint, /^[0-9a-f]{64}$/);
+  assert.equal(JSON.stringify(step).includes(sourceIp), false);
   assert.equal(verifyReciprocalDefenseReceipt(step), true);
 });
 
