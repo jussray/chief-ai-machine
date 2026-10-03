@@ -17,6 +17,7 @@ test("every meaningful probe activates the full unit and expands 48k plus bounde
     timestamp: "2026-09-27T21:00:00.000Z",
   }, "test-only-secret");
 
+  assert.equal(step.mode, "bounded-defensive-hallway");
   assert.deepEqual(step.attackUnit, [...FULL_ATTACK_UNIT]);
   assert.equal(step.attackUnitMode, "all-applicable-every-meaningful-step");
   assert.equal(step.hallway.baseExpansion, HALLWAY_BASE_EXPANSION);
@@ -26,8 +27,25 @@ test("every meaningful probe activates the full unit and expands 48k plus bounde
   assert.equal(step.hallway.productionExposure, 0);
   assert.equal(step.hallway.realCustomerData, false);
   assert.equal(step.hallway.realCredentials, false);
-  assert.equal(step.boundaries.ownedOrAuthorizedSurfacesOnly, true);
+  assert.equal(step.boundaries.ownedSurfaceOnly, true);
+  assert.equal(step.boundaries.authorizationInferred, false);
+  assert.equal(step.authorization.state, "NOT_EVALUATED");
+  assert.equal(step.authorization.derivedFromRuntimeSignals, false);
   assert.equal(step.boundaries.externalCompromise, false);
+  assert.equal(verifyReciprocalDefenseReceipt(step), true);
+});
+
+test("separate authorization evidence survives without changing defensive-hallway semantics", () => {
+  const step = reciprocalDefenseStep({
+    actor: "known-reviewer",
+    route: "/probe",
+    timestamp: "2026-09-27T21:00:00.000Z",
+    authorization: { state: "AUTHORIZED", evidenceRefs: ["authority:security-review-001"] },
+  }, "secret");
+
+  assert.equal(step.authorization.state, "AUTHORIZED");
+  assert.deepEqual(step.authorization.evidenceRefs, ["authority:security-review-001"]);
+  assert.equal(step.authorization.derivedFromRuntimeSignals, false);
   assert.equal(verifyReciprocalDefenseReceipt(step), true);
 });
 
