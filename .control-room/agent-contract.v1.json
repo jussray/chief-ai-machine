@@ -41,7 +41,7 @@
     "canonicalSchema": "github:jussray/founder-control-room/contracts/juss-agent-contract-v1.schema.json",
     "schemaRequiredAtRuntime": false,
     "runtimeDependencyOnPeers": false,
-    "localOverlays": ["AGENTS.md", "REPAIR_AUTHORITY.md", "docs/TWIN_CORE_CONTROL_PLANE_CONTRACT.md"],
+    "localOverlays": ["AGENTS.md", "REPAIR_AUTHORITY.md", ".control-room/COUNCIL.md", ".agents/skills/goalfix/SKILL.md", "docs/TWIN_CORE_CONTROL_PLANE_CONTRACT.md"],
     "inheritanceRule": "This repository inherits juss/agent-contract@v1. Stricter local safety, privacy, financial, release, product, and authority rules win.",
     "authorityRule": "This binding carries no merge, deploy, publish, spend, credential, database, DNS, destructive, or user-data authority by itself."
   }
