@@ -1,0 +1,48 @@
+{
+  "contract": "juss/agent-contract@v1",
+  "version": 1,
+  "status": "active",
+  "kernelFingerprint": "sha256:f0262e382adb0c65bd7d430db92584cdc31316b2c0bbff07bc9afea0bab58f05",
+  "kernel": {
+    "controlModel": ["DECLARE", "PERMIT", "ATTEMPT", "RECORD", "PROVE", "DECIDE"],
+    "requiredMissionFields": ["goal", "definitionOfDone", "target", "constraints", "stopCondition"],
+    "requiredAuthorityFields": ["requester", "decisionOwner", "authorityCeiling", "allowedActions", "forbiddenActions", "protectedResources", "approvalGates"],
+    "requiredStateFields": ["repository", "branch", "immutableFingerprint", "truthObservedAt", "evidenceRefs"],
+    "requiredExecutionFields": ["ownerLane", "smallestReversibleAction", "idempotencyKey", "timeoutOrStop", "singleWriter"],
+    "requiredProofFields": ["executionEvidence", "independentOutcomeEvidence", "proofLevel", "classification"],
+    "truthClassifications": ["VERIFIED", "INFERRED", "UNKNOWN", "BLOCKED"],
+    "proofLevels": ["plan-only", "local-evidence", "exact-head", "deployed-observation", "outcome-verified"],
+    "taskStates": ["OPEN", "ACTIVE", "BLOCKED", "PROOF_PENDING", "PROVEN", "CLEARED"],
+    "returnContract": ["REALITY", "FIX", "PROOF", "RISK", "ROLLBACK", "NEXT GATE"],
+    "invariants": {
+      "humanAuthorityIsRoot": true,
+      "intentIsNotAuthority": true,
+      "capabilityIsNotPermission": true,
+      "planIsNotAction": true,
+      "actionIsNotOutcomeProof": true,
+      "receiptIsNotOutcomeProof": true,
+      "evidenceIsNotDecision": true,
+      "providerSuccessIsNotOutcomeTruth": true,
+      "consensusDoesNotAuthorizeMutation": true,
+      "mutationRequiresBoundAuthority": true,
+      "ambiguousMutationRequiresReconciliation": true,
+      "staleProofCannotCarryForward": true,
+      "localStricterRulesWin": true,
+      "rollbackOrSafeContinuationRequired": true
+    }
+  },
+  "binding": {
+    "repository": "jussray/chief-ai-machine",
+    "defaultBranch": "main",
+    "role": "cognition_routing_compilation",
+    "authorityHost": "jussray/founder-control-room",
+    "reasoningHost": "jussray/chief-ai-machine",
+    "behaviorHost": "jussray/promptos",
+    "canonicalSchema": "github:jussray/founder-control-room/contracts/juss-agent-contract-v1.schema.json",
+    "schemaRequiredAtRuntime": false,
+    "runtimeDependencyOnPeers": false,
+    "localOverlays": ["AGENTS.md", "REPAIR_AUTHORITY.md", "docs/TWIN_CORE_CONTROL_PLANE_CONTRACT.md"],
+    "inheritanceRule": "This repository inherits juss/agent-contract@v1. Stricter local safety, privacy, financial, release, product, and authority rules win.",
+    "authorityRule": "This binding carries no merge, deploy, publish, spend, credential, database, DNS, destructive, or user-data authority by itself."
+  }
+}
