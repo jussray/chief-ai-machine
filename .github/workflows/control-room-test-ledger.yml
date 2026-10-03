@@ -46,6 +46,22 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Verify portable agent contract in required merge membrane
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          const expected='sha256:f0262e382adb0c65bd7d430db92584cdc31316b2c0bbff07bc9afea0bab58f05';
+          const p='.control-room/agent-contract.v1.json',fail=m=>{console.error(`required-agent-contract: ${m}`);process.exit(1)};
+          if(!fs.existsSync(p))fail(`missing ${p}`);const c=JSON.parse(fs.readFileSync(p,'utf8'));
+          if(c.contract!=='juss/agent-contract@v1'||c.version!==1||c.status!=='active')fail('identity/version/status drift');
+          if(c.binding?.repository!==process.env.GITHUB_REPOSITORY)fail('repository binding mismatch');
+          if(c.kernelFingerprint!==expected)fail('canonical kernel fingerprint drift');
+          const actual=`sha256:${crypto.createHash('sha256').update(JSON.stringify(c.kernel)).digest('hex')}`;if(actual!==expected)fail('kernel bytes no longer match canonical v1');
+          for(const n of ['humanAuthorityIsRoot','consensusDoesNotAuthorizeMutation','mutationRequiresBoundAuthority','ambiguousMutationRequiresReconciliation','staleProofCannotCarryForward','localStricterRulesWin'])if(c.kernel?.invariants?.[n]!==true)fail(`merge invariant disabled: ${n}`);
+          const a=String(c.binding?.authorityRule??'');if(!a.includes('no merge')||!a.includes('deploy'))fail('contract may not grant merge/deploy authority');
+          console.log(`required-agent-contract VERIFIED ${process.env.GITHUB_REPOSITORY} ${expected}`);
+          NODE
       - name: Install locked dependencies
         run: npm ci
       - name: Run ledger and operator contracts
