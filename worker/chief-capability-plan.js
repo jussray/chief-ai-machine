@@ -2,39 +2,13 @@ import {
   createExecutionHandoffReceipt,
   resolveCapabilities,
 } from '../src/domain/capability-registry.js';
-import { createCapabilityPlan, sha256Hex } from '../src/domain/capability-plan.js';
+import { createCapabilityPlan } from '../src/domain/capability-plan.js';
 import { createConnectionHandoff } from '../src/domain/connection-requests.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
 import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
-import { evaluateTrustTransition } from '../src/domain/trust-transition-v1.js';
 
 const ROUTE = '/api/chief/capability-plan';
-
-export const CHIEF_TRUSTED_REASONING_POLICY_CONTRACT = 'juss/chief-trusted-reasoning-policy@v1';
-export const CHIEF_TRUSTED_STRATEGIC_LENSES = Object.freeze([
-  'ultrathink',
-  'futureyou',
-  'truthmode',
-  'redteam',
-  'lindymode',
-  'ooda',
-  'product-design',
-  'data-analytics',
-  'deep-research',
-]);
-export const CHIEF_ATTACK_FAMILIES = Object.freeze([
-  'evidence-truth',
-  'authority-boundary',
-  'currentness-temporal-race',
-  'recovery-rollback',
-  'human-outcome',
-  'privacy-security',
-  'cross-project-scope',
-  'provider-integration',
-  'operability-performance',
-  'contradiction-assumption',
-]);
 
 function meta() {
   return {
@@ -78,7 +52,6 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
   const routingReason = [
     `Founder goal composed against submitted registry snapshot ${registrySnapshot.registryId}@${registrySnapshot.version}.`,
     feedbackReason,
-    'Chief strategic reasoning policy is server-owned; caller-supplied workflow or lens names are non-authorizing context and cannot activate a workflow.',
     'Founder Control Room trust resolution is still required.',
     `Next gate: ${goalPlan.nextGate}`,
   ].join(' ');
@@ -89,102 +62,13 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
     expectedHeadSha: input.expectedHeadSha,
     registryHash: registrySnapshot.registryHash,
     requestedAuthority: outcomeFeedback.effectiveAuthority,
-    strategicLenses: CHIEF_TRUSTED_STRATEGIC_LENSES,
+    strategicLenses: goalPlan.strategicLenses,
     routingReason,
     capabilities,
     proofRequirements: goalPlan.proofRequirements,
     outcomeSignals: [goalPlan.definitionOfDone],
     rollback: goalPlan.rollback,
   });
-}
-
-function createTrustedReasoningPolicy(capabilityPlan) {
-  const receipt = {
-    contract: CHIEF_TRUSTED_REASONING_POLICY_CONTRACT,
-    subjectPlanHash: capabilityPlan.planHash,
-    policy: 'ultrathink',
-    activation: 'server-owned',
-    callerMaySelectPolicy: false,
-    untrustedWorkflowTokensInert: true,
-    strategicLenses: [...capabilityPlan.strategicLenses],
-    attackBudget: 1000,
-    attackBudgetSemantics: 'reasoning pressure-test budget; not proof that 1000 tool actions or external mutations executed',
-    executedAttackCount: null,
-    attackFamilies: [...CHIEF_ATTACK_FAMILIES],
-    truthRules: {
-      proofBeforeClaim: true,
-      activityIsNotAccomplishment: true,
-      executionTruthIsNotOutcomeTruth: true,
-      historicalTruthImmutable: true,
-      currentTruthMustBeReobserved: true,
-    },
-    authority: {
-      authorityCeiling: 'reason',
-      founderApprovalGranted: false,
-      executionAuthorized: false,
-      providerMutationAuthorized: false,
-      mergeAuthorized: false,
-      deployAuthorized: false,
-      publicationAuthorized: false,
-      outcomeVerified: false,
-      nextAuthority: 'founder-control-room',
-    },
-  };
-
-  return {
-    ...receipt,
-    policyHash: sha256Hex(JSON.stringify(receipt)),
-  };
-}
-
-function createTrustTransitionProposal(capabilityPlan, goalPlan) {
-  const trustTransition = evaluateTrustTransition({
-    intent: {
-      goal: goalPlan.goal,
-    },
-    proposedAction: {
-      action: 'execute_capability_plan',
-      target: capabilityPlan.planHash,
-      parametersHash: capabilityPlan.planHash,
-      idempotencyKey: `chief-capability-plan:${capabilityPlan.planHash}`,
-    },
-    consequence: 'consequential',
-    authority: {
-      granted: false,
-      authenticated: false,
-      grantId: '',
-      action: 'execute_capability_plan',
-      target: capabilityPlan.planHash,
-      scope: ['execute-approved-capability-plan'],
-      reusable: false,
-    },
-    recovery: {
-      mode: 'correction',
-      checkpoint: goalPlan.rollback,
-      acknowledged: true,
-    },
-    runtimeFingerprint: sha256Hex(capabilityPlan.expectedHeadSha),
-  });
-
-  if (!trustTransition.valid || trustTransition.disposition !== 'awaiting_authority' || trustTransition.executionAllowed) {
-    throw new Error('Trust transition proposal failed closed before Founder Control Room authority review.');
-  }
-
-  return {
-    contract: trustTransition.contract,
-    phase: 'proposal',
-    transitionFingerprint: trustTransition.transitionFingerprint,
-    authorityFingerprint: trustTransition.authorityFingerprint,
-    continuityCookie: trustTransition.continuityCookie,
-    authorityGranted: trustTransition.authorityGranted,
-    authorityAuthenticated: trustTransition.authorityAuthenticated,
-    executionAllowed: trustTransition.executionAllowed,
-    disposition: trustTransition.disposition,
-    currentTruthState: trustTransition.currentTruthState,
-    selfAuthorize: trustTransition.selfAuthorize,
-    attack1000: trustTransition.attack1000,
-    invariants: trustTransition.invariants,
-  };
 }
 
 export async function handleChiefCapabilityPlan(request) {
@@ -218,22 +102,18 @@ export async function handleChiefCapabilityPlan(request) {
       input.latestOutcomeObservation,
     );
     const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
-    const reasoningPolicy = createTrustedReasoningPolicy(capabilityPlan);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
     const connectionHandoff = createConnectionHandoff(input.connectionRequests);
     // Chief describes the remote founder-control handoff; it never resolves approval itself.
     const founderControl = founderControlHandoff(capabilityPlan);
-    const trustTransition = createTrustTransitionProposal(capabilityPlan, input.goalPlan);
 
     return json({
       data: {
         capabilityPlan,
-        reasoningPolicy,
         handoffReceipt,
         connectionHandoff,
         outcomeFeedback,
         founderControl,
-        trustTransition,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
@@ -243,13 +123,12 @@ export async function handleChiefCapabilityPlan(request) {
           outcomeCanIncreaseAuthority: false,
           submittedOutcomeAuthenticated: false,
           remoteFounderSurfacesMaySelfAuthorize: false,
-          callerWorkflowTokensAuthoritative: false,
           connectionResolutionAuthority: 'founder-control-room',
           rawCredentialsAccepted: false,
           rawCredentialsReturned: false,
           connectionResolver: '/mcp/vault/resolve',
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, bind the TrustTransition fingerprint/cookie to explicit founder authority, and only then allow n8n or Zapier to execute the exact approved proposal.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, and bind an explicit founder decision relayed from FCR, ChatGPT, Claude, or Perplexity before n8n or Zapier may execute the exact approved proposal.',
         },
       },
       meta: meta(),

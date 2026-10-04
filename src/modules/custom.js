@@ -1,13 +1,27 @@
+import { normalizeCustomPrompts } from '../domain/intelligence.js';
 import { showToast } from './ui.js';
-import {
-  CUSTOM_PROMPTS_UPDATED_EVENT,
-  createLocalPromptId,
-  normalizeCustomPrompts,
-  readCustomPromptState,
-  readStarState,
-  writeCustomPrompts,
-  writeStars,
-} from './prompt-state.js';
+
+const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
+
+function readCustomPromptStorage() {
+  let raw;
+  try {
+    raw = localStorage.getItem('chief-custom');
+  } catch {
+    return { state: 'unavailable', prompts: [] };
+  }
+  if (raw === null) return { state: 'ready', prompts: [] };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return { state: 'corrupt', prompts: [] };
+    const prompts = normalizeCustomPrompts(parsed);
+    if (prompts.length !== parsed.length) return { state: 'corrupt', prompts: [] };
+    return { state: 'ready', prompts };
+  } catch {
+    return { state: 'corrupt', prompts: [] };
+  }
+}
 
 function makeTextElement(tag, className, text) {
   const element = document.createElement(tag);
@@ -30,21 +44,18 @@ function setCustomFormWritable(writable) {
   save.title = writable ? '' : 'Custom prompt storage must be readable before saving.';
 }
 
-export function initCustom(modal) {
+export function initCustom(PROMPTS, modal) {
   const titleEl = document.getElementById('cTitle');
   const subEl = document.getElementById('cSub');
   const catEl = document.getElementById('cCat');
   const platformsEl = document.getElementById('cPlatforms');
   const bodyEl = document.getElementById('cBody');
   const list = document.getElementById('customList');
-
-  function openPrompt(prompt) {
-    modal.open(prompt);
-  }
+  let custom = [];
 
   function render() {
-    const read = readCustomPromptState();
-    const custom = read.prompts;
+    const read = readCustomPromptStorage();
+    custom = read.prompts;
     list.replaceChildren();
     const navCustom = document.getElementById('navCustom');
 
@@ -70,76 +81,49 @@ export function initCustom(modal) {
       return;
     }
 
-    custom.forEach((prompt) => {
+    custom.forEach((p, i) => {
       const item = document.createElement('div');
       item.className = 'citem';
-      item.tabIndex = 0;
-      item.setAttribute('role', 'button');
-      item.setAttribute('aria-label', `Open ${prompt.title || 'Untitled'} prompt`);
 
       const row = document.createElement('div');
       row.className = 'row';
-      row.appendChild(makeTextElement('strong', '', prompt.title || 'Untitled'));
+      row.appendChild(makeTextElement('strong', '', p.title || 'Untitled'));
 
-      const badge = makeTextElement('span', 'badge cat', prompt.cat || 'custom');
-      badge.style.marginLeft = 'auto';
-      row.appendChild(badge);
+      const category = makeTextElement('span', 'badge cat', p.cat || 'custom');
+      category.style.marginLeft = 'auto';
+      row.appendChild(category);
 
-      const del = makeTextElement('button', 'mini-btn', 'Delete');
-      del.type = 'button';
-      del.style.marginLeft = '8px';
-      del.setAttribute('aria-label', `Delete ${prompt.title || 'Untitled'} prompt`);
-      row.appendChild(del);
+      const deleteButton = makeTextElement('button', 'mini-btn', 'Delete');
+      deleteButton.dataset.del = String(i);
+      deleteButton.style.marginLeft = '8px';
+      row.appendChild(deleteButton);
 
-      const sub = makeTextElement('div', '', prompt.sub || '');
-      sub.style.fontSize = '12px';
-      sub.style.color = 'var(--text-muted)';
-      sub.style.marginTop = '4px';
-      item.append(row, sub);
+      const subtitle = makeTextElement('div', '', p.sub || '');
+      subtitle.style.fontSize = '12px';
+      subtitle.style.color = 'var(--text-muted)';
+      subtitle.style.marginTop = '4px';
 
-      del.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const current = readCustomPromptState();
+      item.append(row, subtitle);
+      deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const current = readCustomPromptStorage();
         if (current.state !== 'ready') {
           showToast('Custom prompt state is UNKNOWN. Nothing was deleted.');
           render();
           return;
         }
-        const starRead = readStarState();
-        if (starRead.state !== 'ready') {
-          showToast('Star state is UNKNOWN. Nothing was deleted.');
-          return;
-        }
-
-        const promptIndex = current.prompts.findIndex(candidate => candidate.id === prompt.id);
-        if (promptIndex === -1) {
-          showToast('Prompt changed before deletion. Refresh and try again.');
-          render();
-          return;
-        }
-        const [removed] = current.prompts.splice(promptIndex, 1);
-        try {
-          writeCustomPrompts(current.prompts);
-          const nextStars = starRead.stars.filter(id => String(id) !== String(removed?.id));
-          if (nextStars.length !== starRead.stars.length) writeStars(nextStars);
-          showToast('Deleted.');
-        } catch {
-          showToast('Delete failed. Local state was not fully writable.');
-          render();
-        }
+        current.prompts.splice(i, 1);
+        localStorage.setItem('chief-custom', JSON.stringify(current.prompts));
+        render();
+        showToast('Deleted.');
       });
-      item.addEventListener('click', () => openPrompt(prompt));
-      item.addEventListener('keydown', (event) => {
-        if (event.target !== item || (event.key !== 'Enter' && event.key !== ' ')) return;
-        event.preventDefault();
-        openPrompt(prompt);
-      });
+      item.addEventListener('click', () => modal.open(p));
       list.appendChild(item);
     });
   }
 
   document.getElementById('saveCustom')?.addEventListener('click', () => {
-    const current = readCustomPromptState();
+    const current = readCustomPromptStorage();
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Repair or reset local state before saving.');
       render();
@@ -148,41 +132,28 @@ export function initCustom(modal) {
 
     const title = titleEl?.value?.trim();
     const body = bodyEl?.value?.trim();
-    if (!title || !body) {
-      showToast('Title and body required.');
-      return;
-    }
-
-    const platforms = (platformsEl?.value || 'chatgpt')
-      .split(',')
-      .map(value => value.trim().toLowerCase())
-      .filter(Boolean);
-    const versions = {};
-    platforms.forEach(platform => { versions[platform] = body; });
-    const normalized = normalizeCustomPrompts([{
-      id: createLocalPromptId('custom'),
+    if (!title || !body) { showToast('Title and body required.'); return; }
+    const platforms = (platformsEl?.value || 'chatgpt').split(',').map(s => s.trim()).filter(Boolean);
+    const versions = {}; platforms.forEach(p => { versions[p] = body; });
+    const nextPrompt = normalizeCustomPrompts([{
+      id: 'custom-' + Date.now(),
       title,
       sub: subEl?.value?.trim() || '',
       cat: catEl?.value || 'custom',
       platforms,
       versions,
       emoji: '✨',
-      repos: [],
-    }]);
-    const nextPrompt = normalized.prompts[0];
+    }])[0];
     if (!nextPrompt) {
       showToast('Custom prompt could not be normalized safely.');
       return;
     }
 
-    try {
-      writeCustomPrompts([...current.prompts, nextPrompt]);
-      showToast('Saved!');
-      [titleEl, subEl, platformsEl, bodyEl].forEach(el => { if (el) el.value = ''; });
-    } catch {
-      showToast('Save failed. Custom prompt state is unchanged.');
-      render();
-    }
+    current.prompts.push(nextPrompt);
+    localStorage.setItem('chief-custom', JSON.stringify(current.prompts));
+    render();
+    showToast('Saved!');
+    [titleEl, subEl, platformsEl, bodyEl].forEach(el => { if (el) el.value = ''; });
   });
 
   window.addEventListener(CUSTOM_PROMPTS_UPDATED_EVENT, render);

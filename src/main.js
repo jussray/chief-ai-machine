@@ -12,21 +12,10 @@ import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence-history.js';
-import { readCustomPromptState, readStarState } from './modules/prompt-state.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
-function readArrayState(key) {
-  if (key === 'chief-custom') {
-    const s = readCustomPromptState();
-    if (s.state !== 'ready') throw new Error('Export blocked: custom prompt state is UNKNOWN.');
-    return s.prompts;
-  }
-  if (key === 'chief-stars') {
-    const s = readStarState();
-    if (s.state !== 'ready') throw new Error('Export blocked: star state is UNKNOWN.');
-    return s.values;
-  }
+function readArray(key) {
   const raw = localStorage.getItem(key);
   if (raw === null) return [];
 
@@ -114,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLibrary(PUBLIC_PROMPTS, modal);
   initBuilder(PUBLIC_PROMPTS);
   initFreestyle(PUBLIC_PROMPTS);
-  initCustom(modal);
+  initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
   mountBrainPortabilityControls();
 
@@ -130,10 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function exportCompanyBrain() {
     try {
       const snapshot = createPortableSnapshot({
-        assets: readArrayState(INTELLIGENCE_STORAGE_KEY),
-        customPrompts: readArrayState('chief-custom'),
-        stars: readArrayState('chief-stars'),
-        goals: readArrayState(GOAL_STORAGE_KEY),
+        assets: readArray(INTELLIGENCE_STORAGE_KEY),
+        customPrompts: readArray('chief-custom'),
+        stars: readArray('chief-stars'),
+        goals: readArray(GOAL_STORAGE_KEY),
       });
       const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');

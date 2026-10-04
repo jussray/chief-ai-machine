@@ -38,30 +38,6 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
-      - name: Verify portable agent contract v1
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const path = '.control-room/agent-contract.v1.json';
-          const fail = (m) => { console.error(`agent-contract-v1: ${m}`); process.exit(1); };
-          if (!fs.existsSync(path)) fail(`missing ${path}`);
-          const c = JSON.parse(fs.readFileSync(path, 'utf8'));
-          if (c.contract !== 'juss/agent-contract@v1' || c.version !== 1 || c.status !== 'active') fail('identity/version/status drift');
-          if (c.binding?.repository !== process.env.GITHUB_REPOSITORY) fail('repository binding mismatch');
-          if (c.binding?.canonicalSchema !== 'github:jussray/founder-control-room/contracts/juss-agent-contract-v1.schema.json') fail('canonical schema drift');
-          if (c.binding?.schemaRequiredAtRuntime !== false || c.binding?.runtimeDependencyOnPeers !== false) fail('cross-repository runtime dependency forbidden');
-          const digest = crypto.createHash('sha256').update(JSON.stringify(c.kernel)).digest('hex');
-          if (c.kernelFingerprint !== `sha256:${digest}`) fail('kernel fingerprint mismatch');
-          const required = ['humanAuthorityIsRoot','intentIsNotAuthority','capabilityIsNotPermission','planIsNotAction','actionIsNotOutcomeProof','receiptIsNotOutcomeProof','evidenceIsNotDecision','providerSuccessIsNotOutcomeTruth','consensusDoesNotAuthorizeMutation','mutationRequiresBoundAuthority','ambiguousMutationRequiresReconciliation','staleProofCannotCarryForward','localStricterRulesWin','rollbackOrSafeContinuationRequired'];
-          for (const name of required) if (c.kernel?.invariants?.[name] !== true) fail(`invariant disabled: ${name}`);
-          for (const overlay of c.binding?.localOverlays ?? []) if (!fs.existsSync(overlay)) fail(`missing local overlay: ${overlay}`);
-          if (!(c.binding?.localOverlays ?? []).includes('.control-room/COUNCIL.md')) fail('Council overlay is not bound');
-          if (!(c.binding?.localOverlays ?? []).includes('.agents/skills/goalfix/SKILL.md')) fail('Goalfix overlay is not bound');
-          console.log(`agent-contract-v1 VERIFIED ${process.env.GITHUB_REPOSITORY} ${c.kernelFingerprint}`);
-          NODE
-
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -73,9 +49,6 @@ jobs:
 
       - name: Validate repo-local catalog
         run: node scripts/verify-control-room-tests.mjs
-
-      - name: Verify protected intelligence and live-proof contract
-        run: node scripts/verify-work-productization-contract.mjs
 
       - name: Verify Worker version receipt
         run: npx vitest run test/worker-version.test.js

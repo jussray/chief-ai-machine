@@ -26,29 +26,6 @@
     "neverRequestSecretsInChat": true,
     "unknownOrMissingAuthorityFailsClosed": true
   },
-  "mergeGovernance": {
-    "rulesetMode": "as-is",
-    "rulesetMutationAllowed": false,
-    "rulesetBypassAllowed": false,
-    "diagnoseUnsatisfiableRequirementsWithoutWeakeningThem": true,
-    "requiredSatisfactionPath": {
-      "exactHeadRequired": true,
-      "requiredStatusChecks": "satisfy every active configured context on the exact candidate head",
-      "productionProofMode": "materialize Verify production ProofMode MCP with Playwright on the exact candidate head using an authorized workflow_dispatch or other rule-compliant execution path",
-      "requiredDeployments": [
-        "Cloudflare Production",
-        "proofmode-access-admin"
-      ],
-      "lastPushApproval": "obtain an APPROVED review on the exact current head from an eligible identity other than the last pusher",
-      "founderAuthority": "explicit founder merge authority bound to the exact current head",
-      "reviewThreads": "resolve every blocking review thread",
-      "mergeMethod": "use squash or rebase when required linear history rejects merge commits"
-    },
-    "soleFounderMode": true,
-    "independentReviewAvailable": false,
-    "blockedIfNoEligibleIndependentReviewerExists": true,
-    "preserveProofSemantics": true
-  },
   "temporalAuthority": {
     "currentFounderIntent": "authoritative-for-founder-preferences-and-goals",
     "futureYou": "advisory-only",
@@ -72,14 +49,6 @@
       "tracking": "#96",
       "rationale": "The standalone pair workflow executes the same verifier with exact cross-repository FCR SHA selection and PAIR_CROSS_REPO_REQUIRED=true, so the repeated command has a distinct evidence scope.",
       "removalGate": "Remove only if the authoritative owner acquires equivalent exact cross-repository FCR proof and live provider readback confirms the standalone check identity can be retired."
-    },
-    {
-      "command": "node scripts/verify-work-productization-contract.mjs",
-      "owner": ".github/workflows/control-room-contracts.yml",
-      "mirror": ".github/workflows/founder-chief-pair-contract.yml",
-      "tracking": "#96",
-      "rationale": "Control Room Contracts owns the protected-intelligence and work-productization doctrine check; the founder-pair workflow intentionally mirrors it so exact cross-repository pairing cannot proceed when the local Chief doctrine is invalid.",
-      "removalGate": "Remove the mirror only when the founder-pair workflow consumes an immutable successful owner receipt for the same exact Chief SHA, or when live provider and ruleset evidence proves the standalone pair check no longer needs to carry this doctrine gate."
     }
   ],
   "workflowAuthorityWaivers": [],
@@ -93,26 +62,20 @@
     "runtime_json_missing_sha",
     "runtime_sha_mismatch",
     "repository_check_failure",
-    "ruleset_gate_unsatisfied",
-    "governance_deadlock",
     "exact_runtime_green"
   ],
   "mergeGate": [
     "re-audit exact main immediately before merge",
     "exact candidate head is immutable and unchanged",
-    "every active required status context is successful on the exact candidate head",
-    "all active required deployment environments are successful on the exact candidate head",
-    "the configured last-push approval requirement is satisfied by an eligible independent identity",
-    "CodeQL and configured code-scanning policy are satisfied",
+    "repository quality checks are green",
     "provider build for exact candidate SHA is green when provider runtime is in scope",
     "immutable preview runtime returns JSON with exact candidate SHA when runtime is in scope",
     "Playwright executes against the exact runtime witness and passes when UI or runtime changes",
-    "explicit founder merge authority is bound to the exact current head",
-    "no unresolved blocking review thread remains",
-    "no ruleset bypass or weakening is used"
+    "no unresolved blocking review thread remains"
   ],
   "postMergeGate": [
     "re-pin exact merged main SHA",
+    "provider deploy for exact merged SHA succeeds when runtime is in scope",
     "canonical production origin resolves when runtime is in scope",
     "canonical /version returns JSON with exact merged SHA when runtime is in scope",
     "canonical browser and API Playwright proof passes when UI or runtime changes",

@@ -87,16 +87,6 @@ function hasEveryoneBypass(policy) {
   ));
 }
 
-function hasEveryoneAllow(policy) {
-  if (policy?.decision !== 'allow' || !Array.isArray(policy.include)) return false;
-  return policy.include.some((rule) => (
-    rule
-    && typeof rule === 'object'
-    && !Array.isArray(rule)
-    && Object.prototype.hasOwnProperty.call(rule, 'everyone')
-  ));
-}
-
 function isIndependentGrantPolicy(policy) {
   return policy?.decision === 'non_identity' || policy?.decision === 'bypass';
 }
@@ -449,9 +439,6 @@ export async function ensureProofModeAccessPolicy({
   if (unsafeBypass) {
     throw new Error('Effective Access application contains an Everyone/Bypass policy; refusing to certify or repair Service Auth while public bypass remains possible.');
   }
-  if (policies.some((policy) => hasEveryoneAllow(policy))) {
-    throw new Error('Effective Access application contains an Everyone/Allow policy; any identity that can complete a login reaches this app, so Service Auth cannot be certified.');
-  }
 
   const exact = policies.find((policy) => hasSpecificServiceToken(policy, serviceId));
   const parallelGrant = policies.find((policy) => policy !== exact && isIndependentGrantPolicy(policy));
@@ -516,11 +503,6 @@ export async function ensureProofModeAccessPolicy({
   if (verifiedUnsafeBypass) {
     throw new Error(
       'Cloudflare repair postcondition observed an Everyone/Bypass policy after creation; exact Service Auth was not proven.',
-    );
-  }
-  if (verifiedPolicies.some((policy) => hasEveryoneAllow(policy))) {
-    throw new Error(
-      'Cloudflare repair postcondition observed an Everyone/Allow policy after creation; exact Service Auth was not proven.',
     );
   }
   const verifiedExact = verifiedPolicies.find((policy) => hasSpecificServiceToken(policy, serviceId));

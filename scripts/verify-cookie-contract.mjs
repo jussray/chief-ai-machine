@@ -44,7 +44,7 @@ for (const declared of allowed) {
   try { await stat(resolve(root, declared)); } catch { errors.push(`declared cookie writer does not exist: ${declared}`); }
 }
 for (const scanRoot of manifest.scanRoots ?? []) {
-  let files;
+  let files = [];
   try { files = await walk(resolve(root, scanRoot)); } catch { errors.push(`scan root does not exist: ${scanRoot}`); continue; }
   for (const file of files) {
     const repoPath = relative(root, file).replaceAll('\\', '/');

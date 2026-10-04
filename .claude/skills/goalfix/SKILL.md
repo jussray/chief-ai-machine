@@ -7,12 +7,6 @@ description: Find the real blocker behind a messy software goal, identify the cu
 
 Treat `$ARGUMENTS` as the finish line. Seek, build, fix, and verify without wandering.
 
-## Canonical repair contract
-
-For repository repair, this Claude carrier delegates to the repository-wide `.agents/skills/goalfix/SKILL.md` contract. That contract is authoritative for exact-head reacquisition, proof-plane classification, provider-authority stops, rerun restrictions, durable evidence, and focused-carrier scope. This file may add Claude-specific invocation guidance, but it must not weaken or redefine that canonical repair behavior.
-
-Before any repair, classify the first real failing boundary as `SOURCE`, `BUILD/CI`, `PROVIDER`, `RUNTIME/BROWSER`, or `OUTCOME`. Reacquire the current base and exact head before acting. If the next legitimate mutation requires provider administration or other authority that is unavailable, return `BLOCKED` rather than rewriting source. Do not repeatedly rerun an unchanged known blocker merely to create duplicate evidence.
-
 This is an instruction/governance skill. It does not claim that every current `POST /goalfix/inspect`, `src/goalfix/engine.ts`, API response, or browser UI already emits every adaptive-kernel field.
 
 ## Establish the boundary
@@ -118,7 +112,7 @@ Founder intent
 
 ## Execute OODA
 
-1. **Observe:** inspect exact errors, failing tests, routes, configs, recent diff, verified target/base/head, current CI, provider state, runtime evidence, and browser evidence where applicable. Classify material claims as `VERIFIED`, `INFERRED`, `UNKNOWN`, `BLOCKED`, `STALE`, or `CLEARED` (a previously material blocker was rechecked on current authority and is no longer blocking).
+1. **Observe:** inspect exact errors, failing tests, routes, configs, recent diff, verified target/base/head, current CI, provider state, runtime evidence, and browser evidence where applicable. Classify material claims as `VERIFIED`, `INFERRED`, `UNKNOWN`, `BLOCKED`, or `STALE`.
 2. **Classify CI before blame:** use `runner_startup_failure` when meaningful steps/logs never started, `workflow_no_jobs` when no jobs were scheduled/executed, and `workflow_step_failure` only when executed steps/logs identify a concrete failure. Never call a code regression from a run with no meaningful steps/logs.
 3. **Orient:** map who decides, what changes, where truth lives, when to stop/roll back, why it matters, expected versus observed state, current bottleneck, smallest safe bottleneck removal, proof plan, Sauce Guard, and unrelated-work boundary.
 4. **Decide:** choose one verified limiting cause and the smallest reversible patch. If the bottleneck is unknown, acquire the cheapest evidence that distinguishes the likely constraints. If it is external, keep unrelated authorized work moving and expose the exact dependency. Preserve valuable red/draft/superseded work until unique residue is reconciled.

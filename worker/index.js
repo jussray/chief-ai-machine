@@ -1,24 +1,14 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import {
   createFounderControlRoomCapabilityPlan,
-  getFounderControlRoomProviderStates,
   getFounderControlRoomServiceVersion,
   ingestFounderControlRoomBipEvidence,
-  invokeFounderControlRoomProvider,
 } from './fcr-service.js';
 import httpWorker from './http-worker.js';
 
 export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
   async version() {
     return getFounderControlRoomServiceVersion(this.env);
-  }
-
-  async providerStates() {
-    return getFounderControlRoomProviderStates(this.env);
-  }
-
-  async invokeProvider(input) {
-    return invokeFounderControlRoomProvider(this.env, input);
   }
 
   async createCapabilityPlan(input) {

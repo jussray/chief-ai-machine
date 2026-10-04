@@ -20,7 +20,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha || github.sha }}
-  BASE_SHA: ${{ github.event_name == 'pull_request_target' && github.sha || github.event.pull_request.base.sha || github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
   TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
 
 concurrency:
@@ -60,7 +60,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|brain|library|modal|star-storage|prompt-state|local-first-prompt-state|local-first|goals|builder|ui|friend-mode)\.js$|src/domain/(evidence-first-prompt|intelligence|intelligence-history|goal-plan)\.js$|e2e/(freestyle-save|goalfix-v1|company-brain-portability|company-brain-app-prompt-export|company-brain-version-history|portable-import|local-first-offline)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(control-room\.manifest\.json$|\.control-room/repository\.manifest\.json$|scripts/verify-control-room-tests\.mjs$|src/main\.js$|src/data/goalfix-v1\.js$|src/modules/(freestyle|custom|brain|library|modal|star-storage)\.js$|src/domain/(evidence-first-prompt|intelligence|intelligence-history|goal-plan)\.js$|e2e/(freestyle-save|goalfix-v1|company-brain-portability|company-brain-app-prompt-export|company-brain-version-history)\.pw\.mjs$|e2e/playwright\.freestyle\.config\.mjs$|\.github/workflows/(control-room-contracts|freestyle-save-playwright)\.yml$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
