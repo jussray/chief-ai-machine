@@ -1,4 +1,5 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
+import { normalizeCustomPrompt } from '../domain/intelligence.js';
 import { showToast, copyText } from './ui.js';
 
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
@@ -123,11 +124,16 @@ export function initFreestyle(PROMPTS) {
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({
+    const normalizedPrompt = normalizeCustomPrompt({
       ...currentResult,
-      id: 'fs-' + Date.now(),
+      id: 'freestyle-' + Date.now(),
       versions: normalizePromptVersionsForSave(currentResult),
     });
+    if (!normalizedPrompt) {
+      showToast('Custom prompt could not be saved safely.');
+      return;
+    }
+    custom.push(normalizedPrompt);
     localStorage.setItem('chief-custom', JSON.stringify(custom));
     window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
     showToast('Saved to My Prompts!');
