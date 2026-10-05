@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'src/domain/video-renderer.js'
-      - 'scripts/render-job-*.mjs'
+      - 'scripts/render-job-contract.mjs'
+      - 'scripts/render-job-submit.mjs'
+      - 'scripts/render-job-worker.mjs'
       - 'scripts/verify-video-playback.mjs'
       - '.github/workflows/video-remote-render-proof.yml'
   workflow_dispatch:
