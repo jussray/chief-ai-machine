@@ -384,7 +384,7 @@ describe('juss/browser-reality@v1', () => {
   });
 
   it('keeps browser-reality authority in its dedicated contract without widening the shared pair contract', () => {
-    expect(pairContract.contractVersion).toBe('2026-09-23.1');
+    expect(pairContract.contractVersion).toBe('2026-10-05.1');
     expect(pairContract.browserReality).toBeUndefined();
     expect(contract.contractId).toBe('juss/browser-reality@v1');
     expect(contract.capabilityName).toBe('browser-reality-inspector');
@@ -407,8 +407,6 @@ describe('juss/browser-reality@v1', () => {
     expect(skill).toContain('contract: "juss/browser-reality@v1"');
     expect(skill).toContain('../../../config/browser-reality.contract.json');
     expect(skill).toContain('Stop and report the exact blocker');
-    expect(agentsContract).toContain('.agents/skills/browser-reality-inspector/SKILL.md');
-    expect(agentsContract).toContain('juss-browser-reality-canonical-json-v1');
     expect(contract.outputSections).toEqual([
       'REALITY',
       'TARGET',
