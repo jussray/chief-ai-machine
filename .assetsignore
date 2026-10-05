@@ -62,6 +62,7 @@ LICENSE
 **/*.test.ts
 test/
 test/**/*.mjs
+mobile/
 coverage/
 scripts/
 e2e/
