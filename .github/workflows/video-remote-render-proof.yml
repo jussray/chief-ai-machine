@@ -5,9 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/domain/video-renderer.js'
-      - 'scripts/render-video.mjs'
-      - 'scripts/render-job-worker.mjs'
-      - 'scripts/render-job-submit.mjs'
+      - 'scripts/render-job-*.mjs'
       - '.github/workflows/video-remote-render-proof.yml'
   workflow_dispatch:
 
@@ -20,6 +18,8 @@ jobs:
     steps:
       - name: Check out exact proof subject
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Verify exact head
+        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
       - name: Set up Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
@@ -28,9 +28,31 @@ jobs:
         run: npm ci
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Build bounded proof request
+        run: |
+          mkdir -p .tmp/video-proof
+          cat > .tmp/video-proof/source.ppm <<'PPM'
+          P3
+          4 4
+          255
+          255 0 80 120 40 255 20 20 40 255 220 40
+          20 20 40 255 0 120 120 40 255 20 20 40
+          120 40 255 20 20 40 255 0 120 255 220 40
+          255 220 40 255 0 80 20 20 40 120 40 255
+          PPM
+          cat > .tmp/video-proof/input.json <<JSON
+          {
+            "imagePath": "$PWD/.tmp/video-proof/source.ppm",
+            "width": 320,
+            "height": 568,
+            "fps": 24,
+            "durationSeconds": 2,
+            "movement": "push_in"
+          }
+          JSON
       - name: Submit isolated render request
-        run: node scripts/render-job-submit.mjs --input test/fixtures/video-render-input.json --queue .tmp/video-jobs
+        run: node scripts/render-job-submit.mjs --input .tmp/video-proof/input.json --queue .tmp/video-jobs
       - name: Execute one bounded render job
         run: node scripts/render-job-worker.mjs --queue .tmp/video-jobs --once
-      - name: Verify receipt
+      - name: Verify receipt and artifact digest
         run: node scripts/render-job-worker.mjs --queue .tmp/video-jobs --verify-only
