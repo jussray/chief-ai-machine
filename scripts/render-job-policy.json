@@ -1,7 +1,0 @@
-{
-  "schemaVersion": 1,
-  "project": "chief-ai-machine",
-  "kind": "video.render",
-  "renderAuthorityRequired": true,
-  "publishAuthority": false
-}
