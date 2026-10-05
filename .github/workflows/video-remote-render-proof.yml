@@ -1,4 +1,5 @@
 name: Chief Remote Video Render Proof
+run-name: Chief video render ${{ inputs.request_id || github.run_id }}
 
 on:
   push:
@@ -11,6 +12,27 @@ on:
       - 'scripts/verify-video-playback.mjs'
       - '.github/workflows/video-remote-render-proof.yml'
   workflow_dispatch:
+    inputs:
+      request_id:
+        description: 'Caller correlation id.'
+        required: false
+        type: string
+      expected_head_sha:
+        description: 'Exact current main SHA observed before dispatch.'
+        required: false
+        type: string
+      request_sha256:
+        description: 'SHA-256 of canonical {sourcePpm,renderConfig}.'
+        required: false
+        type: string
+      source_ppm:
+        description: 'Bounded ASCII P3 PPM source. No local paths or URLs.'
+        required: false
+        type: string
+      render_config_json:
+        description: 'Optional JSON: width,height,fps,durationSeconds,movement.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -19,6 +41,11 @@ concurrency:
   group: chief-video-render-queue
   cancel-in-progress: false
 
+env:
+  EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || github.sha }}
+  REQUEST_ID: ${{ inputs.request_id || '' }}
+  EXPECTED_REQUEST_SHA: ${{ inputs.request_sha256 || '' }}
+
 jobs:
   remote-render-proof:
     runs-on: ubuntu-latest
@@ -26,8 +53,18 @@ jobs:
     steps:
       - name: Check out exact proof subject
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
       - name: Verify exact head
-        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$GITHUB_SHA" = "$EXPECTED_HEAD_SHA"
+          fi
       - name: Set up Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
@@ -36,28 +73,104 @@ jobs:
         run: npm ci
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Build bounded proof request
+      - name: Materialize bounded render request
+        env:
+          SOURCE_PPM: ${{ inputs.source_ppm }}
+          RENDER_CONFIG_JSON: ${{ inputs.render_config_json }}
         run: |
-          mkdir -p .tmp/video-proof
-          cat > .tmp/video-proof/source.ppm <<'PPM'
-          P3
-          4 4
-          255
-          255 0 80 120 40 255 20 20 40 255 220 40
-          20 20 40 255 0 120 120 40 255 20 20 40
-          120 40 255 20 20 40 255 0 120 255 220 40
-          255 220 40 255 0 80 20 20 40 120 40 255
-          PPM
-          cat > .tmp/video-proof/input.json <<JSON
-          {
-            "imagePath": "$PWD/.tmp/video-proof/source.ppm",
-            "width": 320,
-            "height": 568,
-            "fps": 24,
-            "durationSeconds": 2,
-            "movement": "push_in"
+          mkdir -p .tmp/video-proof .tmp/video-jobs
+          node --input-type=module <<'NODE'
+          import crypto from 'node:crypto';
+          import fs from 'node:fs';
+
+          function canonicalJson(value) {
+            if (value === null || typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
+            if (typeof value === 'number') {
+              if (!Number.isFinite(value)) throw new TypeError('canonical JSON rejects non-finite numbers');
+              return JSON.stringify(Object.is(value, -0) ? 0 : value);
+            }
+            if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+            if (value && typeof value === 'object') {
+              return `{${Object.entries(value)
+                .filter(([, child]) => child !== undefined)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`)
+                .join(',')}}`;
+            }
+            throw new TypeError(`canonical JSON does not support ${typeof value}`);
           }
-          JSON
+
+          const fallbackPpm = `P3\n4 4\n255\n255 0 80 120 40 255 20 20 40 255 220 40\n20 20 40 255 0 120 120 40 255 20 20 40\n120 40 255 20 20 40 255 0 120 255 220 40\n255 220 40 255 0 80 20 20 40 120 40 255\n`;
+          const suppliedPpm = process.env.SOURCE_PPM?.trim();
+          const sourcePpm = suppliedPpm ? `${suppliedPpm.replace(/\r\n/g, '\n')}\n` : fallbackPpm;
+          if (Buffer.byteLength(sourcePpm, 'utf8') > 48 * 1024) throw new Error('source_ppm exceeds 48 KiB admission limit');
+
+          const tokens = sourcePpm.replace(/#[^\n]*/g, ' ').trim().split(/\s+/);
+          if (tokens[0] !== 'P3') throw new Error('source_ppm must use ASCII P3 format');
+          const width = Number(tokens[1]);
+          const height = Number(tokens[2]);
+          const max = Number(tokens[3]);
+          if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > 64 || height > 64 || max !== 255) {
+            throw new Error('source_ppm dimensions must be 1..64 and max value must be 255');
+          }
+          const samples = tokens.slice(4).map(Number);
+          if (samples.length !== width * height * 3 || samples.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+            throw new Error('source_ppm pixel payload is invalid');
+          }
+
+          const suppliedConfig = process.env.RENDER_CONFIG_JSON?.trim();
+          const candidate = suppliedConfig ? JSON.parse(suppliedConfig) : {};
+          const allowed = new Set(['width', 'height', 'fps', 'durationSeconds', 'movement']);
+          for (const key of Object.keys(candidate)) if (!allowed.has(key)) throw new Error(`unsupported render config field: ${key}`);
+          const boundedInt = (value, fallback, min, maxValue) => {
+            const parsed = Number(value ?? fallback);
+            if (!Number.isInteger(parsed) || parsed < min || parsed > maxValue) throw new Error(`render config integer out of bounds: ${parsed}`);
+            return parsed;
+          };
+          const durationSeconds = Number(candidate.durationSeconds ?? 2);
+          if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 8) throw new Error('durationSeconds must be 1..8');
+          const movement = String(candidate.movement ?? 'push_in');
+          if (!['push_in', 'pull_out', 'pan_left', 'pan_right', 'static'].includes(movement)) throw new Error('movement is not allowed');
+          const renderConfig = {
+            width: boundedInt(candidate.width, 320, 128, 1080),
+            height: boundedInt(candidate.height, 568, 128, 1920),
+            fps: boundedInt(candidate.fps, 24, 8, 60),
+            durationSeconds,
+            movement,
+          };
+
+          const canonicalRequest = canonicalJson({ sourcePpm, renderConfig });
+          const requestSha256 = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+          const externallySupplied = Boolean(suppliedPpm || suppliedConfig);
+          if (externallySupplied && process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
+            if (!process.env.REQUEST_ID?.trim() || !process.env.EXPECTED_HEAD_SHA?.trim() || !process.env.EXPECTED_REQUEST_SHA?.trim()) {
+              throw new Error('External dispatch requires request_id, expected_head_sha, and request_sha256');
+            }
+          }
+          if (process.env.EXPECTED_REQUEST_SHA?.trim() && process.env.EXPECTED_REQUEST_SHA.trim() !== requestSha256) {
+            throw new Error('external request fingerprint mismatch');
+          }
+
+          fs.writeFileSync('.tmp/video-proof/source.ppm', sourcePpm);
+          fs.writeFileSync('.tmp/video-proof/input.json', `${JSON.stringify({
+            imagePath: `${process.cwd()}/.tmp/video-proof/source.ppm`,
+            ...renderConfig,
+          }, null, 2)}\n`);
+          fs.writeFileSync('.tmp/video-jobs/admission-receipt.json', `${JSON.stringify({
+            schema: 'chief-ai-machine/remote-video-admission@v1',
+            requestId: process.env.REQUEST_ID?.trim() || null,
+            expectedHeadSha: process.env.EXPECTED_HEAD_SHA,
+            requestSha256,
+            sourceFormat: 'ppm-p3',
+            sourceWidth: width,
+            sourceHeight: height,
+            externalInput: externallySupplied,
+            localPathInputsAllowed: false,
+            remoteUrlInputsAllowed: false,
+            renderAuthority: true,
+            publishAuthority: false,
+          }, null, 2)}\n`);
+          NODE
       - name: Submit isolated render request
         run: node scripts/render-job-submit.mjs --input .tmp/video-proof/input.json --queue .tmp/video-jobs
       - name: Execute one bounded render job
@@ -74,6 +187,37 @@ jobs:
           test -n "$MEDIA"
           node scripts/verify-video-playback.mjs --media "$MEDIA" | tee .tmp/video-jobs/playback-receipt.json
           grep -q '"pass": true' .tmp/video-jobs/playback-receipt.json
+      - name: Bind remote execution receipt
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          node --input-type=module <<'NODE'
+          import crypto from 'node:crypto';
+          import fs from 'node:fs';
+          const admission = JSON.parse(fs.readFileSync('.tmp/video-jobs/admission-receipt.json', 'utf8'));
+          const receiptFile = fs.readdirSync('.tmp/video-jobs/receipts').find((file) => file.endsWith('.json'));
+          if (!receiptFile) throw new Error('worker receipt missing');
+          const worker = JSON.parse(fs.readFileSync(`.tmp/video-jobs/receipts/${receiptFile}`, 'utf8'));
+          const output = fs.readFileSync(worker.output.path);
+          const observedOutputSha = crypto.createHash('sha256').update(output).digest('hex');
+          if (observedOutputSha !== worker.output.sha256) throw new Error('worker output fingerprint drifted');
+          fs.writeFileSync('.tmp/video-jobs/remote-execution-receipt.json', `${JSON.stringify({
+            schema: 'chief-ai-machine/remote-video-render@v1',
+            project: 'chief-ai-machine',
+            requestId: admission.requestId,
+            gitSha: process.env.GITHUB_SHA,
+            expectedHeadSha: admission.expectedHeadSha,
+            runId: process.env.RUN_ID,
+            runAttempt: process.env.RUN_ATTEMPT,
+            requestSha256: admission.requestSha256,
+            queueFingerprint: worker.fingerprint,
+            outputSha256: observedOutputSha,
+            renderAuthority: true,
+            publishAuthority: false,
+            verifiedBy: ['worker-receipt', 'sha256', 'playwright'],
+          }, null, 2)}\n`);
+          NODE
       - name: Retain rendered artifact and receipts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
