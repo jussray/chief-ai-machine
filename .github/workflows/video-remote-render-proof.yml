@@ -6,15 +6,21 @@ on:
     paths:
       - 'src/domain/video-renderer.js'
       - 'scripts/render-job-*.mjs'
+      - 'scripts/verify-video-playback.mjs'
       - '.github/workflows/video-remote-render-proof.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: chief-video-render-queue
+  cancel-in-progress: false
+
 jobs:
   remote-render-proof:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out exact proof subject
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
@@ -26,7 +32,7 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm ci
-      - name: Install ffmpeg
+      - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Build bounded proof request
         run: |
@@ -56,3 +62,20 @@ jobs:
         run: node scripts/render-job-worker.mjs --queue .tmp/video-jobs --once
       - name: Verify receipt and artifact digest
         run: node scripts/render-job-worker.mjs --queue .tmp/video-jobs --verify-only
+      - name: Install pinned Playwright Chromium
+        run: |
+          npm install --no-save --no-package-lock @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Playwright playback proof
+        run: |
+          MEDIA="$(find .tmp/video-jobs/work -name output.mp4 -type f | head -n 1)"
+          test -n "$MEDIA"
+          node scripts/verify-video-playback.mjs --media "$MEDIA" | tee .tmp/video-jobs/playback-receipt.json
+          grep -q '"pass": true' .tmp/video-jobs/playback-receipt.json
+      - name: Retain rendered artifact and receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: chief-video-render-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tmp/video-jobs/
+          if-no-files-found: error
+          retention-days: 7
