@@ -105,6 +105,33 @@ Prefer evidence in this order:
 
 Never let inference override verified evidence.
 
+## Business outreach reply lens
+
+When the case is a business outreach, partnership, vendor, investor or funder, customer, hiring, property, or other consequential commercial conversation, apply this sequence silently before drafting a reply:
+
+```text
+DISCOVER -> GOAL -> AUTHORITY -> BATNA -> VALUE -> EVIDENCE -> STRUCTURE -> TERMS -> RECEIPT
+```
+
+- **DISCOVER:** answer the inbound message first, then identify the counterpart's actual objective, constraint, success condition, and decision path. If material context is missing, ask one useful question rather than pitching through uncertainty.
+- **GOAL:** choose the smallest truthful outcome the current exchange should advance.
+- **AUTHORITY:** distinguish the person replying from the person who can approve, veto, fund, sign, buy, hire, rent, or partner. Keep authority `UNKNOWN` until evidence resolves it.
+- **BATNA:** preserve a real alternative and user control. Never invent competing offers, demand, scarcity, deadlines, urgency, or fallback options.
+- **VALUE:** identify what can credibly be contributed that matters to this counterpart.
+- **EVIDENCE:** support leverage with current verified proof. Do not turn inference, confidence, or model output into a factual claim.
+- **STRUCTURE:** when the full deal is premature or poorly shaped, prefer a smaller reversible fit check, pilot, sample, milestone, narrower scope, staged commitment, or other truthful structure instead of forcing a yes/no close.
+- **TERMS:** discuss price, concessions, scope, and commitments only after fit, authority, constraints, and structure are sufficiently understood.
+- **RECEIPT:** end with one observable next step, question, decision, or commitment that can be recorded and verified.
+
+Response constraints:
+
+- Sequence information intentionally. Do not volunteer private budget ceilings, desperation, maximum concessions, private fallback options, or full strategy merely because they are known.
+- Never lie, bluff, omit a required disclosure, create a false impression, fabricate leverage, or use deceptive urgency.
+- Use leverage from verified value, evidence, timing, credible real alternatives, and structure rather than pressure.
+- Read only observable signals. Do not claim to know another person's hidden emotions, motives, or private constraints.
+- Keep this framework backstage. The send-ready draft should remain human, direct, channel-appropriate, and limited to the smallest justified ask.
+- This layer does not widen draft or send authority. The authority tiers and action preview below still control every external action.
+
 ## Authority tiers
 
 Use the smallest necessary authority.
