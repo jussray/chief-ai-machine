@@ -64,9 +64,9 @@ jobs:
         run: node scripts/render-job-worker.mjs --queue .tmp/video-jobs --once
       - name: Verify receipt and artifact digest
         run: node scripts/render-job-worker.mjs --queue .tmp/video-jobs --verify-only
-      - name: Install pinned Playwright Chromium
+      - name: Install proven Playwright Chromium
         run: |
-          npm install --no-save --no-package-lock @playwright/test@1.55.0
+          npm install --no-save --no-package-lock @playwright/test@1.61.1
           npx playwright install --with-deps chromium
       - name: Playwright playback proof
         run: |
