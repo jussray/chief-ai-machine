@@ -1,0 +1,5 @@
+{
+  "render": true,
+  "publish": false,
+  "note": "Reference authority shape for Chief render jobs. Real callers must establish authority independently."
+}
