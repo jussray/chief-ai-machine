@@ -1,3 +1,4 @@
+/* global document */
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
