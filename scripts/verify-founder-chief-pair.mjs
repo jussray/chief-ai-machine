@@ -35,6 +35,14 @@ requireValue(/^\d{4}-\d{2}-\d{2}\.\d+$/.test(contract.contractVersion), 'contrac
 requireValue(contract.pair?.controlRoom === 'jussray/founder-control-room', 'control-room repository drifted');
 requireValue(contract.pair?.chiefAI === 'jussray/chief-ai-machine', 'Chief AI repository drifted');
 requireValue(pkg.name === 'chief-ai-machine', 'validator is running in the wrong repository');
+requireValue(contract.relationship?.topology === 'standalone-peers', 'FCR/Chief topology must remain standalone peers');
+requireValue(contract.commercialPackaging?.portfolioCommercialTopology === 'independent-products-with-explicit-bundles', 'commercial topology drifted');
+requireValue(contract.commercialPackaging?.defaultPublicFounderSoftwareIdentity === 'product-specific', 'public product identity must remain product-specific');
+requireValue(contract.commercialPackaging?.chiefTechnicalIndependence === true, 'Chief technical independence must remain true');
+requireValue(contract.commercialPackaging?.chiefCommercialIndependence === true, 'Chief commercial independence must remain true');
+requireValue(contract.commercialPackaging?.chiefDefaultCommercialRole === 'standalone-product', 'Chief commercial role must remain standalone');
+requireValue(contract.commercialPackaging?.chiefDefaultCommercialPackaging === 'chief-owned-offer', 'Chief commercial packaging must remain Chief-owned');
+requireValue(contract.commercialPackaging?.bundleRule?.includes('does not collapse product identity'), 'Chief bundle boundary is required');
 requireValue(
   contract.roles?.controlRoom?.join('|') === 'memory|governance|evidence|coordination|execution authority|outcome receipts',
   'control-room V10 role contract drifted',
@@ -209,7 +217,7 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
-console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, research evidence, and Sauce Guard controls verified.');
+console.log('Standalone peer identity, V10 roles, capability selection, authority, outcomes, public communication, temporal truth, research evidence, and Sauce Guard controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
