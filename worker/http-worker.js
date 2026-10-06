@@ -1,6 +1,7 @@
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefControlRoomRecommendation } from './chief-control-room-recommendation.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleChiefProviderRoute } from './chief-provider-route.js';
 import { getReleaseSha } from './fcr-service.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 import { chiefProviderStates, invokeChiefProvider } from './provider-runtime.js';
@@ -126,6 +127,10 @@ const httpWorker = {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       return handleChiefFounderContentProposal(request);
+    }
+
+    if (url.pathname === '/api/chief/provider') {
+      return handleChiefProviderRoute(request, env);
     }
 
     if (url.pathname.startsWith('/api/')) {
