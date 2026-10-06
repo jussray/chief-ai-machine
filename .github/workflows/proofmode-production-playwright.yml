@@ -66,6 +66,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
         shell: bash
         run: |
           set -euo pipefail
@@ -98,10 +103,10 @@ jobs:
           printf '%s' "$checks" | node -e '
             let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
               const required = '"$(printf '%s|' "${required_checks[@]}")".slice(0,-1)"'.split("|");
-              const data = JSON.parse(s); const runs = (data.check_runs || []).filter(r => r.head_sha === process.env.EXPECTED_HEAD_SHA && r.status === "completed" && r.conclusion === "success");
-              const found = runs.map(r => r.name); const missing = required.filter(name => !found.includes(name));
+              const data = JSON.parse(s); const runs = (data.check_runs || []).filter(run => run.head_sha === process.env.EXPECTED_HEAD_SHA && run.status === "completed" && run.conclusion === "success");
+              const found = runs.map(run => run.name); const missing = required.filter(name => !found.includes(name));
               if(missing.length > 0) { process.stderr.write("Missing required checks: " + missing.join(", ")); process.exit(1); }
-              process.stdout.write("All required checks passed for exact head");
+              process.stdout.write("Require exact-head pre-production proof packet");
             });
           ' || exit 1
 
@@ -144,15 +149,36 @@ jobs:
             const accessSecret = process.env.CF_ACCESS_CLIENT_SECRET;
             expect(expectedSha).toBeTruthy();
             expect(previewUrl).toBeTruthy();
+
             const headers = accessId && accessSecret ? {
               'CF-Access-Client-Id': accessId,
               'CF-Access-Client-Secret': accessSecret,
             } : {};
-            const response = await page.goto(`${previewUrl}/version`, { waitUntil: 'domcontentloaded', extraHTTPHeaders: headers });
+
+            const response = await page.goto(`${previewUrl}/version`, {
+              waitUntil: 'domcontentloaded',
+              extraHTTPHeaders: headers
+            });
+
+            if (response.status() === 302) {
+              const location = response.headers().location || '';
+              if (location.includes('.cloudflareaccess.com/')) {
+                throw new Error(`Protected preview returned HTTP ${response.status()} redirect; Cloudflare Access service-token policy/binding did not grant direct access`);
+              }
+            }
+
             expect(response).not.toBeNull();
-            expect(response.status()).toBe(200);
+            if (response.status() !== 200) {
+              throw new Error(`Protected preview returned HTTP ${response.status()} but expected 200`);
+            }
+
             const payload = await response.json();
-            expect(payload?.sha).toBe(expectedSha);
+            if (!payload?.sha) {
+              throw new Error('Protected preview returned HTTP 200 but /version exposed no release sha');
+            }
+            if (payload.sha !== expectedSha) {
+              throw new Error(`Protected preview release sha mismatch: expected ${expectedSha}, got ${payload.sha}`);
+            }
           });
           EOF
           cat > playwright.access.config.mjs <<'EOF'
@@ -407,11 +433,15 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: true
 
-      - name: finalize-authority
+      - name: Consume attempted one-shot authority
         id: finalize
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail

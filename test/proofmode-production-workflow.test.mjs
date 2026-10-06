@@ -16,7 +16,7 @@ const authorityScript = readFileSync(
 );
 
 describe('ProofMode production governance workflow', () => {
-  it.skip('keeps production mutation founder-dispatched and exact-head bound', () => {
+  it('keeps production mutation founder-dispatched and exact-head bound', () => {
     // TODO: Full production governance authority binding is aspirational
     // Current implementation uses simplified push/dispatch + Playwright proof
     // Full governance requires: workflow_dispatch inputs, authority validation,
@@ -32,7 +32,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain("if: github.event_name == 'workflow_dispatch'");
   });
 
-  it.skip('binds authority to a durable exact-head GitHub review receipt', () => {
+  it('binds authority to a durable exact-head GitHub review receipt', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('proofmode-production-authority.mjs validate');
     expect(authorityScript).toContain('review.commit_id !== expectedSha');
@@ -44,7 +44,7 @@ describe('ProofMode production governance workflow', () => {
     );
   });
 
-  it.skip('authenticates a workflow-to-workflow dispatch through exact founder bridge run metadata', () => {
+  it('authenticates a workflow-to-workflow dispatch through exact founder bridge run metadata', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(bridge).toContain('activation_run_id: process.env.ACTIVATION_RUN_ID');
     expect(workflow).toContain("ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}");
@@ -56,7 +56,7 @@ describe('ProofMode production governance workflow', () => {
     expect(authorityScript).toContain("authenticatedBy: directFounder ? 'direct-founder' : 'founder-bridge'");
   });
 
-  it.skip('rejects reruns and brand-new dispatch replay of the same authority receipt', () => {
+  it('rejects reruns and brand-new dispatch replay of the same authority receipt', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(authorityScript).toContain("runAttempt !== '1'");
     expect(authorityScript).toContain('Authority receipt has already been consumed');
@@ -68,13 +68,13 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('inputs.authority_receipt');
   });
 
-  it.skip('never cancels an in-flight production mutation to start a newer proof', () => {
+  it('never cancels an in-flight production mutation to start a newer proof', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('cancel-in-progress: false');
     expect(workflow).not.toContain('cancel-in-progress: true');
   });
 
-  it.skip('requires the exact-head pre-production proof packet before promotion', () => {
+  it('requires the exact-head pre-production proof packet before promotion', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('Require exact-head pre-production proof packet');
     expect(workflow).toContain('"Typecheck"');
@@ -91,7 +91,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('run.conclusion === "success"');
   });
 
-  it.skip('materializes both required deployment environments only through live proof', () => {
+  it('materializes both required deployment environments only through live proof', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('name: proofmode-access-admin');
     expect(workflow).toContain('name: Cloudflare Production');
@@ -100,7 +100,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('Verify production ProofMode MCP with Playwright');
   });
 
-  it.skip('classifies Access redirects before checking runtime identity', () => {
+  it('classifies Access redirects before checking runtime identity', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain("--write-out '%{http_code}'");
     expect(workflow).toContain(
@@ -110,7 +110,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('Protected preview release sha mismatch');
   });
 
-  it.skip('consumes one-shot authority after every attempted dispatched execution', () => {
+  it('consumes one-shot authority after every attempted dispatched execution', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('finalize-authority:');
     expect(workflow).toContain('needs: [protected-access, verify]');
@@ -120,7 +120,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('node scripts/proofmode-production-authority.mjs consume');
   });
 
-  it.skip('promotes the exact prebuilt Cloudflare version instead of rebuilding or weakening governance', () => {
+  it('promotes the exact prebuilt Cloudflare version instead of rebuilding or weakening governance', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('Workers Builds: chief-ai');
     expect(workflow).toContain('Version ID:');
@@ -134,7 +134,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).not.toContain('bypass');
   });
 
-  it.skip('requires protected Access proof before founder-dispatched production proof', () => {
+  it('requires protected Access proof before founder-dispatched production proof', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('needs: protected-access');
     expect(workflow).toContain("needs.protected-access.result == 'success'");
@@ -144,7 +144,7 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('npx playwright test --config=playwright.proofmode-production.config.mjs');
   });
 
-  it.skip('adds a founder-only PR bridge that can dispatch through GitHub without weakening the production gate', () => {
+  it('adds a founder-only PR bridge that can dispatch through GitHub without weakening the production gate', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(bridge).toContain('ready_for_review');
     expect(bridge).toContain('github.actor == github.repository_owner');
