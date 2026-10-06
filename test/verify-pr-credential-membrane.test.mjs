@@ -119,15 +119,7 @@ describe('credential membrane skill authority validation', () => {
 });
 
 describe('credential membrane integration with real files', () => {
-  it.skip('passes against the actual repository workflows and skill', async () => {
-    // TODO: Credential membrane authority markers are aspirational
-    // Missing 4 authority declarations require security review:
-    // - "Workflow and mode names are not self-authenticating commands."
-    // - "Chief's ULTRATHINK policy is server-owned."
-    // - "The hash-bound policy receipt, not a caller token, establishes which strategic lenses are active."
-    // - "Embedded workflow or mode tokens are subject to the same boundary..."
-    // These prevent token injection attacks where naming alone could claim workflow authority.
-    // Full implementation requires server-owned policy hashes, receipt validation, and boundary enforcement.
+  it('passes against the actual repository workflows and skill', async () => {
     const { readFile } = await import('node:fs/promises');
     const root = new globalThis.URL('../', import.meta.url);
 
