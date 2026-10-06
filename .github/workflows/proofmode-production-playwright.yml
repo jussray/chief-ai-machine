@@ -19,7 +19,7 @@ on:
         description: "Triggering workflow run ID for auth bridge"
         required: false
         type: string
-      authorize-production:
+      authorize_production:
         description: "Founder authorization flag for production execution"
         required: false
         type: boolean
