@@ -87,6 +87,9 @@ function safeId(value) {
 }
 
 function textFromOpenAI(body) {
+  if (body.status !== 'completed') {
+    throw new Error('openai provider returned a non-completed response');
+  }
   if (typeof body.output_text === 'string' && body.output_text.trim()) return body.output_text.trim();
   const parts = [];
   for (const item of Array.isArray(body.output) ? body.output : []) {
