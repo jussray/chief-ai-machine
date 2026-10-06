@@ -1,6 +1,9 @@
 name: ProofMode Production Playwright
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -35,9 +38,9 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ inputs.expected_sha }}
-  AUTHORITY_PR: ${{ inputs.authority_pr }}
-  AUTHORITY_RECEIPT: ${{ inputs.authority_receipt }}
+  EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+  AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
+  AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
   ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}
 
 jobs:
@@ -84,7 +87,6 @@ jobs:
 
   require-exact-head-proofs:
     name: Require exact-head pre-production proof packet
-    needs: authorize-production
     runs-on: ubuntu-22.04
     steps:
       - name: Verify all required checks passed on exact head
