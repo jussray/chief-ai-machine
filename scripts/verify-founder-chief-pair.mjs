@@ -56,6 +56,11 @@ requireValue(
   'n8n execution role contract drifted',
 );
 requireValue(contract.v10?.capabilityPlanContract === 'juss-v10/capability-plan@v1', 'V10 capability-plan contract drifted');
+requireValue(contract.v10?.promptOSCommandIntentContract === 'promptos/public-command-intent@v1', 'PromptOS public command intent contract drifted');
+requireValue(contract.v10?.promptOSChiefHandoffContract === 'juss/promptos-chief-fcr-command-handoff@v1', 'PromptOS/Chief/FCR command handoff contract drifted');
+requireValue(contract.v10?.promptOSCommandIntakeContract === 'juss/fcr-public-command-intake@v1', 'FCR public command intake contract drifted');
+requireValue(contract.v10?.promptOSCommandBoundary?.includes('still requires a hash-bound Chief capability plan before authority resolution'), 'PromptOS command boundary must preserve the Chief capability-plan gate');
+requireValue(contract.v10?.promptOSCommandBoundary?.includes('never authorize execution'), 'PromptOS command boundary must remain non-authorizing');
 requireValue(contract.v10?.outcomeObservationContract === 'juss-v10/outcome-observation@v1', 'V10 outcome contract drifted');
 requireValue(contract.v10?.conveyorContract === 'founder-control-room/n8n-conveyor@v3', 'V10 conveyor contract drifted');
 requireValue(contract.v10?.capabilitySelector === 'chief-ai-machine', 'Chief AI must remain the capability selector');

@@ -10,6 +10,7 @@ import {
   getArtifactReleaseSha,
   getFounderControlRoomServiceVersion,
   ingestFounderControlRoomBipEvidence,
+  acceptFounderControlRoomPromptOSCommandIntent,
 } from './fcr-service.js';
 
 const releaseSha = '73c36e61dae96bf1bb94990d3b5e5a6a0bb70b24';
@@ -97,6 +98,8 @@ describe('Founder Control Room RPC service contract', () => {
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
       bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
+      promptOSCommandIntentContract: 'promptos/public-command-intent@v1',
+      promptOSCommandHandoffContract: 'juss/promptos-chief-fcr-command-handoff@v1',
       releaseSha,
     });
   });
@@ -124,6 +127,49 @@ describe('Founder Control Room RPC service contract', () => {
       proposalOnly: true,
       executionAuthorized: false,
       founderApprovalRequired: true,
+    });
+  });
+
+  it('accepts a PromptOS public command over the private FCR RPC without minting authority', () => {
+    const response = acceptFounderControlRoomPromptOSCommandIntent(
+      { RELEASE_SHA: spoofedRuntimeSha },
+      {
+        intent: {
+          schema: 'promptos/public-command-intent@v1',
+          command: { id: 'contract', token: '/contract', category: 'Legal', label: 'Contract' },
+          arguments: 'vendor NDA',
+          project: 'truth-weaver',
+          capabilityId: 'legal-navigation',
+          route: {
+            owner: 'promptos',
+            reasoningPlane: 'chief-ai-machine',
+            specialistProduct: 'truth-weaver',
+            authorityPlane: 'founder-control-room',
+          },
+          authorityCeiling: 'advisory-only',
+          execution: { status: 'not-executed', mutationAuthorized: false },
+          evidence: { contract: 'current-authority', staleOnStateChange: true },
+          catalogQuery: 'contract',
+        },
+      },
+      releaseSha,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.status).toBe(200);
+    expect(response.releaseSha).toBe(releaseSha);
+    expect(response.promptOSCommandIntentContract).toBe('promptos/public-command-intent@v1');
+    expect(response.promptOSCommandHandoffContract).toBe('juss/promptos-chief-fcr-command-handoff@v1');
+    expect(response.result).toMatchObject({
+      acceptedBy: 'chief-ai-machine',
+      project: 'truth-weaver',
+      capabilityId: 'legal-navigation',
+      specialistProduct: 'truth-weaver',
+      authorityPlane: 'founder-control-room',
+      authorityResolution: 'unresolved',
+      actionAuthority: false,
+      executionAuthorized: false,
+      nextRequiredContract: 'juss-v10/capability-plan@v1',
     });
   });
 

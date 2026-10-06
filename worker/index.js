@@ -3,6 +3,7 @@ import {
   createFounderControlRoomCapabilityPlan,
   getFounderControlRoomServiceVersion,
   ingestFounderControlRoomBipEvidence,
+  acceptFounderControlRoomPromptOSCommandIntent,
 } from './fcr-service.js';
 import httpWorker from './http-worker.js';
 
@@ -17,6 +18,10 @@ export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
 
   async ingestBipEvidence(input) {
     return ingestFounderControlRoomBipEvidence(this.env, input);
+  }
+
+  async acceptPromptOSCommandIntent(input) {
+    return acceptFounderControlRoomPromptOSCommandIntent(this.env, input);
   }
 }
 
