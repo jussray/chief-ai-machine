@@ -8,13 +8,7 @@ const freestyle = read('.github/workflows/freestyle-save-playwright.yml');
 const materializer = read('.github/workflows/governance-required-check-materializer.yml');
 
 describe('trusted current-main diff base contract', () => {
-  it.skip('binds pull_request_target evaluators to the trusted current-main workflow SHA', () => {
-    // TODO: Trusted base SHA binding is aspirational governance pattern
-    // Requires architectural decision: should BASE_SHA always be github.sha (evaluator's current main)
-    // or github.event.pull_request.base.sha (the PR's target base)?
-    // Current implementation uses: BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
-    // which allows flexibility but test expects strict binding to evaluator's SHA.
-    // Full implementation requires security review of base-SHA validation semantics.
+  it('binds pull_request_target evaluators to the trusted current-main workflow SHA', () => {
     expect(founderGoals).toContain('BASE_SHA: ${{ github.sha }}');
     expect(founderGoals).not.toContain('BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}');
 
