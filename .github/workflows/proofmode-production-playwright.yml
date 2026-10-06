@@ -438,7 +438,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.sha }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Consume attempted one-shot authority
         id: finalize
