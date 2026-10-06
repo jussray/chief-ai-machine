@@ -74,11 +74,7 @@ describe('Chief MCP', () => {
     expect(payload.result.instructions).toContain('Founder Control Room remains the authority');
   });
 
-  it.skip('advertises Chief cognition alongside ProofMode evidence tools', async () => {
-    // TODO: Tool filtering from ProofMode delegation is aspirational
-    // Chief should expose only: audit_repository, lookup_dependency_docs, compose_capability_plan
-    // Current implementation leaks extra ProofMode tools that should be filtered.
-    // Requires proper MCP capability filtering/masking policy before enforcement.
+  it('advertises Chief cognition alongside ProofMode evidence tools', async () => {
     const response = await handleChiefMcp(legacyRequest({
       jsonrpc: '2.0',
       id: 2,
