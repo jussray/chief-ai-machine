@@ -56,6 +56,7 @@ describe('Chief live runtime proof', () => {
   it('returns provider provenance while withholding model output', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       id: 'resp_runtime_proof_1',
+      status: 'completed',
       output_text: 'CHIEF_RUNTIME_PROOF_OK',
     }), {
       status: 200,
