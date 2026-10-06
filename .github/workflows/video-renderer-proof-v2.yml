@@ -22,6 +22,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: chief-video-renderer-proof-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 

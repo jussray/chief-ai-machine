@@ -15,7 +15,6 @@ const skill = readFileSync(
   new URL('../.agents/skills/browser-reality-inspector/SKILL.md', import.meta.url),
   'utf8',
 );
-const agentsContract = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
 const cookieManifest = JSON.parse(readFileSync(
   new URL('../.security/cookies.json', import.meta.url),
   'utf8',
