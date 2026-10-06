@@ -1,41 +1,85 @@
 name: ProofMode Production Playwright
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Exact repository SHA to verify"
+        required: true
+        type: string
+      authority_pr:
+        description: "GitHub PR number granting authorization"
+        required: true
+        type: string
+      authority_receipt:
+        description: "Durable founder authorization receipt ID"
+        required: true
+        type: string
+      activation_run_id:
+        description: "Triggering workflow run ID for auth bridge"
+        required: false
+        type: string
 
 permissions:
   contents: read
-  checks: read
+  checks: write
 
 concurrency:
-  group: proofmode-production-playwright-${{ github.ref }}
-  cancel-in-progress: true
+  group: proofmode-production-playwright-${{ github.run_id }}
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+  EXPECTED_HEAD_SHA: ${{ inputs.expected_sha }}
+  AUTHORITY_PR: ${{ inputs.authority_pr }}
+  AUTHORITY_RECEIPT: ${{ inputs.authority_receipt }}
+  ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}
 
 jobs:
+  authorize_production:
+    name: Validate founder authorization receipt
+    runs-on: ubuntu-22.04
+    outputs:
+      authorized_by: ${{ steps.validate.outputs.authorized_by }}
+    steps:
+      - name: Check out evaluator snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate authority receipt
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "scripts/proofmode-production-authority.mjs" validate \
+            --expected-sha "$EXPECTED_HEAD_SHA" \
+            --authority-pr "$AUTHORITY_PR" \
+            --authority-receipt "$AUTHORITY_RECEIPT" \
+            --activation-run-id "$ACTIVATION_RUN_ID" \
+            --repo "$REPO"
+
   verify:
     name: Verify production ProofMode MCP with Playwright
+    needs: authorize_production
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - name: Check out exact workflow source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
 
       - name: Resolve expected production head
         shell: bash
         run: |
-          expected="$GITHUB_SHA"
+          expected="${EXPECTED_HEAD_SHA}"
           test -n "$expected"
           printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
           printf 'Expected production head: %s\n' "$expected"
@@ -205,3 +249,30 @@ jobs:
             test-results/proofmode-production
           if-no-files-found: warn
           retention-days: 14
+
+  finalize_authority:
+    name: Consume attempted one-shot authority
+    if: always()
+    needs: [authorize_production, verify]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+
+      - name: Record one-shot receipt consumption
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "scripts/proofmode-production-authority.mjs" finalize \
+            --authority-receipt "$AUTHORITY_RECEIPT" \
+            --activation-run-id "$ACTIVATION_RUN_ID" \
+            --repo "$REPO" \
+            --result "${{ needs.verify.result }}"
