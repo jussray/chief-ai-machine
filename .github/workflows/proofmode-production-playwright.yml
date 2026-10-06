@@ -74,6 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # proofmode-production-authority.mjs validate
           node "scripts/proofmode-production-authority.mjs" validate \
             --expected-sha "$EXPECTED_HEAD_SHA" \
             --authority-pr "$AUTHORITY_PR" \
@@ -140,6 +141,8 @@ jobs:
           set -euo pipefail
           cd "$PLAYWRIGHT_RUNNER_DIR"
           mkdir -p e2e
+          # npx playwright test --config=playwright.proofmode-access.config.mjs
+          # npx playwright test --config=playwright.proofmode-production.config.mjs
           cat > e2e/access-protected.pw.mjs <<'EOF'
           import { test, expect } from '@playwright/test';
           test('protected preview serves exact head', async ({ page }) => {
@@ -163,6 +166,7 @@ jobs:
             if (response.status() === 302) {
               const location = response.headers().location || '';
               if (location.includes('.cloudflareaccess.com/')) {
+                // Protected preview returned HTTP %s redirect; Cloudflare Access service-token policy/binding did not grant direct access
                 throw new Error(`Protected preview returned HTTP ${response.status()} redirect; Cloudflare Access service-token policy/binding did not grant direct access`);
               }
             }
@@ -189,6 +193,7 @@ jobs:
 
   verify:
     name: Verify production ProofMode MCP with Playwright
+    # needs: protected-access
     needs: [protected-access, require-exact-head-proofs]
     if: always() && needs.protected-access.result == 'success'
     runs-on: ubuntu-22.04
@@ -445,6 +450,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # node scripts/proofmode-production-authority.mjs consume
           node "scripts/proofmode-production-authority.mjs" consume \
             --authority-receipt "$AUTHORITY_RECEIPT" \
             --activation-run-id "$ACTIVATION_RUN_ID" \
