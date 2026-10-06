@@ -30,6 +30,14 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
+  it('distinguishes the synthetic pull-request merge SHA from the exact candidate release SHA', () => {
+    expect(releaseBakeScript).toContain("githubEventName === 'pull_request'");
+    expect(releaseBakeScript).toContain('/^refs\\/pull\\/\\d+\\/merge$/');
+    expect(releaseBakeScript).toContain("...(syntheticPullRequestMergeSha ? [] : [['GITHUB_SHA', process.env.GITHUB_SHA]])");
+    expect(releaseBakeScript).toContain("['WORKERS_CI_COMMIT_SHA', process.env.WORKERS_CI_COMMIT_SHA]");
+    expect(releaseBakeScript).toContain("throw new Error('Release SHA inputs disagree; refusing to bake ambiguous artifact identity')");
+  });
+
   it('returns the explicit release SHA without touching assets', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
