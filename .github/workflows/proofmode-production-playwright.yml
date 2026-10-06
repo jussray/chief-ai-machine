@@ -19,6 +19,11 @@ on:
         description: "Triggering workflow run ID for auth bridge"
         required: false
         type: string
+      authorize_production:
+        description: "Founder authorization flag for production execution"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,6 +43,7 @@ env:
 jobs:
   authorize_production:
     name: Validate founder authorization receipt
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     outputs:
       authorized_by: ${{ steps.validate.outputs.authorized_by }}
@@ -48,6 +54,12 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate exact-head SHA binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
 
       - name: Validate authority receipt
         id: validate
