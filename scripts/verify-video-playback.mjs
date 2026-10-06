@@ -1,4 +1,3 @@
-/* global document */
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -34,7 +33,7 @@ try {
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => {
-    const video = document.querySelector('#proof');
+    const video = globalThis.document.querySelector('#proof');
     return video && video.readyState >= 3 && Number.isFinite(video.duration) && video.duration > 0;
   }, null, { timeout: 15000 });
   const before = await page.locator('#proof').evaluate((video) => ({ currentTime: video.currentTime, duration: video.duration, width: video.videoWidth, height: video.videoHeight, readyState: video.readyState }));
