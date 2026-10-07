@@ -1,0 +1,75 @@
+name: Chief Provider Route Playwright
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'worker/http-worker.js'
+      - 'worker/chief-provider-route.js'
+      - 'worker/provider-runtime.js'
+      - 'e2e/chief-provider-route-server.mjs'
+      - 'e2e/chief-provider-route.pw.mjs'
+      - 'playwright.chief-provider.config.mjs'
+      - '.github/workflows/chief-provider-route-playwright.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chief-provider-route-playwright-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  prove-provider-route:
+    name: Verify Chief provider route in Chromium
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Verify exact checked-out head
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start fail-closed provider proof server
+        shell: bash
+        run: |
+          node e2e/chief-provider-route-server.mjs > /tmp/chief-provider-proof.log 2>&1 &
+          echo $! > /tmp/chief-provider-proof.pid
+          for attempt in {1..30}; do
+            status="$(curl --silent --output /tmp/chief-provider-response.json --write-out '%{http_code}' \
+              -X POST -H 'content-type: application/json' \
+              --data '{"provider":"openai","prompt":"probe"}' \
+              http://127.0.0.1:4179/api/chief/provider || true)"
+            if [ "$status" = '503' ]; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/chief-provider-proof.log
+          cat /tmp/chief-provider-response.json || true
+          exit 1
+      - name: Run real Chromium provider-route proof
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: npx playwright test --config=playwright.chief-provider.config.mjs --reporter=line
+      - name: Stop proof server
+        if: always()
+        shell: bash
+        run: test ! -f /tmp/chief-provider-proof.pid || kill "$(cat /tmp/chief-provider-proof.pid)" || true

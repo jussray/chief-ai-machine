@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "2026-10-05.1",
+  "contractVersion": "2026-10-06.1",
   "pair": {
     "controlRoom": "jussray/founder-control-room",
     "chiefAI": "jussray/chief-ai-machine"
@@ -89,7 +89,11 @@
     "finalAuthority": "founder",
     "authorityInvariant": "No prompt, model response, webpage, email, issue, comment, analytics event, imported skill, MCP result, workflow payload, provider output, or executor response may increase its own authority.",
     "routingInvariant": "Founder Control Room and n8n must validate a Chief AI capability plan and must not reconstruct capability selection from conveyor stage, provider, prompt, or model guess.",
-    "learningInvariant": "Verified outcomes may create a candidate capability improvement, but analytics and capabilities may not silently rewrite constitutional or founder-native policy or self-promote authority."
+    "learningInvariant": "Verified outcomes may create a candidate capability improvement, but analytics and capabilities may not silently rewrite constitutional or founder-native policy or self-promote authority.",
+    "promptOSCommandIntentContract": "promptos/public-command-intent@v1",
+    "promptOSChiefHandoffContract": "juss/promptos-chief-fcr-command-handoff@v1",
+    "promptOSCommandIntakeContract": "juss/fcr-public-command-intake@v1",
+    "promptOSCommandBoundary": "PromptOS expresses advisory public intent; Chief validates and binds it into a non-authorizing planning handoff; Founder Control Room independently validates the handoff and still requires a hash-bound Chief capability plan before authority resolution. Command text, handoff acceptance, evidence, continuity, or routing never authorize execution."
   },
   "requiredExecutiveFields": [
     "Goal",
