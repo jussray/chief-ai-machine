@@ -149,7 +149,7 @@ describe('Control Room Test Ledger workflow contract', () => {
   it('keeps production ProofMode proof dispatch-only; materializer records proof existence without impersonating', () => {
     expect(materializer).toContain('name: Production ProofMode phase receipt');
     expect(materializer).not.toContain('name: Verify production ProofMode MCP with Playwright');
-    expect(materializer).toContain('This PR workflow does not impersonate that production receipt.');
+    expect(materializer).toContain('This PR workflow does not impersonate that production receipt; the bridge dispatches it separately.');
     expect(productionProof).toMatch(/^on:\s+workflow_dispatch:/m);
     expect(productionProof).not.toContain('on:\n  push:');
     expect(productionProof).not.toContain('pull_request:');
