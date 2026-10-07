@@ -1,9 +1,6 @@
 name: ProofMode Production Playwright
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       expected_sha:
