@@ -63,11 +63,12 @@ describe('ProofMode required-check contract', () => {
   });
 
   it('keeps production ProofMode verification dispatch-only (hand-started after merge)', () => {
+    expect(productionWorkflow).toMatch(/^on:\s+workflow_dispatch:/m);
+    expect(productionWorkflow).not.toContain('on:\n  push:');
+    expect(productionWorkflow).not.toContain('pull_request:');
     expect(productionWorkflow).toContain('workflow_dispatch:');
     expect(productionWorkflow).toContain('expected_sha:');
     expect(productionWorkflow).toContain('authority_pr:');
-    expect(productionWorkflow).not.toContain('push:\n    branches:\n      - main');
-    expect(productionWorkflow).not.toContain('pull_request:');
     expect(productionWorkflow).not.toContain('Materialize pull-request production receipt');
   });
 });
