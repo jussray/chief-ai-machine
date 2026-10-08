@@ -78,3 +78,4 @@ config/
 .mcp.example.json
 .agents/
 skills-lock.json
+supabase/
