@@ -68,11 +68,8 @@ function commitPortableImport(imported) {
 }
 
 function mountBrainPortabilityControls() {
-  const head = document.querySelector('#page-brain .page-head');
-  if (!head || document.getElementById('brainExportBtn')) return;
-
   const stat = document.querySelector('#page-brain .stat-row');
-  if (!stat) return;
+  if (!stat || document.getElementById('brainExportBtn')) return;
 
   const controls = document.createElement('div');
   controls.style.display = 'flex';
