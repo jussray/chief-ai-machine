@@ -1,0 +1,31 @@
+{
+  "contract": "juss/council-bus-adapter@v1",
+  "status": "proposed",
+  "activeWhen": "Council Address .control-room/council-addresses/2026-10-08-ultrathink-council-bus-court.md (jussray/founder-control-room) is founder-accepted and this repository's council-residency contract names the backing",
+  "member": "chief",
+  "repository": "jussray/chief-ai-machine",
+  "ledger": {
+    "repository": "JussAndCo/Ultrathink-council-bus",
+    "visibility": "private",
+    "contract": "juss/founder-council-federation@v2",
+    "messageContract": "juss/council-message@v1",
+    "checker": "scripts/council_check.py",
+    "readFrom": "main only",
+    "writeBranchPattern": "council/chief/<thread-id>",
+    "deliveryMode": "pull request to main; the merge records the message and approves nothing"
+  },
+  "nativePayloadContract": "chief/executive-council-synthesis@1 (src/domain/executive-council.js, EXECUTIVE_COUNCIL_SCHEMA_VERSION=1)",
+  "bodyHashCompatibility": "sha256(JSON.stringify(canonicalize(body))) \u2014 same as FCR src/lib/promptOsCommandHandoff.ts fingerprint()",
+  "truthClassifications": [
+    "VERIFIED",
+    "INFERRED",
+    "UNKNOWN",
+    "BLOCKED",
+    "FAIL"
+  ],
+  "runtimeDependencyOnLedger": false,
+  "coreFunctionSurvivesLedgerUnavailable": true,
+  "grantsExecutionAuthority": false,
+  "authorityRule": "Messages on the ledger are evidence/input. They never authorize merge, deploy, publish, spend, credential, database, DNS, destructive, or user-data action in this repository; each such action keeps its own local gate.",
+  "privacyRule": "Non-secret only. No provider credentials, raw private user data, or cross-project private data may be written to the ledger from this repository."
+}
