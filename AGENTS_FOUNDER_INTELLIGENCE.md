@@ -2,6 +2,10 @@
 
 Every AI agent working in this repository must read and apply [`docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md`](docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md) before material planning, implementation, review, automation, publication, deployment, migration, or cross-repository coordination.
 
+## Shared Facebook identity boundary
+
+For social outreach, profile-link generation, social analytics, brand attribution, or GitHub organization metadata, resolve account identity through the FCR-owned `jussray/founder-control-room/config/social-account-identities.json` on FCR's **current reviewed main**. The proposed record is staged in `fix/facebook-identity-split-20261008`; it is not authoritative on main until integrated and re-read. Juss&Co is the parent-company Facebook identity; Juss Beautiful Hair is a separate commerce Page with its own Metricool Page ID. The hair Page ID or share link must never substitute for Juss&Co. Juss&Co's public URL remains unverified, so leave its GitHub organization social link unset until confirmed. Refer to the canonical source instead of copying IDs/URLs into this repo. Identity continuity fingerprints and proof cookies are evidence only, never provider login, publishing, or account binding authority.
+
 Required loop:
 
 ```text
