@@ -57,13 +57,22 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
+  const hasProtectedTokens = PROTECTED_CONTROL_TOKEN_PATTERN.test(rawText);
+  if (hasProtectedTokens) {
+    const text = stripProtectedControlTokens(rawText);
+    if (!text.trim()) {
+      return PROMPTS.find(prompt => prompt.platforms?.some(platform => (Array.isArray(platforms) ? platforms : []).includes(platform))) || PROMPTS[0];
+    }
+  }
+
   const text = stripProtectedControlTokens(rawText);
   const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
 
   for (const route of GOALFIX_FREESTYLE_ROUTES) {
-    if (!route.pattern.test(text)) continue;
-    const prompt = PROMPTS.find(item => item.id === route.id);
-    if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
+    if (!hasProtectedTokens && route.pattern.test(text)) {
+      const prompt = PROMPTS.find(item => item.id === route.id);
+      if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
+    }
   }
 
   const cat = inferCat(text);
