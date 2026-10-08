@@ -233,10 +233,10 @@ jobs:
     name: Production ProofMode phase receipt
     runs-on: ubuntu-22.04
     steps:
-      - name: Preserve post-merge production boundary
+      - name: Record dispatch-initiated production proof
         run: |
-          echo 'Production ProofMode is post-merge/current-main evidence.'
-          echo 'This PR workflow does not impersonate that production receipt.'
+          echo 'Production ProofMode is dispatch-initiated with candidate head SHA from founder authority.'
+          echo 'This PR workflow does not impersonate that production receipt; the bridge dispatches it separately.'
 
   publish-candidate-required-checks:
     name: Publish candidate-bound materializer checks
