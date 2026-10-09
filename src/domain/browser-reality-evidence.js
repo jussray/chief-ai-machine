@@ -24,7 +24,13 @@ const TOP_LEVEL_FIELDS = new Set([...REQUIRED_TOP_LEVEL_FIELDS, ...OPTIONAL_TOP_
 const OBSERVATION_FIELDS = new Set(['state', 'statement']);
 const MAX_NESTED_URL_DEPTH = 3;
 const NESTED_URL_DEPTH_REDACTION = 'REDACTED_NESTED_URL';
-const TRUTH_STATE_RANK = new Map(BROWSER_REALITY_TRUTH_STATES.map((state, index) => [state, index]));
+// Pre-compute state ranking to avoid repeated Array.map() on every module load
+const TRUTH_STATE_RANK = new Map([
+  ['VERIFIED', 0],
+  ['INFERRED', 1],
+  ['UNKNOWN', 2],
+  ['BLOCKED', 3],
+]);
 const HASH = /^[0-9a-f]{64}$/i;
 const TRACKING_QUERY_KEYS = new Set([
   'dclid',
