@@ -11,6 +11,17 @@ describe('presenter request boundary', () => {
     expect(a.publishAuthority).toBe(false);
     expect(a.providerExecutionAuthority).toBe(false);
   });
+  it('binds approval evidence and cost authority to the fingerprint', () => {
+    const baseline = preparePresenterRequest(valid);
+    expect(baseline.authority).toEqual({ consentReceipt: valid.consentReceipt, estimatedCostUsd: 1, spendingApprovalUsd: 1 });
+    for (const change of [
+      { consentReceipt: 'different-consent' },
+      { estimatedCostUsd: 0.5 },
+      { spendingApprovalUsd: 2 },
+    ]) {
+      expect(preparePresenterRequest({ ...valid, ...change }).fingerprint).not.toBe(baseline.fingerprint);
+    }
+  });
   it.each([
     [{ ...valid, consentReceipt: '' }, 'avatar authorization'],
     [{ ...valid, spendingApprovalUsd: 0 }, 'spending approval'],
