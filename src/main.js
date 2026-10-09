@@ -68,8 +68,8 @@ function commitPortableImport(imported) {
 }
 
 function mountBrainPortabilityControls() {
-  const head = document.querySelector('#page-brain .page-head');
-  if (!head || document.getElementById('brainExportBtn')) return;
+  const stat = document.querySelector('#page-brain .stat-row');
+  if (!stat || document.getElementById('brainExportBtn')) return;
 
   const controls = document.createElement('div');
   controls.style.display = 'flex';
@@ -91,7 +91,7 @@ function mountBrainPortabilityControls() {
   importButton.textContent = '⬆️ Import company brain';
 
   controls.append(exportButton, importButton);
-  head.appendChild(controls);
+  stat.insertAdjacentElement('afterend', controls);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
