@@ -14,6 +14,7 @@ export function preparePresenterRequest(input) {
   if (typeof consentReceipt !== 'string' || !consentReceipt.trim()) return { kind: 'REJECTED', reason: 'avatar authorization receipt required' };
   if (!Number.isFinite(estimatedCostUsd) || estimatedCostUsd < 0 || !Number.isFinite(spendingApprovalUsd) || spendingApprovalUsd < estimatedCostUsd) return { kind: 'REJECTED', reason: 'cost estimate and sufficient spending approval required' };
   const request = { provider, script: script.trim(), avatarId, aspectRatio, durationSeconds };
-  const fingerprint = createHash('sha256').update(JSON.stringify(request)).digest('hex');
-  return { kind: 'READY_FOR_PROVIDER', contract: PRESENTER_PROVIDER_CONTRACT, request, fingerprint, publishAuthority: false, providerExecutionAuthority: false, consentReceipt };
+  const authority = { consentReceipt: consentReceipt.trim(), estimatedCostUsd, spendingApprovalUsd };
+  const fingerprint = createHash('sha256').update(JSON.stringify({ contract: PRESENTER_PROVIDER_CONTRACT, request, authority })).digest('hex');
+  return { kind: 'READY_FOR_PROVIDER', contract: PRESENTER_PROVIDER_CONTRACT, request, authority, fingerprint, publishAuthority: false, providerExecutionAuthority: false, consentReceipt: authority.consentReceipt };
 }
