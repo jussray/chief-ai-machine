@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { buildRuntimeStateReceipt, trackedConfigFingerprint } from '../scripts/control-room-runtime-state.mjs';
+import { buildRuntimeStateReceipt, trackedConfigFingerprint, writeRuntimeStateReceipt } from '../scripts/control-room-runtime-state.mjs';
 import { buildPolicyLedger } from '../scripts/control-room-test-ledger-v2.mjs';
 
 const SHA = 'a'.repeat(40);
@@ -71,4 +71,13 @@ test('the authoritative policy ledger binds the runtime-state receipt into its p
     runtimeState,
   });
   assert.deepEqual(bound.runtimeState, runtimeState);
+});
+
+test('persisted runtime-state receipt is valid JSON for the ledger consumer', () => {
+  const root = fixture();
+  const output = path.join(root, 'artifacts', 'receipt.json');
+  const receipt = writeRuntimeStateReceipt(env({ CONTROL_ROOM_RUNTIME_STATE_PATH: output }), root);
+  const stored = fs.readFileSync(output, 'utf8');
+  assert.deepEqual(JSON.parse(stored), receipt);
+  assert.ok(stored.endsWith('\n'));
 });
