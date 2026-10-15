@@ -60,3 +60,11 @@
 .topbar .search-wrap{min-width:0}
 .logo b{display:block;line-height:1.2}
 @media(max-width:420px){.topbar{gap:7px;padding-inline:8px}.logo{font-size:16px}.logo b{display:none}.search-wrap{min-width:0}}
+
+.brand-more{position:relative;color:var(--text-muted)}
+.brand-more summary{list-style:none;cursor:pointer;border-radius:8px;padding:6px 11px;font-size:12px;white-space:nowrap}
+.brand-more summary::-webkit-details-marker{display:none}
+.brand-more summary:after{content:" ▾";color:var(--primary)}
+.brand-more summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.brand-more-menu{position:absolute;z-index:90;right:0;top:calc(100% + 8px);width:170px;display:grid;gap:4px;padding:8px;background:#0a1128;border:1px solid var(--border-2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.brand-more-menu .nav-item{width:100%;text-align:left}
