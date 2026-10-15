@@ -55,3 +55,8 @@
   .brand-shortcuts .nav-item{min-height:105px}
 }
 @media(prefers-reduced-motion:reduce){.brand-shortcuts .nav-item{transform:none!important}}
+
+/* Small handset: preserve usable search and actions without horizontal spill. */
+.topbar .search-wrap{min-width:0}
+.logo b{display:block;line-height:1.2}
+@media(max-width:420px){.topbar{gap:7px;padding-inline:8px}.logo{font-size:16px}.logo b{display:none}.search-wrap{min-width:0}}
