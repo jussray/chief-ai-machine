@@ -93,6 +93,26 @@ const httpWorker = {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Public RFC 9116 discovery must never be the SPA's HTML fallback.
+    if (url.pathname === '/.well-known/security.txt') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return new Response('Method not allowed', {
+          status: 405,
+          headers: { Allow: 'GET, HEAD', 'Cache-Control': 'no-store' },
+        });
+      }
+
+      const asset = await env.ASSETS.fetch(request);
+      const contentType = asset.headers.get('content-type')?.toLowerCase() || '';
+      if (!asset.ok || !contentType.startsWith('text/plain')) {
+        return new Response('Security disclosure unavailable', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
+      }
+      return asset;
+    }
+
     if (url.pathname === '/version') {
       return Response.json(
         { ok: true, sha: getReleaseSha(env) },

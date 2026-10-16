@@ -88,7 +88,7 @@ export function buildRuntimeStateReceipt(env = process.env, root = process.cwd()
 export function writeRuntimeStateReceipt(env = process.env, root = process.cwd()) {
   const receipt = buildRuntimeStateReceipt(env, root);
   fs.mkdirSync(path.dirname(receipt.outputPath), { recursive: true });
-  fs.writeFileSync(receipt.outputPath, `${JSON.stringify(receipt, null, 2)}\\n`, 'utf8');
+  fs.writeFileSync(receipt.outputPath, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
   return receipt;
 }
 
