@@ -7,7 +7,8 @@ test('Chief RFC 9116 discovery is a bundled public static asset, not an API bypa
   assert.equal(config.assets?.directory, './');
   assert.equal(config.assets?.binding, 'ASSETS');
   const first = config.assets?.run_worker_first || [];
-  assert.ok(!first.some((p) => p === '/.well-known/security.txt' || p === '/.well-known/*' || p === '/*'), 'disclosure must not create a Worker/auth bypass route');
+  assert.ok(first.includes('/.well-known/security.txt'), 'exact disclosure path must invoke fail-closed Worker handler');
+  assert.ok(!first.some((p) => p === '/.well-known/*' || p === '/*'), 'do not expand Worker routing beyond approved paths');
   const ignore = readFileSync('.assetsignore', 'utf8').split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#'));
   assert.ok(!ignore.some((s) => s === '.well-known/' || s === '.well-known/*' || s === '**/.well-known/' || s === '.*' || s === '**/.*'), 'static disclosure must not be excluded by .assetsignore');
   const disclosure = readFileSync('.well-known/security.txt', 'utf8');
