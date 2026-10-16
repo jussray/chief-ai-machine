@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import httpWorker from '../worker/http-worker.js';
+const { Request, Response } = globalThis;
 
 test('Chief RFC 9116 discovery is a bundled public static asset, not an API bypass', () => {
   const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
