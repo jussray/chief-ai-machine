@@ -93,6 +93,8 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Verify Chief RFC 9116 static-asset boundary
+        run: node --test test/rfc9116-static-asset.test.mjs
       - run: npm test -- --coverage --reporter=json --outputFile=test-results.json
       - name: Upload unit-test and coverage receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
