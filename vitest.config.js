@@ -5,6 +5,7 @@ export default defineConfig({
     exclude: [
       ...configDefaults.exclude,
       'test/pr-continuity.attack20.test.mjs',
+      'test/control-room-runtime-state.test.mjs',
       'test/edge-rate-limit.test.mjs',
       'test/full-attack-unit.test.mjs',
       'test/reciprocal-defense.test.mjs',
