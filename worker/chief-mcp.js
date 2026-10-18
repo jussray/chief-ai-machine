@@ -464,11 +464,13 @@ async function composeCapabilityPlan(proposal) {
   };
 }
 
-function rewriteServerIdentity(payload, method, modern = false) {
+function rewriteServerIdentity(payload, method, requestedProtocol = null) {
   if (!isRecord(payload) || !isRecord(payload.result)) return payload;
 
   if (method === 'initialize') {
-    if (modern) payload.result.protocolVersion = MODERN_PROTOCOL_VERSION;
+    if (requestedProtocol && SUPPORTED_PROTOCOLS.has(requestedProtocol)) {
+      payload.result.protocolVersion = requestedProtocol;
+    }
     payload.result.serverInfo = SERVER_INFO;
     payload.result.instructions = CHIEF_INSTRUCTIONS;
   }
@@ -504,13 +506,17 @@ function rewriteServerIdentity(payload, method, modern = false) {
     payload.result._meta[SERVER_INFO_META] = SERVER_INFO;
   }
 
-  if (modern) payload.result = modernResult(payload.result);
+  if (requestedProtocol === MODERN_PROTOCOL_VERSION) payload.result = modernResult(payload.result);
   return payload;
 }
 
-async function delegateProofMode(request, envOrDeps, maybeDeps, method, modern = false) {
+async function delegateProofMode(request, envOrDeps, maybeDeps, method, requestedProtocol = null) {
   const headers = new globalThis.Headers(request.headers);
-  if (modern) headers.set('MCP-Protocol-Version', '2025-06-18');
+  // ProofMode implements 2025-03-26 and 2025-06-18. Normalize only at
+  // the internal delegation boundary; keep the client-negotiated version.
+  if (requestedProtocol && !['2025-03-26', '2025-06-18'].includes(requestedProtocol)) {
+    headers.set('MCP-Protocol-Version', '2025-06-18');
+  }
   const response = await handleProofModeMcp(new Request(request, { headers }), envOrDeps, maybeDeps);
   const contentType = response.headers.get('Content-Type') || '';
   if (!contentType.includes('application/json')) return response;
@@ -524,7 +530,7 @@ async function delegateProofMode(request, envOrDeps, maybeDeps, method, modern =
 
   const resultHeaders = new globalThis.Headers(response.headers);
   resultHeaders.set('Content-Type', 'application/json; charset=utf-8');
-  return new Response(JSON.stringify(rewriteServerIdentity(payload, method, modern)), {
+  return new Response(JSON.stringify(rewriteServerIdentity(payload, method, requestedProtocol)), {
     status: response.status,
     headers: resultHeaders,
   });
@@ -589,7 +595,7 @@ export async function handleChiefMcp(request, envOrDeps = {}, maybeDeps) {
   }
 
   if (message.method !== 'tools/call' || ![CAPABILITY_PLAN_TOOL.name, DEPENDENCY_DOCS_TOOL.name].includes(message.params?.name)) {
-    return delegateProofMode(delegateRequest, envOrDeps, maybeDeps, message.method, modern);
+    return delegateProofMode(delegateRequest, envOrDeps, maybeDeps, message.method, protocol);
   }
 
   const args = message.params?.arguments || {};
