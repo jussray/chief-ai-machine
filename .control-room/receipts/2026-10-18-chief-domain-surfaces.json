@@ -30,14 +30,15 @@
   ],
   "accessBoundary": {
     "application": "chief-ai - Cloudflare Workers",
-    "scope": "worker-identity",
+    "scope": "provider Worker/preview identity",
     "state": "provider-readback-present",
-    "note": "This receipt records provider configuration only. It does not expose Access credentials or authorize bypass."
+    "customDomainObservation": "chief.foundercontrolroom.org is directly reachable; do not infer the Worker Access application protects custom-domain traffic",
+    "note": "Access readback is separate from custom-domain admission. This receipt does not expose credentials or authorize bypass."
   },
   "proof": {
     "providerReadback": "VERIFIED",
     "exactHeadChecksBeforeReceipt": "VERIFIED_GREEN",
-    "browserAliasProof": "PENDING",
+    "browserAliasProof": "PENDING_EXACT_HEAD_RERUN",
     "deployedCandidate": "NOT_CLAIMED"
   },
   "rollback": {
