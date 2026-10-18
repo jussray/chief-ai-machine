@@ -6,7 +6,7 @@ const chiefSurfaces = [
   { role: 'api', origin: 'https://api.chief.foundercontrolroom.org' },
 ];
 
-test('Chief public, app, and api hostnames resolve to one deployed Worker identity', async ({ page }) => {
+test('Chief public, app, and api hostnames are live but fail closed before authentication', async ({ page }) => {
   const observed = [];
 
   for (const surface of chiefSurfaces) {
@@ -16,22 +16,17 @@ test('Chief public, app, and api hostnames resolve to one deployed Worker identi
     });
 
     expect(response).not.toBeNull();
-    expect(response.status()).toBe(200);
+    expect(response.status()).toBe(403);
 
     const finalUrl = new URL(page.url());
     expect(finalUrl.hostname).toBe(new URL(surface.origin).hostname);
-    expect(response.headers()['content-type'] || '').toContain('application/json');
-
-    const payload = await response.json();
-    expect(payload?.ok).toBe(true);
-    expect(payload?.sha).toMatch(/^[0-9a-f]{40}$/);
 
     observed.push({
       role: surface.role,
       hostname: finalUrl.hostname,
-      sha: payload.sha,
+      status: response.status(),
     });
   }
 
-  expect(new Set(observed.map((entry) => entry.sha)).size).toBe(1);
+  expect(observed.map((entry) => entry.status)).toEqual([403, 403, 403]);
 });
