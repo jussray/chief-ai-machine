@@ -59,6 +59,23 @@ describe('Chief AI Worker version receipt', () => {
     });
   });
 
+  it('routes MCP through Chief and retains read-only ProofMode auditing', async () => {
+    const response = await worker.fetch(
+      new Request('https://chief-ai.example/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'MCP-Protocol-Version': '2025-06-18' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 11, method: 'tools/list', params: {} }),
+      }),
+      { ASSETS: { fetch: () => { throw new Error('MCP must not fall through to assets'); } } },
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.result.tools.map((tool) => tool.name)).toEqual([
+      'audit_repository', 'lookup_dependency_docs', 'compose_capability_plan',
+    ]);
+    expect(payload.result.tools[0].annotations.readOnlyHint).toBe(true);
+  });
+
   it('reports unknown instead of fabricating a release SHA', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
