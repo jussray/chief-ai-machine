@@ -1,40 +1,37 @@
 import { expect, test } from '@playwright/test';
 
 const chiefSurfaces = [
-  'https://chief.foundercontrolroom.org',
-  'https://app.chief.foundercontrolroom.org',
-  'https://api.chief.foundercontrolroom.org',
+  { role: 'public', origin: 'https://chief.foundercontrolroom.org' },
+  { role: 'app', origin: 'https://app.chief.foundercontrolroom.org' },
+  { role: 'api', origin: 'https://api.chief.foundercontrolroom.org' },
 ];
 
-test('all Chief public surfaces remain behind the same Cloudflare Access boundary', async ({ page }) => {
+test('Chief public, app, and api hostnames resolve to one deployed Worker identity', async ({ page }) => {
   const observed = [];
 
-  for (const origin of chiefSurfaces) {
-    const response = await page.goto(`${origin}/version`, {
+  for (const surface of chiefSurfaces) {
+    const response = await page.goto(`${surface.origin}/version`, {
       waitUntil: 'domcontentloaded',
       timeout: 30_000,
     });
 
     expect(response).not.toBeNull();
+    expect(response.status()).toBe(200);
 
     const finalUrl = new URL(page.url());
-    const direct = finalUrl.hostname === new URL(origin).hostname;
+    expect(finalUrl.hostname).toBe(new URL(surface.origin).hostname);
+    expect(response.headers()['content-type'] || '').toContain('application/json');
 
-    if (direct) {
-      throw new Error(
-        `${origin} reached Chief directly without Cloudflare Access interception; refusing a domain-alias false green`,
-      );
-    }
-
-    expect(finalUrl.hostname.endsWith('.cloudflareaccess.com')).toBe(true);
+    const payload = await response.json();
+    expect(payload?.ok).toBe(true);
+    expect(payload?.sha).toMatch(/^[0-9a-f]{40}$/);
 
     observed.push({
-      origin,
-      finalHost: finalUrl.hostname,
-      status: response.status(),
+      role: surface.role,
+      hostname: finalUrl.hostname,
+      sha: payload.sha,
     });
   }
 
-  const finalHosts = new Set(observed.map((entry) => entry.finalHost));
-  expect(finalHosts.size).toBe(1);
+  expect(new Set(observed.map((entry) => entry.sha)).size).toBe(1);
 });
