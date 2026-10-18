@@ -167,6 +167,10 @@ describe('Chief MCP', () => {
     expect(payload.result.structuredContent.reasoningPolicy.subjectPlanHash)
       .toBe(payload.result.structuredContent.capabilityPlan.planHash);
     expect(payload.result.structuredContent.reasoningPolicy.policyHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(payload.result.structuredContent.capabilityPlan.requestedAuthority).toBe('reason');
+    expect(payload.result.structuredContent.handoffReceipt.continuityFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(payload.result.structuredContent.handoffReceipt.continuityCookie.browserCookie).toBe(false);
+    expect(payload.result.structuredContent.handoffReceipt.continuityCookie.actionAuthority).toBe(false);
     expect(payload.result.structuredContent.capabilityPlan.expectedHeadSha).toBe(expectedHeadSha);
     expect(payload.result.structuredContent.capabilityPlan.registryHash).toBe(snapshot.registryHash);
     expect(payload.result.structuredContent.capabilityPlan.strategicLenses).not.toContain('/ultrathink');
