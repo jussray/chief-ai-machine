@@ -305,7 +305,7 @@ async function lookupDependencyDocs(args, fetchImpl = globalThis.fetch) {
     method: 'GET',
     headers: { Accept: 'application/json' },
     redirect: 'error',
-    signal: AbortSignal.timeout(7000),
+    signal: globalThis.AbortSignal.timeout(7000),
   });
   const metadata = await boundedJson(response);
   const info = python ? metadata.info : metadata;
@@ -509,7 +509,7 @@ function rewriteServerIdentity(payload, method, modern = false) {
 }
 
 async function delegateProofMode(request, envOrDeps, maybeDeps, method, modern = false) {
-  const headers = new Headers(request.headers);
+  const headers = new globalThis.Headers(request.headers);
   if (modern) headers.set('MCP-Protocol-Version', '2025-06-18');
   const response = await handleProofModeMcp(new Request(request, { headers }), envOrDeps, maybeDeps);
   const contentType = response.headers.get('Content-Type') || '';
@@ -522,7 +522,7 @@ async function delegateProofMode(request, envOrDeps, maybeDeps, method, modern =
     return response;
   }
 
-  const resultHeaders = new Headers(response.headers);
+  const resultHeaders = new globalThis.Headers(response.headers);
   resultHeaders.set('Content-Type', 'application/json; charset=utf-8');
   return new Response(JSON.stringify(rewriteServerIdentity(payload, method, modern)), {
     status: response.status,
