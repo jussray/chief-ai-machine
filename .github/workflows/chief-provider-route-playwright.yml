@@ -10,6 +10,10 @@ on:
       - 'worker/provider-runtime.js'
       - 'e2e/chief-provider-route-server.mjs'
       - 'e2e/chief-provider-route.pw.mjs'
+      - 'e2e/chief-domain-access.pw.mjs'
+      - 'e2e/proofmode-mcp.pw.mjs'
+      - 'worker/chief-mcp.js'
+      - 'worker/chief-mcp.test.js'
       - 'playwright.chief-provider.config.mjs'
       - '.github/workflows/chief-provider-route-playwright.yml'
 
@@ -65,7 +69,7 @@ jobs:
           cat /tmp/chief-provider-proof.log
           cat /tmp/chief-provider-response.json || true
           exit 1
-      - name: Run real Chromium provider-route proof
+      - name: Run real Chromium provider-route and domain Access proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         run: npx playwright test --config=playwright.chief-provider.config.mjs --reporter=line
@@ -73,3 +77,24 @@ jobs:
         if: always()
         shell: bash
         run: test ! -f /tmp/chief-provider-proof.pid || kill "$(cat /tmp/chief-provider-proof.pid)" || true
+
+
+  # This workflow checks out pull-request-controlled code. Do not inject service
+  # credentials here, including via a GitHub environment: npm/test can execute
+  # arbitrary candidate code. Live auth belongs to the trusted default-branch
+  # evaluator (pull_request_target), after independent evaluator review.
+  prove-live-mcp:
+    name: Authenticated exact-head Chief MCP proof
+    needs: prove-provider-route
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed pending trusted exact-head live MCP receipt
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          echo "::error::MCP LIVE PROOF BLOCKED: credentialed proof must execute from a reviewed, default-branch trusted evaluator, not PR-controlled code."
+          echo "Candidate exact head: $EXPECTED_HEAD_SHA"
+          exit 1

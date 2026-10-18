@@ -95,14 +95,7 @@ describe('Chief MCP', () => {
     }
   });
 
-  it.skip('composes a proposal with server-owned ULTRATHINK but refuses to become its own authority', async () => {
-    // TODO: Policy self-composition enforcement is aspirational
-    // Requires proper implementation:
-    // - Server-owned policy hash binding (not caller-selectable)
-    // - Rejection of caller-injected modes (/ultrathink, workflow tokens)
-    // - Authority ceiling enforcement (reason-only, no execution)
-    // - Governance boundary declarations preventing self-authorization
-    // Current implementation lacks full policy validation/enforcement.
+  it('composes a proposal with server-owned ULTRATHINK but refuses to become its own authority', async () => {
     const snapshot = registry();
     const response = await handleChiefMcp(legacyRequest({
       jsonrpc: '2.0',
@@ -174,6 +167,10 @@ describe('Chief MCP', () => {
     expect(payload.result.structuredContent.reasoningPolicy.subjectPlanHash)
       .toBe(payload.result.structuredContent.capabilityPlan.planHash);
     expect(payload.result.structuredContent.reasoningPolicy.policyHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(payload.result.structuredContent.capabilityPlan.requestedAuthority).toBe('reason');
+    expect(payload.result.structuredContent.handoffReceipt.continuityFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(payload.result.structuredContent.handoffReceipt.continuityCookie.browserCookie).toBe(false);
+    expect(payload.result.structuredContent.handoffReceipt.continuityCookie.actionAuthority).toBe(false);
     expect(payload.result.structuredContent.capabilityPlan.expectedHeadSha).toBe(expectedHeadSha);
     expect(payload.result.structuredContent.capabilityPlan.registryHash).toBe(snapshot.registryHash);
     expect(payload.result.structuredContent.capabilityPlan.strategicLenses).not.toContain('/ultrathink');
@@ -256,4 +253,212 @@ describe('Chief MCP', () => {
     expect(payload.error.code).toBe(-32602);
     expect(payload.error.message).toContain('unexpected fields: founderApprovalId');
   });
+
+  it('reads bounded npm registry metadata and returns attributed documentation links', async () => {
+    let requested;
+    const fetchImpl = async (url, options) => {
+      requested = { url, options };
+      return Response.json({
+        name: 'vitest',
+        version: '3.0.0',
+        description: 'JavaScript test runner documentation',
+        homepage: 'https://vitest.dev/guide/',
+      });
+    };
+    const response = await handleChiefMcp(legacyRequest({
+      jsonrpc: '2.0', id: 15, method: 'tools/call',
+      params: { name: 'lookup_dependency_docs', arguments: { package: 'vitest', query: 'test runner' } },
+    }), { fetchImpl });
+    const payload = await json(response);
+    expect(response.status).toBe(200);
+    expect(payload.result.isError).toBe(false);
+    expect(requested?.url).toBe('https://registry.npmjs.org/vitest/latest');
+    expect(requested?.options.method).toBe('GET');
+    expect(payload.result.structuredContent.matchFound).toBe(true);
+    expect(payload.result.structuredContent.links[0].url).toBe('https://www.npmjs.com/package/vitest');
+    expect(payload.result.structuredContent.authority.executionAuthorized).toBe(false);
+  });
+
+  it('supports bounded PyPI names and never sends caller-provided URLs to fetch', async () => {
+    const seen = [];
+    const fetchImpl = async (url) => {
+      seen.push(url);
+      return Response.json({
+        info: { version: '2.0', summary: 'Python project helper', description: 'Python package metadata',
+          project_urls: { Documentation: 'https://docs.python.org/3/' } },
+      });
+    };
+    const response = await handleChiefMcp(legacyRequest({
+      jsonrpc: '2.0', id: 16, method: 'tools/call',
+      params: { name: 'lookup_dependency_docs', arguments: { package: 'pypi:requests' } },
+    }), { fetchImpl });
+    const payload = await json(response);
+    expect(seen).toEqual(['https://pypi.org/pypi/requests/json']);
+    expect(payload.result.structuredContent.links[1].url).toBe('https://docs.python.org/3/');
+    const rejected = await handleChiefMcp(legacyRequest({
+      jsonrpc: '2.0', id: 17, method: 'tools/call',
+      params: { name: 'lookup_dependency_docs', arguments: { package: 'https://attacker.example/' } },
+    }), { fetchImpl });
+    expect((await json(rejected)).error.code).toBe(-32602);
+    expect(seen).toHaveLength(1);
+  });
+
+  it('returns an MCP tool error rather than fictional docs on registry failure', async () => {
+    const response = await handleChiefMcp(legacyRequest({
+      jsonrpc: '2.0', id: 18, method: 'tools/call',
+      params: { name: 'lookup_dependency_docs', arguments: { package: 'vitest' } },
+    }), { fetchImpl: async () => new Response('no', { status: 503 }) });
+    const payload = await json(response);
+    expect(response.status).toBe(200);
+    expect(payload.result.isError).toBe(true);
+    expect(payload.result.structuredContent.errorCode).toBe('dependency_docs_failed');
+  });
+
+
+  it('negotiates 2025-11-25 through ProofMode without downgrading client-facing identity', async () => {
+    const request = (method, id) => new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': '2025-11-25',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params: method === 'initialize'
+        ? { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'legacy-test', version: '1.0' } }
+        : {} }),
+    });
+    const init = await handleChiefMcp(request('initialize', 20));
+    expect(init.status).toBe(200);
+    expect((await json(init)).result).toMatchObject({
+      protocolVersion: '2025-11-25',
+      serverInfo: { name: 'chief-ai-machine' },
+    });
+    const listing = await handleChiefMcp(request('tools/list', 21));
+    expect(listing.status).toBe(200);
+    expect((await json(listing)).result.tools.map((tool) => tool.name)).toEqual([
+      'audit_repository', 'lookup_dependency_docs', 'compose_capability_plan',
+    ]);
+  });
+
+  it('initializes the modern protocol with exact headers and server-owned version', async () => {
+    const request = new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'initialize',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 22, method: 'initialize',
+        params: {
+          protocolVersion: '2026-07-28', capabilities: {},
+          clientInfo: { name: 'modern-test', version: '1.0' },
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': {},
+          },
+        },
+      }),
+    });
+    const response = await handleChiefMcp(request);
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.protocolVersion).toBe('2026-07-28');
+    expect(payload.result.serverInfo.name).toBe('chief-ai-machine');
+  });
+
+  it('refuses mismatched modern tool headers without falling back to ProofMode', async () => {
+    const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'tools/call',
+        'Mcp-Name': 'audit_repository',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 23, method: 'tools/call',
+        params: {
+          name: 'lookup_dependency_docs', arguments: { package: 'vitest' },
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': {},
+          },
+        },
+      }),
+    }));
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
+  });
+
+  it('rejects mismatched transport and body MCP versions before custom tool dispatch', async () => {
+    for (const name of ['lookup_dependency_docs', 'compose_capability_plan']) {
+      const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'MCP-Protocol-Version': '2026-07-28',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 24, method: 'tools/call',
+          params: {
+            name,
+            arguments: name === 'lookup_dependency_docs'
+              ? { package: 'vitest' }
+              : { proposal: {} },
+            _meta: { 'io.modelcontextprotocol/protocolVersion': '2025-06-18' },
+          },
+        }),
+      }), { fetchImpl: () => { throw new Error('Mismatched versions must never fetch'); } });
+      expect(response.status).toBe(400);
+      expect((await json(response)).error.code).toBe(-32020);
+    }
+  });
+
+  it('rejects conflicting initialize protocol versions', async () => {
+    const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': '2025-06-18',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 25, method: 'initialize',
+        params: { protocolVersion: '2025-11-25', capabilities: {} },
+      }),
+    }));
+    expect(response.status).toBe(400);
+    expect((await json(response)).error.code).toBe(-32020);
+  });
+
+  it('keeps 2026 MCP request header enforcement and advertised tools consistent', async () => {
+    const request = new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'tools/list',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 19, method: 'tools/list',
+        params: { _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientCapabilities': {},
+        } },
+      }),
+    });
+    const response = await handleChiefMcp(request);
+    const payload = await json(response);
+    expect(response.status).toBe(200);
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.tools.map((item) => item.name)).toEqual([
+      'audit_repository', 'lookup_dependency_docs', 'compose_capability_plan',
+    ]);
+  });
+
 });
