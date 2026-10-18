@@ -1,0 +1,52 @@
+{
+  "schema": "juss/domain-surface-receipt@v1",
+  "recordedAt": "2026-10-18T10:18:00Z",
+  "repository": "jussray/chief-ai-machine",
+  "pullRequest": 223,
+  "branch": "fix/mcp-runtime-connectivity",
+  "sourceBaseSha": "172e118b9d0c60ccd632739d0bf43b42adba5974",
+  "sourceHeadBeforeReceipt": "b0d924aa2ab806451ae0d039fa2499860bd659a9",
+  "worker": "chief-ai",
+  "zone": "foundercontrolroom.org",
+  "surfaces": [
+    {
+      "hostname": "chief.foundercontrolroom.org",
+      "role": "public",
+      "providerState": "enabled",
+      "service": "chief-ai"
+    },
+    {
+      "hostname": "app.chief.foundercontrolroom.org",
+      "role": "app",
+      "providerState": "enabled",
+      "service": "chief-ai"
+    },
+    {
+      "hostname": "api.chief.foundercontrolroom.org",
+      "role": "api",
+      "providerState": "enabled",
+      "service": "chief-ai"
+    }
+  ],
+  "accessBoundary": {
+    "application": "chief-ai - Cloudflare Workers",
+    "scope": "worker-identity",
+    "state": "provider-readback-present",
+    "note": "This receipt records provider configuration only. It does not expose Access credentials or authorize bypass."
+  },
+  "proof": {
+    "providerReadback": "VERIFIED",
+    "exactHeadChecksBeforeReceipt": "VERIFIED_GREEN",
+    "browserAliasProof": "PENDING",
+    "deployedCandidate": "NOT_CLAIMED"
+  },
+  "rollback": {
+    "action": "detach only app.chief.foundercontrolroom.org and api.chief.foundercontrolroom.org from chief-ai",
+    "preserve": [
+      "chief.foundercontrolroom.org",
+      "chief-ai Worker",
+      "Cloudflare Access application"
+    ]
+  },
+  "authority": "evidence-only; does not authorize merge, deploy, Access bypass, secret mutation, billing, or publication"
+}
