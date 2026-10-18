@@ -272,8 +272,8 @@ describe('Chief MCP', () => {
     const payload = await json(response);
     expect(response.status).toBe(200);
     expect(payload.result.isError).toBe(false);
-    expect(requested.url).toBe('https://registry.npmjs.org/vitest/latest');
-    expect(requested.options.method).toBe('GET');
+    expect(requested?.url).toBe('https://registry.npmjs.org/vitest/latest');
+    expect(requested?.options.method).toBe('GET');
     expect(payload.result.structuredContent.matchFound).toBe(true);
     expect(payload.result.structuredContent.links[0].url).toBe('https://www.npmjs.com/package/vitest');
     expect(payload.result.structuredContent.authority.executionAuthorized).toBe(false);
