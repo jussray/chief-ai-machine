@@ -9,6 +9,7 @@ export default defineConfig({
       'test/full-attack-unit.test.mjs',
       'test/reciprocal-defense.test.mjs',
       'test/reciprocal-ingress.test.mjs',
+      'test/control-room-runtime-state.test.mjs',
       'mobile/test/mobile-contract.test.mjs',
       'e2e/**/*.spec.mjs',
     ],
