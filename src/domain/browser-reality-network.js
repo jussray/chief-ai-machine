@@ -10,7 +10,7 @@ export const BROWSER_REALITY_MAX_REDIRECTS = 5;
  * @typedef {object} BrowserRealityNetworkAdmission
  * @property {string} url
  * @property {string} hostname
- * @property {string[]} resolvedAddresses
+ * @property {readonly string[]} resolvedAddresses
  */
 
 const BLOCKED_HOSTNAMES = new Set([
@@ -81,8 +81,16 @@ function isPublicIpv6(value) {
   const second = secondRaw ? Number.parseInt(secondRaw, 16) : 0;
   if (!Number.isFinite(first) || first < 0x2000 || first > 0x3fff) return false;
 
+  // 2001:0000::/23 is IETF protocol space (Teredo 2001::/32, ORCHID, benchmarking).
+  // Teredo and 6to4 (2002::/16) embed or tunnel to arbitrary IPv4 hosts, so a
+  // "public-looking" IPv6 literal could reach a private IPv4 destination.
+  if (first === 0x2001 && second < 0x0200) return false;
+  if (first === 0x2002) return false;
+
   // RFC 3849 documentation prefix is intentionally non-routable proof data.
   if (first === 0x2001 && second === 0x0db8) return false;
+  // RFC 9637 documentation prefix 3fff::/20.
+  if (first === 0x3fff && second <= 0x0fff) return false;
 
   return true;
 }
@@ -108,7 +116,9 @@ function isBlockedHostname(hostname) {
  *
  * The caller must provide a resolver for DNS hostnames. Every resolved address
  * must be public. This function must be called before the first navigation and
- * again for every redirect target. Evidence URL sanitization is intentionally a
+ * again for every redirect target. The returned address set is frozen and must
+ * be enforced at connection time with assertBrowserRealityConnectedAddress().
+ * Evidence URL sanitization is intentionally a
  * separate concern and is not a substitute for this admission check.
  *
  * @param {string} rawUrl
@@ -163,11 +173,34 @@ export async function assertBrowserRealityPublicTarget(rawUrl, resolveHost) {
     throw new Error(`Browser Reality target resolved to a non-public address: ${hostname}`);
   }
 
-  return {
+  // Frozen so the checked address set cannot be swapped between admission and use.
+  return Object.freeze({
     url: url.toString(),
     hostname,
-    resolvedAddresses,
-  };
+    resolvedAddresses: Object.freeze(resolvedAddresses),
+  });
+}
+
+/**
+ * Connection-time pin check (closes the DNS-rebinding TOCTOU window).
+ *
+ * Admission resolves DNS once; a browser that re-resolves the hostname can be
+ * handed a different, private answer. The caller must pass the address the
+ * browser actually connected to (e.g. Playwright `response.serverAddr()`) and
+ * abort the navigation when this throws. Only addresses that were checked at
+ * admission are accepted, even if another address would also be public.
+ *
+ * @param {{ resolvedAddresses?: readonly string[] }} admission
+ * @param {unknown} connectedAddress
+ * @returns {string} the normalized admitted address
+ */
+export function assertBrowserRealityConnectedAddress(admission, connectedAddress) {
+  const admitted = Array.isArray(admission?.resolvedAddresses) ? admission.resolvedAddresses : [];
+  const candidate = typeof connectedAddress === 'string' ? normalizeHostname(connectedAddress) : '';
+  if (!candidate || admitted.length === 0 || !admitted.includes(candidate)) {
+    throw new Error('Browser Reality connected address is not an admitted address');
+  }
+  return candidate;
 }
 
 /** @param {number} redirectCount */

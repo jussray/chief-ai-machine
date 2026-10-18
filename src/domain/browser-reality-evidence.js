@@ -120,15 +120,39 @@ function isSensitiveQueryKey(key) {
   );
 }
 
+const NON_HTTP_URL_REDACTION = 'REDACTED_NON_HTTP_URL';
+// The WHATWG parser drops tab/CR/LF and treats `\\` like `/` for special schemes,
+// so probe on the same normalized shape the browser would act on.
+const PROTOCOL_RELATIVE_URL = /^[\\/]{2}/;
+const AUTHORITY_URL = /^[a-z][a-z0-9+.-]*:[\\/]{2}/i;
+
 function sanitizeDecodedQueryValue(rawValue, label, depth) {
   const normalized = rawValue.normalize('NFC');
+  const probe = normalized.replace(/[\t\n\r]/g, '').trim();
+
+  // Protocol-relative (`//user:secret@host/?token=x`) is unparseable by `new URL`
+  // without a base, but still carries authority and query secrets. Sanitize it as
+  // https and strip the scheme back off; fail closed to a redaction on any error.
+  if (PROTOCOL_RELATIVE_URL.test(probe)) {
+    if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
+    try {
+      const sanitized = sanitizeBrowserRealityUrl(`https:${probe}`, `${label} nested URL`, depth + 1);
+      return sanitized.slice('https:'.length);
+    } catch {
+      return NON_HTTP_URL_REDACTION;
+    }
+  }
+
   let nested;
   try {
     nested = new URL(normalized);
   } catch {
-    return normalized;
+    return AUTHORITY_URL.test(probe) ? NON_HTTP_URL_REDACTION : normalized;
   }
-  if (!['http:', 'https:'].includes(nested.protocol)) return normalized;
+  if (!['http:', 'https:'].includes(nested.protocol)) {
+    // ftp://user:pw@host/ and similar carry credentials/tokens we cannot sanitize safely.
+    return AUTHORITY_URL.test(probe) ? NON_HTTP_URL_REDACTION : normalized;
+  }
   if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
   return sanitizeBrowserRealityUrl(normalized, `${label} nested URL`, depth + 1);
 }

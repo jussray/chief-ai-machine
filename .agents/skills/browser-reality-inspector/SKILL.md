@@ -23,7 +23,7 @@ Use the canonical [`juss/browser-reality@v1`](../../../config/browser-reality.co
 
 ## Network admission
 
-Use `src/domain/browser-reality-network.js` as the repo-native admission primitive. DNS hostnames must resolve before navigation, every returned address must classify as public, and the same admission must run again for every redirect target. Reject localhost, private/link-local/carrier-grade-NAT/reserved/documentation/metadata destinations, credential-bearing URLs, non-HTTP(S) schemes, unexpected service ports, mixed public/private DNS answers, unresolved hostnames, and redirect chains beyond the contract budget.
+Use `src/domain/browser-reality-network.js` as the repo-native admission primitive. DNS hostnames must resolve before navigation, every returned address must classify as public, and the same admission must run again for every redirect target. Reject localhost, private/link-local/carrier-grade-NAT/reserved/documentation/metadata destinations, credential-bearing URLs, non-HTTP(S) schemes, unexpected service ports, mixed public/private DNS answers, unresolved hostnames, and redirect chains beyond the contract budget. Admission returns a frozen address set; enforce it at connection time by passing the browser's actual server address to `assertBrowserRealityConnectedAddress()` and abort on mismatch (DNS-rebinding pin).
 
 Evidence URL sanitization and evidence fingerprints happen after observation and are not network admission. Never treat `sanitizeBrowserRealityUrl()` or a valid evidence digest as permission to navigate.
 
