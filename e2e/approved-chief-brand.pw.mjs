@@ -23,7 +23,7 @@ test('Chief mobile home reflows without clipping and preserves goal action', asy
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#page-goals.on .brand-hero')).toBeVisible();
   await expect(page.locator('.mobile-nav [data-page="goals"]')).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 
   await page.getByRole('link', { name: 'Start a bounded founder goal' }).click();
