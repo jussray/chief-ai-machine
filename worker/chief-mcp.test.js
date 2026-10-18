@@ -395,6 +395,46 @@ describe('Chief MCP', () => {
     expect(payload.error.code).toBe(-32020);
   });
 
+  it('rejects mismatched transport and body MCP versions before custom tool dispatch', async () => {
+    for (const name of ['lookup_dependency_docs', 'compose_capability_plan']) {
+      const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'MCP-Protocol-Version': '2026-07-28',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 24, method: 'tools/call',
+          params: {
+            name,
+            arguments: name === 'lookup_dependency_docs'
+              ? { package: 'vitest' }
+              : { proposal: {} },
+            _meta: { 'io.modelcontextprotocol/protocolVersion': '2025-06-18' },
+          },
+        }),
+      }), { fetchImpl: () => { throw new Error('Mismatched versions must never fetch'); } });
+      expect(response.status).toBe(400);
+      expect((await json(response)).error.code).toBe(-32020);
+    }
+  });
+
+  it('rejects conflicting initialize protocol versions', async () => {
+    const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': '2025-06-18',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 25, method: 'initialize',
+        params: { protocolVersion: '2025-11-25', capabilities: {} },
+      }),
+    }));
+    expect(response.status).toBe(400);
+    expect((await json(response)).error.code).toBe(-32020);
+  });
+
   it('keeps 2026 MCP request header enforcement and advertised tools consistent', async () => {
     const request = new Request('https://chief.example/mcp', {
       method: 'POST',
