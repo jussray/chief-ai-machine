@@ -322,5 +322,16 @@ export function initGoals() {
     }
   });
 
+  const composer = document.getElementById('homeComposer');
+  const quick = document.getElementById('homeQuick');
+  composer?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const goalField = form.querySelector('[name="goal"]');
+    const text = quick?.value.trim();
+    if (text && goalField) goalField.value = text;
+    form.scrollIntoView({ block: 'start' });
+    goalField?.focus();
+  });
+
   render();
 }

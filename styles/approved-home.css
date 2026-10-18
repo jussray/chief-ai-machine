@@ -87,3 +87,11 @@
 .brand-status-list dd{margin:0;font-size:13px;font-weight:600;color:#f3f5ff;font-variant-numeric:tabular-nums}
 .brand-status-note{margin:12px 0 0;font-size:12px;line-height:1.5;color:#aab8d7}
 @media(max-width:900px){.brand-home-panels{grid-template-columns:1fr}}
+
+/* Home composer: prefills the goal form. Real behaviour only, no fake execution. */
+.brand-composer{display:flex;align-items:center;gap:10px;flex:1 1 100%}
+.brand-composer-input{flex:1 1 auto;min-width:0;padding:11px 16px;border-radius:999px;border:1px solid rgba(243,182,70,.45);background:rgba(4,8,22,.7);color:#f3f5ff;font:inherit;font-size:14px}
+.brand-composer-input:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+.brand-send{flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:1px solid #fbd77f;background:linear-gradient(110deg,#ffef9c,#f0ba4a);color:#121523;font-size:18px;font-weight:700;cursor:pointer}
+.brand-send:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
+.brand-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
