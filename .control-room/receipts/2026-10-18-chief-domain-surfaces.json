@@ -32,14 +32,15 @@
     "application": "chief-ai - Cloudflare Workers",
     "scope": "provider Worker/preview identity",
     "state": "provider-readback-present",
-    "customDomainObservation": "chief.foundercontrolroom.org is directly reachable; do not infer the Worker Access application protects custom-domain traffic",
+    "customDomainObservation": "Unauthenticated Chromium observed HTTP 403 at chief.foundercontrolroom.org/version on the first exact-head alias proof; keep public/app/api fail closed until a separately reviewed public-safe asset boundary exists.",
     "note": "Access readback is separate from custom-domain admission. This receipt does not expose credentials or authorize bypass."
   },
   "proof": {
     "providerReadback": "VERIFIED",
     "exactHeadChecksBeforeReceipt": "VERIFIED_GREEN",
-    "browserAliasProof": "PENDING_EXACT_HEAD_RERUN",
-    "deployedCandidate": "NOT_CLAIMED"
+    "browserAliasProof": "PENDING_EXACT_HEAD_FAIL_CLOSED_RERUN",
+    "deployedCandidate": "NOT_CLAIMED",
+    "publicExposure": "BLOCKED_BY_DESIGN"
   },
   "rollback": {
     "action": "detach only app.chief.foundercontrolroom.org and api.chief.foundercontrolroom.org from chief-ai",
