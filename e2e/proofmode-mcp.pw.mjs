@@ -2,13 +2,29 @@ import { expect, test } from '@playwright/test';
 
 const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
+const clientId = process.env.CHIEF_ACCESS_CLIENT_ID;
+const clientSecret = process.env.CHIEF_ACCESS_CLIENT_SECRET;
 
 if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
+if (!clientId || !clientSecret) throw new Error('Protected Chief Access service identity is required for live MCP proof');
+
+// Fail closed before attaching service credentials to any request destination.
+const parsedBase = new URL(baseURL);
+if (parsedBase.protocol !== 'https:' ||
+  !(parsedBase.hostname === 'chief.foundercontrolroom.org' || parsedBase.hostname.endsWith('.chief.foundercontrolroom.org')) ||
+  parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash) {
+  throw new Error('Live MCP proof URL must use an approved Chief HTTPS hostname');
+}
+const accessHeaders = {
+  'CF-Access-Client-Id': clientId,
+  'CF-Access-Client-Secret': clientSecret,
+};
 
 async function postMcp(request, message) {
   return request.post(`${baseURL}/mcp`, {
     headers: {
+      ...accessHeaders,
       Accept: 'application/json, text/event-stream',
       'Content-Type': 'application/json',
       'MCP-Protocol-Version': '2025-06-18',
@@ -19,7 +35,7 @@ async function postMcp(request, message) {
 
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
-    const response = await request.get(`${baseURL}/version`);
+    const response = await request.get(`${baseURL}/version`, { headers: accessHeaders });
     expect(response.status()).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
   });
