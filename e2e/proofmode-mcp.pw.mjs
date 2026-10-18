@@ -17,13 +17,14 @@ if (parsedBase.protocol !== 'https:' ||
   parsedBase.pathname !== '/' || parsedBase.search || parsedBase.hash) {
   throw new Error('Live MCP proof URL must use an approved Chief HTTPS hostname');
 }
+const requestOrigin = parsedBase.origin;
 const accessHeaders = {
   'CF-Access-Client-Id': clientId,
   'CF-Access-Client-Secret': clientSecret,
 };
 
 async function postMcp(request, message) {
-  return request.post(`${baseURL}/mcp`, {
+  return request.post(`${requestOrigin}/mcp`, {
     maxRedirects: 0,
     headers: {
       ...accessHeaders,
@@ -37,7 +38,7 @@ async function postMcp(request, message) {
 
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
-    const response = await request.get(`${baseURL}/version`, { headers: accessHeaders, maxRedirects: 0 });
+    const response = await request.get(`${requestOrigin}/version`, { headers: accessHeaders, maxRedirects: 0 });
     expect(response.status()).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
   });
