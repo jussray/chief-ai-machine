@@ -78,45 +78,23 @@ jobs:
         shell: bash
         run: test ! -f /tmp/chief-provider-proof.pid || kill "$(cat /tmp/chief-provider-proof.pid)" || true
 
+
+  # This workflow checks out pull-request-controlled code. Do not inject service
+  # credentials here, including via a GitHub environment: npm/test can execute
+  # arbitrary candidate code. Live auth belongs to the trusted default-branch
+  # evaluator (pull_request_target), after independent evaluator review.
   prove-live-mcp:
     name: Authenticated exact-head Chief MCP proof
     needs: prove-provider-route
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-22.04
-    timeout-minutes: 12
-    environment: chief-mcp-proof
-    env:
-      CHIEF_MCP_LIVE_PROOF: 'true'
-      PROOFMODE_BASE_URL: ${{ vars.CHIEF_MCP_PREVIEW_URL }}
-      CHIEF_ACCESS_CLIENT_ID: ${{ secrets.CHIEF_ACCESS_CLIENT_ID }}
-      CHIEF_ACCESS_CLIENT_SECRET: ${{ secrets.CHIEF_ACCESS_CLIENT_SECRET }}
+    timeout-minutes: 2
     steps:
-      - name: Check out exact candidate head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.EXPECTED_HEAD_SHA }}
-          persist-credentials: false
-      - name: Verify exact checked-out head
-        shell: bash
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
-      - name: Require approved protected Chief preview and service identity
+      - name: Fail closed pending trusted exact-head live MCP receipt
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
-          test -n "$PROOFMODE_BASE_URL"
-          test -n "$CHIEF_ACCESS_CLIENT_ID"
-          test -n "$CHIEF_ACCESS_CLIENT_SECRET"
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: '24'
-          cache: npm
-      - name: Install locked dependencies
-        run: npm ci
-      - name: Install isolated Playwright runner
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Run protected exact-head MCP runtime proof
-        env:
-          PLAYWRIGHT_HTML_OPEN: never
-        run: npx playwright test --config=playwright.chief-provider.config.mjs --reporter=line
+          echo "::error::MCP LIVE PROOF BLOCKED: credentialed proof must execute from a reviewed, default-branch trusted evaluator, not PR-controlled code."
+          echo "Candidate exact head: $EXPECTED_HEAD_SHA"
+          exit 1
