@@ -10,6 +10,7 @@ on:
       - 'worker/provider-runtime.js'
       - 'e2e/chief-provider-route-server.mjs'
       - 'e2e/chief-provider-route.pw.mjs'
+      - 'e2e/chief-domain-access.pw.mjs'
       - 'playwright.chief-provider.config.mjs'
       - '.github/workflows/chief-provider-route-playwright.yml'
 
@@ -65,7 +66,7 @@ jobs:
           cat /tmp/chief-provider-proof.log
           cat /tmp/chief-provider-response.json || true
           exit 1
-      - name: Run real Chromium provider-route proof
+      - name: Run real Chromium provider-route and domain Access proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         run: npx playwright test --config=playwright.chief-provider.config.mjs --reporter=line
