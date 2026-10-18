@@ -1,3 +1,4 @@
+/* global window, document */
 import { test, expect } from '@playwright/test';
 
 // Founder-approved visual identity. No fake runtime counts or external execution
