@@ -123,6 +123,46 @@ function setGoalFormWritable(form, writable) {
   submit.title = writable ? '' : 'Founder-goal storage must be readable before saving a new plan.';
 }
 
+function renderHomePanels(read, goals, readyCount) {
+  const recent = document.getElementById('homeRecent');
+  const goalCount = document.getElementById('homeGoalCount');
+  const gates = document.getElementById('homeGoalReady');
+  const storage = document.getElementById('homeStorage');
+  if (!recent || !goalCount || !gates || !storage) return;
+
+  if (read.state !== 'ready') {
+    recent.replaceChildren(makeTextElement('li', 'brand-empty', 'Saved goals are UNKNOWN. Nothing has been overwritten.'));
+    goalCount.textContent = '?';
+    gates.textContent = 'UNKNOWN';
+    storage.textContent = 'UNKNOWN';
+    storage.dataset.state = 'unknown';
+    return;
+  }
+
+  storage.textContent = 'Local browser';
+  storage.dataset.state = 'ready';
+  goalCount.textContent = String(goals.length);
+  gates.textContent = goals.length ? `${readyCount}/${goals.length}` : '0/0';
+
+  if (!goals.length) {
+    recent.replaceChildren(makeTextElement('li', 'brand-empty', 'No founder goals yet. Define the outcome first.'));
+    return;
+  }
+
+  recent.replaceChildren(...goals.slice(0, 3).map((goal) => {
+    const item = document.createElement('li');
+    item.className = 'brand-recent-item';
+    const text = document.createElement('div');
+    text.className = 'brand-recent-text';
+    text.append(
+      makeTextElement('strong', '', goal.goal),
+      makeTextElement('span', 'brand-recent-meta', `${goal.project} · ${goal.priority}`),
+    );
+    item.append(text, makeTextElement('span', 'badge', summarizeGoalPlan(goal).status));
+    return item;
+  }));
+}
+
 export function initGoals() {
   const form = document.getElementById('goalForm');
   const list = document.getElementById('goalList');
@@ -139,6 +179,7 @@ export function initGoals() {
       count.textContent = '?';
       readiness.textContent = 'UNKNOWN';
       setGoalFormWritable(form, false);
+      renderHomePanels(read, goals, 0);
 
       const unknown = makeTextElement('div', 'empty', unknownStorageMessage(read.state));
       unknown.dataset.goalStorageTruth = 'unknown';
@@ -152,6 +193,7 @@ export function initGoals() {
     count.textContent = String(goals.length);
     const ready = goals.filter((goal) => validateGoalPlan(goal).valid).length;
     readiness.textContent = goals.length ? `${ready}/${goals.length} ready` : '0/0 ready';
+    renderHomePanels(read, goals, ready);
 
     if (!goals.length) {
       const empty = makeTextElement('div', 'empty', 'No founder goals yet. Define the outcome first.');
@@ -278,6 +320,17 @@ export function initGoals() {
       showToast(error.message || 'Goal could not be saved.');
       render();
     }
+  });
+
+  const composer = document.getElementById('homeComposer');
+  const quick = document.getElementById('homeQuick');
+  composer?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const goalField = form.querySelector('[name="goal"]');
+    const text = quick?.value.trim();
+    if (text && goalField) goalField.value = text;
+    form.scrollIntoView({ block: 'start' });
+    goalField?.focus();
   });
 
   render();

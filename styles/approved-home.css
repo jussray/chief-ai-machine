@@ -1,0 +1,97 @@
+/* Chief AI Machine approved front door | Juss & Co. brand / layout / responsive.
+   The lion is a crop of the founder-approved reference. Original tool behavior
+   and private browser-local state stay in their existing modules. */
+.app{grid-template-columns:minmax(0,1fr)}
+.sidebar{display:none}
+.topbar{gap:16px;padding:0 clamp(12px,2vw,30px)}
+.main{width:min(100%,1350px);margin-inline:auto;padding:18px clamp(12px,2.2vw,30px) 80px}
+.logo{font-family:Georgia,serif;font-size:22px;letter-spacing:.04em}
+.logo b{font-family:var(--sans);font-size:11px;letter-spacing:.23em;font-weight:600}
+.logo svg{width:33px;height:33px}
+.brand-top-nav{display:flex;align-items:center;gap:5px;margin-left:12px}
+.brand-top-nav .nav-item{width:auto;display:inline-flex;white-space:nowrap;padding:6px 12px;font-size:12px}
+.brand-top-nav .nav-item.active{border:1px solid rgba(241,190,83,.62);border-radius:8px}
+.brand-hero{position:relative;min-height:305px;padding:30px clamp(20px,5vw,70px);overflow:hidden;isolation:isolate;border:1px solid rgba(245,185,76,.45);border-radius:16px;background:radial-gradient(ellipse at 72% 6%,rgba(125,68,238,.38),transparent 42%),radial-gradient(ellipse at 43% 84%,rgba(21,95,217,.43),transparent 55%),linear-gradient(125deg,#070d24,#12142b 58%,#090c1b);box-shadow:inset 0 0 34px rgba(45,51,150,.16),0 0 25px rgba(244,177,71,.09)}
+.brand-hero:before{content:"";position:absolute;z-index:-1;inset:auto -3% 0 20%;height:43%;opacity:.55;background:linear-gradient(145deg,transparent 20%,#111734 20.4% 31%,transparent 31.3%),linear-gradient(28deg,transparent 36%,#0a1436 36.3% 66%,transparent 66.3%),linear-gradient(155deg,transparent 39%,#243566 39.3% 67%,transparent 67.3%);clip-path:polygon(0 100%,16% 35%,29% 85%,43% 12%,62% 90%,79% 33%,100% 100%)}
+.brand-hero:after{content:"";position:absolute;inset:0;z-index:-2;background:radial-gradient(circle at 76% 40%,transparent 0 91px,rgba(248,198,96,.45) 93px,transparent 96px),radial-gradient(circle at 15% 20%,rgba(150,110,255,.55) 0 1px,transparent 2px);background-size:100% 100%,83px 65px}
+.brand-hero-copy{position:relative;z-index:2;max-width:66%;text-shadow:0 2px 22px #060a1a}
+.brand-eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#ffdb97;font-weight:600}
+.brand-hero h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(66px,10vw,128px);font-weight:700;line-height:.97;letter-spacing:.025em;margin:15px 0 0;background:linear-gradient(105deg,#fff7d2,#ffd35f 47%,#b5782e);color:transparent;background-clip:text;-webkit-background-clip:text}
+.brand-hero .brand-subtitle{font-family:Georgia,serif;letter-spacing:.28em;font-size:clamp(21px,3vw,35px);color:#f5f5fb}
+.brand-hero .brand-descriptor{margin:12px 0 0;font-size:clamp(12px,1.4vw,17px);letter-spacing:.2em;font-weight:600;color:#f4c86b;line-height:1.5}
+.brand-hero .brand-description{max-width:47ch;margin-top:9px;font-size:13px;color:#e7e3ed}
+.brand-hero-image{position:absolute;right:2%;top:3%;height:94%;width:36%;background:url('../assets/brand/approved-chief-lion.webp') center/contain no-repeat;filter:drop-shadow(0 0 25px rgba(233,153,62,.28));-webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%,#000 60%,transparent 100%);mask-image:radial-gradient(ellipse 50% 50% at 50% 50%,#000 60%,transparent 100%);z-index:1;pointer-events:none}
+.brand-command{margin:12px 0 16px;padding:18px 22px;background:linear-gradient(145deg,rgba(11,15,34,.95),rgba(8,16,43,.92));border:1px solid rgba(243,182,70,.5);border-radius:15px;display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.brand-command-label{font-size:16px;color:#e6e8fb;flex:1 1 290px}
+.brand-action{background:linear-gradient(110deg,#ffef9c,#f0ba4a);color:#121523;padding:10px 16px;border-radius:999px;font-weight:700;text-decoration:none;border:1px solid #fbd77f}
+.brand-action:focus-visible{outline:3px solid #a78bfa}
+.brand-shortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.brand-shortcuts .nav-item{display:flex;width:100%;min-height:110px;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px;background:linear-gradient(150deg,rgba(14,19,49,.96),rgba(8,13,32,.96));border:1px solid rgba(110,143,243,.55);border-radius:12px;color:#f3f5ff;text-align:center;box-shadow:0 0 13px rgba(60,76,190,.16)}
+.brand-shortcuts .nav-item:hover,.brand-shortcuts .nav-item:focus-visible{border-color:#f4ba51;transform:translateY(-1px)}
+.brand-shortcuts .shortcut-icon{font-size:28px;color:#f6c45b;line-height:1;text-shadow:0 0 14px rgba(246,196,91,.55)}
+.brand-shortcuts strong{font-size:14px}
+.brand-shortcuts small{font-size:11px;line-height:1.4;color:#aab8d7}
+.brand-original-workspace{border-top:1px solid rgba(112,147,220,.24);padding-top:18px}
+@media(max-width:900px){
+  .app{grid-template-columns:1fr;grid-template-rows:56px auto 1fr}
+  .brand-top-nav{display:none}.logo{font-size:18px}
+  .brand-hero{min-height:265px;padding:22px}.brand-hero-copy{max-width:65%}
+  .brand-hero-image{width:43%;right:-3%}
+  .brand-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+@media(max-width:520px){
+  .brand-hero{min-height:330px;padding:20px}
+  .brand-hero-copy{max-width:100%}
+  .brand-hero-image{height:51%;width:42%;right:0;bottom:0;top:auto;opacity:.85}
+  .brand-hero h1{font-size:clamp(56px,17vw,92px)}
+  .brand-eyebrow{font-size:9px;max-width:28ch}
+  .brand-hero .brand-subtitle{font-size:19px}
+  .brand-hero .brand-descriptor{font-size:11px;max-width:26ch}
+  .brand-hero .brand-description{max-width:25ch;font-size:12px}
+  .brand-command{padding:16px}.brand-command-label{flex-basis:100%;font-size:14px}
+  .brand-shortcuts .nav-item{min-height:105px}
+}
+@media(prefers-reduced-motion:reduce){.brand-shortcuts .nav-item{transform:none!important}}
+
+/* Small handset: preserve usable search and actions without horizontal spill. */
+.topbar .search-wrap{min-width:0}
+.logo b{display:block;line-height:1.2}
+@media(max-width:420px){.topbar{gap:7px;padding-inline:8px}.logo{font-size:16px}.logo b{display:none}.search-wrap{min-width:0}}
+
+.brand-more{position:relative;color:var(--text-muted)}
+.brand-more summary{list-style:none;cursor:pointer;border-radius:8px;padding:6px 11px;font-size:12px;white-space:nowrap}
+.brand-more summary::-webkit-details-marker{display:none}
+.brand-more summary:after{content:" ▾";color:var(--primary)}
+.brand-more summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.brand-more-menu{position:absolute;z-index:90;right:0;top:calc(100% + 8px);width:226px;display:grid;gap:4px;padding:8px;background:#0a1128;border:1px solid var(--border-2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.brand-more-menu .nav-item{width:100%;text-align:left}
+
+/* Home status panels: real local data only (saved goals + storage state). No runtime metrics. */
+.brand-home-panels{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px;margin-bottom:26px}
+.brand-panel{padding:18px 20px;border-radius:14px;border:1px solid rgba(243,182,70,.34);background:linear-gradient(145deg,rgba(15,21,50,.96),rgba(7,11,30,.96));box-shadow:0 0 18px rgba(60,76,190,.12)}
+.brand-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.brand-panel h3{margin:0;font-size:15px;font-weight:600;color:#f3f5ff}
+.brand-panel-link{font-size:12px;color:#f6c45b;text-decoration:none}
+.brand-panel-link:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+.brand-recent-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.brand-recent-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(6,11,28,.7);border:1px solid rgba(110,143,243,.25)}
+.brand-recent-text{display:grid;gap:2px;min-width:0}
+.brand-recent-text strong{font-size:13px;color:#f3f5ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brand-recent-meta{font-size:11px;color:#aab8d7}
+.brand-empty{list-style:none;font-size:13px;color:#aab8d7;padding:8px 2px}
+.brand-status-pill{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid rgba(244,190,84,.46);color:#f6c45b;white-space:nowrap}
+.brand-status-pill[data-state="unknown"]{color:#ff9b9b;border-color:rgba(255,120,120,.5)}
+.brand-status-list{margin:0}
+.brand-status-list>div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(112,147,220,.18)}
+.brand-status-list dt{font-size:13px;color:#b3c1da}
+.brand-status-list dd{margin:0;font-size:13px;font-weight:600;color:#f3f5ff;font-variant-numeric:tabular-nums}
+.brand-status-note{margin:12px 0 0;font-size:12px;line-height:1.5;color:#aab8d7}
+@media(max-width:900px){.brand-home-panels{grid-template-columns:1fr}}
+
+/* Home composer: prefills the goal form. Real behaviour only, no fake execution. */
+.brand-composer{display:flex;align-items:center;gap:10px;flex:1 1 100%}
+.brand-composer-input{flex:1 1 auto;min-width:0;padding:11px 16px;border-radius:999px;border:1px solid rgba(243,182,70,.45);background:rgba(4,8,22,.7);color:#f3f5ff;font:inherit;font-size:14px}
+.brand-composer-input:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+.brand-send{flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:1px solid #fbd77f;background:linear-gradient(110deg,#ffef9c,#f0ba4a);color:#121523;font-size:18px;font-weight:700;cursor:pointer}
+.brand-send:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
+.brand-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
