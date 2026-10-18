@@ -314,6 +314,87 @@ describe('Chief MCP', () => {
     expect(payload.result.structuredContent.errorCode).toBe('dependency_docs_failed');
   });
 
+
+  it('negotiates 2025-11-25 through ProofMode without downgrading client-facing identity', async () => {
+    const request = (method, id) => new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, text/event-stream',
+        'Content-Type': 'application/json',
+        'MCP-Protocol-Version': '2025-11-25',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params: method === 'initialize'
+        ? { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'legacy-test', version: '1.0' } }
+        : {} }),
+    });
+    const init = await handleChiefMcp(request('initialize', 20));
+    expect(init.status).toBe(200);
+    expect((await json(init)).result).toMatchObject({
+      protocolVersion: '2025-11-25',
+      serverInfo: { name: 'chief-ai-machine' },
+    });
+    const listing = await handleChiefMcp(request('tools/list', 21));
+    expect(listing.status).toBe(200);
+    expect((await json(listing)).result.tools.map((tool) => tool.name)).toEqual([
+      'audit_repository', 'lookup_dependency_docs', 'compose_capability_plan',
+    ]);
+  });
+
+  it('initializes the modern protocol with exact headers and server-owned version', async () => {
+    const request = new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'initialize',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 22, method: 'initialize',
+        params: {
+          protocolVersion: '2026-07-28', capabilities: {},
+          clientInfo: { name: 'modern-test', version: '1.0' },
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': {},
+          },
+        },
+      }),
+    });
+    const response = await handleChiefMcp(request);
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(payload.result.resultType).toBe('complete');
+    expect(payload.result.protocolVersion).toBe('2026-07-28');
+    expect(payload.result.serverInfo.name).toBe('chief-ai-machine');
+  });
+
+  it('refuses mismatched modern tool headers without falling back to ProofMode', async () => {
+    const response = await handleChiefMcp(new Request('https://chief.example/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'MCP-Protocol-Version': '2026-07-28',
+        'Mcp-Method': 'tools/call',
+        'Mcp-Name': 'audit_repository',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 23, method: 'tools/call',
+        params: {
+          name: 'lookup_dependency_docs', arguments: { package: 'vitest' },
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': {},
+          },
+        },
+      }),
+    }));
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload.error.code).toBe(-32020);
+  });
+
   it('keeps 2026 MCP request header enforcement and advertised tools consistent', async () => {
     const request = new Request('https://chief.example/mcp', {
       method: 'POST',
