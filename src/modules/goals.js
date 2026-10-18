@@ -158,7 +158,8 @@ function renderHomePanels(read, goals, readyCount) {
       makeTextElement('strong', '', goal.goal),
       makeTextElement('span', 'brand-recent-meta', `${goal.project} · ${goal.priority}`),
     );
-    item.append(text, makeTextElement('span', 'badge', summarizeGoalPlan(goal).status));
+    item.dataset.state = validateGoalPlan(goal).valid ? 'ready' : 'draft';
+    item.append(text, makeTextElement('span', 'brand-pill', summarizeGoalPlan(goal).status));
     return item;
   }));
 }
