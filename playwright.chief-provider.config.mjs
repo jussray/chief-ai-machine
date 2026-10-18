@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { defineConfig } from '@playwright/test';
 
 const liveMcpProof = process.env.CHIEF_MCP_LIVE_PROOF === 'true';
