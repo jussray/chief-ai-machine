@@ -14,24 +14,24 @@
 .logo span{font-family:'Anton',Impact,'Arial Narrow',sans-serif;font-size:26px;line-height:1;letter-spacing:.07em;background:linear-gradient(180deg,#fff4c6 0%,#f5c35a 55%,#b47a2b 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .logo b{display:block;margin-top:3px;font-family:var(--sans);font-size:9px;font-weight:600;letter-spacing:.34em;-webkit-text-fill-color:#f1e9d6;color:#f1e9d6;background:none}
 .brand-top-nav{display:flex;align-items:center;gap:6px;margin-left:10px;min-width:0}
-.brand-top-nav>.nav-item{width:auto;display:inline-flex;align-items:center;white-space:nowrap;padding:7px 14px;font-size:13px;font-weight:500;color:#d9dcf2;border:1px solid transparent;border-radius:999px;background:transparent}
-.brand-top-nav>.nav-item:hover{color:#fff;border-color:rgba(139,122,255,.45)}
-.brand-top-nav>.nav-item.active{color:#fbe3a3;border-color:rgba(246,196,91,.8);background:linear-gradient(100deg,rgba(232,174,58,.2),rgba(120,67,184,.14));box-shadow:0 0 14px rgba(246,196,91,.18)}
+.brand-top-nav>.nav-item{width:auto;display:inline-flex;align-items:center;white-space:nowrap;padding:7px 14px;font-size:13px;font-weight:500;color:var(--text-muted);border:1px solid transparent;border-radius:999px;background:transparent}
+.brand-top-nav>.nav-item:hover{color:var(--text);border-color:rgba(139,122,255,.45)}
+.brand-top-nav>.nav-item.active{color:var(--primary);border-color:rgba(246,196,91,.8);background:linear-gradient(100deg,rgba(232,174,58,.2),rgba(120,67,184,.14));box-shadow:0 0 14px rgba(246,196,91,.18)}
 .topbar .search-wrap{flex:1 1 180px;max-width:300px;min-width:0}
-.topbar .search{background:rgba(6,11,30,.72);border:1px solid rgba(110,143,243,.38);border-radius:999px;padding-left:34px}
+.topbar .search{background:var(--surface-2);border:1px solid rgba(110,143,243,.38);border-radius:999px;padding-left:34px}
 .top-actions{gap:10px;flex:0 0 auto}
 .count-pill{border-color:rgba(244,190,84,.46)}
 .icon-btn{border:1px solid rgba(110,143,243,.3);border-radius:999px;width:36px;height:36px}
 .brand-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:700;color:#fbe3a3;background:rgba(10,16,40,.92);border:1px solid rgba(246,196,91,.7);box-shadow:0 0 12px rgba(246,196,91,.2)}
 
 /* Settings menu: secondary pages and the Data controls (Export, Import, Reset) */
-.brand-more{position:relative;color:#d9dcf2}
+.brand-more{position:relative;color:var(--text-muted)}
 .brand-more summary{list-style:none;cursor:pointer;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:500;white-space:nowrap;border:1px solid transparent}
 .brand-more summary::-webkit-details-marker{display:none}
 .brand-more summary:after{content:" ▾";color:#f6c45b}
 .brand-more summary:hover{border-color:rgba(139,122,255,.45);color:#fff}
 .brand-more summary:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
-.brand-more[open] summary{border-color:rgba(246,196,91,.8);color:#fbe3a3}
+.brand-more[open] summary{border-color:rgba(246,196,91,.8);color:var(--primary)}
 .brand-more-menu{position:absolute;z-index:90;right:0;top:calc(100% + 8px);width:250px;display:grid;gap:4px;padding:8px;background:#0a1128;border:1px solid rgba(139,122,255,.4);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.5)}
 .brand-more-menu .nav-item{display:flex;width:100%;text-align:left;white-space:normal}
 .brand-menu-rule{border:0;border-top:1px solid rgba(112,147,220,.25);margin:4px 2px}
@@ -146,3 +146,10 @@
   .top-actions .count-pill{display:none}
 }
 @media(prefers-reduced-motion:reduce){.brand-shortcuts .nav-item{transform:none!important}}
+
+/* Light theme: the top bar is cream, so its gold and text colours switch to dark-on-light. */
+html[data-theme="light"] .logo{color:#8a5a12}
+html[data-theme="light"] .logo span{background:linear-gradient(180deg,#7a4a10 0%,#a8711f 100%);-webkit-background-clip:text;background-clip:text}
+html[data-theme="light"] .logo b{-webkit-text-fill-color:var(--text);color:var(--text)}
+html[data-theme="light"] .brand-top-nav>.nav-item.active{border-color:rgba(160,110,30,.7);background:linear-gradient(100deg,rgba(190,134,42,.14),rgba(111,75,169,.08));box-shadow:none}
+html[data-theme="light"] .brand-avatar{color:#fbe3a3}
