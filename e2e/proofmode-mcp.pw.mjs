@@ -13,7 +13,8 @@ if (!clientId || !clientSecret) throw new Error('Protected Chief Access service 
 const parsedBase = new URL(baseURL);
 if (parsedBase.protocol !== 'https:' ||
   !(parsedBase.hostname === 'chief.foundercontrolroom.org' || parsedBase.hostname.endsWith('.chief.foundercontrolroom.org')) ||
-  parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash) {
+  parsedBase.username || parsedBase.password || parsedBase.port ||
+  parsedBase.pathname !== '/' || parsedBase.search || parsedBase.hash) {
   throw new Error('Live MCP proof URL must use an approved Chief HTTPS hostname');
 }
 const accessHeaders = {
@@ -23,6 +24,7 @@ const accessHeaders = {
 
 async function postMcp(request, message) {
   return request.post(`${baseURL}/mcp`, {
+    maxRedirects: 0,
     headers: {
       ...accessHeaders,
       Accept: 'application/json, text/event-stream',
@@ -35,7 +37,7 @@ async function postMcp(request, message) {
 
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
-    const response = await request.get(`${baseURL}/version`, { headers: accessHeaders });
+    const response = await request.get(`${baseURL}/version`, { headers: accessHeaders, maxRedirects: 0 });
     expect(response.status()).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
   });
