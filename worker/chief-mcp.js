@@ -115,6 +115,17 @@ function requestMeta(message) {
     : null;
 }
 
+function hasConflictingProtocolVersions(request, message) {
+  // The wire header, body metadata, and initialize offer cannot disagree:
+  // otherwise an attacker can route a modern request through legacy checks.
+  const versions = [
+    request.headers.get('MCP-Protocol-Version'),
+    requestMeta(message)?.[PROTOCOL_META],
+    message.method === 'initialize' ? message.params?.protocolVersion : null,
+  ].filter((value) => typeof value === 'string' && value.length > 0);
+  return new Set(versions).size > 1;
+}
+
 function protocolForRequest(request, message) {
   const metaVersion = requestMeta(message)?.[PROTOCOL_META];
   if (typeof metaVersion === 'string') return metaVersion;
@@ -567,6 +578,13 @@ export async function handleChiefMcp(request, envOrDeps = {}, maybeDeps) {
 
   if (!message || message.jsonrpc !== '2.0' || typeof message.method !== 'string') {
     return jsonResponse(jsonRpcError(message?.id, -32600, 'Invalid Request.'), 400);
+  }
+
+  if (hasConflictingProtocolVersions(request, message)) {
+    return jsonResponse(
+      jsonRpcError(message.id, -32020, 'Conflicting MCP protocol versions.'),
+      400,
+    );
   }
 
   const protocol = protocolForRequest(request, message);
