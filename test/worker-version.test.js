@@ -14,8 +14,20 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
+const providerRouteWorkflow = readFileSync(
+  new URL('../.github/workflows/chief-provider-route-playwright.yml', import.meta.url),
+  'utf8',
+);
 
 describe('Chief AI Worker version receipt', () => {
+  it('holds credentialed MCP proof outside pull-request-controlled workflows', () => {
+    expect(providerRouteWorkflow).toContain('  pull_request:');
+    expect(providerRouteWorkflow).toContain('MCP LIVE PROOF BLOCKED');
+    expect(providerRouteWorkflow).not.toMatch(/\\$\\{\\{\\s*secrets\\./);
+    expect(providerRouteWorkflow).not.toContain('environment: chief-mcp-proof');
+    expect(providerRouteWorkflow).not.toContain('CHIEF_ACCESS_CLIENT_SECRET');
+  });
+
   it('routes runtime endpoints through the Worker before asset fallback', () => {
     expect(JSON.parse(wranglerConfig).assets.run_worker_first).toEqual([
       '/api',
