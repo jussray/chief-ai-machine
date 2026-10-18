@@ -39,11 +39,11 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(response.status()).toBe(200);
     const payload = await response.json();
     expect(payload.result.protocolVersion).toBe('2025-06-18');
-    expect(payload.result.serverInfo.name).toBe('proofmode');
+    expect(payload.result.serverInfo.name).toBe('chief-ai-machine');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
   });
 
-  test('lists only the read-only audit_repository tool', async ({ request }) => {
+  test('lists Chief read-only tools including ProofMode auditing', async ({ request }) => {
     const response = await postMcp(request, {
       jsonrpc: '2.0',
       id: 2,
@@ -53,7 +53,11 @@ test.describe('ProofMode live MCP runtime', () => {
 
     expect(response.status()).toBe(200);
     const payload = await response.json();
-    expect(payload.result.tools).toHaveLength(1);
+    expect(payload.result.tools.map((tool) => tool.name)).toEqual(['audit_repository', 'lookup_dependency_docs', 'compose_capability_plan']);
+    for (const tool of payload.result.tools) {
+      expect(tool.annotations.readOnlyHint).toBe(true);
+      expect(tool.annotations.destructiveHint).toBe(false);
+    }
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
   });
