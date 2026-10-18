@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { buildRuntimeStateReceipt, trackedConfigFingerprint } from '../scripts/control-room-runtime-state.mjs';
+import { buildRuntimeStateReceipt, trackedConfigFingerprint, writeRuntimeStateReceipt } from '../scripts/control-room-runtime-state.mjs';
 import { buildPolicyLedger } from '../scripts/control-room-test-ledger-v2.mjs';
 
 const SHA = 'a'.repeat(40);
@@ -71,4 +71,13 @@ test('the authoritative policy ledger binds the runtime-state receipt into its p
     runtimeState,
   });
   assert.deepEqual(bound.runtimeState, runtimeState);
+});
+
+test('writeRuntimeStateReceipt writes a real trailing newline, not a literal backslash-n', () => {
+  const root = fixture();
+  const outputPath = path.join(root, 'artifacts', 'control-room-runtime-state.json');
+  writeRuntimeStateReceipt({ ...env(), CONTROL_ROOM_RUNTIME_STATE_PATH: outputPath }, root);
+  const bytes = fs.readFileSync(outputPath, 'utf8');
+  assert.equal(bytes.endsWith('}\n'), true, 'receipt must end with a real newline');
+  assert.equal(bytes.endsWith('}\\n'), false, 'receipt must not end with a literal backslash-n');
 });
