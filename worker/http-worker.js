@@ -1,6 +1,7 @@
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefControlRoomRecommendation } from './chief-control-room-recommendation.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleChiefMcp } from './chief-mcp.js';
 import { handleChiefProviderRoute } from './chief-provider-route.js';
 import { getReleaseSha } from './fcr-service.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
@@ -135,6 +136,10 @@ const httpWorker = {
 
     if (url.pathname === '/mcp') {
       return handleProofModeMcp(request, env);
+    }
+
+    if (url.pathname === '/api/chief/mcp') {
+      return handleChiefMcp(request, env);
     }
 
     if (url.pathname === '/api/chief/capability-plan') {
