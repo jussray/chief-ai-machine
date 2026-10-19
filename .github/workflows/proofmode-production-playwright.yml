@@ -100,9 +100,11 @@ jobs:
 
           required_checks=("Typecheck" "Lint" "Unit Tests" "CodeQL" "Verify exact Chief runtime with Playwright" "Verify live Chief capability plan with Playwright" "Verify live ProofMode MCP with Playwright" "Verify operational authority" "Workers Builds: chief-ai")
 
+          REQUIRED_CHECKS="$(IFS='|'; printf '%s' "${required_checks[*]}")"
+          export REQUIRED_CHECKS
           printf '%s' "$checks" | node -e '
             let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
-              const required = '"$(printf '%s|' "${required_checks[@]}")".slice(0,-1)"'.split("|");
+              const required = process.env.REQUIRED_CHECKS.split("|");
               const data = JSON.parse(s); const runs = (data.check_runs || []).filter(run => run.head_sha === process.env.EXPECTED_HEAD_SHA && run.status === "completed" && run.conclusion === "success");
               const found = runs.map(run => run.name); const missing = required.filter(name => !found.includes(name));
               if(missing.length > 0) { process.stderr.write("Missing required checks: " + missing.join(", ")); process.exit(1); }
