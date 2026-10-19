@@ -10,6 +10,8 @@ export default defineConfig({
       'test/reciprocal-defense.test.mjs',
       'test/reciprocal-ingress.test.mjs',
       'test/control-room-runtime-state.test.mjs',
+      // This file uses node:test and is executed separately by Quality Gate.
+      'test/rfc9116-static-asset.test.mjs',
       'mobile/test/mobile-contract.test.mjs',
       'e2e/**/*.spec.mjs',
     ],
