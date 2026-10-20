@@ -78,6 +78,7 @@ export function initFreestyle(PROMPTS) {
   const fsBadges = document.getElementById('fsBadges');
   const fsTabs = document.getElementById('fsTabs');
   const fsBody = document.getElementById('fsBody');
+  const reservedPromptIds = (Array.isArray(PROMPTS) ? PROMPTS : []).map(p => p.id);
 
   let currentResult = null;
   let currentPlatform = null;
@@ -159,7 +160,7 @@ export function initFreestyle(PROMPTS) {
   });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
-    const current = readCustomPromptState();
+    const current = readCustomPromptState({ reservedIds: reservedPromptIds });
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
       return;

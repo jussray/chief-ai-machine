@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLibrary(PUBLIC_PROMPTS, modal);
   initBuilder(PUBLIC_PROMPTS);
   initFreestyle(PUBLIC_PROMPTS);
-  initCustom(modal);
+  initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
 
   const tbody = document.getElementById('benchBody');
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('exportBtn')?.addEventListener('click', () => {
     const intelligence = readArrayState(INTELLIGENCE_STORAGE_KEY);
-    const custom = readCustomPromptState();
+    const custom = readCustomPromptState({ reservedIds: PUBLIC_PROMPTS.map(p => p.id) });
     const stars = readStarState();
     const goals = readArrayState(GOAL_STORAGE_KEY);
     const unreadable = [

@@ -235,7 +235,10 @@ export function remapStarReferences(stars, idRemap = [], ambiguousIds = []) {
   return { stars: deduped, changed };
 }
 
-export function readCustomPromptState({ reservedIds = [] } = {}) {
+export function readCustomPromptState({ reservedIds } = {}) {
+  if (!Array.isArray(reservedIds)) {
+    throw new Error('readCustomPromptState requires reservedIds array to prevent prompt ID collisions');
+  }
   const read = readStoredArrayState('chief-custom');
   if (read.state !== 'ready') return { state: read.state, prompts: [], idRemap: [], ambiguousIds: [] };
 
