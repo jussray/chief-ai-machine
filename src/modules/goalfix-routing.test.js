@@ -68,6 +68,10 @@ describe('Goalfix v1 prompt routing', () => {
       'red team attack ten lindy mode proof mode ' + request,
       ['chatgpt'],
     )?.id).toBe(baseline);
+    for (let i = 0; i < 4; i += 1) {
+      expect(selectFreestylePrompt(prompts, '/goalfix truthmode ' + request, ['chatgpt'])?.id).toBe(baseline);
+      expect(selectFreestylePrompt(prompts, request, ['chatgpt'])?.id).toBe(baseline);
+    }
   });
 
   it('preserves legacy category routing when no protected control token is present', () => {
