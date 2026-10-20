@@ -16,6 +16,16 @@ const releaseBakeScript = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
+  it('pins the existing Chief custom domains to its own Worker', () => {
+    const config = JSON.parse(wranglerConfig);
+    expect(config.name).toBe('chief-ai');
+    expect(config.routes).toEqual([
+      { pattern: 'chief.foundercontrolroom.org', custom_domain: true },
+      { pattern: 'app.chief.foundercontrolroom.org', custom_domain: true },
+      { pattern: 'api.chief.foundercontrolroom.org', custom_domain: true },
+    ]);
+  });
+
   it('routes runtime endpoints through the Worker before asset fallback', () => {
     expect(JSON.parse(wranglerConfig).assets.run_worker_first).toEqual([
       '/api',
