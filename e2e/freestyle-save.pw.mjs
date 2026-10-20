@@ -9,7 +9,16 @@ function floorCount(text) {
 }
 
 async function openPage(page, name) {
-  await page.locator(`[data-page="${name}"]:visible`).first().click();
+  const destination = page.locator(`[data-page="${name}"]:visible`).first();
+  // The approved desktop layout puts Freestyle/Drafts in the collapsed More menu.
+  // Mobile keeps these links in its visible nav, so exercise the real visible route.
+  if (await destination.count() === 0) {
+    const menu = page.locator('.brand-top-nav .brand-more summary');
+    await expect(menu).toBeVisible();
+    await menu.click();
+  }
+  await expect(destination).toBeVisible();
+  await destination.click();
   await expect(page.locator(`#page-${name}`)).toHaveClass(/\bon\b/);
 }
 

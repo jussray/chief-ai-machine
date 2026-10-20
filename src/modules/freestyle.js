@@ -57,7 +57,7 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
-  const hasProtectedTokens = PROTECTED_CONTROL_TOKEN_PATTERN.test(rawText);
+  const hasProtectedTokens = new RegExp(PROTECTED_CONTROL_TOKEN_PATTERN.source, 'i').test(String(rawText ?? ''));
   if (hasProtectedTokens) {
     const text = stripProtectedControlTokens(rawText);
     if (!text.trim()) {
