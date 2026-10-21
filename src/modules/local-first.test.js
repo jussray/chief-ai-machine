@@ -5,22 +5,7 @@ import {
   commitLocalFirstValue,
   readLocalFirstOutbox,
 } from './local-first.js';
-
-class MemoryStorage {
-  constructor({ failOn = null } = {}) {
-    this.values = new Map();
-    this.failOn = failOn;
-  }
-
-  getItem(key) {
-    return this.values.has(key) ? this.values.get(key) : null;
-  }
-
-  setItem(key, value) {
-    if (key === this.failOn) throw new Error(`blocked write: ${key}`);
-    this.values.set(key, String(value));
-  }
-}
+import { MemoryStorage } from '../../test/fixtures/storage.js';
 
 describe('local-first write contract', () => {
   test('commits user state before queueing remote sync work', () => {
