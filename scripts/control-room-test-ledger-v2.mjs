@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   aggregateTestLedger,
+  mapCheckState,
   selectLatestChecks,
 } from './control-room-test-ledger.mjs';
 
@@ -116,6 +117,52 @@ async function fetchAllCheckRuns({ repository, sha, token }) {
   return runs;
 }
 
+// GitHub's commit check-run view can temporarily lag behind its Actions job
+// endpoint. Resolve ONLY still-pending repository-required GitHub Actions jobs,
+// and only on exact job ID, name, commit, and terminal provider result.
+// No absence, mismatch, skipped status, or API error can ever imply success.
+export async function corroboratePendingRequiredJobs({
+  checks, requiredNames, repository, sha, token, getJob = githubJson,
+}) {
+  const [owner, repo] = clean(repository).split('/');
+  const required = new Set(requiredNames);
+  const expectedSha = normalizeSha(sha);
+  return Promise.all((Array.isArray(checks) ? checks : []).map(async (check) => {
+    if (!required.has(check.name)
+      || check.app !== 'github-actions'
+      || !['queued', 'running'].includes(check.state)
+      || !/^[1-9][0-9]*$/.test(check.id)
+      || !owner || !repo) return check;
+    let job;
+    try {
+      job = await getJob(
+        new URL('https://api.github.com/repos/' + owner + '/' + repo + '/actions/jobs/' + check.id),
+        token,
+      );
+    } catch {
+      // Fail closed: the original pending state remains authoritative.
+      return check;
+    }
+    if (String(job?.id) !== check.id
+      || normalizeSha(job?.head_sha) !== expectedSha
+      || clean(job?.name) !== check.name
+      || job?.status !== 'completed'
+      || !clean(job?.completed_at)) return check;
+    return {
+      ...check,
+      state: mapCheckState(job),
+      status: job.status,
+      conclusion: clean(job.conclusion) || null,
+      completedAt: job.completed_at,
+      corroboration: {
+        provider: 'github-actions-job',
+        exactHead: expectedSha,
+        jobId: check.id,
+      },
+    };
+  }));
+}
+
 function writeLedger(outputPath, ledger) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
@@ -154,6 +201,7 @@ export async function observePolicyChecks(env = process.env) {
 
   while (Date.now() - startedAt < timeoutMs) {
     checks = selectLatestChecks(await fetchAllCheckRuns({ repository, sha, token }), sha, observerCheckName);
+    checks = await corroboratePendingRequiredJobs({ checks, requiredNames: requiredChecks, repository, sha, token });
     const snapshot = buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames: requiredChecks, observerState: 'observing', policyPath, runtimeState });
     writeLedger(outputPath, snapshot);
     const authoritative = snapshot.checks.filter((check) => check.authority === 'required');

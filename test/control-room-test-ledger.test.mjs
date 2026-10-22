@@ -9,6 +9,7 @@ import {
 import {
   buildPolicyLedger,
   classifyChecks,
+  corroboratePendingRequiredJobs,
   enforcePolicyLedger,
 } from '../scripts/control-room-test-ledger-v2.mjs';
 
@@ -165,4 +166,66 @@ describe('Control Room exact-head test ledger', () => {
     });
     expect(() => enforcePolicyLedger(pending)).toThrow(/1 pending required check/);
   });
+  it('corroborates stale required GitHub Actions checks against an exact-head terminal job', async () => {
+    const pending = { id: '42', app: 'github-actions', name: 'Verify operational authority',
+      state: 'running', status: 'in_progress', conclusion: null };
+    const urls = [];
+    const checks = await corroboratePendingRequiredJobs({
+      checks: [pending], requiredNames: [pending.name], repository: 'jussray/chief-ai-machine',
+      sha: SHA, token: 'synthetic-only',
+      getJob: async (url) => {
+        urls.push(url.pathname);
+        return { id: 42, head_sha: SHA, name: pending.name, status: 'completed',
+          conclusion: 'success', completed_at: '2026-10-22T14:40:00Z' };
+      },
+    });
+    expect(urls).toEqual(['/repos/jussray/chief-ai-machine/actions/jobs/42']);
+    expect(checks[0].state).toBe('passed');
+    expect(checks[0].corroboration).toEqual({
+      provider: 'github-actions-job', exactHead: SHA, jobId: '42',
+    });
+    expect(JSON.stringify(checks)).not.toContain('synthetic-only');
+  });
+
+  it('does not turn absent, mismatched, unauthorized or unfinished job evidence green', async () => {
+    const pending = { id: '42', app: 'github-actions', name: 'Verify operational authority',
+      state: 'running', status: 'in_progress', conclusion: null };
+    const job = { id: 42, head_sha: SHA, name: pending.name,
+      status: 'completed', conclusion: 'success', completed_at: '2026-10-22T14:40:00Z' };
+    const getChecks = (check, getJob, requiredNames = [pending.name]) =>
+      corroboratePendingRequiredJobs({ checks: [check], requiredNames,
+        repository: 'jussray/chief-ai-machine', sha: SHA, token: 'synthetic-only', getJob });
+
+    for (const variant of [
+      { ...job, head_sha: 'ffffffffffffffffffffffffffffffffffffffff' },
+      { ...job, name: 'Other check' },
+      { ...job, id: 43 },
+      { ...job, status: 'in_progress', conclusion: null, completed_at: null },
+      { ...job, completed_at: null },
+    ]) {
+      expect((await getChecks(pending, async () => variant))[0]).toEqual(pending);
+    }
+    expect((await getChecks(pending, async () => { throw new Error('API blocked'); }))[0]).toEqual(pending);
+    expect((await getChecks(pending, async () => job, []))[0]).toEqual(pending);
+    expect((await getChecks({ ...pending, app: 'untrusted-app' }, async () => job))[0].state).toBe('running');
+  });
+
+  it('retains failures from corroborated jobs as blocking required evidence', async () => {
+    const pending = { id: '42', app: 'github-actions', name: 'Unit Tests',
+      state: 'running', status: 'in_progress', conclusion: null };
+    const checks = await corroboratePendingRequiredJobs({
+      checks: [pending], requiredNames: [pending.name],
+      repository: 'jussray/chief-ai-machine', sha: SHA, token: 'synthetic-only',
+      getJob: async () => ({ id: 42, head_sha: SHA, name: pending.name,
+        status: 'completed', conclusion: 'failure', completed_at: '2026-10-22T14:40:00Z' }),
+    });
+    expect(checks[0].state).toBe('failed');
+    const ledger = buildPolicyLedger({
+      repository: 'jussray/chief-ai-machine', sha: SHA, branch: 'test', runId: '1',
+      observerState: 'stable', policyPath: '.control-room/test-ledger.manifest.json',
+      requiredNames: ['Unit Tests'], checks,
+    });
+    expect(() => enforcePolicyLedger(ledger)).toThrow(/1 failed required check/);
+  });
+
 });

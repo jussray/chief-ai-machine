@@ -2,6 +2,12 @@
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
   "main": "security/chief-edge-entry.js",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "chief.foundercontrolroom.org", "custom_domain": true },
+    { "pattern": "app.chief.foundercontrolroom.org", "custom_domain": true },
+    { "pattern": "api.chief.foundercontrolroom.org", "custom_domain": true }
+  ],
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
