@@ -1,0 +1,17 @@
+/* Founder-approved Chief gold/lion visual refinement.
+   Existing execution composer, menus, tools and browser-local data untouched. */
+html[data-theme="dark"] body{background:radial-gradient(ellipse at 65% -8%,rgba(114,55,204,.27),transparent 51%),radial-gradient(ellipse at 5% 65%,rgba(29,100,205,.17),transparent 40%),#05091c}
+html[data-theme="dark"] .topbar{background:rgba(5,8,24,.78);border:1px solid rgba(246,191,94,.38);border-radius:14px;margin:8px 12px 0;box-shadow:0 10px 38px rgba(0,0,0,.44);backdrop-filter:blur(23px)}
+.brand-hero{min-height:clamp(320px,35vw,460px);border-color:rgba(251,192,91,.66);box-shadow:inset 0 0 44px rgba(40,63,139,.18),0 20px 48px rgba(0,0,0,.28),0 0 23px rgba(255,181,50,.23)}
+.brand-hero:after{background:radial-gradient(circle at 77% 40%,transparent 0 104px,rgba(248,192,83,.58) 106px,transparent 109px),radial-gradient(circle at 15% 20%,rgba(171,120,255,.65) 0 1px,transparent 2px);background-size:100% 100%,82px 62px}
+.brand-hero-image{right:0;top:1%;height:98%;width:42%;filter:drop-shadow(0 0 31px rgba(255,188,65,.38))}
+.brand-hero-copy{max-width:62%}
+.brand-eyebrow{letter-spacing:.29em;color:#ffdf9e}
+.brand-hero h1{font-size:clamp(70px,10vw,146px);text-shadow:0 3px 31px rgba(226,130,23,.3)}
+.brand-command,.brand-panel{background:linear-gradient(125deg,rgba(16,22,46,.73),rgba(5,10,30,.73));border-color:rgba(244,183,78,.5);backdrop-filter:blur(22px);box-shadow:inset 0 1px 0 rgba(255,236,187,.08),0 12px 32px rgba(0,0,0,.25)}
+.brand-composer-input{background:rgba(4,10,25,.42);border-color:rgba(249,188,78,.46)}
+.brand-shortcuts>*{border-color:rgba(254,194,94,.37)}
+html[data-theme="dark"] .brand-top-nav .nav-item.active{background:linear-gradient(125deg,rgba(253,188,64,.26),rgba(124,67,185,.22));box-shadow:0 0 14px rgba(242,171,45,.14)}
+@media(min-width:1200px){.main{width:min(100%,1510px)}}
+@media(max-width:760px){html[data-theme="dark"] .topbar{margin:0;border-radius:0}.brand-hero{min-height:360px}.brand-hero-image{opacity:.53;width:60%;right:-9%;height:83%;top:12%}.brand-hero-copy{max-width:100%}.brand-hero h1{font-size:clamp(62px,17vw,94px)}.brand-eyebrow{font-size:10px}.brand-command{padding:15px}}
+@media(prefers-reduced-transparency:reduce){.brand-command,.brand-panel,html[data-theme="dark"] .topbar{background:#0d142e;backdrop-filter:none}}
