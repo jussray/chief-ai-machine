@@ -1,5 +1,4 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
-import { readStarStorage, writeStarStorage } from './star-storage.js';
 import { showToast, copyText } from './ui.js';
 
 export function initModal() {
@@ -17,29 +16,10 @@ export function initModal() {
 
   let currentPrompt = null;
   let currentTab = null;
-  let starRead = readStarStorage();
-  let stars = starRead.stars;
-
-  function renderStarState(prompt) {
-    if (!mStar) return;
-    const writable = starRead.state === 'ready';
-    mStar.disabled = !writable;
-    mStar.setAttribute('aria-disabled', writable ? 'false' : 'true');
-    mStar.title = writable ? '' : 'Saved star state is UNKNOWN. Repair or reset local state before changing stars.';
-    if (!writable) {
-      mStar.textContent = '?';
-      mStar.classList.remove('on');
-      return;
-    }
-    const starred = stars.includes(prompt.id);
-    mStar.textContent = starred ? '★' : '☆';
-    mStar.classList.toggle('on', starred);
-  }
+  let stars = JSON.parse(localStorage.getItem('chief-stars') || '[]');
 
   function open(prompt) {
     currentPrompt = prompt;
-    starRead = readStarStorage();
-    stars = starRead.stars;
     mTitle.textContent = (prompt.emoji || '') + '  ' + prompt.title;
     mSub.textContent = prompt.sub || '';
     if (prompt.notes) { mNote.hidden = false; mNoteText.textContent = ' ' + prompt.notes; }
@@ -58,7 +38,8 @@ export function initModal() {
     });
     currentTab = platforms[0];
     mBody.textContent = renderPromptVariant(prompt, currentTab);
-    renderStarState(prompt);
+    mStar.textContent = stars.includes(prompt.id) ? '★' : '☆';
+    mStar.classList.toggle('on', stars.includes(prompt.id));
     wrap.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
@@ -70,26 +51,11 @@ export function initModal() {
 
   mStar?.addEventListener('click', () => {
     if (!currentPrompt) return;
-    starRead = readStarStorage();
-    stars = starRead.stars;
-    if (starRead.state !== 'ready') {
-      showToast('Star state is UNKNOWN. Nothing was changed.');
-      renderStarState(currentPrompt);
-      return;
-    }
-
     const idx = stars.indexOf(currentPrompt.id);
     if (idx === -1) stars.push(currentPrompt.id); else stars.splice(idx, 1);
-    try {
-      writeStarStorage(stars);
-    } catch {
-      starRead = { state: 'unavailable', stars: [] };
-      stars = [];
-      showToast('Star storage is unavailable. Nothing else was changed.');
-      renderStarState(currentPrompt);
-      return;
-    }
-    renderStarState(currentPrompt);
+    localStorage.setItem('chief-stars', JSON.stringify(stars));
+    mStar.textContent = stars.includes(currentPrompt.id) ? '★' : '☆';
+    mStar.classList.toggle('on', stars.includes(currentPrompt.id));
   });
 
   mCopy?.addEventListener('click', () => {
@@ -101,5 +67,5 @@ export function initModal() {
   wrap?.addEventListener('click', (e) => { if (e.target === wrap) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
-  return { open, stars: () => (starRead.state === 'ready' ? [...stars] : null) };
+  return { open, stars: () => stars };
 }

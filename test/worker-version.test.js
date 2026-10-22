@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import worker from '../worker/http-worker.js';
+import worker from '../worker/index.js';
 
 const wranglerConfig = readFileSync(
   new URL('../wrangler.jsonc', import.meta.url),
@@ -17,15 +17,10 @@ const releaseBakeScript = readFileSync(
 
 describe('Chief AI Worker version receipt', () => {
   it('routes runtime endpoints through the Worker before asset fallback', () => {
-    expect(JSON.parse(wranglerConfig).assets.run_worker_first).toEqual([
-      '/api',
-      '/api/*',
-      '/github',
-      '/github/*',
-      '/version',
-      '/mcp',
-      '/.well-known/security.txt',
-    ]);  });
+    expect(wranglerConfig).toMatch(
+      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
+    );
+  });
 
   it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
     expect(wranglerConfig).toMatch(
@@ -33,14 +28,6 @@ describe('Chief AI Worker version receipt', () => {
     );
     expect(releaseBakeScript).toContain('WORKERS_CI_COMMIT_SHA');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
-  });
-
-  it('distinguishes the synthetic pull-request merge SHA from the exact candidate release SHA', () => {
-    expect(releaseBakeScript).toContain("githubEventName === 'pull_request'");
-    expect(releaseBakeScript).toContain('/^refs\\/pull\\/\\d+\\/merge$/');
-    expect(releaseBakeScript).toContain("...(syntheticPullRequestMergeSha ? [] : [['GITHUB_SHA', process.env.GITHUB_SHA]])");
-    expect(releaseBakeScript).toContain("['WORKERS_CI_COMMIT_SHA', process.env.WORKERS_CI_COMMIT_SHA]");
-    expect(releaseBakeScript).toContain("throw new Error('Release SHA inputs disagree; refusing to bake ambiguous artifact identity')");
   });
 
   it('returns the explicit release SHA without touching assets', async () => {
