@@ -1,7 +1,6 @@
 # Chief AI Prompt Machine MCP stack
 
-Last reviewed: 2026-07-14  
-**Verified current:** 2026-10-09 — No breaking changes; Chief remains browser-local SPA with prototype state
+Last reviewed: 2026-07-14
 
 Chief AI Prompt Machine is currently a public prototype SPA with browser-local prompt state. Its default MCP stack supports repository inspection, current documentation, and isolated browser verification without pretending a private backend already exists.
 
