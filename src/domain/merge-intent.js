@@ -63,7 +63,9 @@ function directiveLines(title, body) {
  * GitHub draft metadata is deliberately not a merge-intent directive; actual
  * provider draft/readiness and review gates are independent requirements.
  */
-export function evaluateMergeIntent({ baseRef, title, body }) {
+export function evaluateMergeIntent({ baseRef, title, body, isDraft }) {
+  // Preserve the metadata input contract; draft status is not an intent blocker.
+  void isDraft;
   const base = text(baseRef);
 
   if (base !== 'main') {
