@@ -192,23 +192,35 @@ jobs:
         run: |
           set -euo pipefail
           api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
-          checks="$(curl --fail --silent --show-error \
+          checks='{"check_runs":[]}'
+          if ! fetched="$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "$api")"
+            "$api")"; then
+            echo '- provider-api-readback: NOT_VERIFIED (GitHub lookup unavailable)' >> "$GITHUB_STEP_SUMMARY"
+          else
+            checks="$fetched"
+          fi
           state="$(printf '%s' "$checks" | node -e '
             let input = "";
             process.stdin.setEncoding("utf8");
             process.stdin.on("data", (chunk) => { input += chunk; });
             process.stdin.on("end", () => {
-              const data = JSON.parse(input);
-              if (!Array.isArray(data.check_runs)) throw new Error("invalid GitHub check-run payload");
-              const runs = data.check_runs.filter((item) => item.name === "Workers Builds: chief-ai");
-              if (runs.length > 0) {
-                const run = runs[0];
-                process.stdout.write(`${run.status}:${run.conclusion || ""}`);
+              let data;
+              try { data = JSON.parse(input); } catch {
+                process.stdout.write("unavailable");
+                return;
               }
+              if (!Array.isArray(data.check_runs)) {
+                process.stdout.write("unavailable");
+                return;
+              }
+              const run = data.check_runs.find((item) =>
+                item.name === "Workers Builds: chief-ai"
+                && item.app?.id === 85455
+              );
+              if (run) process.stdout.write(run.status + ":" + (run.conclusion || ""));
             });
           ')"
           if [ "$state" = "completed:success" ]; then
@@ -223,7 +235,7 @@ jobs:
               echo '- provider-release-authority: FALSE'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo '- exact-head-source-runtime: verified separately by local workerd + Playwright'
+          echo '- exact-head-source-runtime: NOT_VERIFIED (pending workerd + Playwright)'
           echo '- production-provider-deploy-proof: NOT_CLAIMED' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Start exact checked-out Worker locally for pull-request proof
@@ -349,6 +361,7 @@ jobs:
             await context.dispose();
           }
           NODE
+          echo '- exact-head-runtime-identity: VERIFIED (Playwright completed for exact head)' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Preserve local runtime log
         if: always() && steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
