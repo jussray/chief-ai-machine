@@ -386,7 +386,7 @@ describe('juss/browser-reality@v1', () => {
   });
 
   it('keeps browser-reality authority in its dedicated contract without widening the shared pair contract', () => {
-    expect(pairContract.contractVersion).toBe('2026-08-09.1');
+    expect(pairContract.contractVersion).toBe('2026-09-13.2');
     expect(pairContract.browserReality).toBeUndefined();
     expect(contract.contractId).toBe('juss/browser-reality@v1');
     expect(contract.capabilityName).toBe('browser-reality-inspector');
