@@ -75,7 +75,6 @@ export function evaluateMergeIntent({ baseRef, title, body, isDraft }) {
   }
 
   const reasons = [];
-  if (isDraft === true) reasons.push('draft');
 
   const lines = directiveLines(title, body);
   for (const marker of BLOCKING_MARKERS) {
@@ -91,6 +90,6 @@ export function evaluateMergeIntent({ baseRef, title, body, isDraft }) {
     reasons: Object.freeze(reasons),
     nextGate: reasons.length === 0
       ? 'Merge intent is clear; all independent source, review, proof, and provider gates still apply.'
-      : 'Keep merge blocked until draft/keep-draft/stale/superseded/verification-only markers are removed by an explicit current decision.',
+      : 'Keep merge blocked until keep-draft/stale/superseded/verification-only markers are removed by an explicit current decision.',
   });
 }
