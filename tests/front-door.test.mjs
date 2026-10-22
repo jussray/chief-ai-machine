@@ -12,6 +12,12 @@ test('root page is the public Chief presentation', async () => {
   expect(response.headers.get('Content-Security-Policy')).toMatch(/script-src 'none'/);
 });
 
+test('query-only homepage rewrite marker is presentation only', async () => {
+  const r = await worker.fetch(new Request(origin + '/__frontdoor_home?utm_source=review'));
+  expect(r.status).toBe(200);
+  expect(await r.text()).toMatch(/Chief AI.*Founder Intelligence OS/);
+});
+
 test('public worker refuses all app/private API routes', async () => {
   for (const path of ['/api/chief/runtime-proof', '/app', '/admin', '/counsel.html']) {
     const response = await worker.fetch(new Request(origin + path));
@@ -21,8 +27,9 @@ test('public worker refuses all app/private API routes', async () => {
   expect(mutation.status).toBe(404);
 });
 
-test('public route remains an exact homepage pattern', () => {
+test('public routes are exact homepage and query-only marker', () => {
   const config = JSON.parse(readFileSync(new URL('../wrangler.front-door.jsonc', import.meta.url), 'utf8'));
-  expect(config.routes[0].pattern).toBe('chief.foundercontrolroom.org/');
+  expect(config.routes.map(r => r.pattern)).toEqual(['chief.foundercontrolroom.org/', 'chief.foundercontrolroom.org/__frontdoor_home*']);
+  expect(config.routes.every(r => !r.pattern.includes('/api') && !r.pattern.includes('/admin'))).toBe(true);
   expect(config.preview_urls).toBe(false);
 });
