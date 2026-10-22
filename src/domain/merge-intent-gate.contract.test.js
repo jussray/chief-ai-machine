@@ -18,5 +18,7 @@ describe('merge intent workflow authority', () => {
     expect(workflow).toContain('PR_TITLE: ${{ github.event.pull_request.title }}');
     expect(workflow).toContain('PR_BODY: ${{ github.event.pull_request.body }}');
     expect(workflow).toContain("import { evaluateMergeIntent } from './src/domain/merge-intent.js';");
+    expect(workflow).not.toContain('PR_DRAFT:');
+    expect(workflow).not.toContain('isDraft: process.env.PR_DRAFT');
   });
 });
