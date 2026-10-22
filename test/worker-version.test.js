@@ -19,6 +19,9 @@ describe('Chief AI Worker version receipt', () => {
   it('pins the existing Chief custom domains to its own Worker', () => {
     const config = JSON.parse(wranglerConfig);
     expect(config.name).toBe('chief-ai');
+    // The production Worker still uses its workers.dev address; adding routes
+    // must not turn it off through Wrangler's implicit route-dependent default.
+    expect(config.workers_dev).toBe(true);
     expect(config.routes).toEqual([
       { pattern: 'chief.foundercontrolroom.org', custom_domain: true },
       { pattern: 'app.chief.foundercontrolroom.org', custom_domain: true },
