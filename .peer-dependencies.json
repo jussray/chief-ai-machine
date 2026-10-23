@@ -21,6 +21,7 @@
     }
   ],
   "managedBy": "Founder. Update this manifest when moving forward and syncing with peer projects.",
-  "automationNotes": "CI workflows should validate this manifest against live peer commits. Use `.peer-dependencies.json` as the source of truth, not GitHub Actions env vars or hardcoded refs.",
+  "releaseAuthority": "jussray/founder-control-room — portfolio release manifests, validation policy, and CI gating live there.",
+  "automationNotes": "CI workflows should validate this manifest against live peer commits. Use `.peer-dependencies.json` as the source of truth, not GitHub Actions env vars or hardcoded refs. Release promotion is controlled by founder-control-room/portfolio-compatibility.yml and release-policy/ — this file documents peer dependencies, founder-control-room enforces them.",
   "syncStrategy": "When updating a peer ref: (1) Pull latest peer, (2) Verify tests pass, (3) Update commit hash here, (4) Test Chief AI integration, (5) Push both changes together."
 }
