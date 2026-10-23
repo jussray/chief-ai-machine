@@ -12,16 +12,51 @@ import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { mountPromptOS } from './modules/promptos-ui.js';
-import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
+import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence-history.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
 function readArray(key) {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return [];
+  let value;
   try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(value) ? value : [];
+    value = JSON.parse(raw);
   } catch {
-    return [];
+    throw new Error(`Portable export blocked: ${key} contains invalid JSON`);
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`Portable export blocked: ${key} is not an array`);
+  }
+  return value;
+}
+
+// Import all-or-nothing: incomplete localStorage writes must never destroy existing state.
+function commitPortableImport(imported) {
+  const writes = [
+    [INTELLIGENCE_STORAGE_KEY, imported.assets],
+    ['chief-custom', imported.customPrompts],
+    ['chief-stars', imported.stars],
+  ];
+  if (imported.goals !== null) writes.push([GOAL_STORAGE_KEY, imported.goals]);
+
+  const prior = new Map(writes.map(([key]) => [key, localStorage.getItem(key)]));
+  try {
+    for (const [key, value] of writes) localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    let rollbackFailed = false;
+    for (const [key] of writes) {
+      try {
+        const oldValue = prior.get(key);
+        if (oldValue === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, oldValue);
+      } catch {
+        rollbackFailed = true;
+      }
+    }
+    throw new Error(rollbackFailed
+      ? 'Import failed and prior state could not be fully restored.'
+      : 'Import failed; prior state was restored.');
   }
 }
 
@@ -47,23 +82,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.getElementById('exportBtn')?.addEventListener('click', () => {
-    const snapshot = createPortableSnapshot({
-      assets: readArray(INTELLIGENCE_STORAGE_KEY),
-      customPrompts: readArray('chief-custom'),
-      stars: readArray('chief-stars'),
-    });
-    snapshot.goals = readArray(GOAL_STORAGE_KEY);
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'chief-ai-founder-intelligence.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Portable company brain exported.');
-  });
+  function exportCompanyBrain() {
+    try {
+      const snapshot = createPortableSnapshot({
+        assets: readArray(INTELLIGENCE_STORAGE_KEY),
+        customPrompts: readArray('chief-custom'),
+        stars: readArray('chief-stars'),
+      });
+      snapshot.goals = readArray(GOAL_STORAGE_KEY);
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'chief-ai-founder-intelligence.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('Portable company brain exported.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Portable export blocked.');
+    }
+  }
 
-  document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
+  document.getElementById('exportBtn')?.addEventListener('click', exportCompanyBrain);
+  document.getElementById('brainExportBtn')?.addEventListener('click', exportCompanyBrain);
+
+  const openImportPicker = () => document.getElementById('importFile')?.click();
+  document.getElementById('importBtn')?.addEventListener('click', openImportPicker);
+  document.getElementById('brainImportBtn')?.addEventListener('click', openImportPicker);
   document.getElementById('importFile')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -72,10 +116,13 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
-        localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
-        localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
-        localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
-        if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
+        if (Object.hasOwn(raw, 'goals') && !Array.isArray(raw.goals)) {
+          throw new Error('Import failed: goals must be an array.');
+        }
+        commitPortableImport({
+          ...imported,
+          goals: Array.isArray(raw.goals) ? raw.goals : null,
+        });
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
       } catch {
