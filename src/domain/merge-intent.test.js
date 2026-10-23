@@ -2,18 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { evaluateMergeIntent } from './merge-intent.js';
 
 describe('merge intent gate', () => {
-  it('blocks draft PRs targeting main', () => {
+  it.each([true, false])('does not interpret isDraft=%s as negative merge intent', (isDraft) => {
     const decision = evaluateMergeIntent({
       baseRef: 'main',
       title: 'feat: candidate',
       body: 'Work is still under review.',
+      isDraft,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: true,
+      reasons: [],
+    });
+    expect(decision.nextGate).toContain('all independent source, review, proof, and provider gates still apply');
+  });
+
+  it('still blocks an explicit negative directive on a draft PR', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'feat: candidate',
+      body: 'KEEP DRAFT until exact-head proof completes.',
       isDraft: true,
     });
 
     expect(decision).toMatchObject({
       applies: true,
       mergeIntentClear: false,
-      reasons: ['draft'],
+      reasons: ['keep-draft'],
     });
   });
 
