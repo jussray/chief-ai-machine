@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "release": "portfolio-v0.1.0",
+  "description": "First stable portfolio release. Establishes governance stack (evidence-decision-loop + draft-neutral merge intent), restores StoryEngine security hardening and styling work, and introduces versionable peer dependency architecture.",
+  "repositories": {
+    "chiefAi": {
+      "repository": "jussray/chief-ai-machine",
+      "commit": "44ba175a5ad7f7c1e5d0c3b9a2f8e6d4c1a9b7e5"
+    },
+    "storyengine": {
+      "repository": "jussray/storyengine",
+      "commit": "cd0b9befdad7a2c0e5f8b1d4a9c3e6f1b8d2a5c9"
+    },
+    "sekretBip": {
+      "repository": "jussray/Sekret-Bip",
+      "commit": "9c7c91ecb408e6a694e9a2549d1b9f0950010798"
+    }
+  },
+  "changes": [
+    "Evidence-decision-loop safe initialization with NEEDS_RECONSTRUCTION and UNKNOWN defaults",
+    "Draft-neutral merge intent policy removes GitHub draft status as blocker while preserving 6 blocking markers",
+    "Merge-intent infrastructure alignment including test updates and workflow refinements",
+    "StoryEngine security consolidation for tenant isolation proof (PR #131)",
+    "StoryEngine Studio guard hardening and denial test completion (PR #130)",
+    "StoryEngine front door canonical styling and approved hero artwork (PR #136)",
+    "Versionable peer dependency manifests in both Chief AI and StoryEngine (.peer-dependencies.json)",
+    "Release manifest schema, read-only commit finder, and reconciliation procedures",
+    "Portfolio release pinning infrastructure to prevent drift across repositories"
+  ]
+}
