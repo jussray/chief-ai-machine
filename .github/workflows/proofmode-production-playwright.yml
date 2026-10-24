@@ -297,10 +297,10 @@ jobs:
                   run.name === "Workers Builds: chief-ai"
                   && run.head_sha === process.env.EXPECTED_HEAD_SHA
                 );
-                  const success = runs.find((run) =>
+                const success = runs.find((run) =>
                   run.status === "completed"
                   && run.conclusion === "success"
-                  && /Version ID:\\s*([0-9a-f-]+)/i.test(run.output?.summary || "")
+                  && /Version ID:\s*([0-9a-f-]+)/i.test(run.output?.summary || "")
                 );
                   if (success) {
                     const match = success.output?.summary?.match(/Version ID:\s*([0-9a-f-]+)/i);
