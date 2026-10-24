@@ -54,12 +54,12 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
-  const hasProtectedTokens = new RegExp(PROTECTED_CONTROL_TOKEN_PATTERN.source, 'i').test(String(rawText ?? ''));
   const text = stripProtectedControlTokens(rawText);
   const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
 
   for (const route of GOALFIX_FREESTYLE_ROUTES) {
-    if (hasProtectedTokens || !route.pattern.test(text)) continue;
+    // Route from the remaining substantive intent, never from control tokens alone.
+    if (!route.pattern.test(text)) continue;
     const prompt = PROMPTS.find(item => item.id === route.id);
     if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
   }
