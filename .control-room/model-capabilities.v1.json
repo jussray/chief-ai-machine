@@ -2,7 +2,7 @@
   "contract": "juss/council-model-capability-profile@v1",
   "repository": "jussray/chief-ai-machine",
   "defaultBranch": "main",
-  "preparedAgainstBaseSha": "27b2e1fd871116d54d5c4b27db1c47e917ddb2f6",
+  "preparedAgainstBaseSha": "546bd78b5925a57942cf18a915343a4ea1ea9616",
   "authorityHost": "jussray/founder-control-room",
   "providerExecutionHost": "jussray/founder-control-room",
   "projectRole": "executive_synthesis_reasoning_intelligence",
