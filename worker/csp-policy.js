@@ -26,7 +26,7 @@ export function buildCspHeader(nonce, reportOnly = true) {
   };
 }
 
-export function injectNonceIntoHtml(html, nonce) {
+export function injectNonceIntoHtml(html) {
   // For any future inline scripts/styles added to index.html,
   // they would need nonce attributes. Currently the SPA has none,
   // so this is a safety placeholder.
