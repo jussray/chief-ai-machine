@@ -68,7 +68,7 @@ jobs:
           SAUCE_GUARD_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          node --test test/sauce-guard-egress.test.mjs
+          node --test test/sauce-guard-egress.check.mjs
           git fetch --filter=blob:none --no-tags origin "$SAUCE_GUARD_BASE_SHA"
           node scripts/verify-sauce-guard-egress.mjs --base="$SAUCE_GUARD_BASE_SHA"
 

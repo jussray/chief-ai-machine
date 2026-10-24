@@ -40,7 +40,7 @@ test('scanner does not disclose source and excludes unrelated docs', () => {
 
 test('established PR/push CI job executes Sauce Guard tests and blocks dynamic logs', () => {
   const workflow = read('.github/workflows/control-room-contracts.yml');
-  assert.ok(workflow.includes('node --test test/sauce-guard-egress.test.mjs'));
+  assert.ok(workflow.includes('node --test test/sauce-guard-egress.check.mjs'));
   assert.ok(workflow.includes('node scripts/verify-sauce-guard-egress.mjs --base='));
   assert.ok(workflow.includes('SAUCE_GUARD_BASE_SHA'));
 });
