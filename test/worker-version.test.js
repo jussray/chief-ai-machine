@@ -67,7 +67,7 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
-  it('returns explicit release SHA and branch without touching assets', async () => {
+  it('returns explicit release SHA without touching assets', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
@@ -86,11 +86,10 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
-      branch: 'feat/federated-relay-v3-1-20260913',
     });
   });
 
-  it('reports unknown instead of fabricating release identity', async () => {
+  it('reports unknown instead of fabricating a release SHA', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
@@ -105,7 +104,6 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: 'unknown',
-      branch: 'unknown',
     });
   });
 });

@@ -39,7 +39,7 @@ export default {
 
     if (url.pathname === '/version') {
       return Response.json(
-        { ok: true, sha: getReleaseSha(env), branch: getReleaseBranch(env) },
+        { ok: true, sha: getReleaseSha(env) },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
