@@ -1,7 +1,7 @@
 import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleProofModeMcp } from './proofmode-mcp.js';
+import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
 
 function getReleaseSha(env) {
   const candidates = [
@@ -40,6 +40,22 @@ export default {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       return handleChiefFounderContentProposal(request);
+    }
+
+    if (url.pathname === '/.well-known/mcp/server-card.json') {
+      return Response.json(buildProofModeServerCard(url.origin), {
+        headers: { 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
+    // Discovery paths must 404 honestly. Without this, the SPA fallback
+    // answers them with index.html + 200, which agents and scanners read as
+    // a broken JSON document (or, for /auth.md, as a file that exists).
+    if (url.pathname.startsWith('/.well-known/') || url.pathname === '/auth.md') {
+      return new Response('Not found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
     }
 
     if (url.pathname.startsWith('/api/')) {
