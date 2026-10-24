@@ -62,30 +62,22 @@ test.describe('Gate 3: CSP Headers (Real Browser)', () => {
     }
   });
 
-  test('CSP should block inline script execution (report-only mode)', async ({ page }) => {
-    // Navigate to a page that would try to execute an inline script without nonce
+  test('report-only CSP reports nonce-less scripts without blocking them', async ({ page }) => {
+    // Register before navigation so reports from the document are observed.
+    await page.addInitScript(() => {
+      globalThis.__chiefCspViolationObserved = false;
+      document.addEventListener('securitypolicyviolation', (event) => {
+        if (event.disposition === 'report' && event.effectiveDirective.startsWith('script-src')) {
+          globalThis.__chiefCspViolationObserved = true;
+        }
+      });
+    });
     await page.goto(`${baseURL}/`);
 
-    // Set up listener for CSP violation reports
-    let cspViolationFired = false;
-    page.on('console', msg => {
-      if (msg.type() === 'error' && msg.text().includes('Content-Security-Policy')) {
-        cspViolationFired = true;
-      }
-    });
-
-    // Attempt to run inline script (should be blocked in enforce mode, reported in report-only)
-    const result = await page.evaluate(() => {
-      try {
-        // This would be blocked if CSP is enforced
-        // In report-only mode, it runs but reports violation
-        return { csb: 'blocked_or_reported' };
-      } catch {
-        return { csb: 'blocked_by_csp' };
-      }
-    });
-
-    expect(result).toBeDefined();
+    // Inject a real inline script element; page.evaluate() bypasses CSP enforcement.
+    await page.addScriptTag({ content: 'globalThis.__chiefInlineProbeRan = true;' });
+    expect(await page.evaluate(() => globalThis.__chiefInlineProbeRan)).toBe(true);
+    await expect.poll(() => page.evaluate(() => globalThis.__chiefCspViolationObserved)).toBe(true);
   });
 });
 
@@ -177,7 +169,6 @@ test.describe('Gates 3–4 Summary', () => {
     const response = await request.get(`${baseURL}/`);
     const cspHeader = response.headers()['content-security-policy-report-only'];
     expect(cspHeader).toBeTruthy();
-    console.log('✓ Gate 3 VERIFIED: CSP headers active');
   });
 
   test('Gate 4 (Stripe) VERIFIED: webhook endpoint requires valid HMAC signature', async ({ request }) => {
@@ -186,6 +177,5 @@ test.describe('Gates 3–4 Summary', () => {
       data: '{}',
     });
     expect(noSigResponse.status()).toBe(401);
-    console.log('✓ Gate 4 VERIFIED: Stripe webhook signature required');
   });
 });
