@@ -335,43 +335,84 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          checks="$(curl --fail --silent --show-error \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?per_page=100")"
-          printf '%s' "$checks" | node -e '
-            let raw = "";
-            process.stdin.setEncoding("utf8");
-            process.stdin.on("data", (chunk) => { raw += chunk; });
-            process.stdin.on("end", () => {
-              const data = JSON.parse(raw);
-              const required = [
-                "Typecheck",
-                "Lint",
-                "Unit Tests",
-                "CodeQL",
-                "Verify exact Chief runtime with Playwright",
-                "Verify live Chief capability plan with Playwright",
-                "Verify live ProofMode MCP with Playwright",
-                "Verify operational authority",
-                "Workers Builds: chief-ai",
-              ];
-              const missing = required.filter((name) =>
-                !(data.check_runs || []).some((run) =>
-                  run.name === name
-                  && run.head_sha === process.env.EXPECTED_HEAD_SHA
-                  && run.status === "completed"
-                  && run.conclusion === "success"
-                )
-              );
-              if (missing.length) {
-                console.error(`Pre-production proof packet incomplete for ${process.env.EXPECTED_HEAD_SHA}: ${missing.join(", ")}`);
-                process.exit(1);
-              }
-            });
-          '
+          for attempt in {1..90}; do
+            checks="$(curl --fail --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?per_page=100" || true)"
 
+            result="$(printf '%s' "$checks" | node -e '
+              let raw = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                try {
+                  const data = JSON.parse(raw);
+                  const required = [
+                    "Typecheck",
+                    "Lint",
+                    "Unit Tests",
+                    "CodeQL",
+                    "Verify exact Chief runtime with Playwright",
+                    "Verify live Chief capability plan with Playwright",
+                    "Verify live ProofMode MCP with Playwright",
+                    "Verify operational authority",
+                    "Workers Builds: chief-ai",
+                  ];
+                  const runs = (data.check_runs || []).filter((run) =>
+                    run.head_sha === process.env.EXPECTED_HEAD_SHA
+                  );
+                  const incomplete = [];
+                  const failed = [];
+
+                  for (const name of required) {
+                    const named = runs.filter((run) => run.name === name);
+                    if (named.some((run) => run.status === "completed" && run.conclusion === "success")) {
+                      continue;
+                    }
+                    if (named.some((run) =>
+                      run.status === "completed"
+                      && run.conclusion
+                      && run.conclusion !== "success"
+                      && run.conclusion !== "skipped"
+                    )) {
+                      failed.push(name);
+                    } else {
+                      incomplete.push(name);
+                    }
+                  }
+
+                  if (failed.length) {
+                    console.log(`failure|${failed.join(", ")}`);
+                  } else if (incomplete.length) {
+                    console.log(`pending|${incomplete.join(", ")}`);
+                  } else {
+                    console.log("success|");
+                  }
+                } catch {
+                  console.log("pending|unable to parse check packet");
+                }
+              });
+            ')"
+
+            state="${result%%|*}"
+            detail="${result#*|}"
+            if [ "$state" = "success" ]; then
+              echo "Pre-production proof packet complete for $EXPECTED_HEAD_SHA."
+              exit 0
+            fi
+            if [ "$state" = "failure" ]; then
+              printf 'Pre-production proof packet failed for %s: %s\n' "$EXPECTED_HEAD_SHA" "$detail" >&2
+              exit 1
+            fi
+
+            printf 'Waiting for exact-head proof packet for %s: %s\n' "$EXPECTED_HEAD_SHA" "$detail"
+            sleep 2
+          done
+
+          printf 'Pre-production proof packet timed out for %s\n' "$EXPECTED_HEAD_SHA" >&2
+          exit 1
       - name: Promote exact prebuilt version to Chief production
         if: github.event_name == 'workflow_dispatch'
         shell: bash
