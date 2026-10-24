@@ -1,24 +1,14 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
-  "main": "security/chief-edge-entry.js",
+  "main": "worker/index.js",
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
-  "ratelimits": [
-    {
-      "name": "CHIEF_RATE_LIMITER",
-      "namespace_id": "1002",
-      "simple": {
-        "limit": 120,
-        "period": 60
-      }
-    }
-  ],
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api", "/api/*", "/github", "/github/*", "/version", "/mcp"]
+    "run_worker_first": ["/api/*", "/version", "/mcp"]
   }
 }

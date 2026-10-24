@@ -6,29 +6,56 @@ import { handleProofModeMcp } from './proofmode-mcp.js';
 import { makeRelayFetch } from './relay-fetch.js';
 
 export function getReleaseSha(env, bakedReleaseSha = BUILD_RELEASE_SHA) {
-  const candidates = [env?.RELEASE_SHA, env?.GITHUB_SHA, env?.WORKERS_CI_COMMIT_SHA, bakedReleaseSha];
+  const candidates = [
+    env?.RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.WORKERS_CI_COMMIT_SHA,
+    bakedReleaseSha,
+  ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
 }
 
 export function getReleaseBranch(env, bakedReleaseBranch = BUILD_RELEASE_BRANCH) {
-  const candidates = [env?.FEDERATED_RELAY_BRANCH, env?.WORKERS_CI_BRANCH, bakedReleaseBranch];
+  const candidates = [
+    env?.FEDERATED_RELAY_BRANCH,
+    env?.RELEASE_BRANCH,
+    env?.WORKERS_CI_BRANCH,
+    bakedReleaseBranch,
+  ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
 }
 
+// Chief AI Worker entry point.
+//
+// Serves the static SPA via the ASSETS binding. Runtime-first routes are
+// declared in wrangler.jsonc. The federated relay is evidence-only and fails
+// closed when its durable ledger, signing key, or GitHub identity bindings are
+// unavailable.
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
     if (url.pathname === '/version') {
       return Response.json(
         { ok: true, sha: getReleaseSha(env), branch: getReleaseBranch(env) },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
-    if (url.pathname === '/mcp') return handleProofModeMcp(request, env);
-    if (url.pathname === '/api/chief/capability-plan') return handleChiefCapabilityPlan(request);
-    if (url.pathname === '/api/chief/founder-content-proposal') return handleChiefFounderContentProposal(request);
+
+    if (url.pathname === '/mcp') {
+      return handleProofModeMcp(request, env);
+    }
+
+    if (url.pathname === '/api/chief/capability-plan') {
+      return handleChiefCapabilityPlan(request);
+    }
+
+    if (url.pathname === '/api/chief/founder-content-proposal') {
+      return handleChiefFounderContentProposal(request);
+    }
+
     if (url.pathname === '/api/federated-relay') {
       return handleFederatedRelayV31Runtime(
         request,
@@ -40,7 +67,11 @@ export default {
         makeRelayFetch(env),
       );
     }
-    if (url.pathname.startsWith('/api/')) return new Response('Not implemented', { status: 501 });
+
+    if (url.pathname.startsWith('/api/')) {
+      return new Response('Not implemented', { status: 501 });
+    }
+
     return env.ASSETS.fetch(request);
   },
 };

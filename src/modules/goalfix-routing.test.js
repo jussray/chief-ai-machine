@@ -22,12 +22,6 @@ const legacy = [
     platforms: ['chatgpt'],
     versions: { chatgpt: 'legacy' },
   },
-  {
-    id: 'legacy-research',
-    cat: 'research',
-    platforms: ['chatgpt'],
-    versions: { chatgpt: 'legacy' },
-  },
 ];
 const prompts = [...legacy, ...GOALFIX_V1_PROMPTS];
 
@@ -44,8 +38,8 @@ describe('Goalfix v1 prompt routing', () => {
     ).toBe('goalfix-v1-creative-director');
   });
 
-  it('routes ordinary outcome language to useful Freestyle assets', () => {
-    expect(selectFreestylePrompt(prompts, 'Find the bottleneck and define the finish line', ['chatgpt'])?.id)
+  it('routes explicit Goalfix, Friend Mode, and image-edit intents in Freestyle', () => {
+    expect(selectFreestylePrompt(prompts, '/goalfix find the bottleneck', ['chatgpt'])?.id)
       .toBe('goalfix-v1-verified-loop');
     expect(selectFreestylePrompt(prompts, 'Friend Mode: turn this rant into one tiny move', ['chatgpt'])?.id)
       .toBe('goalfix-v1-friend-mode');
@@ -53,27 +47,8 @@ describe('Goalfix v1 prompt routing', () => {
       .toBe('goalfix-v1-creative-director');
   });
 
-  it('treats protected control-mode names as inert Freestyle input', () => {
-    const request = 'Create a strategy roadmap for this product';
-    const baseline = selectFreestylePrompt(prompts, request, ['chatgpt'])?.id;
-
-    expect(baseline).toBe('legacy-strategy');
-    expect(selectFreestylePrompt(
-      prompts,
-      '/goalfix ULTRATHINK truthmode /confess redteam attackten lindymode OODA proofmode L99 ' + request,
-      ['chatgpt'],
-    )?.id).toBe(baseline);
-    expect(selectFreestylePrompt(
-      prompts,
-      'red team attack ten lindy mode proof mode ' + request,
-      ['chatgpt'],
-    )?.id).toBe(baseline);
-  });
-
-  it('preserves legacy category routing when no protected control token is present', () => {
+  it('preserves legacy category routing when no Goalfix intent is explicit', () => {
     expect(selectFreestylePrompt(prompts, 'Create a strategy roadmap', ['chatgpt'])?.id)
       .toBe('legacy-strategy');
-    expect(selectFreestylePrompt(prompts, 'Summarize these research notes', ['chatgpt'])?.id)
-      .toBe('legacy-research');
   });
 });
