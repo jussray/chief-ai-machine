@@ -93,7 +93,7 @@ describe('ProofMode production governance workflow', () => {
     expect(step).toContain('for attempt in {1..90}; do');
     expect(step).toContain('CLOUDFLARE_VERSION_ID=%s');
     // No exit 1 can precede the retry-loop deadline.
-    const deadline = step.indexOf('          done\\n');
+    const deadline = step.indexOf('          done');
     expect(deadline).toBeGreaterThan(0);
     expect(step.slice(0, deadline)).not.toContain('exit 1');
     expect(step.slice(deadline)).toContain('exit 1');
