@@ -86,3 +86,30 @@ test('manual CI has a valid comparison base fallback without skipping Sauce Guar
   assert.ok(workflow.includes('git merge-base HEAD FETCH_HEAD'));
   assert.ok(workflow.includes('git rev-parse HEAD^'));
 });
+
+test('Sauce Guard blocks structured console output and computed sensitive log sinks', () => {
+  const file = 'src/privacy-check.ts';
+  const badCalls = [
+    'console.dir(providerResponse);',
+    'console.table(customerRecords);',
+    "console['dir'](providerResponse);",
+    "console['table'](customerRecords);",
+    'console.trace(error);',
+    'console.assert(ok, privateUserId);',
+    'console.count(privateUserId);',
+    "logger['warn'](customerEmail);",
+    'console.dir("SAFE_EVENT");',
+  ];
+  for (const source of badCalls) {
+    const diff = '+++ b/' + file + '\n@@ -1,0 +1,1 @@\n+' + source + '\n';
+    assert.equal(scanAddedLines(diff, { [file]: source }).length, 1, source);
+  }
+  const safe = [
+    "console.log('SAUCE_GUARD_EVENT_OK');",
+    "console['error']('SAUCE_GUARD_EVENT_FAILED');",
+  ];
+  for (const source of safe) {
+    const diff = '+++ b/' + file + '\n@@ -1,0 +1,1 @@\n+' + source + '\n';
+    assert.equal(scanAddedLines(diff, { [file]: source }).length, 0, source);
+  }
+});
