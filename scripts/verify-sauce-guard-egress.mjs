@@ -10,7 +10,15 @@ import ts from 'typescript';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE_PATH = /^(?:scripts|src|worker|app|server|api|functions|supabase\/functions|plugins\/proofmode\/src)\/.*\.(?:[cm]?js|jsx|tsx?|mts|cts)$/;
 const EVENT = /^[A-Z][A-Z0-9_]{2,100}$/;
-const LEVEL = new Set(['log', 'info', 'warn', 'error', 'debug']);
+// Structured/debug console methods can disclose entire user or provider objects;
+// only level-based fixed event codes may be used by changed logging calls.
+const SAFE_EVENT_METHODS = new Set(['log', 'info', 'warn', 'error', 'debug']);
+const CONSOLE_OUTPUT_METHODS = new Set([
+  ...SAFE_EVENT_METHODS,
+  'dir', 'dirxml', 'table', 'trace', 'assert', 'count', 'countReset',
+  'group', 'groupCollapsed', 'groupEnd', 'time', 'timeLog', 'timeEnd',
+  'profile', 'profileEnd',
+]);
 
 function changedLines(diff) {
   const result = new Map();
@@ -35,17 +43,34 @@ function changedLines(diff) {
 }
 
 function loggerTarget(expr) {
-  if (!ts.isPropertyAccessExpression(expr)) return false;
-  const name = expr.name.text;
-  const owner = expr.expression;
-  if (ts.isIdentifier(owner) && (owner.text === 'console' || owner.text === 'logger' || owner.text === 'log')) {
-    return LEVEL.has(name);
+  // Include constant bracket access such as console['table'] and split calls.
+  let name, owner;
+  if (ts.isPropertyAccessExpression(expr)) {
+    name = expr.name.text;
+    owner = expr.expression;
+  } else if (ts.isElementAccessExpression(expr)
+    && ts.isStringLiteralLike(expr.argumentExpression)) {
+    name = expr.argumentExpression.text;
+    owner = expr.expression;
+  } else {
+    return null;
   }
-  return name === 'write'
+  if (ts.isIdentifier(owner)) {
+    if (owner.text === 'console' && CONSOLE_OUTPUT_METHODS.has(name)) {
+      return { fixedEventAllowed: SAFE_EVENT_METHODS.has(name) };
+    }
+    if ((owner.text === 'logger' || owner.text === 'log') && SAFE_EVENT_METHODS.has(name)) {
+      return { fixedEventAllowed: true };
+    }
+  }
+  if (name === 'write'
     && ts.isPropertyAccessExpression(owner)
     && (owner.name.text === 'stdout' || owner.name.text === 'stderr')
     && ts.isIdentifier(owner.expression)
-    && owner.expression.text === 'process';
+    && owner.expression.text === 'process') {
+    return { fixedEventAllowed: true };
+  }
+  return null;
 }
 
 function inspectSource(filename, text, added) {
@@ -54,13 +79,15 @@ function inspectSource(filename, text, added) {
     /\.tsx$|\.jsx$/.test(filename) ? ts.ScriptKind.TSX : /\.tsx?$|\.mts$|\.cts$/.test(filename) ? ts.ScriptKind.TS : ts.ScriptKind.JS);
   const findings = [];
   function visit(node) {
-    if (ts.isCallExpression(node) && loggerTarget(node.expression)) {
+    const target = ts.isCallExpression(node) ? loggerTarget(node.expression) : null;
+    if (target) {
       const from = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
       const to = source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
       const affected = [...added.keys()].some(x => x >= from && x <= to);
       if (affected) {
         const arg = node.arguments[0];
-        const safe = node.arguments.length === 1
+        const safe = target.fixedEventAllowed
+          && node.arguments.length === 1
           && (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg))
           && EVENT.test(arg.text);
         if (!safe) findings.push({ path: filename, line: from, reason: 'SAUCE_GUARD_DYNAMIC_LOG' });
