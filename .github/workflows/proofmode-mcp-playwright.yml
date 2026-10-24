@@ -1,6 +1,9 @@
 name: ProofMode MCP Playwright
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -103,7 +106,7 @@ jobs:
         run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
 
       - name: Require exact-head Cloudflare build materialization
-        if: steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+        if: steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -132,7 +135,7 @@ jobs:
               echo "Cloudflare build check is successful for exact head $EXPECTED_HEAD_SHA."
               {
                 echo '- provider-build: exact-head-success'
-                echo '- provider-runtime-equivalence: not-claimed-by-pull-request'
+                echo '- provider-runtime-equivalence: not-claimed-by-local-proof'
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
@@ -145,8 +148,8 @@ jobs:
           printf 'Cloudflare build check did not materialize for %s\n' "$EXPECTED_HEAD_SHA" >&2
           exit 1
 
-      - name: Start exact checked-out Worker locally for pull-request proof
-        if: steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+      - name: Start exact checked-out Worker locally for local exact-head proof
+        if: steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -165,7 +168,7 @@ jobs:
             if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
               echo "Local workerd runtime is serving exact head $EXPECTED_HEAD_SHA."
               {
-                echo '- pull-request-runtime-proof: local-workerd-exact-head'
+                echo '- local-runtime-proof: local-workerd-exact-head'
                 echo '- Cloudflare Access: remains a separate privileged provider boundary'
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
@@ -225,7 +228,7 @@ jobs:
             if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
               printf 'Cloudflare Access rejected the configured service token; verify the effective Access application, Service Auth policy, token selection, and token status for this exact preview.\n' >&2
             else
-              printf 'Cloudflare Access intercepted the immutable preview; privileged service auth is intentionally unavailable on pull_request. Use founder-authorized workflow_dispatch only after provider policy is verified.\n' >&2
+              printf 'Cloudflare Access intercepted the immutable preview; privileged service auth is intentionally unavailable for local exact-head proof. Use founder-authorized workflow_dispatch only after provider policy is verified.\n' >&2
             fi
           fi
           exit 1
@@ -263,14 +266,14 @@ jobs:
           npx playwright test --config=playwright.proofmode-mcp.config.mjs
 
       - name: Preserve local runtime log
-        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           mkdir -p test-results/proofmode-mcp
           cp "$RUNNER_TEMP/proofmode-wrangler.log" test-results/proofmode-mcp/wrangler.log 2>/dev/null || true
 
       - name: Stop local exact-head Worker
-        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name == 'pull_request'
+        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           pid_file="$RUNNER_TEMP/proofmode-wrangler.pid"
