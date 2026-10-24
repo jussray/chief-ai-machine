@@ -4,6 +4,7 @@ import { handleChiefFounderContentProposal } from './chief-founder-content-propo
 import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
 import { verifyStripeWebhookSignature } from './stripe-webhook-verify.js';
+import { handleChiefProviderRequest } from './chief-provider.js';
 
 function getReleaseSha(env) {
   const candidates = [
@@ -80,6 +81,8 @@ export default {
       );
     } else if (url.pathname === '/mcp') {
       response = await handleProofModeMcp(request, env);
+    } else if (url.pathname === '/api/chief/provider') {
+      response = await handleChiefProviderRequest(request, env);
     } else if (url.pathname === '/api/chief/capability-plan') {
       response = await handleChiefCapabilityPlan(request);
     } else if (url.pathname === '/api/chief/founder-content-proposal') {

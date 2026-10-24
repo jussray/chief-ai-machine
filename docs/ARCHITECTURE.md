@@ -150,6 +150,8 @@ Requirements:
 
 Provider execution must be optional and isolated.
 
+The bounded operator-only `/api/chief/provider` lane is implemented in source as documented in `PROVIDER_RUNTIME.md`. It accepts only explicitly supplied minimized context, returns unreviewed drafts, and has no asset lookup or intelligence-promotion path. Product-integrated provider runs, durable run history, private workspace auth, and live production activation remain separate work and proof gates.
+
 ```text
 Approved intelligence asset
 → explicit provider-run request

@@ -75,7 +75,7 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 | **Benchmarks** | Model-routing guidance by task type |
 | **Portable export/import** | Versioned company-brain snapshots with backward compatibility |
 
-> **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent runtime, authenticated Founder Control Room transport and signature verification, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+> **Status:** browser-local product prototype with a separate operator-only server-side OpenAI lane in source. Private workspace auth, encrypted sync, durable version history, product-integrated provider execution, specialist-agent runtime, authenticated Founder Control Room transport and signature verification, and Executive Brief UI are on the roadmap. The provider lane is not proof of production activation. See [`docs/ROADMAP.md`](./docs/ROADMAP.md) and [`docs/PROVIDER_RUNTIME.md`](./docs/PROVIDER_RUNTIME.md).
 
 ---
 
