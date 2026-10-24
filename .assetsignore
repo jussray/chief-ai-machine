@@ -30,6 +30,7 @@
 *.sqlite
 **/*.sqlite
 *.sqlite-*
+supabase/
 CLAUDE.md
 CHATGPT.md
 PERPLEXITY.md
