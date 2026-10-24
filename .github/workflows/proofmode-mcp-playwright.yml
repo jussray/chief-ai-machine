@@ -228,7 +228,7 @@ jobs:
             if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
               printf 'Cloudflare Access rejected the configured service token; verify the effective Access application, Service Auth policy, token selection, and token status for this exact preview.\n' >&2
             else
-              printf 'Cloudflare Access intercepted the immutable preview; privileged service auth is intentionally unavailable for local exact-head proof. Use founder-authorized workflow_dispatch only after provider policy is verified.\n' >&2
+              printf 'Cloudflare Access intercepted the immutable preview; privileged service auth is intentionally unavailable on pull_request and main-push local exact-head proof. Use founder-authorized workflow_dispatch only after provider policy is verified.\n' >&2
             fi
           fi
           exit 1
