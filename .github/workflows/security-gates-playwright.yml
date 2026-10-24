@@ -3,6 +3,7 @@ name: Security Gates Playwright
 on:
   push:
     branches:
+      - main
       - fix/security-gates-against-main
   workflow_dispatch:
 
