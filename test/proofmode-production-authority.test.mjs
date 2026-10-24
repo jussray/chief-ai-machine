@@ -130,7 +130,7 @@ describe('production authority receipt', () => {
       new URL('../.github/workflows/proofmode-production-authority-bridge.yml', import.meta.url),
       'utf8',
     );
-    expect(workflow).toMatch(/on:\\s*\\n\\s*pull_request_review:/);
+    expect(workflow).toMatch(/on:\s*\n\s*pull_request_review:/);
     expect(workflow).toContain('      - submitted');
     expect(workflow).not.toContain('ready_for_review');
     expect(workflow).toContain('github.event.review.user.login == github.repository_owner');
