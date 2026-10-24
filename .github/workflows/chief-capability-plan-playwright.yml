@@ -213,7 +213,7 @@ jobs:
             if (response.status() !== 200) {
               const accessState = process.env.CLOUDFLARE_ACCESS_CLIENT_ID
                 ? 'Cloudflare Access rejected the configured service token'
-                : 'privileged service auth is intentionally unavailable for local exact-head proof';
+                : 'privileged service auth is intentionally unavailable on pull_request and main-push local exact-head proof';
               throw new Error(`exact runtime returned HTTP ${response.status()}; ${accessState}`);
             }
             const body = await response.json();
