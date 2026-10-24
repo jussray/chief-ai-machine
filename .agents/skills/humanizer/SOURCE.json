@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "contract": "juss/donor-skill-source@v1",
+  "skillId": "humanizer",
+  "role": "execution-bridge",
+  "upstreamRepository": "blader/humanizer",
+  "upstreamCommit": "e2e92e7b4b8229253ed5c8e81dc65463fdeddda5",
+  "upstreamPath": "SKILL.md",
+  "upstreamBlobSha": "c9c22422f822f07767ad1b6e79eedccbfe4e9f63",
+  "upstreamVersion": "2.11.2",
+  "license": "MIT",
+  "authority": {
+    "mode": "text-transform-only",
+    "repositoryWrite": false,
+    "externalCommunication": false,
+    "publish": false,
+    "providerMutation": false,
+    "authorityExpansion": false
+  }
+}

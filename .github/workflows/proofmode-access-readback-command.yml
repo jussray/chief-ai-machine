@@ -1,0 +1,121 @@
+name: ProofMode Access Readback Command
+
+# Read-only bridge:
+# - issue_comment workflows execute from the default branch.
+# - only the repository owner on merged carrier PR #147 may request a check.
+# - this workflow receives no Cloudflare/provider secrets.
+# - it can emit only the existing proofmode_access_admin repository_dispatch in check mode.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: proofmode-access-readback-command
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  dispatch-check:
+    name: Dispatch trusted Access readback
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.issue.number == 147 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      startsWith(github.event.comment.body, '/proofmode-access-check ')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    steps:
+      - name: Bind command to exact current main and immutable preview
+        id: guard
+        shell: bash
+        env:
+          EVENT_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.sha }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_REF" != "refs/heads/main" ]; then
+            printf 'Access readback commands must execute from default-branch source. ref=%s\n' "$EVENT_REF" >&2
+            exit 1
+          fi
+
+          current="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const data = JSON.parse(raw);
+                process.stdout.write(data?.commit?.sha || "");
+              });
+            ')"
+          if [ -z "$current" ] || [ "$current" != "$WORKFLOW_SHA" ]; then
+            printf 'Readback source is stale: workflow_sha=%s current_main=%s.\n' "$WORKFLOW_SHA" "$current" >&2
+            exit 1
+          fi
+
+          target="$(node -e '
+            const raw = process.argv[1] || "";
+            const match = raw.match(/^\/proofmode-access-check\s+(https:\/\/[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev\/?)\s*$/);
+            if (!match) process.exit(1);
+            const url = new URL(match[1]);
+            if (
+              url.protocol !== "https:"
+              || url.username
+              || url.password
+              || url.port
+              || url.search
+              || url.hash
+              || url.pathname !== "/"
+            ) process.exit(1);
+            process.stdout.write(url.origin);
+          ' "$COMMENT_BODY")" || {
+            printf 'Owner command must be: /proofmode-access-check <immutable Chief preview origin>.\n' >&2
+            exit 1
+          }
+
+          printf 'expected_main_sha=%s\n' "$current" >> "$GITHUB_OUTPUT"
+          printf 'target_url=%s\n' "$target" >> "$GITHUB_OUTPUT"
+          printf 'Readback request bound to current main %s and target %s.\n' "$current" "$target"
+
+      - name: Emit existing trusted check dispatch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ steps.guard.outputs.expected_main_sha }}
+          TARGET_URL: ${{ steps.guard.outputs.target_url }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const payload = {
+            event_type: 'proofmode_access_admin',
+            client_payload: {
+              expected_main_sha: process.env.EXPECTED_MAIN_SHA,
+              mode: 'check',
+              target_url: process.env.TARGET_URL,
+            },
+          };
+          const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/dispatches`, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${process.env.GH_TOKEN}`,
+              'Content-Type': 'application/json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+            body: JSON.stringify(payload),
+          });
+          if (response.status !== 204) {
+            throw new Error(`REPOSITORY_DISPATCH_${response.status}: ${await response.text()}`);
+          }
+          NODE

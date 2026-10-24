@@ -1,0 +1,99 @@
+name: Reciprocal Defense Contract
+on:
+  push:
+    branches:
+      - main
+      - feat/reciprocal-defense-hallway
+      - 'security/**'
+    paths:
+      - security/reciprocal-defense.mjs
+      - security/reciprocal-ingress.mjs
+      - security/full-attack-unit.mjs
+      - security/edge-rate-limit.mjs
+      - security/*-edge-entry.*
+      - test/reciprocal-defense.test.mjs
+      - test/reciprocal-ingress.test.mjs
+      - test/full-attack-unit.test.mjs
+      - test/edge-rate-limit.test.mjs
+      - test/worker-version.test.js
+      - e2e/chief-edge-rate-limit.spec.mjs
+      - vitest.config.js
+      - wrangler.jsonc
+      - .github/workflows/reciprocal-defense.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  EXPECTED_HEAD_SHA: ${{ github.sha }}
+jobs:
+  reciprocal-defense:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+      - name: Verify immutable head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run repository lint
+        run: npm run lint
+      - name: Run repository unit tests with coverage
+        run: npm test -- --coverage
+      - name: Verify reciprocal defense, ingress, edge limiting, and full-unit invariants
+        run: node --test test/reciprocal-defense.test.mjs test/reciprocal-ingress.test.mjs test/full-attack-unit.test.mjs test/edge-rate-limit.test.mjs
+      - name: Verify Chief edge wiring
+        run: |
+          grep -q '"main": "security/chief-edge-entry.js"' wrangler.jsonc
+          grep -q '"name": "CHIEF_RATE_LIMITER"' wrangler.jsonc
+          grep -q '"namespace_id": "1002"' wrangler.jsonc
+          grep -q '"/api"' wrangler.jsonc
+          grep -q '"/github"' wrangler.jsonc
+          grep -q "export \* from '../worker/index.js'" security/chief-edge-entry.js
+          grep -q "enforceChiefEdgeRateLimit" security/chief-edge-entry.js
+          grep -q "runFullAttackUnit" security/reciprocal-ingress.mjs
+          node --check security/chief-edge-entry.js
+          node --check security/edge-rate-limit.mjs
+      - name: Install pinned Wrangler and Playwright
+        run: npm install --no-save --package-lock=false wrangler@4.118.0 @playwright/test@1.61.1
+      - name: Install pinned Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start exact-head Chief Worker locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler dev --local --ip 127.0.0.1 --port 8791 > "$RUNNER_TEMP/chief-wrangler.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/chief-wrangler.pid"
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8791/README.md >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/chief-wrangler.log" >&2
+          exit 1
+      - name: Run Chief edge rate-limit Playwright witness through Wrangler
+        env:
+          CHIEF_EDGE_BASE_URL: http://127.0.0.1:8791
+        run: npx playwright test e2e/chief-edge-rate-limit.spec.mjs --workers=1 --reporter=line
+      - name: Stop local Chief Worker
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/chief-wrangler.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/chief-wrangler.pid")" 2>/dev/null || true
+          fi
+          if [ -f "$RUNNER_TEMP/chief-wrangler.log" ]; then
+            cat "$RUNNER_TEMP/chief-wrangler.log"
+          fi

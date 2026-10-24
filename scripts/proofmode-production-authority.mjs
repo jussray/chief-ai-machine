@@ -245,24 +245,55 @@ export async function consumeAuthority(env = process.env, fetchImpl = globalThis
   return validated;
 }
 
+function parseArgs(argv) {
+  const args = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i].startsWith('--')) {
+      const key = argv[i].slice(2);
+      const value = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : 'true';
+      args[key] = value;
+      if (value !== 'true') i += 1;
+    }
+  }
+  return args;
+}
+
+function mergeEnv(env, args) {
+  const merged = { ...env };
+  if (args['expected-sha']) merged.EXPECTED_HEAD_SHA = args['expected-sha'];
+  if (args['authority-pr']) merged.AUTHORITY_PR = args['authority-pr'];
+  if (args['authority-receipt']) merged.AUTHORITY_RECEIPT = args['authority-receipt'];
+  if (args['activation-run-id']) merged.ACTIVATION_RUN_ID = args['activation-run-id'];
+  if (args['repo']) merged.GITHUB_REPOSITORY = args['repo'];
+  return merged;
+}
+
 async function main() {
   const command = process.argv[2];
+  const args = parseArgs(process.argv.slice(3));
+  const env = mergeEnv(process.env, args);
+
   if (command === 'validate') {
-    const result = await validateAuthority();
+    const result = await validateAuthority(env);
     process.stdout.write(`${result.authorityReceipt}\n`);
     return;
   }
   if (command === 'discover') {
-    const receipt = await discoverAuthority();
+    const receipt = await discoverAuthority(env);
     process.stdout.write(`${receipt}\n`);
     return;
   }
   if (command === 'consume') {
-    const result = await consumeAuthority();
+    const result = await consumeAuthority(env);
     process.stdout.write(`${result.consumedMarker}\n`);
     return;
   }
-  throw new Error('Usage: node scripts/proofmode-production-authority.mjs <validate|discover|consume>');
+  if (command === 'finalize') {
+    const result = await consumeAuthority(env);
+    process.stdout.write(`Authority receipt ${result.authorityReceipt} consumed\n`);
+    return;
+  }
+  throw new Error('Usage: node scripts/proofmode-production-authority.mjs <validate|discover|consume|finalize> [--flag value ...]');
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
