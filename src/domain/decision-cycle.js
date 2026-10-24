@@ -19,6 +19,35 @@ export const V10_DECISION_LENSES = Object.freeze([
   'steal',
 ]);
 
+export const PROMPTOS_CHALLENGE_LENS_CONTRACT = 'promptos/ai-mastery-v6@6.0.0';
+
+export const V10_CHALLENGE_LENS_CONFORMANCE = Object.freeze({
+  contract: PROMPTOS_CHALLENGE_LENS_CONTRACT,
+  authorityEffect: 'none',
+  billgates: Object.freeze({
+    role: 'durable-leverage',
+    objective: 'durable_growth',
+    behaviors: Object.freeze([
+      'identify-the-bottleneck-and-highest-leverage-point',
+      'prefer-stable-options-and-reversible-changes',
+      'prefer-generated-docs-shared-fixtures-and-reusable-artifacts',
+      'standardize-a-proven-path-before-scaling',
+      'do-not-scale-an-unproven-path',
+    ]),
+  }),
+  elonmusk: Object.freeze({
+    role: 'first-principles-execution',
+    objective: 'upside_growth',
+    behaviors: Object.freeze([
+      'question-requirements-before-accepting-them',
+      'delete-before-optimizing',
+      'simplify-from-first-principles',
+      'prefer-fast-small-reversible-experiments',
+      'accelerate-feedback-and-automate-last',
+    ]),
+  }),
+});
+
 const DECISION_CLASSES = new Set(['reversible', 'high-consequence']);
 const REALITY_KEYS = Object.freeze(['verified', 'inferred', 'unknown', 'blocked']);
 const HASH = /^[0-9a-f]{64}$/i;

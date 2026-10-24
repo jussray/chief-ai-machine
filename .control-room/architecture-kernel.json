@@ -1,0 +1,30 @@
+{
+  "contract": "juss/self-sufficient-architecture@v1",
+  "project": "chief-ai-machine",
+  "coreOwner": "project",
+  "coreCapabilities": [
+    "intent",
+    "north-star",
+    "truth",
+    "authority",
+    "state",
+    "continuity",
+    "capability-routing",
+    "verification",
+    "proof",
+    "rollback",
+    "task-accuracy",
+    "outcome-learning"
+  ],
+  "externalSystems": {
+    "role": "plugin",
+    "requiredForCoreBoot": false,
+    "mayOwnCoreCapability": false,
+    "mayIncreaseAuthority": false,
+    "silentSubstitutionAllowed": false,
+    "identityMustBeReceipted": true,
+    "failurePolicy": "scoped-blocker",
+    "selectionPolicy": "capability-fit",
+    "purpose": "extend-or-accelerate"
+  }
+}

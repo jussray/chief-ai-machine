@@ -1,7 +1,10 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
+import { normalizeCustomPrompt } from '../domain/intelligence.js';
 import { showToast, copyText } from './ui.js';
 
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
+
+const PROTECTED_CONTROL_TOKEN_PATTERN = /(?:\/?goalfix\b|\bultrathink\b|\btruth\s*mode\b|\btruthmode\b|\/?confess\b|\bred\s*team\b|\bredteam\b|\battack\s*ten\b|\battackten\b|\blindy\s*mode\b|\blindymode\b|\blindy\b|\booda\b|\bproof\s*mode\b|\bproofmode\b|\bl99\b)/gi;
 
 const GOALFIX_FREESTYLE_ROUTES = [
   {
@@ -14,9 +17,16 @@ const GOALFIX_FREESTYLE_ROUTES = [
   },
   {
     id: 'goalfix-v1-verified-loop',
-    pattern: /(?:^|\s)\/goalfix\b|\bgoalfix\b|\bfinish line\b|\bbottleneck\b/i,
+    pattern: /\bfinish line\b|\bbottleneck\b/i,
   },
 ];
+
+export function stripProtectedControlTokens(text) {
+  return String(text || '')
+    .replace(PROTECTED_CONTROL_TOKEN_PATTERN, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export function normalizePromptVersionsForSave(prompt) {
   const platforms = [
@@ -38,8 +48,8 @@ function inferCat(text) {
   const t = text.toLowerCase();
   if (t.includes('shopify') || t.includes('store') || t.includes('jbh')) return 'shopify';
   if (t.includes('launch') || t.includes('ship') || t.includes('release')) return 'shipping';
-  if (t.includes('ooda') || t.includes('lindy') || t.includes('strategy') || t.includes('roadmap')) return 'strategy';
-  if (t.includes('red team') || t.includes('abuse') || t.includes('attack')) return 'redteam';
+  if (t.includes('strategy') || t.includes('roadmap')) return 'strategy';
+  if (t.includes('abuse') || t.includes('attack')) return 'redteam';
   if (t.includes('ad') || t.includes('campaign') || t.includes('growth')) return 'growth';
   if (t.includes('persona') || t.includes('act as') || t.includes('talk like') || t.includes('voice of')) return 'persona';
   if (t.includes('audit') || t.includes('debug') || t.includes('fix') || t.includes('repo')) return 'coding';
@@ -47,13 +57,22 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
-  const text = String(rawText || '');
+  const hasProtectedTokens = PROTECTED_CONTROL_TOKEN_PATTERN.test(rawText);
+  if (hasProtectedTokens) {
+    const text = stripProtectedControlTokens(rawText);
+    if (!text.trim()) {
+      return PROMPTS.find(prompt => prompt.platforms?.some(platform => (Array.isArray(platforms) ? platforms : []).includes(platform))) || PROMPTS[0];
+    }
+  }
+
+  const text = stripProtectedControlTokens(rawText);
   const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
 
   for (const route of GOALFIX_FREESTYLE_ROUTES) {
-    if (!route.pattern.test(text)) continue;
-    const prompt = PROMPTS.find(item => item.id === route.id);
-    if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
+    if (!hasProtectedTokens && route.pattern.test(text)) {
+      const prompt = PROMPTS.find(item => item.id === route.id);
+      if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
+    }
   }
 
   const cat = inferCat(text);
@@ -114,11 +133,16 @@ export function initFreestyle(PROMPTS) {
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
     const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({
+    const normalizedPrompt = normalizeCustomPrompt({
       ...currentResult,
-      id: 'fs-' + Date.now(),
+      id: 'freestyle-' + Date.now(),
       versions: normalizePromptVersionsForSave(currentResult),
     });
+    if (!normalizedPrompt) {
+      showToast('Custom prompt could not be saved safely.');
+      return;
+    }
+    custom.push(normalizedPrompt);
     localStorage.setItem('chief-custom', JSON.stringify(custom));
     window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
     showToast('Saved to My Prompts!');
