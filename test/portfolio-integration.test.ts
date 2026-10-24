@@ -42,8 +42,8 @@ describe('Portfolio Integration', () => {
 
   describe('Governance Module', () => {
     it('should have governance decision context available', () => {
-      // Verify governance entry point exists
-      const governancePath = path.join(process.cwd(), 'src', 'governance');
+      // Verify governance entry point exists at src/domain/decision-cycle.js
+      const governancePath = path.join(process.cwd(), 'src', 'domain', 'decision-cycle.js');
       expect(fs.existsSync(governancePath)).toBe(true);
     });
 
