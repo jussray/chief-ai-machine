@@ -45,3 +45,45 @@ test('established PR/push CI job executes Sauce Guard tests and blocks dynamic l
   assert.ok(workflow.includes('node scripts/verify-sauce-guard-egress.mjs --base='));
   assert.ok(workflow.includes('SAUCE_GUARD_BASE_SHA'));
 });
+
+test('detects multiline calls, split method access and argument-only changes', () => {
+  const cases = [
+    { source: 'console\n  .log(secret);', added: '+  .log(secret);' },
+    { source: 'console.log(\n  secret\n);', added: '+  secret' },
+    { source: 'console.error(\n  providerResponse\n);', added: '+  providerResponse' },
+  ];
+  for (const item of cases) {
+    const source = item.source;
+    const lines = source.split('\n');
+    const changeLine = item.added.includes('secret') && source.includes('console.log(\n') ? 2 : 2;
+    const diff = `+++ b/src/new.ts\n@@ -1,0 +${changeLine},1 @@\n${item.added}\n`;
+    assert.equal(scanAddedLines(diff, { 'src/new.ts': source }).length, 1, source);
+  }
+});
+
+test('accepts fixed code inside control flow, trailing comments and multiline fixed calls', () => {
+  const cases = [
+    "if (!ok) console.error('REQUEST_FAILED'); // safe event",
+    "console.error(\n 'REQUEST_FAILED'\n);",
+    "if (blocked) { console.error('REQUEST_FAILED'); }",
+  ];
+  for (const source of cases) {
+    const diff = `+++ b/src/new.ts\n@@ -1,0 +1,1 @@\n+${source.split('\n')[0]}\n`;
+    assert.deepEqual(scanAddedLines(diff, { 'src/new.ts': source }), [], source);
+  }
+});
+
+test('audits the deployed ProofMode plugin and excludes comments/strings', () => {
+  const diff = '+++ b/plugins/proofmode/src/github-client.ts\n@@ -1,0 +1,1 @@\n+console.error(providerResponse);\n';
+  assert.equal(scanAddedLines(diff, { 'plugins/proofmode/src/github-client.ts': 'console.error(providerResponse);' }).length, 1);
+  assert.deepEqual(scanAddedLines('+++ b/src/demo.ts\n@@ -1,0 +1,1 @@\n+// console.log(secret);\n'), []);
+  assert.deepEqual(scanAddedLines('+++ b/src/demo.ts\n@@ -1,0 +1,1 @@\n+const message = "console.log(secret)";\n'), []);
+});
+
+test('manual CI has a valid comparison base fallback without skipping Sauce Guard', () => {
+  const workflow = read('.github/workflows/control-room-contracts.yml');
+  assert.ok(workflow.includes('workflow_dispatch:'));
+  assert.ok(workflow.includes('fetch-depth: 0'));
+  assert.ok(workflow.includes('git merge-base HEAD FETCH_HEAD'));
+  assert.ok(workflow.includes('git rev-parse HEAD^'));
+});
