@@ -24,7 +24,7 @@ export default [
       sourceType: 'module',
       globals: {
         Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
-        atob: 'readonly', TextDecoder: 'readonly',
+        atob: 'readonly', TextDecoder: 'readonly', crypto: 'readonly', TextEncoder: 'readonly', Headers: 'readonly', console: 'readonly',
       },
     },
   },
@@ -50,6 +50,7 @@ export default [
       sourceType: 'module',
       globals: {
         describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
+        Response: 'readonly', process: 'readonly', console: 'readonly', document: 'readonly',
       },
     },
   },
