@@ -56,6 +56,18 @@ requireValue(contract.v10?.finalAuthority === 'founder', 'founder must remain fi
 requireValue(contract.v10?.authorityInvariant?.includes('may increase its own authority'), 'authority self-escalation invariant is required');
 requireValue(contract.v10?.routingInvariant?.includes('must not reconstruct capability selection'), 'routing separation invariant is required');
 requireValue(contract.v10?.learningInvariant?.includes('self-promote authority'), 'learning self-promotion invariant is required');
+requireValue(contract.relationship?.topology === 'standalone-peers', "Chief and FCR must remain standalone peers");
+requireValue(contract.relationship?.crossSystem?.implicitAuthorityTransferAllowed === false, "Pair contract must forbid implicit authority transfer");
+requireValue(contract.relationship?.crossSystem?.receiptCollapseAllowed === false, "Pair contract must preserve distinct receipts");
+requireValue(contract.commercialPackaging?.chiefTechnicalIndependence === true, "Chief technical independence must be retained");
+requireValue(contract.commercialPackaging?.chiefCommercialIndependence === true, "Chief commercial independence must be retained");
+requireValue(contract.commercialPackaging?.chiefDefaultCommercialRole === 'standalone-product', "Chief must remain its own product");
+requireValue(contract.v10?.promptOSChiefHandoffContract === 'juss/promptos-chief-fcr-command-handoff@v1', "PromptOS-Chief handoff contract must remain present");
+requireValue(contract.v10?.promptOSCommandBoundary?.includes('never authorize execution'), "PromptOS handoffs cannot create execution authority");
+requireValue(contract.automatedPostingAuthorization?.includes('execution-time standing-approval readback'), "Publishing must fail closed without execution-time approval readback");
+requireValue(contract.automatedPostingAuthorization?.includes('fresh exact Current You approval'), "Direct publishing must retain fresh exact-payload approval");
+requireValue(contract.postingApprovalPolicy?.includes('can reread authoritative standing approval at execution'), "Standing approval must be independently readable at execution");
+requireValue(contract.postingApprovalPolicy?.includes('current first-party direct-publish route requires fresh exact-proposal approval'), "Current direct publishing must require fresh exact-proposal approval");
 requireValue(contract.driftPolicy?.includes('pair drift'), 'pair drift policy is required');
 requireValue(contract.runtimeTruthBoundary?.includes('does not prove deployed or runtime behavior'), 'runtime truth boundary is required');
 requireValue(contract.postingTruthBoundary?.includes('observable platform artifact'), 'posting truth boundary is required');
