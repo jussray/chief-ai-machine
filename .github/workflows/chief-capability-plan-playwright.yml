@@ -19,7 +19,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: chief-capability-plan-playwright-${{ github.event.pull_request.number || github.ref }}
+  group: chief-capability-plan-playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 env:

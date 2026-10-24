@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-gates-playwright-${{ github.ref }}
+  group: security-gates-playwright-${{ github.event_name }}-${{ github.sha }}
   cancel-in-progress: true
 
 env:

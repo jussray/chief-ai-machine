@@ -19,7 +19,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: proofmode-mcp-playwright-${{ github.event.pull_request.number || github.ref }}
+  group: proofmode-mcp-playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 env:

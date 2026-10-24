@@ -19,7 +19,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: governance-boundary-required-receipts-${{ github.event.pull_request.number || github.ref }}
+  group: governance-boundary-required-receipts-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 env:
