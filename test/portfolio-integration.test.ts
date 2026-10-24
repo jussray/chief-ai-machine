@@ -41,10 +41,18 @@ describe('Portfolio Integration', () => {
   });
 
   describe('Governance Module', () => {
-    it('should have governance decision context available', () => {
-      // Verify governance entry point exists
-      const governancePath = path.join(process.cwd(), 'src', 'governance');
+    it('should expose the real governance decision-cycle contract without a duplicate authority plane', async () => {
+      // Chief's governance decision interface lives in src/domain/decision-cycle.js.
+      // FCR, not Chief, retains execution/approval authority.
+      const governancePath = path.join(process.cwd(), 'src', 'domain', 'decision-cycle.js');
       expect(fs.existsSync(governancePath)).toBe(true);
+      const { DECISION_CYCLE_CONTRACT, createDecisionCycle, validateDecisionCycle } =
+        await import('../src/domain/decision-cycle.js');
+      expect(DECISION_CYCLE_CONTRACT).toBe('juss-v10/decision-cycle@v1');
+      expect(typeof createDecisionCycle).toBe('function');
+      expect(typeof validateDecisionCycle).toBe('function');
+      // Incomplete evidence cannot produce a falsely approved governance decision.
+      expect(() => createDecisionCycle({})).toThrow();
     });
 
     it('should export decision context for downstream routing', async () => {
