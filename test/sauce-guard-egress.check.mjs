@@ -54,7 +54,6 @@ test('detects multiline calls, split method access and argument-only changes', (
   ];
   for (const item of cases) {
     const source = item.source;
-    const lines = source.split('\n');
     const changeLine = item.added.includes('secret') && source.includes('console.log(\n') ? 2 : 2;
     const diff = `+++ b/src/new.ts\n@@ -1,0 +${changeLine},1 @@\n${item.added}\n`;
     assert.equal(scanAddedLines(diff, { 'src/new.ts': source }).length, 1, source);
