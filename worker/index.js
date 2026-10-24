@@ -2,6 +2,7 @@ import { BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
+import { generateNonce, buildCspHeader } from './csp-policy.js';
 
 function getReleaseSha(env) {
   const candidates = [
@@ -12,6 +13,26 @@ function getReleaseSha(env) {
   ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
+}
+
+// Apply security headers to all responses
+function addSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  const nonce = generateNonce();
+  const csp = buildCspHeader(nonce, true); // report-only mode
+  headers.set(csp.headerName, csp.value);
+
+  // Additional security headers
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 // Chief AI Worker entry point.
@@ -62,6 +83,7 @@ export default {
       return new Response('Not implemented', { status: 501 });
     }
 
-    return env.ASSETS.fetch(request);
+    const response = await env.ASSETS.fetch(request);
+    return addSecurityHeaders(response);
   },
 };
