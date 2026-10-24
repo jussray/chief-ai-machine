@@ -1,11 +1,11 @@
 name: ProofMode Production Authority Bridge
 
+# A founder-submitted, exact-head PR review is the only activation event.
+# Marking a PR ready for review is not production authorization.
 on:
-  pull_request:
+  pull_request_review:
     types:
-      - ready_for_review
-    branches:
-      - main
+      - submitted
 
 permissions:
   contents: read
@@ -27,6 +27,11 @@ jobs:
     if: >-
       github.actor == github.repository_owner
       && github.triggering_actor == github.repository_owner
+      && github.event.review.user.login == github.repository_owner
+      && github.event.review.commit_id == github.event.pull_request.head.sha
+      && contains(github.event.review.body, 'PRODUCTION_ACTION_AUTHORIZED / EXACT_HEAD_BOUND / ONE_SHOT / MERGE_HOLD.')
+      && contains(github.event.review.body, format('Founder production-proof authority granted for exact head `{0}`.', github.event.pull_request.head.sha))
+      && github.event.pull_request.base.ref == 'main'
       && github.event.pull_request.user.login == github.repository_owner
       && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-22.04
