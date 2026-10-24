@@ -82,6 +82,31 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('run.conclusion === "success"');
   });
 
+  it('waits for the exact-head Cloudflare build receipt instead of failing on stale check attempts', () => {
+    const begin = workflow.indexOf('      - name: Resolve exact-head Cloudflare build and Version ID');
+    const end = workflow.indexOf('      - name: Require exact-head pre-production proof packet', begin);
+    const step = workflow.slice(begin, end);
+    expect(begin).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(begin);
+    expect(step).toContain('check-runs?per_page=100');
+    expect(step).toContain('run.head_sha === process.env.EXPECTED_HEAD_SHA');
+    expect(step).toContain('for attempt in {1..90}; do');
+    expect(step).toContain('CLOUDFLARE_VERSION_ID=%s');
+    // No exit 1 can precede the retry-loop deadline.
+    const deadline = step.indexOf('          done\\n');
+    expect(deadline).toBeGreaterThan(0);
+    expect(step.slice(0, deadline)).not.toContain('exit 1');
+    expect(step.slice(deadline)).toContain('exit 1');
+  });
+
+  it('requires an artifact if production Playwright ran, but does not mask upstream failures', () => {
+    expect(workflow).toContain('id: proofmode_production_test');
+    expect(workflow).toContain(
+      "if: always() && (steps.proofmode_production_test.outcome == 'success' || steps.proofmode_production_test.outcome == 'failure')",
+    );
+    expect(workflow).toContain('if-no-files-found: error');
+  });
+
   it('materializes both required deployment environments only through live proof', () => {
     expect(workflow).toContain('name: proofmode-access-admin');
     expect(workflow).toContain('name: Cloudflare Production');
