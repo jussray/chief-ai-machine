@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   AUTHORITY_MARKER,
   BRIDGE_WORKFLOW_PATH,
@@ -79,6 +80,63 @@ describe('production authority receipt', () => {
         },
       }),
     ).toMatchObject({ authenticatedBy: 'founder-bridge' });
+  });
+
+  it('accepts founder-authored review activation when GitHub uses a synthetic merge SHA', () => {
+    const reviewActivation = {
+      ...activation,
+      event: 'pull_request_review',
+      head_sha: 'c'.repeat(40),
+    };
+    expect(
+      assertAuthoritySnapshot({
+        pr,
+        review,
+        comments: [],
+        activation: reviewActivation,
+        env: {
+          ...baseEnv,
+          GITHUB_ACTOR: 'github-actions[bot]',
+          TRIGGERING_ACTOR: 'github-actions[bot]',
+          ACTIVATION_RUN_ID: '777',
+        },
+      }),
+    ).toMatchObject({ authenticatedBy: 'founder-bridge' });
+  });
+
+  it('rejects a review activation that belongs to a different PR head', () => {
+    const reviewActivation = {
+      ...activation,
+      event: 'pull_request_review',
+      head_sha: 'c'.repeat(40),
+      pull_requests: [{ number: 145, head: { sha: 'b'.repeat(40) } }],
+    };
+    expect(() => assertAuthoritySnapshot({
+      pr,
+      review,
+      comments: [],
+      activation: reviewActivation,
+      env: {
+        ...baseEnv,
+        GITHUB_ACTOR: 'github-actions[bot]',
+        TRIGGERING_ACTOR: 'github-actions[bot]',
+        ACTIVATION_RUN_ID: '777',
+      },
+    })).toThrow('Activation PR/head binding mismatch');
+  });
+
+  it('never triggers the production bridge before an exact-head founder review', () => {
+    const workflow = readFileSync(
+      new URL('../.github/workflows/proofmode-production-authority-bridge.yml', import.meta.url),
+      'utf8',
+    );
+    expect(workflow).toMatch(/on:\s*\n\s*pull_request_review:/);
+    expect(workflow).toContain('      - submitted');
+    expect(workflow).not.toContain('ready_for_review');
+    expect(workflow).toContain('github.event.review.user.login == github.repository_owner');
+    expect(workflow).toContain('github.event.review.commit_id == github.event.pull_request.head.sha');
+    expect(workflow).toContain('PRODUCTION_ACTION_AUTHORIZED / EXACT_HEAD_BOUND / ONE_SHOT / MERGE_HOLD.');
+    expect(workflow).toContain("github.event.pull_request.head.repo.full_name == github.repository");
   });
 
   it('rejects bot execution without a founder activation witness', () => {

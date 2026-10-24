@@ -3,6 +3,13 @@ import { showToast, copyText } from './ui.js';
 
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 
+// Control-plane words label governance modes; they must not hijack prompt matching.
+const PROTECTED_CONTROL_TOKEN_PATTERN = /(?:\/?goalfix\b|\bultrathink\b|\btruth\s*mode\b|\btruthmode\b|\/?confess\b|\bred\s*team\b|\bredteam\b|\battack\s*ten\b|\battackten\b|\blindy\s*mode\b|\blindymode\b|\blindy\b|\booda\b|\bproof\s*mode\b|\bproofmode\b|\bl99\b)/gi;
+
+export function stripProtectedControlTokens(text) {
+  return String(text || '').replace(PROTECTED_CONTROL_TOKEN_PATTERN, ' ').replace(/\s+/g, ' ').trim();
+}
+
 const GOALFIX_FREESTYLE_ROUTES = [
   {
     id: 'goalfix-v1-friend-mode',
@@ -14,7 +21,7 @@ const GOALFIX_FREESTYLE_ROUTES = [
   },
   {
     id: 'goalfix-v1-verified-loop',
-    pattern: /(?:^|\s)\/goalfix\b|\bgoalfix\b|\bfinish line\b|\bbottleneck\b/i,
+    pattern: /\bfinish line\b|\bbottleneck\b/i,
   },
 ];
 
@@ -47,10 +54,11 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
-  const text = String(rawText || '');
+  const text = stripProtectedControlTokens(rawText);
   const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
 
   for (const route of GOALFIX_FREESTYLE_ROUTES) {
+    // Route from the remaining substantive intent, never from control tokens alone.
     if (!route.pattern.test(text)) continue;
     const prompt = PROMPTS.find(item => item.id === route.id);
     if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
