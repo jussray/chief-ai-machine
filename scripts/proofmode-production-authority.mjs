@@ -38,7 +38,9 @@ export function assertBridgeActivation({ activation, env, authorityPr, expectedS
     throw new Error('Activation run mismatch');
   }
   if (activation.path !== BRIDGE_WORKFLOW_PATH) throw new Error('Activation workflow mismatch');
-  if (activation.event !== 'pull_request') throw new Error('Activation event is not a pull request');
+  if (!['pull_request', 'pull_request_review'].includes(activation.event)) {
+    throw new Error('Activation event is not an authorized PR event');
+  }
   if (!['in_progress', 'completed'].includes(activation.status)) {
     throw new Error('Activation run is not active or completed');
   }
@@ -51,7 +53,12 @@ export function assertBridgeActivation({ activation, env, authorityPr, expectedS
   if (activation.head_repository?.full_name !== repository) {
     throw new Error('Activation head repository mismatch');
   }
-  if (activation.head_sha !== expectedSha) throw new Error('Activation exact head mismatch');
+  // pull_request_review runs may use a synthetic PR merge SHA as the
+  // workflow head. The PR/head binding below is authoritative for that event.
+  // Ordinary pull_request activations must still have the exact candidate SHA.
+  if (activation.event === 'pull_request' && activation.head_sha !== expectedSha) {
+    throw new Error('Activation exact head mismatch');
+  }
   const prMatch = (activation.pull_requests || []).some((item) =>
     String(item.number) === String(authorityPr)
     && item.head?.sha === expectedSha
