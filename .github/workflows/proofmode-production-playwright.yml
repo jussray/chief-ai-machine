@@ -286,15 +286,22 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?per_page=100" || true)"
             result="$(printf '%s' "$checks" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
               process.stdin.on("end", () => {
                 try {
                   const data = JSON.parse(raw);
-                  const runs = (data.check_runs || []).filter((run) => run.name === "Workers Builds: chief-ai");
-                  const success = runs.find((run) => run.status === "completed" && run.conclusion === "success");
+                  const runs = (data.check_runs || []).filter((run) =>
+                  run.name === "Workers Builds: chief-ai"
+                  && run.head_sha === process.env.EXPECTED_HEAD_SHA
+                );
+                  const success = runs.find((run) =>
+                  run.status === "completed"
+                  && run.conclusion === "success"
+                  && /Version ID:\\s*([0-9a-f-]+)/i.test(run.output?.summary || "")
+                );
                   if (success) {
                     const match = success.output?.summary?.match(/Version ID:\s*([0-9a-f-]+)/i);
                     console.log(match ? `success|${match[1]}` : "success|");
@@ -316,17 +323,16 @@ jobs:
               printf 'CLOUDFLARE_VERSION_ID=%s\n' "$version_id" >> "$GITHUB_ENV"
               exit 0
             fi
-            if [ "$state" = "failure" ]; then
-              printf 'Cloudflare build failed for exact head %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
-            fi
-            if [ "$state" = "success" ] && [ -z "$version_id" ]; then
-              printf 'Cloudflare build succeeded but exposed no Version ID for %s\n' "$EXPECTED_HEAD_SHA" >&2
-              exit 1
+            # A previous failed check is not final: Cloudflare may report a later
+            # successful build for this same head. Never accept an unsuccessful
+            # check, but allow the full bounded materialization window.
+            if [ "$((attempt % 10))" -eq 1 ]; then
+              printf 'Checking Cloudflare build for exact head %s (attempt %s/90; state=%s)\n' \
+                "$EXPECTED_HEAD_SHA" "$attempt" "$state"
             fi
             sleep 2
           done
-          printf 'Cloudflare build did not materialize for exact head %s\n' "$EXPECTED_HEAD_SHA" >&2
+          printf 'No successful Cloudflare build with Version ID materialized for exact head %s after 90 checks (last state=%s)\n' "$EXPECTED_HEAD_SHA" "$state" >&2
           exit 1
 
       - name: Require exact-head pre-production proof packet
@@ -452,6 +458,7 @@ jobs:
           done
 
       - name: Run production ProofMode MCP Playwright proof
+        id: proofmode_production_test
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -476,7 +483,9 @@ jobs:
           npx playwright test --config=playwright.proofmode-production.config.mjs
 
       - name: Retain production Playwright report
-        if: always()
+        # Do not replace an upstream error with a missing-artifact error.
+        # Once Playwright actually runs, its evidence remains mandatory.
+        if: always() && (steps.proofmode_production_test.outcome == 'success' || steps.proofmode_production_test.outcome == 'failure')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
