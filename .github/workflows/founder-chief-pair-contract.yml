@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'config/founder-chief-pair.contract.json'
+      - '.control-room/necessary-fix-policy.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
       - '.claude/skills/juss-chief-ai/SKILL.md'
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'config/founder-chief-pair.contract.json'
+      - '.control-room/necessary-fix-policy.json'
       - 'docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'
       - 'scripts/verify-founder-chief-pair.mjs'
       - '.claude/skills/juss-chief-ai/SKILL.md'
