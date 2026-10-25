@@ -130,7 +130,7 @@ describe('federated relay v3.1 database successor contract', () => {
   it('serializes draft reply reservation and reclaims only stale unsigned drafts', () => {
     const cursorLock = migration.indexOf('from public.federated_relay_outbound_cursors');
     const chainLock = migration.indexOf('from public.federated_relay_chain_cursors');
-    const parentLock = migration.indexOf('from public.federated_relay_messages\n  where message_id = p_parent_message_id\n  for update');
+    const parentLock = migration.indexOf('from public.federated_relay_messages as relay_message\n  where relay_message.message_id = p_parent_message_id\n  for update');
     expect(cursorLock).toBeGreaterThan(-1);
     expect(chainLock).toBeGreaterThan(cursorLock);
     expect(parentLock).toBeGreaterThan(chainLock);
@@ -139,5 +139,35 @@ describe('federated relay v3.1 database successor contract', () => {
     expect(migration).toContain('relay_reply_draft_pending');
     expect(migration).toContain('delete from public.federated_relay_outbox');
     expect(migration).toContain('v_cursor.last_resolved_sequence + 1');
+  });
+
+  it('returns a finalized exact reply before requiring the inbound parent to remain the chain tip', () => {
+    const finalizedLookup = migration.indexOf('from public.federated_relay_outbox as existing_reply');
+    const chainTipGuard = migration.indexOf('if v_chain.last_message_id is distinct from v_parent.message_id');
+    expect(finalizedLookup).toBeGreaterThan(-1);
+    expect(chainTipGuard).toBeGreaterThan(finalizedLookup);
+  });
+
+  it('qualifies output-parameter-shadowing message_id references in reservation and refresh functions', () => {
+    const refreshMigration = readFileSync(new URL(
+      '../supabase/migrations/20260913232000_federated_relay_v31_expired_reply_refresh.sql',
+      import.meta.url,
+    ), 'utf8');
+    expect(migration).not.toMatch(/where message_id = p_parent_message_id/);
+    expect(refreshMigration).not.toMatch(/where message_id = p_(?:parent_)?message_id/);
+    expect(refreshMigration).toContain('where relay_outbox.message_id = p_message_id');
+  });
+
+  it('rechecks exact duplicate acceptance after cursor and chain locks', () => {
+    const acceptanceMigration = readFileSync(new URL(
+      '../supabase/migrations/20260913205000_federated_relay_v31_reply_transport.sql',
+      import.meta.url,
+    ), 'utf8');
+    const chainLock = acceptanceMigration.indexOf('from public.federated_relay_chain_cursors where chain_id=p_chain_id for update');
+    const duplicateRecheck = acceptanceMigration.indexOf('from public.federated_relay_messages as locked_message');
+    const sequenceGuard = acceptanceMigration.indexOf("if p_source_sequence <> v_source.last_sequence + 1");
+    expect(chainLock).toBeGreaterThan(-1);
+    expect(duplicateRecheck).toBeGreaterThan(chainLock);
+    expect(sequenceGuard).toBeGreaterThan(duplicateRecheck);
   });
 });

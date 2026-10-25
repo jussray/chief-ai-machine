@@ -118,13 +118,16 @@ async function verifyDetached(unsigned, signature, key) {
   );
   relayAssert(valid, 'relay_signature_invalid', 401);
 }
-async function verifyEnvelopeSignature(envelope, env, acceptedAt) {
-  const key = registry(env).find((candidate) => candidate.member === envelope.source.member && candidate.keyId === envelope.signature.keyId);
-  relayAssert(key, 'relay_key_unknown', 401);
+export async function verifyRelayEnvelopeSignatureWithKeyV31(envelope, key, acceptedAt) {
   keyWindowUsable(key, envelope.source.member, envelope.issuedAt, acceptedAt);
   const { signature, ...unsigned } = envelope;
   await verifyDetached(unsigned, signature, key);
   return key;
+}
+async function verifyEnvelopeSignature(envelope, env, acceptedAt) {
+  const key = registry(env).find((candidate) => candidate.member === envelope.source.member && candidate.keyId === envelope.signature.keyId);
+  relayAssert(key, 'relay_key_unknown', 401);
+  return verifyRelayEnvelopeSignatureWithKeyV31(envelope, key, acceptedAt);
 }
 function signerMaterial(env) {
   relayAssert(typeof env.FEDERATED_RELAY_RECEIPT_PRIVATE_JWK === 'string'
@@ -143,6 +146,9 @@ function signerMaterial(env) {
   const revokedAt = registered?.revokedAt ?? null;
   relayAssert(typeof validFrom === 'string' && Number.isFinite(Date.parse(validFrom)), 'relay_receipt_key_window_unconfigured', 503);
   relayAssert(validUntil == null || (typeof validUntil === 'string' && Number.isFinite(Date.parse(validUntil))), 'relay_receipt_key_window_invalid', 503);
+  const observedNow = Date.now();
+  relayAssert(Date.parse(validFrom) <= observedNow, 'relay_receipt_key_not_yet_valid', 503);
+  relayAssert(validUntil == null || observedNow <= Date.parse(validUntil), 'relay_receipt_key_expired', 503);
   if (registered?.publicKeyJwk?.x) relayAssert(registered.publicKeyJwk.x === privateJwk.x, 'relay_receipt_signer_mismatch', 503);
   relayAssert(state === 'active' || state === 'retiring', 'relay_receipt_key_not_current', 503);
   relayAssert(!revokedAt, 'relay_receipt_key_not_current', 503);
@@ -201,6 +207,14 @@ async function findStored(env, messageId, fetchImpl) {
     `/rest/v1/federated_relay_messages?message_id=eq.${encodeURIComponent(messageId)}&select=${encodeURIComponent(select)}&limit=1`,
     { method: 'GET', headers: { Accept: 'application/json' } }, fetchImpl);
   return Array.isArray(data) && data.length ? data[0] : null;
+}
+async function findFinalizedReplyForParent(env, parentMessageId, fetchImpl) {
+  const select = 'message_id,envelope,delivery_status';
+  const data = await supabaseRequest(env,
+    `/rest/v1/federated_relay_outbox?parent_message_id=eq.${encodeURIComponent(parentMessageId)}&relation_type=eq.reply&select=${encodeURIComponent(select)}&limit=1`,
+    { method: 'GET', headers: { Accept: 'application/json' } }, fetchImpl);
+  const row = Array.isArray(data) && data.length ? data[0] : null;
+  return row?.envelope ? row : null;
 }
 async function canonicalReceipt(envelope, verified, env, acceptedAt) {
   const local = localIdentity(env);
@@ -327,6 +341,20 @@ async function acceptEnvelope(envelope, env, fetchImpl) {
 async function reserveReply(root, result, env, fetchImpl) {
   relayAssert(root.ordering.relation.type === 'root', 'relay_auto_reply_requires_root');
   relayAssert(root.source.member === 'founder-control-room' && root.target.member === 'chief-ai-machine', 'relay_auto_reply_pair_invalid');
+  const existingReply = await findFinalizedReplyForParent(env, root.messageId, fetchImpl);
+  if (existingReply?.envelope) {
+    assertEnvelopeV31(existingReply.envelope);
+    return existingReply.envelope;
+  }
+  const local = localIdentity(env);
+  relayAssert(
+    root.target.member === local.member
+      && root.target.repository === local.repository
+      && root.target.branch === local.branch
+      && root.target.headSha === local.headSha,
+    'relay_reply_runtime_identity_stale',
+    409,
+  );
   const signer = signerMaterial(env);
   const rpc = await supabaseRequest(env, '/rest/v1/rpc/federated_relay_reserve_reply_v31', {
     method: 'POST',

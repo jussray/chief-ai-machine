@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeRelayJcsV31, sha256HexV31 } from './federated-relay-v31.js';
+import { canonicalizeRelayJcsV31, deliveryFingerprintV31, sha256HexV31 } from './federated-relay-v31.js';
 import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
 import { handleFederatedRelayV31Transport } from './federated-relay-v31-transport.js';
 
@@ -128,6 +128,7 @@ function fakeProvider(state) {
       return Response.json([{ outcome: 'accepted', stored_receipt: args.p_receipt, current_state: 'accepted', superseded_by_message_id: null }]);
     }
     if (url.endsWith('/rest/v1/rpc/federated_relay_reserve_reply_v31')) {
+      state.reserveCalls = (state.reserveCalls || 0) + 1;
       const args = JSON.parse(init.body);
       return Response.json([{
         message_id: state.replyEnvelope?.messageId ?? args.p_proposed_message_id,
@@ -256,6 +257,75 @@ describe('federated relay v3.1 transport', () => {
     expect(second.status).toBe(200);
     expect(secondBody.delivery).toBe('duplicate');
     expect(canonicalizeRelayJcsV31(secondBody.replyEnvelope)).toBe(firstReplyCanonical);
+  });
+
+  it('rejects an expired Chief signing key before accepting durable work', async () => {
+    const fx = await fixture();
+    const keys = JSON.parse(fx.env.FEDERATED_RELAY_PUBLIC_KEYS_JSON);
+    for (const key of keys) {
+      if (key.member === 'chief-ai-machine') key.validUntil = new Date(Date.now() - 60_000).toISOString();
+    }
+    fx.env.FEDERATED_RELAY_PUBLIC_KEYS_JSON = JSON.stringify(keys);
+    const state = {
+      fcrSha: fx.fcrSha, chiefSha: fx.chiefSha, fcrKeyId: fx.fcrKeyId,
+      fcrPublicKey: fx.fcr.publicJwk, validFrom: fx.validFrom, validUntil: fx.validUntil,
+      storedRoot: null, replyEnvelope: null, resolved: null,
+    };
+    const response = await handleFederatedRelayV31Transport(new Request('https://chief.test/api/federated-relay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: canonicalizeRelayJcsV31(fx.root),
+    }), fx.env, fakeProvider(state));
+    const body = await response.json();
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('relay_receipt_key_expired');
+    expect(state.storedRoot).toBeNull();
+  });
+
+  it('authenticates a known envelope before any GitHub provenance lookup', async () => {
+    const fx = await fixture();
+    const state = {
+      fcrSha: fx.fcrSha, chiefSha: fx.chiefSha, fcrKeyId: fx.fcrKeyId,
+      fcrPublicKey: fx.fcr.publicJwk, validFrom: fx.validFrom, validUntil: fx.validUntil,
+      storedRoot: null, replyEnvelope: null, resolved: null,
+    };
+    const forged = structuredClone(fx.root);
+    forged.signature.valueBase64Url = 'A'.repeat(86);
+    const baseFetch = fakeProvider(state);
+    let githubCalls = 0;
+    const fetchImpl = async (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.startsWith('https://api.github.com/')) githubCalls += 1;
+      return baseFetch(input, init);
+    };
+    const response = await handleFederatedRelayV31Runtime(new Request('https://chief.test/api/federated-relay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: canonicalizeRelayJcsV31(forged),
+    }), fx.env, fetchImpl);
+    expect(response.status).toBe(401);
+    expect(githubCalls).toBe(0);
+  });
+
+  it('does not reserve a fresh reply after the Chief runtime identity moves', async () => {
+    const fx = await fixture();
+    const deliveryFingerprint = await deliveryFingerprintV31(fx.root);
+    const state = {
+      fcrSha: fx.fcrSha, chiefSha: '3'.repeat(40), fcrKeyId: fx.fcrKeyId,
+      fcrPublicKey: fx.fcr.publicJwk, validFrom: fx.validFrom, validUntil: fx.validUntil,
+      storedRoot: {
+        message_id: fx.root.messageId,
+        delivery_fingerprint: deliveryFingerprint,
+        receipt: { successorProofCookie: `Q4R:v3.1:${'a'.repeat(64)}` },
+        status: 'accepted',
+        superseded_by_message_id: null,
+      },
+      replyEnvelope: null, resolved: null, reserveCalls: 0,
+    };
+    const movedEnv = { ...fx.env, RELEASE_SHA: state.chiefSha };
+    const response = await handleFederatedRelayV31Transport(new Request('https://chief.test/api/federated-relay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: canonicalizeRelayJcsV31(fx.root),
+    }), movedEnv, fakeProvider(state));
+    const body = await response.json();
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('relay_reply_runtime_identity_stale');
+    expect(state.reserveCalls).toBe(0);
   });
 
   it('persists delivery state only from the signed receipt', async () => {

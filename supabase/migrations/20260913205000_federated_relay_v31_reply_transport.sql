@@ -277,6 +277,19 @@ begin
   select * into v_chain from public.federated_relay_chain_cursors where chain_id=p_chain_id for update;
   if not found then raise exception 'relay_chain_unknown'; end if;
 
+  -- Recheck exact duplicate delivery after the serialization locks. Two
+  -- concurrent first sightings can both miss the optimistic lookup above.
+  select * into v_existing
+  from public.federated_relay_messages as locked_message
+  where locked_message.message_id = p_message_id
+  for update;
+  if found then
+    if v_existing.semantic_fingerprint = p_semantic_fingerprint and v_existing.delivery_fingerprint = p_delivery_fingerprint then
+      return query select 'duplicate'::text,v_existing.receipt,v_existing.status,v_existing.superseded_by_message_id; return;
+    end if;
+    raise exception 'relay_message_id_collision';
+  end if;
+
   v_now := clock_timestamp();
   if p_expires_at <= p_issued_at or p_expires_at-p_issued_at > interval '5 minutes' or p_expires_at < v_now or p_issued_at > v_now + interval '30 seconds' then raise exception 'relay_freshness'; end if;
   if p_source_sequence <> v_source.last_sequence + 1 then raise exception 'relay_source_sequence_not_next'; end if;

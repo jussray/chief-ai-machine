@@ -31,17 +31,17 @@ declare
   v_expires_at timestamptz;
 begin
   select * into v_parent
-  from public.federated_relay_messages
-  where message_id = p_parent_message_id
+  from public.federated_relay_messages as relay_message
+  where relay_message.message_id = p_parent_message_id
   for update;
   if not found or v_parent.status <> 'accepted' then
     raise exception 'relay_reply_refresh_parent_invalid';
   end if;
 
   select * into v_outbox
-  from public.federated_relay_outbox
-  where message_id = p_message_id
-    and parent_message_id = p_parent_message_id
+  from public.federated_relay_outbox as relay_outbox
+  where relay_outbox.message_id = p_message_id
+    and relay_outbox.parent_message_id = p_parent_message_id
     and relation_type = 'reply'
   for update;
   if not found then raise exception 'relay_reply_refresh_outbox_missing'; end if;
@@ -97,7 +97,7 @@ begin
       updated_at = clock_timestamp()
   where chain_id = v_outbox.chain_id;
 
-  update public.federated_relay_outbox
+  update public.federated_relay_outbox as relay_outbox
   set semantic_fingerprint = null,
       delivery_fingerprint = null,
       successor_proof_cookie = null,
@@ -105,7 +105,7 @@ begin
       delivery_status = 'draft',
       signed_at = null,
       resign_count = v_outbox.resign_count + 1
-  where message_id = v_outbox.message_id;
+  where relay_outbox.message_id = v_outbox.message_id;
 
   return query
   select v_outbox.message_id,
