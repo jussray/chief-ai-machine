@@ -363,7 +363,15 @@ export function readStarState() {
 
 export function migrateLegacyCustomStarIds(customPrompts, stars) {
   let changed = false;
+  // Current portable IDs take precedence over obsolete positional references.
+  // Never rewrite a legitimate custom ID such as "c0" as another prompt's index.
+  const currentIds = new Set(
+    (Array.isArray(customPrompts) ? customPrompts : [])
+      .map(prompt => prompt?.id)
+      .filter(id => typeof id === 'string'),
+  );
   const migrated = (Array.isArray(stars) ? stars : []).map((id) => {
+    if (typeof id === 'string' && currentIds.has(id)) return id;
     const match = /^c(\d+)$/.exec(String(id));
     if (!match) return id;
     const prompt = customPrompts[Number(match[1])];
