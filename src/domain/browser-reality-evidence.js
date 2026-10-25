@@ -120,17 +120,22 @@ function isSensitiveQueryKey(key) {
   );
 }
 
-function sanitizeDecodedQueryValue(rawValue, label, depth) {
+function sanitizeDecodedQueryValue(rawValue, label, depth, containingUrl) {
   const normalized = rawValue.normalize('NFC');
+  // URLs nested in redirect/query parameters can be absolute, protocol-relative,
+  // or relative. A URL-looking value that cannot be parsed must not be echoed.
+  const looksLikeUrl = /^[a-z][a-z0-9+.-]*:/i.test(normalized)
+    || /^(?:\\/\\/|\\/|\\.\\.?\\/|\\?|\\\\)/.test(normalized);
+  if (!looksLikeUrl) return normalized;
+  if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
   let nested;
   try {
-    nested = new URL(normalized);
+    nested = new URL(normalized, containingUrl);
   } catch {
-    return normalized;
+    return NESTED_URL_DEPTH_REDACTION;
   }
-  if (!['http:', 'https:'].includes(nested.protocol)) return normalized;
-  if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
-  return sanitizeBrowserRealityUrl(normalized, `${label} nested URL`, depth + 1);
+  if (!['http:', 'https:'].includes(nested.protocol)) return NESTED_URL_DEPTH_REDACTION;
+  return sanitizeBrowserRealityUrl(nested.toString(), `${label} nested URL`, depth + 1);
 }
 
 export function sanitizeBrowserRealityUrl(value, label = 'Browser reality URL', depth = 0) {
@@ -154,7 +159,7 @@ export function sanitizeBrowserRealityUrl(value, label = 'Browser reality URL', 
     .filter(([key]) => !isTrackingQueryKey(key))
     .map(([key, queryValue]) => {
       if (isSensitiveQueryKey(key)) return [key, 'REDACTED'];
-      return [key, sanitizeDecodedQueryValue(queryValue, label, depth)];
+      return [key, sanitizeDecodedQueryValue(queryValue, label, depth, url)];
     })
     .sort((left, right) => utf16Compare(left[0], right[0]) || utf16Compare(left[1], right[1]));
 
