@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { previewNvidiaNativeCouncil as preview } from '../tools/nvidia-native-council-bridge.mjs';
+import { existsSync } from 'node:fs';
+
+// Layout precondition (v6.1): the offline bundle has no src/domain, so the
+// bridge must report NATIVE_UNAVAILABLE. Inside the real repo the canonical
+// modules exist and the same fixtures must reach NATIVE_DRAFT_VALIDATED.
+// The invariant that holds in BOTH layouts is assertHold: nothing is granted.
+const nativePresent = existsSync(new URL('../src/domain/executive-council.js', import.meta.url));
 
 const rep = 'jussray/chief-ai-machine';
 const obj = 'retrieval-evaluation';
@@ -61,10 +68,14 @@ test('malformed native submissions cannot pass intake', async () => {
 test('complete fixtures cannot claim approved/verified data or live integration', async () => {
   const x=await preview({repository:rep,objective:obj,reports:domains.map(record)});
   assertHold(x);
-  // In an isolated review archive, canonical domain files do not exist. In
-  // the authorized real repo, this route uses real native validators instead.
-  assert.equal(x.state, 'NATIVE_UNAVAILABLE');
-  assert.equal(x.nativeCouncilExecuted, false);
+  if (nativePresent) {
+    assert.equal(x.state, 'NATIVE_DRAFT_VALIDATED');
+    assert.equal(x.nativeCouncilExecuted, true);
+    assert.equal(x.draftStatus, 'draft');
+  } else {
+    assert.equal(x.state, 'NATIVE_UNAVAILABLE');
+    assert.equal(x.nativeCouncilExecuted, false);
+  }
 });
 
 test('hostile accessors and throwing proxies cannot escalate a result', async () => {

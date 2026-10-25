@@ -58,13 +58,15 @@ const completeReports = ['engineering','security','privacy','product-safety','op
   ],
 }));
 
-test('v6: bridge returns NATIVE_UNAVAILABLE (not INTAKE_HOLD) for preflight-ready reports in the offline bundle', async () => {
+test('v6: preflight-ready reports reach the native gate (NATIVE_UNAVAILABLE offline, draft-validated in-repo), never INTAKE_HOLD', async () => {
+  const { existsSync } = await import('node:fs');
+  const nativePresent = existsSync(new URL('../src/domain/executive-council.js', import.meta.url));
   const r = await previewNvidiaNativeCouncil({
     repository: 'jussray/chief-ai-machine', objective: 'retrieval-evaluation', reports: completeReports,
   });
-  assert.equal(r.state, 'NATIVE_UNAVAILABLE');
+  assert.equal(r.state, nativePresent ? 'NATIVE_DRAFT_VALIDATED' : 'NATIVE_UNAVAILABLE');
   assert.equal(r.disposition, 'HOLD');
-  assert.equal(r.nativeCouncilExecuted, false);
+  assert.equal(r.nativeCouncilExecuted, nativePresent);
   for (const k of ['mayPublish','mayMerge','mayDeploy','maySendPrivateData','providerEnabled','nativeCouncilApproved']) {
     assert.equal(r[k], false, k);
   }
