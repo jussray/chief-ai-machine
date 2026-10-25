@@ -12,7 +12,8 @@ import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { mountPromptOS } from './modules/promptos-ui.js';
-import { readCustomPromptState, readStarState } from './modules/prompt-state.js';
+import { readCustomPromptState, readStarState, writeCustomPrompts, writeStars } from './modules/prompt-state.js';
+import { LOCAL_FIRST_OUTBOX_KEY } from './modules/local-first.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
@@ -100,8 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
         localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
-        localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
-        localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
+        writeCustomPrompts(imported.customPrompts);
+        writeStars(imported.stars);
         if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
@@ -113,8 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('resetBtn')?.addEventListener('click', () => {
-    if (confirm('Reset all saved goals, intelligence, prompts, stars, and theme?')) {
-      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+    if (confirm('Reset all saved goals, intelligence, prompts, stars, pending sync data, and theme?')) {
+      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', LOCAL_FIRST_OUTBOX_KEY, 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });
