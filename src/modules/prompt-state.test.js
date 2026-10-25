@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'vitest';
-import { normalizeCustomPrompts } from './prompt-state.js';
+import { describe, expect, test, vi } from 'vitest';
+import { normalizeCustomPrompts, writeCustomPrompts, writeStars } from './prompt-state.js';
+import { readLocalFirstOutbox } from './local-first.js';
 
 describe('custom prompt shape membrane', () => {
   test('repairs usable imported prompt shapes and drops entries without prompt text', () => {
@@ -97,5 +98,39 @@ describe('custom prompt shape membrane', () => {
 
     expect(result.changed).toBe(true);
     expect(result.prompts[0].repos).toEqual(['bip', 'think-tank']);
+  });
+});
+
+describe('prompt mutations and local-first outbox', () => {
+  test('all prompt and star replacements compact the queued snapshot', () => {
+    const values = new Map();
+    const storage = {
+      getItem: key => values.has(key) ? values.get(key) : null,
+      setItem: (key, value) => values.set(key, String(value)),
+    };
+    vi.stubGlobal('localStorage', storage);
+    try {
+      const original = [{
+        id: 'custom-offline-1',
+        title: 'Offline prompt',
+        platforms: ['chatgpt'],
+        versions: { chatgpt: 'Saved locally' },
+      }];
+      writeCustomPrompts(original);
+      writeStars(['custom-offline-1']);
+      writeCustomPrompts([]);
+      writeStars([]);
+
+      expect(JSON.parse(storage.getItem('chief-custom'))).toEqual([]);
+      expect(JSON.parse(storage.getItem('chief-stars'))).toEqual([]);
+      const pending = readLocalFirstOutbox(storage);
+      expect(pending).toHaveLength(2);
+      expect(pending).toEqual([
+        expect.objectContaining({ storageKey: 'chief-custom', scope: 'custom-prompts', payload: [] }),
+        expect.objectContaining({ storageKey: 'chief-stars', scope: 'starred-prompts', payload: [] }),
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
