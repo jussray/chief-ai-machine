@@ -1,0 +1,65 @@
+name: Repo Reality Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    name: Repo Reality / exact-head
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out expected commit without persisting credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Confirm checked-out commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          printf 'Expected: %s\nObserved: %s\n' "$EXPECTED_HEAD_SHA" "$observed"
+          test "$observed" = "$EXPECTED_HEAD_SHA"
+          {
+            echo '### Repo Reality / exact-head'
+            echo "- Repository: \`$GITHUB_REPOSITORY\`"
+            echo "- Event: \`$GITHUB_EVENT_NAME\`"
+            echo "- Expected SHA: \`$EXPECTED_HEAD_SHA\`"
+            echo "- Observed checkout SHA: \`$observed\`"
+            echo '- Verified scope: checkout identity ONLY. App tests, evidence truth, required rulesets and deployment are not verified.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Require structured PR evidence fields (not proof of factual accuracy)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          payload = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          body = payload.get("pull_request", {}).get("body") or ""
+          required = ("Scope", "Verification", "Evidence", "Limits", "Rollback")
+          missing = []
+          for label in required:
+              pattern = r"(?ims)^###\s+" + re.escape(label) + r"\s*$\n(.*?)(?=^###\s+|\Z)"
+              match = re.search(pattern, body)
+              value = match.group(1).strip() if match else ""
+              if len(value) < 12 or value.lower() in {"not applicable", "pending", "tbd", "n/a"}:
+                  missing.append(label)
+          if missing:
+              raise SystemExit("PR evidence sections missing or uninformative: " + ", ".join(missing))
+          print("PR has all five nonempty evidence sections. Claims remain unverified.")
+          PY
