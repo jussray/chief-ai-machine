@@ -3,6 +3,7 @@ import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
+import { verifyStripeWebhookSignature } from './stripe-webhook-verify.js';
 
 function getReleaseSha(env) {
   const candidates = [
@@ -15,14 +16,11 @@ function getReleaseSha(env) {
   return value?.trim() || 'unknown';
 }
 
-// Apply security headers to all responses
 function addSecurityHeaders(response) {
   const headers = new Headers(response.headers);
   const nonce = generateNonce();
-  const csp = buildCspHeader(nonce, true); // report-only mode
+  const csp = buildCspHeader(nonce, true);
   headers.set(csp.headerName, csp.value);
-
-  // Additional security headers
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
   headers.set('X-XSS-Protection', '1; mode=block');
@@ -35,55 +33,74 @@ function addSecurityHeaders(response) {
   });
 }
 
-// Chief AI Worker entry point.
-//
-// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
-// Runtime-first routes are declared in wrangler.jsonc so they cannot silently
-// fall through to SPA assets.
+async function handleStripeWebhook(request, env) {
+  if (request.method !== 'POST') {
+    return new Response('Method not allowed', {
+      status: 405,
+      headers: { Allow: 'POST' },
+    });
+  }
+
+  const body = await request.text();
+  const signature = request.headers.get('stripe-signature');
+  const verified = await verifyStripeWebhookSignature(
+    body,
+    signature,
+    env?.STRIPE_WEBHOOK_SECRET,
+  );
+
+  if (!verified) {
+    return Response.json(
+      { ok: false, error: 'invalid_signature' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  return Response.json(
+    { ok: false, verified: true, error: 'event_processing_not_implemented' },
+    {
+      status: 501,
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Chief-Stripe-Signature-Verified': 'true',
+      },
+    },
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    let response;
 
     if (url.pathname === '/version') {
-      return Response.json(
+      response = Response.json(
         { ok: true, sha: getReleaseSha(env) },
         { headers: { 'Cache-Control': 'no-store' } },
       );
-    }
-
-    if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request, env);
-    }
-
-    if (url.pathname === '/api/chief/capability-plan') {
-      return handleChiefCapabilityPlan(request);
-    }
-
-    if (url.pathname === '/api/chief/founder-content-proposal') {
-      return handleChiefFounderContentProposal(request);
-    }
-
-    if (url.pathname === '/.well-known/mcp/server-card.json') {
-      return Response.json(buildProofModeServerCard(url.origin), {
+    } else if (url.pathname === '/mcp') {
+      response = await handleProofModeMcp(request, env);
+    } else if (url.pathname === '/api/chief/capability-plan') {
+      response = await handleChiefCapabilityPlan(request);
+    } else if (url.pathname === '/api/chief/founder-content-proposal') {
+      response = await handleChiefFounderContentProposal(request);
+    } else if (url.pathname === '/api/stripe-webhook') {
+      response = await handleStripeWebhook(request, env);
+    } else if (url.pathname === '/.well-known/mcp/server-card.json') {
+      response = Response.json(buildProofModeServerCard(url.origin), {
         headers: { 'Cache-Control': 'public, max-age=300' },
       });
-    }
-
-    // Discovery paths must 404 honestly. Without this, the SPA fallback
-    // answers them with index.html + 200, which agents and scanners read as
-    // a broken JSON document (or, for /auth.md, as a file that exists).
-    if (url.pathname.startsWith('/.well-known/') || url.pathname === '/auth.md') {
-      return new Response('Not found', {
+    } else if (url.pathname.startsWith('/.well-known/') || url.pathname === '/auth.md') {
+      response = new Response('Not found', {
         status: 404,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       });
+    } else if (url.pathname.startsWith('/api/')) {
+      response = new Response('Not implemented', { status: 501 });
+    } else {
+      response = await env.ASSETS.fetch(request);
     }
 
-    if (url.pathname.startsWith('/api/')) {
-      return new Response('Not implemented', { status: 501 });
-    }
-
-    const response = await env.ASSETS.fetch(request);
     return addSecurityHeaders(response);
   },
 };
