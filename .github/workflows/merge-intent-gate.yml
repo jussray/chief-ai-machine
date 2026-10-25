@@ -37,7 +37,6 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
-          PR_DRAFT: ${{ github.event.pull_request.draft }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -48,7 +47,6 @@ jobs:
             baseRef: process.env.PR_BASE,
             title: process.env.PR_TITLE,
             body: process.env.PR_BODY,
-            isDraft: process.env.PR_DRAFT === 'true',
           });
 
           console.log(JSON.stringify({

@@ -1,0 +1,140 @@
+name: Security Gates Playwright
+
+on:
+  push:
+    branches:
+      - main
+      - fix/security-gates-against-main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-gates-playwright-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.sha }}
+  CHIEF_SECURITY_BASE_URL: http://127.0.0.1:8791
+  STRIPE_WEBHOOK_SECRET: whsec_chief_security_playwright
+
+jobs:
+  verify:
+    name: Verify security gates exact head
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact requested head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checked-out head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Run source gates
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+
+      - name: Install pinned proof tools
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact-head Worker locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'STRIPE_WEBHOOK_SECRET="%s"\n' "$STRIPE_WEBHOOK_SECRET" > .dev.vars
+          log="$RUNNER_TEMP/security-gates-wrangler.log"
+          RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev \
+            --ip 127.0.0.1 \
+            --port 8791 \
+            > "$log" 2>&1 &
+          pid=$!
+          printf '%s\n' "$pid" > "$RUNNER_TEMP/security-gates-wrangler.pid"
+
+          for attempt in {1..45}; do
+            if ! kill -0 "$pid" 2>/dev/null; then
+              cat "$log" >&2 || true
+              exit 1
+            fi
+            body="$(curl --fail --silent "$CHIEF_SECURITY_BASE_URL/version" || true)"
+            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat "$log" >&2 || true
+          echo "Exact-head Worker did not become ready." >&2
+          exit 1
+
+      - name: Run Chromium security proof
+        shell: bash
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+        run: |
+          cat > playwright.security-gates.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './e2e',
+            testMatch: /worker-security-gates-3-4\.pw\.mjs$/,
+            fullyParallel: false,
+            retries: 0,
+            workers: 1,
+            outputDir: './test-results/security-gates',
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: './playwright-report/security-gates', open: 'never' }],
+            ],
+            use: { trace: 'retain-on-failure' },
+          });
+          EOF
+          npx playwright test --config=playwright.security-gates.config.mjs
+
+      - name: Preserve runtime log
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p test-results/security-gates
+          cp "$RUNNER_TEMP/security-gates-wrangler.log" test-results/security-gates/wrangler.log 2>/dev/null || true
+
+      - name: Stop local Worker
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/security-gates-wrangler.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/security-gates-wrangler.pid")" 2>/dev/null || true
+          fi
+          rm -f .dev.vars
+
+      - name: Retain Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: security-gates-playwright
+          path: |
+            playwright-report/security-gates
+            test-results/security-gates
+          if-no-files-found: warn
