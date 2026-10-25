@@ -1,5 +1,3 @@
-import { URL } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 import { canonicalizeRelayJcsV31, sha256HexV31 } from './federated-relay-v31.js';
 import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
