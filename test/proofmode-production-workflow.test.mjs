@@ -130,6 +130,8 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain("if: always() && github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain('Consume attempted one-shot authority');
     expect(workflow).toContain('issues: write');
+    const finalizer = workflow.slice(workflow.indexOf('  finalize-authority:'));
+    expect(finalizer).toContain('      pull-requests: write');
     expect(workflow).toContain('node scripts/proofmode-production-authority.mjs consume');
   });
 
