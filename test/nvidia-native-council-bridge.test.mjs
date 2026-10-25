@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { previewNvidiaNativeCouncil as preview } from '../tools/nvidia-native-council-bridge.mjs';
 import { existsSync } from 'node:fs';
+import { URL } from 'node:url';
 
 // Layout precondition (v6.1): the offline bundle has no src/domain, so the
 // bridge must report NATIVE_UNAVAILABLE. Inside the real repo the canonical

@@ -4,6 +4,7 @@ import { planNvidiaSkillEvaluation } from '../tools/nvidia-skill-evaluation.mjs'
 import { prepareNvidiaCouncilReview } from '../tools/nvidia-council-review.mjs';
 import { preflightNvidiaCouncilEvidence } from '../tools/nvidia-council-evidence-preflight.mjs';
 import { previewNvidiaNativeCouncil } from '../tools/nvidia-native-council-bridge.mjs';
+import { URL } from 'node:url';
 
 // v6: across every public helper, hostile input can never surface an
 // authority-granting field value. Locked fields are also enforced by
