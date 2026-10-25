@@ -45,6 +45,7 @@ describe('Chief AI Worker version receipt', () => {
       'scripts/',
       '.github/',
       '.control-room/',
+      'supabase/',
     ]) {
       expect(assetsIgnore).toContain(required);
     }
