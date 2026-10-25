@@ -12,7 +12,14 @@ import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { mountPromptOS } from './modules/promptos-ui.js';
-import { readCustomPromptState, readStarState, writeCustomPrompts, writeStars } from './modules/prompt-state.js';
+import {
+  normalizeCustomPrompts,
+  readCustomPromptState,
+  readStarState,
+  remapStarReferences,
+  writeCustomPrompts,
+  writeStars,
+} from './modules/prompt-state.js';
 import { LOCAL_FIRST_OUTBOX_KEY } from './modules/local-first.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
@@ -101,8 +108,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
         localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
-        writeCustomPrompts(imported.customPrompts);
-        writeStars(imported.stars);
+        // Resolve reserved and duplicate imported IDs before the first update event.
+        // Otherwise Library can consume the remap before matching stars are persisted.
+        const normalized = normalizeCustomPrompts(imported.customPrompts, {
+          reservedIds: PUBLIC_PROMPTS.map(prompt => prompt.id),
+        });
+        const remapped = remapStarReferences(
+          imported.stars,
+          normalized.idRemap,
+          normalized.ambiguousIds,
+        );
+        writeCustomPrompts(normalized.prompts);
+        writeStars(remapped.stars);
         if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
