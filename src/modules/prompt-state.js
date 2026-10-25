@@ -1,3 +1,5 @@
+import { commitLocalFirstValue } from './local-first.js';
+
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 export const STARRED_PROMPTS_UPDATED_EVENT = 'chief-stars-updated';
 
@@ -32,8 +34,13 @@ function emitStateEvent(name) {
 
 export function writeCustomPrompts(prompts) {
   const safe = normalizeCustomPrompts(Array.isArray(prompts) ? prompts : []).prompts;
-  localStorage.setItem('chief-custom', JSON.stringify(safe));
+  const receipt = commitLocalFirstValue(localStorage, {
+    storageKey: 'chief-custom',
+    scope: 'custom-prompts',
+    value: safe,
+  });
   emitStateEvent(CUSTOM_PROMPTS_UPDATED_EVENT);
+  return receipt;
 }
 
 export function writeStars(stars) {
@@ -43,8 +50,13 @@ export function writeStars(stars) {
       || (typeof value === 'number' && Number.isSafeInteger(value))
     )))]
     : [];
-  localStorage.setItem('chief-stars', JSON.stringify(safe));
+  const receipt = commitLocalFirstValue(localStorage, {
+    storageKey: 'chief-stars',
+    scope: 'starred-prompts',
+    value: safe,
+  });
   emitStateEvent(STARRED_PROMPTS_UPDATED_EVENT);
+  return receipt;
 }
 
 export function createLocalPromptId(prefix = 'custom') {
@@ -249,7 +261,11 @@ export function readCustomPromptState({ reservedIds } = {}) {
 
   if (normalized.changed) {
     try {
-      localStorage.setItem('chief-custom', JSON.stringify(normalized.prompts));
+      commitLocalFirstValue(localStorage, {
+        storageKey: 'chief-custom',
+        scope: 'custom-prompts',
+        value: normalized.prompts,
+      });
     } catch {
       return { state: 'unavailable', prompts: [], idRemap: [], ambiguousIds: [] };
     }
