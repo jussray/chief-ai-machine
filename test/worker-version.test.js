@@ -20,10 +20,8 @@ const assetsIgnore = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes runtime endpoints through the Worker before asset fallback', () => {
-    expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
-    );
+  it('routes every request through the Worker before asset fallback', () => {
+    expect(wranglerConfig).toMatch(/"run_worker_first":\s*true/);
   });
 
   it('keeps governance, secrets, migrations, tests, and tooling out of public Worker assets', () => {
@@ -67,12 +65,11 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('worker/release-sha.js');
   });
 
-  it('returns explicit release SHA without touching assets', async () => {
+  it('returns the explicit release SHA without touching assets', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),
       {
         RELEASE_SHA: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
-        FEDERATED_RELAY_BRANCH: 'feat/federated-relay-v3-1-20260913',
         ASSETS: {
           fetch: () => {
             throw new Error('version route should not fall through to assets');
