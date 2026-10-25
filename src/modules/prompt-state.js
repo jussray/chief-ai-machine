@@ -1,8 +1,8 @@
-import { commitLocalFirstValue } from './local-first.js';
+import { commitLocalFirstValue, PROMPT_STAR_MIGRATION_JOURNAL } from './local-first.js';
+export { PROMPT_STAR_MIGRATION_JOURNAL };
 
 export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 export const STARRED_PROMPTS_UPDATED_EVENT = 'chief-stars-updated';
-export const PROMPT_STAR_MIGRATION_JOURNAL = 'chief-prompt-star-migration-v1';
 
 export function readStoredArrayState(key) {
   let raw;
