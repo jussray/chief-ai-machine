@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { URL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const workflow = readFileSync(
@@ -8,7 +9,7 @@ const workflow = readFileSync(
 
 describe('ProofMode exact-head CI GitHub source admission', () => {
   it('grants only read capabilities required for authenticated public evidence', () => {
-    const permissions = workflow.match(/^permissions:\\n((?:  [^\\n]+\\n)+)/m)?.[1] ?? '';
+    const permissions = workflow.match(/^permissions:\n((?: {2}[^\n]+\n)+)/m)?.[1] ?? '';
     expect(permissions).toContain('contents: read');
     expect(permissions).toContain('checks: read');
     expect(permissions).toContain('actions: read');
