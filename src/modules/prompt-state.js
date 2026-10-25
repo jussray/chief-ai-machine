@@ -348,6 +348,8 @@ export function readCustomPromptState({ reservedIds } = {}) {
 }
 
 export function readStarState() {
+  // Never report stars as known while an interrupted two-key migration is pending.
+  if (!resumePendingPromptStarMigration()) return { state: 'unavailable', stars: [] };
   const read = readStoredArrayState('chief-stars');
   if (read.state !== 'ready') return { state: read.state, stars: [] };
 
