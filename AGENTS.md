@@ -1,5 +1,14 @@
 # Global Agent Operating Contract
 
+## Mandatory founder Sauce Guard (all contributors and agents)
+
+**Always read and apply the canonical founder-owned skill** `jussray/founder-control-room/.agents/skills/sauce-guard/SKILL.md` before any externally visible update, publication, outreach, progress claim, shared screenshot, link, evidence summary, or outgoing content derived from internal product work. Chief proposes drafts only; FCR owns final execution and truth. All humans, coding agents, reviewers, and automated contributors inherit this rule, including delegated subagents.
+
+**Public egress:** verify proof for CURRENT claims; mark historical evidence accurately; hold STALE / UNKNOWN assertions; omit proprietary prompts, internal mechanics, unapproved metrics, private user/teen/customer data, secrets, raw diffs, and provider payloads. **Current You** must approve the exact executable copy; FCR revalidates and **provider readback** is required before claiming it was published. Missing skill, approval, or evidence means HOLD.
+
+**Log egress:** use fixed uppercase event codes rather than untrusted exception messages, user IDs, credentials, raw response bodies or payloads at logger sinks. `scripts/verify-sauce-guard-egress.mjs` rejects newly added dynamic logs in CI. This changed-line scanner does not certify all inherited logs or replace Sauce Guard publication approval; do not bypass either gate to turn CI green.
+
+
 This file applies to Claude, Codex, ChatGPT coding agents, Perplexity-assisted research, GitHub-connected agents, and other repository-writing agents used in the Chief AI ecosystem.
 
 `CLAUDE.md` is the canonical global doctrine. This file restates the rules that must survive when an agent does not automatically read Claude-specific instructions.
@@ -160,6 +169,12 @@ Only `jussray/Sekret-Bip` is the active Se’kret Bip working repository. Other 
 Always re-check the repository before relying on this note. When this contract was created, Chief AI was a vanilla JavaScript SPA: prompt data was imported into browser code; custom prompts, stars, and theme were stored in local storage; Builder and Freestyle selected stored templates rather than calling an AI model; there was no verified private backend, user auth boundary, or secure model-key path.
 
 Do not describe that state as a secure private production control room. A static demo may be deployed statically, but private prompts, authenticated state, and model execution require a reviewed backend boundary.
+
+## Browser Reality Inspection Routing
+
+Requests to resolve a shared link or report what a live rendered page actually shows route to [`.agents/skills/browser-reality-inspector/SKILL.md`](.agents/skills/browser-reality-inspector/SKILL.md) under `juss/browser-reality@v1`. That capability is read-only: the real rendered page and final URL are authoritative, observations use `VERIFIED` / `INFERRED` / `UNKNOWN` / `BLOCKED`, and authentication, permissions, CAPTCHA, provider, mutation, or scope-expansion boundaries stop the workflow.
+
+Browser-managed first-party session state may be reused in place when appropriate, but cookie/session values may never be inspected, extracted, exported, copied, logged, altered, or synthesized. The deterministic `juss-browser-reality-canonical-json-v1` digest binds sanitized evidence content only; it is never a person/device identity, continuity ID, or cross-site correlator.
 
 ## Evidence Report
 
