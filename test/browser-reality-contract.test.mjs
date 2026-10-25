@@ -245,6 +245,26 @@ describe('juss/browser-reality@v1', () => {
     expect(bounded.canonicalJson).not.toContain('deep-secret');
   });
 
+  it('sanitizes protocol-relative and relative redirects before recording evidence', () => {
+    for (const value of [
+      '//user:private-one@inner.example/?token=private-two#private-three',
+      '/continue?sessionid=private-four#private-five',
+      '../start?token=private-six',
+      '?token=private-seven',
+    ]) {
+      const result = canonicalizeBrowserRealityEvidence({
+        ...CONFORMANCE_INPUT,
+        authorizedInputUrl: `https://outer.example/path/?next=${encodeURIComponent(value)}`,
+      });
+      for (const secret of ['private-one', 'private-two', 'private-three', 'private-four',
+        'private-five', 'private-six', 'private-seven']) {
+        expect(result.canonicalJson).not.toContain(secret);
+      }
+      expect(result.canonical.authorizedInputUrl).toContain('next=');
+      expect(result.canonical.authorizedInputUrl).toContain('REDACTED');
+    }
+  });
+
   it('changes the digest when any variable load-bearing field changes', () => {
     const variants = [
       { authorizedInputUrl: 'https://example.com/share/item?a=changed' },
