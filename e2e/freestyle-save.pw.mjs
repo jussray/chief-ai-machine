@@ -241,3 +241,32 @@ test('Friend Mode copy receipt fails closed when clipboard and fallback both fai
   await page.locator('#friendCopy').click();
   await expect(page.locator('#toast')).toHaveText('Copy failed. Select the move manually.');
 });
+
+test('modal never overwrites unknown star storage', async ({ page }) => {
+  const invalid = '{"incomplete":';
+  await page.evaluate(value => localStorage.setItem('chief-stars', value), invalid);
+  await page.reload();
+  await openPage(page, 'library');
+  await page.locator('#grid .pcard .mini-btn.push').first().click();
+  await expect(page.locator('#modalWrap')).toHaveClass(/\\bopen\\b/);
+  await expect(page.locator('#mStar')).toBeDisabled();
+  expect(await page.evaluate(() => localStorage.getItem('chief-stars'))).toBe(invalid);
+});
+
+test('delete replaces a queued prompt snapshot instead of resurrecting it', async ({ page }) => {
+  await openPage(page, 'builder');
+  await page.locator('#saveBuilder').click();
+  await expect(page.locator('#navCustom')).toHaveText('1');
+
+  await openPage(page, 'custom');
+  await page.locator('#customList .citem .mini-btn', { hasText: 'Delete' }).click();
+  await expect(page.locator('#navCustom')).toHaveText('0');
+
+  const state = await page.evaluate(() => ({
+    saved: JSON.parse(localStorage.getItem('chief-custom') || '[]'),
+    outbox: JSON.parse(localStorage.getItem('chief-local-first-outbox-v1') || '[]'),
+  }));
+  expect(state.saved).toEqual([]);
+  const queued = state.outbox.find(item => item.storageKey === 'chief-custom');
+  expect(queued).toMatchObject({ scope: 'custom-prompts', operation: 'replace', payload: [] });
+});
