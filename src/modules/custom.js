@@ -6,7 +6,7 @@ import {
   readCustomPromptState,
   readStarState,
   writeCustomPrompts,
-  writeStars,
+  writeRecoverablePromptAndStarState,
 } from './prompt-state.js';
 
 function makeTextElement(tag, className, text) {
@@ -120,9 +120,8 @@ export function initCustom(PROMPTS, modal) {
         }
         const [removed] = current.prompts.splice(promptIndex, 1);
         try {
-          writeCustomPrompts(current.prompts);
           const nextStars = starRead.stars.filter(id => String(id) !== String(removed?.id));
-          if (nextStars.length !== starRead.stars.length) writeStars(nextStars);
+          writeRecoverablePromptAndStarState(current.prompts, nextStars);
           showToast('Deleted.');
         } catch {
           showToast('Delete failed. Local state was not fully writable.');
