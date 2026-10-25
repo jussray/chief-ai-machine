@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { sha256Hex } from './capability-plan.js';
+import { sha256Hex, createCapabilityPlan } from './capability-plan.js';
 import {
   createCapabilityRegistry,
+  executionContinuityFingerprint,
+  executionSlotKey,
+  createExecutionHandoffReceipt,
   resolveCapabilities,
   validateCapabilityRegistry,
 } from './capability-registry.js';
@@ -23,6 +26,39 @@ function registry() {
 }
 
 describe('trusted capability registry', () => {
+  it('preserves non-authorizing continuity evidence bound to plan and exact head', () => {
+    const plan = createCapabilityPlan({
+      goal: 'Review the Chief/FCR trust boundary',
+      projectSlug: 'chief-ai-machine',
+      expectedHeadSha: 'a'.repeat(40),
+      registryHash: 'b'.repeat(64),
+      requestedAuthority: 'reason',
+      strategicLenses: ['truthmode'],
+      routingReason: 'Keep execution outside the reasoning plane.',
+      capabilities: [{
+        id: 'goalfix-v1', version: '1.0.0', origin: 'repo-native',
+        owner: 'jussray/chief-ai-machine', sourceHash: sha256Hex('fixture'),
+        authorityCeiling: 'reversible',
+      }],
+      proofRequirements: ['exact-head review'],
+      outcomeSignals: ['reviewed'],
+      rollback: 'Discard the proposal',
+    });
+    const receipt = createExecutionHandoffReceipt(plan);
+    expect(receipt.actionAuthority).toBe(false);
+    expect(receipt.requiresFounderApproval).toBe(true);
+    expect(receipt.continuityFingerprint).toBe(executionContinuityFingerprint(plan));
+    expect(receipt.executionSlotKey).toBe(executionSlotKey(plan));
+    expect(receipt.continuityCookie).toMatchObject({
+      browserCookie: false,
+      actionAuthority: false,
+      boundedToExactHead: plan.expectedHeadSha,
+      invalidatesOnPlanChange: true,
+      invalidatesOnHeadChange: true,
+    });
+    expect(receipt.continuityCookie.value).toContain('chief-continuity-v1.');
+  });
+
   it('accepts a registry whose content matches its hash', () => {
     expect(validateCapabilityRegistry(registry())).toEqual({ valid: true, errors: [] });
   });

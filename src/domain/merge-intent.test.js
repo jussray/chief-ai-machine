@@ -36,6 +36,8 @@ describe('merge intent gate', () => {
   it.each([
     ['DO NOT MERGE this PR', 'explicit-do-not-merge'],
     ['KEEP DRAFT until exact-head proof completes', 'keep-draft'],
+    ['1. DO NOT MERGE until exact-head proof passes', 'explicit-do-not-merge'],
+    ['2) KEEP DRAFT until founder review', 'keep-draft'],
     ['## DOWNSTREAM / STALE CANDIDATE', 'stale-candidate'],
     ['## STALE / PROVIDER-BLOCKED CANDIDATE', 'stale-candidate'],
     ['[SUPERSEDED] old candidate', 'superseded'],

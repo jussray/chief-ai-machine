@@ -35,6 +35,20 @@ requireValue(/^\d{4}-\d{2}-\d{2}\.\d+$/.test(contract.contractVersion), 'contrac
 requireValue(contract.pair?.controlRoom === 'jussray/founder-control-room', 'control-room repository drifted');
 requireValue(contract.pair?.chiefAI === 'jussray/chief-ai-machine', 'Chief AI repository drifted');
 requireValue(pkg.name === 'chief-ai-machine', 'validator is running in the wrong repository');
+requireValue(contract.contractVersion === '2026-10-06.1', 'pair contract is not the FCR audited version');
+requireValue(contract.relationship?.topology === 'standalone-peers', 'Chief and FCR must remain standalone peers');
+requireValue(contract.relationship?.crossSystem?.implicitAuthorityTransferAllowed === false, 'cross-system authority transfer must remain forbidden');
+requireValue(contract.relationship?.crossSystem?.evidenceCreatesAuthority === false, 'evidence may not create execution authority');
+requireValue(contract.relationship?.crossSystem?.identityCollapseAllowed === false, 'peer identity must stay independent');
+requireValue(contract.commercialPackaging?.chiefTechnicalIndependence === true, 'Chief technical independence must remain true');
+requireValue(contract.commercialPackaging?.chiefCommercialIndependence === true, 'Chief commercial independence must remain true');
+requireValue(contract.v10?.promptOSCommandIntentContract === 'promptos/public-command-intent@v1', 'PromptOS intent handoff is required');
+requireValue(contract.v10?.promptOSChiefHandoffContract === 'juss/promptos-chief-fcr-command-handoff@v1', 'Chief handoff contract is required');
+requireValue(contract.v10?.promptOSCommandIntakeContract === 'juss/fcr-public-command-intake@v1', 'FCR command intake contract is required');
+requireValue(contract.v10?.promptOSCommandBoundary?.includes('never authorize execution'), 'PromptOS command must remain advisory only');
+requireValue(contract.automatedPostingAuthorization?.includes('execution-time standing-approval readback is fail-closed'), 'automated publishing requires execution-time authority');
+requireValue(contract.postingApprovalPolicy?.includes('fresh exact-proposal approval'), 'first-party direct publishing requires exact-proposal approval');
+
 requireValue(
   contract.roles?.controlRoom?.join('|') === 'memory|governance|evidence|coordination|execution authority|outcome receipts',
   'control-room V10 role contract drifted',

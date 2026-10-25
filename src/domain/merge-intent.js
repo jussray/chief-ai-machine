@@ -37,6 +37,7 @@ function directiveLines(title, body) {
       .trim()
       .replace(/^#{1,6}\s*/, '')
       .replace(/^[-*+]\s+/, '')
+      .replace(/^\d+[.)]\s+/, '')
       .trim();
 
     if ((line.startsWith('**') && line.endsWith('**')) || (line.startsWith('__') && line.endsWith('__'))) {
