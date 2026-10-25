@@ -13,7 +13,9 @@
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs",
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
-    "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"
+    "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs",
+    "deploy:api:production": "npx wrangler deploy",
+    "verify:browser-reality": "vitest run test/browser-reality-contract.test.mjs test/browser-reality-network.test.mjs src/promptos/catalog.test.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",

@@ -12,16 +12,35 @@ import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { mountPromptOS } from './modules/promptos-ui.js';
+import {
+  normalizeCustomPrompts,
+  readCustomPromptState,
+  readStarState,
+  remapStarReferences,
+  writeRecoverablePromptAndStarState,
+  PROMPT_STAR_MIGRATION_JOURNAL,
+} from './modules/prompt-state.js';
+import { LOCAL_FIRST_OUTBOX_KEY } from './modules/local-first.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
-function readArray(key) {
+function readArrayState(key) {
+  let raw;
   try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(value) ? value : [];
+    raw = localStorage.getItem(key);
   } catch {
-    return [];
+    return { state: 'unavailable', values: [] };
+  }
+  if (raw === null) return { state: 'ready', values: [] };
+
+  try {
+    const value = JSON.parse(raw);
+    return Array.isArray(value)
+      ? { state: 'ready', values: value }
+      : { state: 'corrupt', values: [] };
+  } catch {
+    return { state: 'corrupt', values: [] };
   }
 }
 
@@ -48,12 +67,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('exportBtn')?.addEventListener('click', () => {
+    const intelligence = readArrayState(INTELLIGENCE_STORAGE_KEY);
+    const custom = readCustomPromptState({ reservedIds: PUBLIC_PROMPTS.map(p => p.id) });
+    const stars = readStarState();
+    const goals = readArrayState(GOAL_STORAGE_KEY);
+    const unreadable = [
+      ['intelligence', intelligence.state],
+      ['custom prompts', custom.state],
+      ['stars', stars.state],
+      ['goals', goals.state],
+    ].filter(([, state]) => state !== 'ready').map(([label]) => label);
+
+    if (unreadable.length) {
+      showToast(`Export blocked — ${unreadable.join(', ')} state is UNKNOWN.`);
+      return;
+    }
+
     const snapshot = createPortableSnapshot({
-      assets: readArray(INTELLIGENCE_STORAGE_KEY),
-      customPrompts: readArray('chief-custom'),
-      stars: readArray('chief-stars'),
+      assets: intelligence.values,
+      customPrompts: custom.prompts,
+      stars: stars.stars,
     });
-    snapshot.goals = readArray(GOAL_STORAGE_KEY);
+    snapshot.goals = goals.values;
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -73,8 +108,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
         localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
-        localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
-        localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
+        // Resolve reserved and duplicate imported IDs before the first update event.
+        // Otherwise Library can consume the remap before matching stars are persisted.
+        const normalized = normalizeCustomPrompts(imported.customPrompts, {
+          reservedIds: PUBLIC_PROMPTS.map(prompt => prompt.id),
+        });
+        const remapped = remapStarReferences(
+          imported.stars,
+          normalized.idRemap,
+          normalized.ambiguousIds,
+        );
+        writeRecoverablePromptAndStarState(normalized.prompts, remapped.stars);
         if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
@@ -86,8 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('resetBtn')?.addEventListener('click', () => {
-    if (confirm('Reset all saved goals, intelligence, prompts, stars, and theme?')) {
-      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+    if (confirm('Reset all saved goals, intelligence, prompts, stars, pending sync data, and theme?')) {
+      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', LOCAL_FIRST_OUTBOX_KEY, PROMPT_STAR_MIGRATION_JOURNAL, 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });
