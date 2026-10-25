@@ -27,7 +27,18 @@ function parseOutbox(raw) {
 
 export function readLocalFirstOutbox(storage = globalThis.localStorage, outboxKey = LOCAL_FIRST_OUTBOX_KEY) {
   try {
-    return parseOutbox(storage?.getItem?.(outboxKey));
+    const entries = parseOutbox(storage?.getItem?.(outboxKey));
+    // Failed queue rewrites can leave an older pending replacement behind.
+    // Never hand that stale payload to a future synchronizer.
+    return entries.filter(entry => {
+      try {
+        const current = storage?.getItem?.(entry.storageKey);
+        return current !== null && current !== undefined
+          && JSON.stringify(JSON.parse(current)) === JSON.stringify(entry.payload);
+      } catch {
+        return false;
+      }
+    });
   } catch {
     return [];
   }
