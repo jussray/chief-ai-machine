@@ -57,8 +57,8 @@ for (const command of ['/goalfix', '/ultrathink', '/truthmode', '/confess', '/re
 const failed = checks.filter(([, passed]) => !passed);
 
 if (failed.length) {
-  console.error('Goalfix skill verification failed:');
-  for (const [name] of failed) console.error(`- ${name}`);
+  // Fixed opaque event code: do not print dynamic check names in CI logs.
+  console.error('GOALFIX_SKILL_VERIFICATION_FAILED');
   process.exit(1);
 }
 
