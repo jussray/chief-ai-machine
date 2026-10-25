@@ -32,11 +32,40 @@ test('v6 locked fields: preflight stays HOLD on hostile complete-looking input',
   assert.equal(r.verifiedSourceEvidence, false);
 });
 
-test('v6 locked fields: bridge offline returns NATIVE_UNAVAILABLE with every may* false', async () => {
+test('v6 locked fields: bridge stops at INTAKE_HOLD when no valid reports are supplied', async () => {
   const r = await previewNvidiaNativeCouncil(hostile);
   assert.equal(r.state, 'INTAKE_HOLD');
   assert.equal(r.disposition, 'HOLD');
   for (const k of ['mayPublish', 'mayMerge', 'mayDeploy', 'maySendPrivateData', 'providerEnabled', 'nativeCouncilApproved']) {
+    assert.equal(r[k], false, k);
+  }
+});
+
+// True NATIVE_UNAVAILABLE path: reports pass structural preflight, but the
+// canonical src/domain modules are absent from this offline bundle layout,
+// so the bridge must report NATIVE_UNAVAILABLE and still grant nothing.
+const completeReports = ['engineering','security','privacy','product-safety','operations'].map((domain, i) => ({
+  schemaVersion: 1, id: `fixture-${domain}`, domain, workspaceId: 'fixture',
+  projectId: 'chief-ai-machine', role: `${domain} test reviewer`,
+  status: 'reviewed', position: i === 1 ? 'oppose' : 'conditional',
+  conclusion: 'Synthetic fixture; real evidence and real reviewer are missing.',
+  recommendation: 'Do not deploy; conduct actual independent review.',
+  confidence: 35, assumptions: [], risks: ['The fixture is not real-world evidence.'],
+  dependencies: ['Actual specialist review'],
+  reality: [
+    { state: 'verified', statement: `Only the ${domain} test fixture exists.`, sourceRefs: ['test-fixture-not-external-proof'] },
+    { state: 'unknown', statement: 'Live NVIDIA integration not verified.', sourceRefs: [] },
+  ],
+}));
+
+test('v6: bridge returns NATIVE_UNAVAILABLE (not INTAKE_HOLD) for preflight-ready reports in the offline bundle', async () => {
+  const r = await previewNvidiaNativeCouncil({
+    repository: 'jussray/chief-ai-machine', objective: 'retrieval-evaluation', reports: completeReports,
+  });
+  assert.equal(r.state, 'NATIVE_UNAVAILABLE');
+  assert.equal(r.disposition, 'HOLD');
+  assert.equal(r.nativeCouncilExecuted, false);
+  for (const k of ['mayPublish','mayMerge','mayDeploy','maySendPrivateData','providerEnabled','nativeCouncilApproved']) {
     assert.equal(r[k], false, k);
   }
 });
