@@ -125,7 +125,9 @@ function sanitizeDecodedQueryValue(rawValue, label, depth, containingUrl) {
   // URLs nested in redirect/query parameters can be absolute, protocol-relative,
   // or relative. A URL-looking value that cannot be parsed must not be echoed.
   const looksLikeUrl = /^[a-z][a-z0-9+.-]*:/i.test(normalized)
-    || /^(?:\\/\\/|\\/|\\.\\.?\\/|\\?|\\\\)/.test(normalized);
+    || normalized.startsWith('/') || normalized.startsWith('?')
+    || normalized.startsWith('./') || normalized.startsWith('../')
+    || normalized.charCodeAt(0) === 92;
   if (!looksLikeUrl) return normalized;
   if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
   let nested;
