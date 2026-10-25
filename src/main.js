@@ -17,8 +17,8 @@ import {
   readCustomPromptState,
   readStarState,
   remapStarReferences,
-  writeCustomPrompts,
-  writeStars,
+  writeRecoverablePromptAndStarState,
+  PROMPT_STAR_MIGRATION_JOURNAL,
 } from './modules/prompt-state.js';
 import { LOCAL_FIRST_OUTBOX_KEY } from './modules/local-first.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
@@ -118,8 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
           normalized.idRemap,
           normalized.ambiguousIds,
         );
-        writeCustomPrompts(normalized.prompts);
-        writeStars(remapped.stars);
+        writeRecoverablePromptAndStarState(normalized.prompts, remapped.stars);
         if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
@@ -132,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('resetBtn')?.addEventListener('click', () => {
     if (confirm('Reset all saved goals, intelligence, prompts, stars, pending sync data, and theme?')) {
-      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', LOCAL_FIRST_OUTBOX_KEY, 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', LOCAL_FIRST_OUTBOX_KEY, PROMPT_STAR_MIGRATION_JOURNAL, 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });
