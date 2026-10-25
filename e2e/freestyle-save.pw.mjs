@@ -248,7 +248,7 @@ test('modal never overwrites unknown star storage', async ({ page }) => {
   await page.reload();
   await openPage(page, 'library');
   await page.locator('#grid .pcard .mini-btn.push').first().click();
-  await expect(page.locator('#modalWrap')).toHaveClass(/\\bopen\\b/);
+  await expect(page.locator('#modalWrap')).toHaveClass(/\bopen\b/);
   await expect(page.locator('#mStar')).toBeDisabled();
   expect(await page.evaluate(() => localStorage.getItem('chief-stars'))).toBe(invalid);
 });
