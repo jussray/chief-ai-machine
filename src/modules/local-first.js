@@ -1,5 +1,6 @@
 export const LOCAL_FIRST_OUTBOX_KEY = 'chief-local-first-outbox-v1';
 export const LOCAL_FIRST_OUTBOX_VERSION = 1;
+export const PROMPT_STAR_MIGRATION_JOURNAL = 'chief-prompt-star-migration-v1';
 
 const MAX_OUTBOX_ITEMS = 100;
 
@@ -27,6 +28,8 @@ function parseOutbox(raw) {
 
 export function readLocalFirstOutbox(storage = globalThis.localStorage, outboxKey = LOCAL_FIRST_OUTBOX_KEY) {
   try {
+    // Do not expose half-migrated custom prompt/star snapshots to any sync adapter.
+    if (storage?.getItem?.(PROMPT_STAR_MIGRATION_JOURNAL) !== null) return [];
     const entries = parseOutbox(storage?.getItem?.(outboxKey));
     // Failed queue rewrites can leave an older pending replacement behind.
     // Never hand that stale payload to a future synchronizer.
