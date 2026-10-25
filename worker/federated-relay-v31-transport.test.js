@@ -287,7 +287,7 @@ describe('federated relay v3.1 transport', () => {
       fcrPublicKey: fx.fcr.publicJwk, validFrom: fx.validFrom, validUntil: fx.validUntil,
       storedRoot: null, replyEnvelope: null, resolved: null,
     };
-    const forged = structuredClone(fx.root);
+    const forged = globalThis.structuredClone(fx.root);
     forged.signature.valueBase64Url = 'A'.repeat(86);
     const baseFetch = fakeProvider(state);
     let githubCalls = 0;
