@@ -81,6 +81,18 @@ describe('local-first write contract', () => {
     })]);
   });
 
+  test('prevents synchronizers from observing half-applied identity migrations', () => {
+    const storage = new MemoryStorage();
+    commitLocalFirstValue(storage, {
+      storageKey: 'chief-custom',
+      value: [{ id: 'new-custom-id' }],
+    });
+    storage.setItem('chief-prompt-star-migration-v1', JSON.stringify({
+      version: 1, prompts: [{ id: 'new-custom-id' }], stars: ['new-custom-id'],
+    }));
+    expect(readLocalFirstOutbox(storage)).toEqual([]);
+  });
+
   test('never surfaces an older queued payload when a later outbox write fails', () => {
     const storage = new MemoryStorage();
     commitLocalFirstValue(storage, {
