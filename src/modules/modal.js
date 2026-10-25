@@ -2,7 +2,7 @@ import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
 import {
   STARRED_PROMPTS_UPDATED_EVENT,
-  readStoredArray,
+  readStarState,
   writeStars,
 } from './prompt-state.js';
 
@@ -21,8 +21,17 @@ export function initModal() {
 
   let currentPrompt = null;
   let currentTab = null;
-  let stars = readStoredArray('chief-stars');
+  let stars = [];
+  let starState = 'ready';
   let returnFocus = null;
+
+  function reloadStars() {
+    const read = readStarState();
+    starState = read.state;
+    stars = read.state === 'ready' ? read.stars : [];
+  }
+
+  reloadStars();
 
   function sameId(a, b) {
     return String(a) === String(b);
@@ -34,6 +43,16 @@ export function initModal() {
 
   function syncStar() {
     if (!currentPrompt || !mStar) return;
+    const readable = starState === 'ready';
+    mStar.disabled = !readable;
+    mStar.setAttribute('aria-disabled', readable ? 'false' : 'true');
+    mStar.title = readable ? '' : 'Star state is UNKNOWN. Nothing can be changed.';
+    if (!readable) {
+      mStar.textContent = '☆';
+      mStar.classList.remove('on');
+      mStar.setAttribute('aria-label', 'Star status UNKNOWN');
+      return;
+    }
     const on = isStarred(currentPrompt.id);
     mStar.textContent = on ? '★' : '☆';
     mStar.classList.toggle('on', on);
@@ -42,7 +61,7 @@ export function initModal() {
 
   function open(prompt) {
     returnFocus = document.activeElement;
-    stars = readStoredArray('chief-stars');
+    reloadStars();
     currentPrompt = prompt;
     mTitle.textContent = (prompt.emoji || '') + '  ' + (prompt.title || 'Untitled');
     mSub.textContent = prompt.sub || '';
@@ -95,10 +114,23 @@ export function initModal() {
 
   mStar?.addEventListener('click', () => {
     if (!currentPrompt) return;
-    stars = isStarred(currentPrompt.id)
-      ? stars.filter(id => !sameId(id, currentPrompt.id))
-      : [...stars, currentPrompt.id];
-    writeStars(stars);
+    // Recheck immediately before mutation; modal state may have changed.
+    const read = readStarState();
+    if (read.state !== 'ready') {
+      reloadStars();
+      syncStar();
+      showToast('Star state is UNKNOWN. Nothing was changed.');
+      return;
+    }
+    const next = read.stars.some(id => sameId(id, currentPrompt.id))
+      ? read.stars.filter(id => !sameId(id, currentPrompt.id))
+      : [...read.stars, currentPrompt.id];
+    try {
+      writeStars(next);
+    } catch {
+      showToast('Star update failed. Saved star state was not replaced.');
+    }
+    reloadStars();
     syncStar();
   });
 
@@ -117,7 +149,7 @@ export function initModal() {
     if (event.key === 'Escape') close();
   });
   window.addEventListener(STARRED_PROMPTS_UPDATED_EVENT, () => {
-    stars = readStoredArray('chief-stars');
+    reloadStars();
     syncStar();
   });
 
