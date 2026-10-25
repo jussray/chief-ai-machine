@@ -1,5 +1,14 @@
 import { describe, expect, test, vi } from 'vitest';
-import { normalizeCustomPrompts, writeCustomPrompts, writeStars } from './prompt-state.js';
+import {
+  normalizeCustomPrompts,
+  readCustomPromptState,
+  readStarState,
+  remapStarReferences,
+  writeRecoverablePromptAndStarState,
+  writeCustomPrompts,
+  writeStars,
+  PROMPT_STAR_MIGRATION_JOURNAL,
+} from './prompt-state.js';
 import { readLocalFirstOutbox } from './local-first.js';
 
 describe('custom prompt shape membrane', () => {
@@ -129,6 +138,69 @@ describe('prompt mutations and local-first outbox', () => {
         expect.objectContaining({ storageKey: 'chief-custom', scope: 'custom-prompts', payload: [] }),
         expect.objectContaining({ storageKey: 'chief-stars', scope: 'starred-prompts', payload: [] }),
       ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('recoverable prompt and star identity migration', () => {
+  test('retains a journal and restores both keys after a simulated star write failure', () => {
+    const originalPrompt = {
+      id: '1', title: 'Imported custom prompt', platforms: ['chatgpt'],
+      versions: { chatgpt: 'Private custom prompt' },
+    };
+    const values = new Map([
+      ['chief-custom', JSON.stringify([originalPrompt])],
+      ['chief-stars', JSON.stringify(['1'])],
+    ]);
+    let failStarWrites = true;
+    const storage = {
+      getItem: key => values.has(key) ? values.get(key) : null,
+      setItem: (key, value) => {
+        if (key === 'chief-stars' && failStarWrites) throw new Error('simulated quota failure');
+        values.set(key, String(value));
+      },
+      removeItem: key => values.delete(key),
+    };
+    vi.stubGlobal('localStorage', storage);
+    try {
+      const interrupted = readCustomPromptState({ reservedIds: [1] });
+      expect(interrupted.state).toBe('unavailable');
+      expect(storage.getItem(PROMPT_STAR_MIGRATION_JOURNAL)).not.toBeNull();
+      expect(JSON.parse(storage.getItem('chief-stars'))).toEqual(['1']);
+
+      failStarWrites = false;
+      const recovered = readCustomPromptState({ reservedIds: [1] });
+      expect(recovered.state).toBe('ready');
+      expect(recovered.prompts).toHaveLength(1);
+      expect(recovered.prompts[0].id).toMatch(/^custom-/);
+      expect(readStarState().stars).toEqual([recovered.prompts[0].id]);
+      expect(storage.getItem(PROMPT_STAR_MIGRATION_JOURNAL)).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test('import commits pre-remapped custom stars without starring reserved public IDs', () => {
+    const values = new Map();
+    const storage = {
+      getItem: key => values.has(key) ? values.get(key) : null,
+      setItem: (key, value) => values.set(key, String(value)),
+      removeItem: key => values.delete(key),
+    };
+    vi.stubGlobal('localStorage', storage);
+    try {
+      const result = normalizeCustomPrompts([{
+        id: '1', title: 'Collision probe',
+        platforms: ['chatgpt'], versions: { chatgpt: 'Imported text' },
+      }], { reservedIds: [1] });
+      const stars = remapStarReferences(['1'], result.idRemap, result.ambiguousIds).stars;
+      writeRecoverablePromptAndStarState(result.prompts, stars);
+      expect(readStarState().stars).toEqual([result.prompts[0].id]);
+      expect(readCustomPromptState({ reservedIds: [1] }).prompts[0].id)
+        .toBe(result.prompts[0].id);
+      expect(storage.getItem(PROMPT_STAR_MIGRATION_JOURNAL)).toBeNull();
     } finally {
       vi.unstubAllGlobals();
     }
