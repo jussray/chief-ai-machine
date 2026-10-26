@@ -192,11 +192,11 @@ jobs:
             outputDir: './test-results/proofmode-access',
             reporter: [
               ['line'],
-              ['html', { outputFolder: './playwright-report/proofmode-access', open: 'never' }],
+              ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-access-safe.json' }],
             ],
             use: {
               baseURL: process.env.PROOFMODE_PREVIEW_URL,
-              trace: 'retain-on-failure',
+              trace: 'off',
               extraHTTPHeaders: {
                 'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
                 'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
@@ -211,9 +211,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-access-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            playwright-report/proofmode-access
-            test-results/proofmode-access
+          path: artifacts/proofmode-access-safe.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -525,10 +523,10 @@ jobs:
             outputDir: './test-results/proofmode-production',
             reporter: [
               ['line'],
-              ['html', { outputFolder: './playwright-report/proofmode-production', open: 'never' }],
+              ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-production-safe.json' }],
             ],
             use: {
-              trace: 'retain-on-failure',
+              trace: 'off',
               extraHTTPHeaders: {
                 'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
                 'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
@@ -545,9 +543,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            playwright-report/proofmode-production
-            test-results/proofmode-production
+          path: artifacts/proofmode-production-safe.json
           if-no-files-found: error
           retention-days: 14
 
