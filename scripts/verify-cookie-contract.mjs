@@ -37,7 +37,7 @@ const patterns = [
   /\bheaders\s*\.\s*(?:set|append)\s*\(\s*['"]set-cookie['"]/i,
   /\b(?:createCookieSessionStorage|serializeCookieHeader|setCookie)\s*(?:<[^>]+>)?\s*\(/,
   /\bnew\s+Headers\s*\(\s*\{\s*['"]?set-cookie['"]?\s*:/i,
-  /\b['"]set-cookie['"]\s*:/i,
+  /['"]set-cookie['"]\s*:/i,
 ];
 export const hasCookieUse = (source) => patterns.some((pattern) => pattern.test(source));
 const ext = (path) => path.slice(path.lastIndexOf('.'));
