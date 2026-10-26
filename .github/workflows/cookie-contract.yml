@@ -5,6 +5,7 @@ on:
     paths:
       - '.security/cookies.json'
       - 'scripts/verify-cookie-contract.mjs'
+      - 'scripts/cookie-contract-regressions.test.mjs'
       - 'index.html'
       - 'src/**'
       - '.github/workflows/cookie-contract.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - '.security/cookies.json'
       - 'scripts/verify-cookie-contract.mjs'
+      - 'scripts/cookie-contract-regressions.test.mjs'
       - 'index.html'
       - 'src/**'
       - '.github/workflows/cookie-contract.yml'
@@ -47,3 +49,5 @@ jobs:
         with:
           node-version: '24'
       - run: node scripts/verify-cookie-contract.mjs
+      - name: Exercise scanner regression cases
+        run: node --test scripts/cookie-contract-regressions.test.mjs
