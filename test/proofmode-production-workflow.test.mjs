@@ -107,6 +107,16 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('if-no-files-found: error');
   });
 
+  it('retains only credential-safe outcomes for authenticated proof', () => {
+    expect(workflow).not.toContain("trace: 'retain-on-failure'");
+    expect(workflow).not.toContain("['html',");
+    expect(workflow).toContain("trace: 'off'");
+    expect(workflow).toContain("['./scripts/proofmode-safe-reporter.mjs'");
+    expect(workflow).toContain('path: artifacts/proofmode-access-safe.json');
+    expect(workflow).toContain('path: artifacts/proofmode-production-safe.json');
+    expect(workflow).not.toMatch(/path: \|\s+playwright-report/);
+  });
+
   it('uses the existing scoped Access token only in the production runtime proof job', () => {
     const begin = workflow.indexOf('  production-proof:');
     const end = workflow.indexOf('  finalize-authority:', begin);
