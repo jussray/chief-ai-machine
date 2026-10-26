@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import { classifyProductionIdentity } from '../scripts/classify-production-identity.mjs';
