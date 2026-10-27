@@ -1,7 +1,19 @@
 /**
- * GitOperations: Utility functions for git operations via shell.
+ * GitOperations: Coordinator for git operations via external service.
  *
- * Used by GoalFixAgent to:
+ * ⚠️ DESIGN NOTE: Cloudflare Workers cannot execute subprocess commands.
+ * These functions are STUBS that call out to an external Git service:
+ * - GitHub Actions API (for running git commands)
+ * - Temporal workflows (for long-running git operations)
+ * - External subprocess service (Render, Railway, etc.)
+ *
+ * This module defines the interface. Actual implementation requires:
+ * - External service with git binary + environment
+ * - Async job queue (commands take time)
+ * - Credential management (SSH keys, tokens)
+ * - Output capture (stdout, stderr, exit code)
+ *
+ * Used by GoalFixAgent to request:
  * - Clone repos at exact SHAs
  * - Inspect branch state
  * - Detect changes
