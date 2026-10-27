@@ -13,7 +13,12 @@
     "verify:founder-chief-pair": "node scripts/verify-founder-chief-pair.mjs",
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
-    "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs"
+    "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs",
+    "deploy:agents": "wrangler deploy",
+    "dev:agents": "wrangler dev"
+  },
+  "dependencies": {
+    "agents": "^0.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
