@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-
 /**
  * GitHubWebhookRouter: Routes GitHub events to appropriate agents.
  *
@@ -9,7 +7,7 @@ import crypto from 'crypto';
  * - push (trigger deployments)
  *
  * Security:
- * - Verify HMAC-SHA256 signature from GitHub
+ * - Verify HMAC-SHA256 signature from GitHub (Web Crypto API)
  * - Only dispatch authenticated events
  */
 
@@ -39,6 +37,11 @@ export interface GitHubWebhookEvent {
   };
 }
 
+interface Env {
+  GITHUB_WEBHOOK_SECRET?: string;
+  [key: string]: any;
+}
+
 export class GitHubWebhookRouter {
   private webhookSecret: string;
 
@@ -47,16 +50,24 @@ export class GitHubWebhookRouter {
   }
 
   /**
-   * Verify GitHub webhook signature.
+   * Verify GitHub webhook signature using Web Crypto API.
    * GitHub sends X-Hub-Signature-256 header with HMAC-SHA256(secret, body).
    */
-  verifySignature(body: string, signature: string): boolean {
-    const hash = crypto
-      .createHmac('sha256', this.webhookSecret)
-      .update(body)
-      .digest('hex');
-    const expectedSignature = `sha256=${hash}`;
-    return crypto.timingSafeEqual(expectedSignature, signature);
+  async verifySignature(body: string, signature: string): Promise<boolean> {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(this.webhookSecret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const hash = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+    const hashHex = Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    const expectedSignature = `sha256=${hashHex}`;
+    return expectedSignature === signature;
   }
 
   /**
@@ -141,7 +152,8 @@ export async function handleGitHubWebhook(request: Request, env: Env): Promise<R
   const body = await request.text();
   const router = new GitHubWebhookRouter(env.GITHUB_WEBHOOK_SECRET);
 
-  if (!router.verifySignature(body, signature)) {
+  const isValid = await router.verifySignature(body, signature);
+  if (!isValid) {
     return new Response('Unauthorized', { status: 401 });
   }
 

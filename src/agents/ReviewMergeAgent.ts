@@ -16,6 +16,14 @@ import { Agent, callable, routeAgentRequest } from 'agents';
  * 6. REPORT: Return REALITY/FIX/PROOF/RISK/ROLLBACK/NEXT GATE
  */
 
+interface Env {
+  [key: string]: any;
+}
+
+interface Connection {
+  [key: string]: any;
+}
+
 export interface ReviewMergeState {
   prNumber: number;
   owner: string;

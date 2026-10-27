@@ -15,6 +15,14 @@ import { Agent, callable, routeAgentRequest } from 'agents';
  * 5. REPORT: Return REALITY/FIX/PROOF/RISK/ROLLBACK/NEXT GATE
  */
 
+interface Env {
+  [key: string]: any;
+}
+
+interface Connection {
+  [key: string]: any;
+}
+
 export interface GoalFixState {
   goal: string;
   repoUrl: string;
