@@ -59,6 +59,6 @@ jobs:
           if (c.evidence?.destinationDeliveryVerificationRequired !== true) errors.push('destinationDeliveryVerificationRequired');
           const raw = fs.readFileSync(path, 'utf8');
           if (/api[_-]?token|secret\s*[":=]|destination_conf/i.test(raw)) errors.push('secretMaterial');
-          if (errors.length) { console.error('Logpush participation contract failed:', errors.join(', ')); process.exit(1); }
-          console.log(JSON.stringify({ok:true,repository:c.repository,dataset:c.logpush.dataset,providerMutation:false}));
+          if (errors.length) { console.error('LOGPUSH_CONTRACT_INVALID'); process.exit(1); }
+          console.log('LOGPUSH_CONTRACT_VALID');
           NODE
