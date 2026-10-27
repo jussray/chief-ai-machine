@@ -1,6 +1,12 @@
 name: Security Gates Playwright
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - 'e2e/worker-security-gates-3-4.pw.mjs'
+      - '.github/workflows/security-gates-playwright.yml'
   push:
     branches:
       - main
@@ -16,7 +22,7 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.sha }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CHIEF_SECURITY_BASE_URL: http://127.0.0.1:8791
   STRIPE_WEBHOOK_SECRET: whsec_chief_security_playwright
 
@@ -65,6 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           printf 'STRIPE_WEBHOOK_SECRET="%s"\n' "$STRIPE_WEBHOOK_SECRET" > .dev.vars
+          printf '%s\n' 'CHIEF_AI_OPERATOR_KEY="chief-provider-playwright-fixture"' 'OPENAI_API_KEY="synthetic-provider-fixture"' 'CHIEF_OPENAI_MODEL="synthetic-model-fixture"' >> .dev.vars
           log="$RUNNER_TEMP/security-gates-wrangler.log"
           RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev \
             --ip 127.0.0.1 \

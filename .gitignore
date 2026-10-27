@@ -1,4 +1,6 @@
 .wrangler/
+.dev.vars*
+.env*
 node_modules/
 coverage/
 test-results.json
