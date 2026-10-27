@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "repository": "jussray/chief-ai-machine",
+  "portfolioAuthority": "jussray/founder-control-room",
+  "logpush": {
+    "participates": true,
+    "scope": "account",
+    "dataset": "workers_trace_events",
+    "providerMutationAuthority": "founder-control-room-only",
+    "credentialsStoredHere": false
+  },
+  "evidence": {
+    "contractPassDoesNotProveProviderActivation": true,
+    "providerVerificationRequired": true,
+    "destinationDeliveryVerificationRequired": true
+  }
+}
