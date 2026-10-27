@@ -148,12 +148,45 @@ export class GoalFixAgent extends Agent<Env, GoalFixState> {
   }
 
   private async observeRepository() {
-    // Clone/fetch repo, identify branch, capture SHAs
-    // TODO: Integrate with Founder Control Room repo-truth
+    // Clone/fetch repo, identify branch, capture exact SHAs
+    // Uses git shallow clone for speed, stored in temp directory
+
+    const { cloneRepository, getRepoState } = await import('./GitOperations.js');
+
+    // Clone repo at exact base SHA for reproducible audits
+    const cloneResult = await cloneRepository(
+      this.state.repoUrl,
+      this.state.targetBranch,
+      this.state.baseSha || 'HEAD',
+    );
+
+    if (!cloneResult.ok) {
+      return cloneResult;
+    }
+
+    // Get current state (branch, SHAs, dirty status)
+    const stateResult = await getRepoState(cloneResult.repoPath);
+    if (!stateResult.ok) {
+      return stateResult;
+    }
+
+    this.setState({
+      bottleneck: {
+        ...this.state.bottleneck,
+        evidence: [
+          ...this.state.bottleneck.evidence,
+          `Repo cloned to ${cloneResult.repoPath}`,
+          `Branch: ${stateResult.branch}`,
+          `Working tree clean: ${!stateResult.isDirty}`,
+          `Changed files: ${stateResult.changedFiles.length}`,
+        ],
+      },
+    });
+
     return {
       ok: true,
-      baseSha: 'TODO',
-      headSha: 'TODO',
+      baseSha: stateResult.baseSha,
+      headSha: stateResult.headSha,
     };
   }
 

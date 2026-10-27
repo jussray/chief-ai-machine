@@ -88,6 +88,7 @@ export class ReviewMergeAgent extends Agent<Env, ReviewMergeState> {
     try {
       // 1. REPO_TRUTH: Bind to exact PR state
       this.setState({ stage: 'binding' });
+      // TODO: In production, env is available from Cloudflare Durable Object context
       const prBinding = await this.bindToPullRequest();
       if (!prBinding.ok) {
         throw new Error(`PR binding failed: ${prBinding.error}`);
@@ -163,13 +164,70 @@ export class ReviewMergeAgent extends Agent<Env, ReviewMergeState> {
   }
 
   private async bindToPullRequest() {
-    // Fetch PR from GitHub, verify exact head state
-    // TODO: Integrate with GitHub API
+    // Fetch PR from GitHub, verify exact head state and mergeability
+    // Binding captures authoritative state to guard against race conditions
+
+    const { GitHubApiClient } = await import('./GitHubApiClient.js');
+
+    // TODO: In production, GITHUB_TOKEN comes from Cloudflare environment
+    const token = process.env.GITHUB_TOKEN || '';
+    if (!token) {
+      return {
+        ok: false,
+        error: 'GITHUB_TOKEN not configured',
+        headSha: '',
+        baseSha: '',
+        targetBranch: '',
+      };
+    }
+
+    const client = new GitHubApiClient(token, this.state.owner, this.state.repo);
+    const prResult = await client.getPullRequest(this.state.prNumber);
+
+    if (!prResult.ok || !prResult.pr) {
+      return {
+        ok: false,
+        error: prResult.error,
+        headSha: '',
+        baseSha: '',
+        targetBranch: '',
+      };
+    }
+
+    const pr = prResult.pr;
+
+    // Fetch reviews for approval count
+    const reviewsResult = await client.getPullRequestReviews(this.state.prNumber);
+
+    // Verify mergeability
+    const canMerge = {
+      isMergeable: pr.mergeable,
+      conflicts: pr.mergeable_state === 'dirty' ? ['Merge conflicts detected'] : [],
+      requiredApprovalsCount: pr.required_approvals || 1,
+      currentApprovalsCount: reviewsResult.approvalCount || 0,
+    };
+
+    this.setState({
+      mergeability: canMerge,
+      bottleneck: {
+        ...this.state.bottleneck,
+        evidence: [
+          ...this.state.bottleneck.evidence,
+          `PR #${this.state.prNumber}: ${pr.title}`,
+          `State: ${pr.state}, Draft: ${pr.draft}`,
+          `Head: ${pr.head.sha.substring(0, 7)} (${pr.head.ref})`,
+          `Base: ${pr.base.sha.substring(0, 7)} (${pr.base.ref})`,
+          `Mergeable: ${pr.mergeable}, Status: ${pr.mergeable_state}`,
+          `Approvals: ${canMerge.currentApprovalsCount}/${canMerge.requiredApprovalsCount}`,
+        ],
+      },
+    });
+
     return {
       ok: true,
-      headSha: 'TODO',
-      baseSha: 'TODO',
-      targetBranch: 'main',
+      headSha: pr.head.sha,
+      baseSha: pr.base.sha,
+      targetBranch: pr.base.ref,
     };
   }
 
