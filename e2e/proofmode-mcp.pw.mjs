@@ -1,4 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { proofmodeRequest } from '../scripts/proofmode-access-client.mjs';
+
+// Access headers must not be retained in failure trace archives.
+test.use({ trace: 'off' });
 
 const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
@@ -7,7 +11,8 @@ if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
 
 async function postMcp(request, message) {
-  return request.post(`${baseURL}/mcp`, {
+  return proofmodeRequest(request, baseURL, '/mcp', process.env, {
+    method: 'POST',
     headers: {
       Accept: 'application/json, text/event-stream',
       'Content-Type': 'application/json',
@@ -19,7 +24,7 @@ async function postMcp(request, message) {
 
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
-    const response = await request.get(`${baseURL}/version`);
+    const response = await proofmodeRequest(request, baseURL, '/version', process.env);
     expect(response.status()).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
   });

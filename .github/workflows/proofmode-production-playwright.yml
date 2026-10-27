@@ -196,11 +196,7 @@ jobs:
             ],
             use: {
               baseURL: process.env.PROOFMODE_PREVIEW_URL,
-              trace: 'retain-on-failure',
-              extraHTTPHeaders: {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              },
+              trace: 'off',
             },
           });
           EOF
@@ -235,6 +231,8 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
       AUTHORIZE_PRODUCTION: ${{ github.event_name == 'workflow_dispatch' && inputs.authorize_production || 'false' }}
@@ -427,6 +425,10 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_VERSION_ID"
+          node --input-type=module <<'JS'
+          import { proofmodeAccessHeaders } from './scripts/proofmode-access-client.mjs';
+          proofmodeAccessHeaders(process.env, process.env.PROOFMODE_BASE_URL, true);
+          JS
           npx wrangler versions deploy "$CLOUDFLARE_VERSION_ID@100%" \
             --name chief-ai \
             --message "Founder-authorized exact-head $EXPECTED_HEAD_SHA receipt $AUTHORITY_RECEIPT" \
@@ -437,7 +439,10 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in {1..90}; do
-            body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
+            body="$(curl --fail --silent --show-error \
+              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
+              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
+              "$PROOFMODE_BASE_URL/version" || true)"
             actual="$(printf '%s' "$body" | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
@@ -477,7 +482,7 @@ jobs:
               ['line'],
               ['html', { outputFolder: './playwright-report/proofmode-production', open: 'never' }],
             ],
-            use: { trace: 'retain-on-failure' },
+            use: { trace: 'off' },
           });
           EOF
           npx playwright test --config=playwright.proofmode-production.config.mjs

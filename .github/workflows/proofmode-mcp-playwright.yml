@@ -242,13 +242,6 @@ jobs:
           cat > playwright.proofmode-mcp.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
 
-          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-            ? {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              }
-            : {};
-
           export default defineConfig({
             testDir: './e2e',
             testMatch: /proofmode-mcp\.pw\.mjs$/,
@@ -260,7 +253,7 @@ jobs:
               ['line'],
               ['html', { outputFolder: './playwright-report/proofmode-mcp', open: 'never' }],
             ],
-            use: { trace: 'retain-on-failure', extraHTTPHeaders: accessHeaders },
+            use: { trace: 'off' },
           });
           EOF
           npx playwright test --config=playwright.proofmode-mcp.config.mjs
