@@ -38,10 +38,7 @@ export async function enforceChiefEdgeRateLimit(request, env) {
 
   const limiter = env?.[RATE_LIMIT_BINDING];
   if (!limiter || typeof limiter.limit !== 'function') {
-    return json(503, {
-      ok: false,
-      error: 'rate_limit_unavailable',
-    });
+    return null;
   }
 
   const { success } = await limiter.limit({ key: clientKey(request) });
