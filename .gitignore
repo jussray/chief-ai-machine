@@ -1,16 +1,4 @@
 .wrangler/
-.env
-.env.*
-.dev.vars
-.dev.vars.*
-*.pem
-*.key
-*.p12
-*.pfx
-*.jks
-*.keystore
-*.db
-*.sqlite
 node_modules/
 coverage/
 test-results.json

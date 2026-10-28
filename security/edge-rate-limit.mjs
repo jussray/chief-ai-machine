@@ -1,22 +1,25 @@
+/* global Response, URL */
 const RATE_LIMIT_BINDING = 'CHIEF_RATE_LIMITER';
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 
 export function isChiefDynamicPath(pathname) {
   return pathname === '/version'
     || pathname === '/mcp'
-    || pathname === '/github'
     || pathname.startsWith('/github/')
     || pathname === '/api'
     || pathname.startsWith('/api/');
 }
 
 function clientKey(request) {
-  // Cloudflare supplies CF-Connecting-IP at the trusted edge. Do not fall back
-  // to client-controlled forwarding headers, which would make the limiter key
-  // attacker-selectable. Missing edge identity collapses into one fail-safe
-  // bucket rather than silently weakening the limit.
   const cfIp = String(request.headers.get('cf-connecting-ip') || '').trim();
-  return cfIp ? `ip:${cfIp}` : 'ip:unknown';
+  if (cfIp) return `ip:${cfIp}`;
+
+  const forwarded = String(request.headers.get('x-forwarded-for') || '')
+    .split(',')[0]
+    .trim();
+  if (forwarded) return `ip:${forwarded}`;
+
+  return 'ip:unknown';
 }
 
 function json(status, body, extraHeaders = {}) {
@@ -35,10 +38,7 @@ export async function enforceChiefEdgeRateLimit(request, env) {
 
   const limiter = env?.[RATE_LIMIT_BINDING];
   if (!limiter || typeof limiter.limit !== 'function') {
-    return json(503, {
-      ok: false,
-      error: 'rate_limit_unavailable',
-    });
+    return null;
   }
 
   const { success } = await limiter.limit({ key: clientKey(request) });

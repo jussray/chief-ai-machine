@@ -11,92 +11,43 @@ import { initModal } from './modules/modal.js';
 import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
-import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence-history.js';
+import { mountPromptOS } from './modules/promptos-ui.js';
+import {
+  normalizeCustomPrompts,
+  readCustomPromptState,
+  readStarState,
+  remapStarReferences,
+  writeRecoverablePromptAndStarState,
+  PROMPT_STAR_MIGRATION_JOURNAL,
+} from './modules/prompt-state.js';
+import { LOCAL_FIRST_OUTBOX_KEY } from './modules/local-first.js';
+import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
-function readArray(key) {
-  const raw = localStorage.getItem(key);
-  if (raw === null) return [];
-
-  let value;
+function readArrayState(key) {
+  let raw;
   try {
-    value = JSON.parse(raw);
+    raw = localStorage.getItem(key);
   } catch {
-    throw new Error(`Portable export blocked: ${key} contains invalid JSON`);
+    return { state: 'unavailable', values: [] };
   }
-
-  if (!Array.isArray(value)) {
-    throw new Error(`Portable export blocked: ${key} is not an array`);
-  }
-  return value;
-}
-
-function commitPortableImport(imported) {
-  const writes = [
-    [INTELLIGENCE_STORAGE_KEY, imported.assets],
-    ['chief-custom', imported.customPrompts],
-    ['chief-stars', imported.stars],
-  ];
-  if (imported.goals !== null) writes.push([GOAL_STORAGE_KEY, imported.goals]);
-
-  const previous = new Map();
-  try {
-    for (const [key] of writes) previous.set(key, localStorage.getItem(key));
-  } catch {
-    throw new Error('Import failed: local storage is unavailable. Nothing was changed.');
-  }
+  if (raw === null) return { state: 'ready', values: [] };
 
   try {
-    for (const [key, value] of writes) localStorage.setItem(key, JSON.stringify(value));
+    const value = JSON.parse(raw);
+    return Array.isArray(value)
+      ? { state: 'ready', values: value }
+      : { state: 'corrupt', values: [] };
   } catch {
-    let rollbackFailed = false;
-    for (const [key] of writes) {
-      try {
-        const before = previous.get(key);
-        if (before === null) localStorage.removeItem(key);
-        else localStorage.setItem(key, before);
-      } catch {
-        rollbackFailed = true;
-      }
-    }
-    if (rollbackFailed) {
-      throw new Error('Import failed and previous local state could not be fully restored.');
-    }
-    throw new Error('Import failed; previous local state was restored.');
+    return { state: 'corrupt', values: [] };
   }
-}
-
-function mountBrainPortabilityControls() {
-  const stat = document.querySelector('#page-brain .stat-row');
-  if (!stat || document.getElementById('brainExportBtn')) return;
-
-  const controls = document.createElement('div');
-  controls.style.display = 'flex';
-  controls.style.gap = '8px';
-  controls.style.flexWrap = 'wrap';
-  controls.style.marginTop = '14px';
-  controls.setAttribute('aria-label', 'Company brain portability');
-
-  const exportButton = document.createElement('button');
-  exportButton.type = 'button';
-  exportButton.id = 'brainExportBtn';
-  exportButton.className = 'mini-btn solid';
-  exportButton.textContent = '⬇️ Export company brain';
-
-  const importButton = document.createElement('button');
-  importButton.type = 'button';
-  importButton.id = 'brainImportBtn';
-  importButton.className = 'mini-btn';
-  importButton.textContent = '⬆️ Import company brain';
-
-  controls.append(exportButton, importButton);
-  stat.insertAdjacentElement('afterend', controls);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
   initFriendMode();
+  mountPromptOS();
   initNav();
   const modal = initModal(PUBLIC_PROMPTS);
   initGoals();
@@ -105,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initFreestyle(PUBLIC_PROMPTS);
   initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
-  mountBrainPortabilityControls();
 
   const tbody = document.getElementById('benchBody');
   if (tbody) {
@@ -116,33 +66,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function exportCompanyBrain() {
-    try {
-      const snapshot = createPortableSnapshot({
-        assets: readArray(INTELLIGENCE_STORAGE_KEY),
-        customPrompts: readArray('chief-custom'),
-        stars: readArray('chief-stars'),
-        goals: readArray(GOAL_STORAGE_KEY),
-      });
-      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'chief-ai-founder-intelligence.json';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('Portable company brain exported.');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Portable company brain export blocked.');
+  document.getElementById('exportBtn')?.addEventListener('click', () => {
+    const intelligence = readArrayState(INTELLIGENCE_STORAGE_KEY);
+    const custom = readCustomPromptState({ reservedIds: PUBLIC_PROMPTS.map(p => p.id) });
+    const stars = readStarState();
+    const goals = readArrayState(GOAL_STORAGE_KEY);
+    const unreadable = [
+      ['intelligence', intelligence.state],
+      ['custom prompts', custom.state],
+      ['stars', stars.state],
+      ['goals', goals.state],
+    ].filter(([, state]) => state !== 'ready').map(([label]) => label);
+
+    if (unreadable.length) {
+      showToast(`Export blocked — ${unreadable.join(', ')} state is UNKNOWN.`);
+      return;
     }
-  }
 
-  document.getElementById('exportBtn')?.addEventListener('click', exportCompanyBrain);
-  document.getElementById('brainExportBtn')?.addEventListener('click', exportCompanyBrain);
+    const snapshot = createPortableSnapshot({
+      assets: intelligence.values,
+      customPrompts: custom.prompts,
+      stars: stars.stars,
+    });
+    snapshot.goals = goals.values;
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'chief-ai-founder-intelligence.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Portable company brain exported.');
+  });
 
-  const openImportPicker = () => document.getElementById('importFile')?.click();
-  document.getElementById('importBtn')?.addEventListener('click', openImportPicker);
-  document.getElementById('brainImportBtn')?.addEventListener('click', openImportPicker);
-
+  document.getElementById('importBtn')?.addEventListener('click', () => document.getElementById('importFile')?.click());
   document.getElementById('importFile')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -151,19 +107,31 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const raw = JSON.parse(ev.target.result);
         const imported = parsePortableSnapshot(raw);
-        commitPortableImport(imported);
+        localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
+        // Resolve reserved and duplicate imported IDs before the first update event.
+        // Otherwise Library can consume the remap before matching stars are persisted.
+        const normalized = normalizeCustomPrompts(imported.customPrompts, {
+          reservedIds: PUBLIC_PROMPTS.map(prompt => prompt.id),
+        });
+        const remapped = remapStarReferences(
+          imported.stars,
+          normalized.idRemap,
+          normalized.ambiguousIds,
+        );
+        writeRecoverablePromptAndStarState(normalized.prompts, remapped.stars);
+        if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : 'Import failed — unsupported or invalid file.');
+      } catch {
+        showToast('Import failed — unsupported or invalid file.');
       }
     };
     reader.readAsText(file);
   });
 
   document.getElementById('resetBtn')?.addEventListener('click', () => {
-    if (confirm('Reset all saved goals, intelligence, prompts, stars, and theme?')) {
-      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+    if (confirm('Reset all saved goals, intelligence, prompts, stars, pending sync data, and theme?')) {
+      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', LOCAL_FIRST_OUTBOX_KEY, PROMPT_STAR_MIGRATION_JOURNAL, 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });

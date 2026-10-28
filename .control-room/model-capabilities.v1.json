@@ -1,0 +1,60 @@
+{
+  "contract": "juss/council-model-capability-profile@v1",
+  "repository": "jussray/chief-ai-machine",
+  "defaultBranch": "main",
+  "preparedAgainstBaseSha": "546bd78b5925a57942cf18a915343a4ea1ea9616",
+  "authorityHost": "jussray/founder-control-room",
+  "providerExecutionHost": "jussray/founder-control-room",
+  "projectRole": "executive_synthesis_reasoning_intelligence",
+  "activation": "trial_profile_only",
+  "runtimeActivation": false,
+  "restrictedContextAllowed": false,
+  "lanes": [
+    {
+      "model": "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+      "role": "reasoning_and_adversarial_challenge",
+      "notes": "Bounded reasoning/challenge; provider response is evidence input only.",
+      "status": "trial"
+    },
+    {
+      "model": "@cf/cloudflare/clairic",
+      "role": "structured_estimation_and_forecast",
+      "notes": "Typed extraction/estimate/forecast with confidence; never truth by itself.",
+      "status": "trial"
+    },
+    {
+      "model": "@cf/cloudflare/clef-omni",
+      "role": "multimodal_evidence_adjudication",
+      "notes": "Typed multimodal decisions/probabilities; never self-authorizing.",
+      "status": "trial"
+    },
+    {
+      "model": "@cf/daily-co/phonellm-mini-alpha-2",
+      "role": "voice_agent_fast_lane",
+      "notes": "Voice/conversation specialist; only after local privacy/runtime gates.",
+      "status": "trial"
+    }
+  ],
+  "authority": {
+    "selectionAuthority": false,
+    "executionAuthority": false,
+    "mergeAuthority": false,
+    "deployAuthority": false,
+    "publishAuthority": false,
+    "spendAuthority": false,
+    "providerMutationAuthority": false
+  },
+  "promotionGate": [
+    "fresh task-specific local receipts",
+    "provider evidence for the exact invocation",
+    "project-local focused tests",
+    "runtime proof for live claims",
+    "Playwright proof for user-facing flows"
+  ],
+  "projectGuards": [
+    "Council routing remains advisory",
+    "no provider result grants execution authority",
+    "voice lane may not bypass decision/approval gates"
+  ],
+  "rollback": "Remove this profile and any consumer mapping that references it; no secret or deployment state is stored here."
+}

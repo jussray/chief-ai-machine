@@ -24,13 +24,7 @@ const TOP_LEVEL_FIELDS = new Set([...REQUIRED_TOP_LEVEL_FIELDS, ...OPTIONAL_TOP_
 const OBSERVATION_FIELDS = new Set(['state', 'statement']);
 const MAX_NESTED_URL_DEPTH = 3;
 const NESTED_URL_DEPTH_REDACTION = 'REDACTED_NESTED_URL';
-// Pre-compute state ranking to avoid repeated Array.map() on every module load
-const TRUTH_STATE_RANK = new Map([
-  ['VERIFIED', 0],
-  ['INFERRED', 1],
-  ['UNKNOWN', 2],
-  ['BLOCKED', 3],
-]);
+const TRUTH_STATE_RANK = new Map(BROWSER_REALITY_TRUTH_STATES.map((state, index) => [state, index]));
 const HASH = /^[0-9a-f]{64}$/i;
 const TRACKING_QUERY_KEYS = new Set([
   'dclid',
@@ -126,17 +120,24 @@ function isSensitiveQueryKey(key) {
   );
 }
 
-function sanitizeDecodedQueryValue(rawValue, label, depth) {
+function sanitizeDecodedQueryValue(rawValue, label, depth, containingUrl) {
   const normalized = rawValue.normalize('NFC');
+  // URLs nested in redirect/query parameters can be absolute, protocol-relative,
+  // or relative. A URL-looking value that cannot be parsed must not be echoed.
+  const looksLikeUrl = /^[a-z][a-z0-9+.-]*:/i.test(normalized)
+    || normalized.startsWith('/') || normalized.startsWith('?')
+    || normalized.startsWith('./') || normalized.startsWith('../')
+    || normalized.charCodeAt(0) === 92;
+  if (!looksLikeUrl) return normalized;
+  if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
   let nested;
   try {
-    nested = new URL(normalized);
+    nested = new URL(normalized, containingUrl);
   } catch {
-    return normalized;
+    return NESTED_URL_DEPTH_REDACTION;
   }
-  if (!['http:', 'https:'].includes(nested.protocol)) return normalized;
-  if (depth >= MAX_NESTED_URL_DEPTH) return NESTED_URL_DEPTH_REDACTION;
-  return sanitizeBrowserRealityUrl(normalized, `${label} nested URL`, depth + 1);
+  if (!['http:', 'https:'].includes(nested.protocol)) return NESTED_URL_DEPTH_REDACTION;
+  return sanitizeBrowserRealityUrl(nested.toString(), `${label} nested URL`, depth + 1);
 }
 
 export function sanitizeBrowserRealityUrl(value, label = 'Browser reality URL', depth = 0) {
@@ -160,7 +161,7 @@ export function sanitizeBrowserRealityUrl(value, label = 'Browser reality URL', 
     .filter(([key]) => !isTrackingQueryKey(key))
     .map(([key, queryValue]) => {
       if (isSensitiveQueryKey(key)) return [key, 'REDACTED'];
-      return [key, sanitizeDecodedQueryValue(queryValue, label, depth)];
+      return [key, sanitizeDecodedQueryValue(queryValue, label, depth, url)];
     })
     .sort((left, right) => utf16Compare(left[0], right[0]) || utf16Compare(left[1], right[1]));
 

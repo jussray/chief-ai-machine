@@ -7,6 +7,8 @@ import {
   canonicalizeBrowserRealityEvidence,
   createBrowserRealityEvidenceReceipt,
 } from '../src/domain/browser-reality-evidence.js';
+import { canonicalFamilies } from '../src/promptos/catalog/families.js';
+
 const contract = JSON.parse(readFileSync(
   new URL('../config/browser-reality.contract.json', import.meta.url),
   'utf8',
@@ -15,6 +17,7 @@ const skill = readFileSync(
   new URL('../.agents/skills/browser-reality-inspector/SKILL.md', import.meta.url),
   'utf8',
 );
+const agentsContract = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
 const cookieManifest = JSON.parse(readFileSync(
   new URL('../.security/cookies.json', import.meta.url),
   'utf8',
@@ -242,6 +245,26 @@ describe('juss/browser-reality@v1', () => {
     expect(bounded.canonicalJson).not.toContain('deep-secret');
   });
 
+  it('sanitizes protocol-relative and relative redirects before recording evidence', () => {
+    for (const value of [
+      '//user:private-one@inner.example/?token=private-two#private-three',
+      '/continue?sessionid=private-four#private-five',
+      '../start?token=private-six',
+      '?token=private-seven',
+    ]) {
+      const result = canonicalizeBrowserRealityEvidence({
+        ...CONFORMANCE_INPUT,
+        authorizedInputUrl: `https://outer.example/path/?next=${encodeURIComponent(value)}`,
+      });
+      for (const secret of ['private-one', 'private-two', 'private-three', 'private-four',
+        'private-five', 'private-six', 'private-seven']) {
+        expect(result.canonicalJson).not.toContain(secret);
+      }
+      expect(result.canonical.authorizedInputUrl).toContain('next=');
+      expect(result.canonical.authorizedInputUrl).toContain('REDACTED');
+    }
+  });
+
   it('changes the digest when any variable load-bearing field changes', () => {
     const variants = [
       { authorizedInputUrl: 'https://example.com/share/item?a=changed' },
@@ -383,7 +406,7 @@ describe('juss/browser-reality@v1', () => {
   });
 
   it('keeps browser-reality authority in its dedicated contract without widening the shared pair contract', () => {
-    expect(pairContract.contractVersion).toBe('2026-10-06.1');
+    expect(pairContract.contractVersion).toBe('2026-08-09.1');
     expect(pairContract.browserReality).toBeUndefined();
     expect(contract.contractId).toBe('juss/browser-reality@v1');
     expect(contract.capabilityName).toBe('browser-reality-inspector');
@@ -401,11 +424,24 @@ describe('juss/browser-reality@v1', () => {
     expect(contract.evidenceFingerprint.conformanceSha256).toBe(CONFORMANCE_DIGEST);
   });
 
-  it('keeps the repo skill bound to the same contract', () => {
+  it('keeps the repo skill and PromptOS family bound to the same contract', () => {
     expect(skill).toContain('name: browser-reality-inspector');
     expect(skill).toContain('contract: "juss/browser-reality@v1"');
     expect(skill).toContain('../../../config/browser-reality.contract.json');
     expect(skill).toContain('Stop and report the exact blocker');
+    expect(agentsContract).toContain('.agents/skills/browser-reality-inspector/SKILL.md');
+    expect(agentsContract).toContain('juss-browser-reality-canonical-json-v1');
+
+    const family = canonicalFamilies['browser.reality.inspector'];
+    expect(family).toBeDefined();
+    expect(family.pack).toBe('browser-evidence');
+    expect(family.baseClauseIds).toEqual(expect.arrayContaining([
+      'role.browser-reality-inspector',
+      'method.browser-reality-inspection',
+      'guardrail.browser-reality-privacy',
+      'evidence.browser-reality-fingerprint',
+      'output.browser-reality-report',
+    ]));
     expect(contract.outputSections).toEqual([
       'REALITY',
       'TARGET',
