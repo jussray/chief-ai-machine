@@ -79,6 +79,26 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 
 ---
 
+## Founding pilot — $300
+
+**Chief AI Founder Intelligence Pilot** is a one-time founding engagement for the **first 3 paying users**.
+
+> A focused setup that turns a founder's scattered AI prompts, decisions, workflows and company knowledge into a portable operating brain they own.
+
+The founding pilot includes:
+
+- a company-intelligence inventory;
+- workspace setup using the current Chief AI prototype;
+- reusable company-intelligence assets;
+- a portable export of the resulting company brain; and
+- one follow-up review.
+
+**Founding price:** $300 one time.
+
+This is a hands-on pilot around the current browser-local prototype, **not** a claim of production SaaS, encrypted cloud sync, multi-user collaboration, or managed private hosting. Those capabilities remain separately gated on the roadmap.
+
+**Interested in a pilot?** Start from [Juss Rayy's GitHub profile](https://github.com/jussray) or [Juss & Co](https://jussco.company). Public-build support is also available through [GitHub Sponsors](https://github.com/sponsors/jussray).
+
 ## Quick start
 
 ```bash
