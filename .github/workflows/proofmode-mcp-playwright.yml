@@ -35,6 +35,8 @@ env:
 jobs:
   verify:
     name: Verify live ProofMode MCP with Playwright
+    # Only founder-executed, protected-main manual runs can request a provider URL.
+    if: ${{ github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/main' && github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
@@ -199,8 +201,28 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$MANUAL_BASE_URL"
-          printf 'PROOFMODE_BASE_URL=%s\n' "$MANUAL_BASE_URL" >> "$GITHUB_ENV"
-          echo '- runtime-proof-target: founder-authorized-provider-url' >> "$GITHUB_STEP_SUMMARY"
+          # Reject redirect destinations, credentials, ports, query strings and
+          # arbitrary origins before this job can attach Cloudflare Access headers.
+          normalized="$(node -e '
+            const raw=process.argv[1] || "";
+            try {
+              const url=new URL(raw);
+              const h=url.hostname.toLowerCase();
+              const allowed=h==="chief.foundercontrolroom.org"
+                || h==="api.chief.foundercontrolroom.org"
+                || h==="chief-ai.mcgill-raylene.workers.dev"
+                || /^[a-f0-9]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(h);
+              if (!allowed || url.protocol!=="https:" || url.username || url.password
+                || url.port || url.search || url.hash
+                || (url.pathname!=="/" && url.pathname!=="")) process.exit(1);
+              process.stdout.write(url.origin);
+            } catch { process.exit(1); }
+          ' "$MANUAL_BASE_URL")" || {
+            printf 'Manual ProofMode base_url must be an exact approved Chief HTTPS origin.\n' >&2
+            exit 1
+          }
+          printf 'PROOFMODE_BASE_URL=%s\n' "$normalized" >> "$GITHUB_ENV"
+          echo '- runtime-proof-target: validated-chief-origin' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify exact runtime serves exact head
         if: steps.scope.outputs.applicable == 'true'
