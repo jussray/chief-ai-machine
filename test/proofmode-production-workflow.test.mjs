@@ -109,6 +109,7 @@ describe('ProofMode production governance workflow', () => {
 
   it('retains only credential-safe outcomes for authenticated proof', () => {
     expect(workflow).not.toContain("trace: 'retain-on-failure'");
+    expect(workflow).not.toContain("['line'],");
     expect(workflow).not.toContain("['html',");
     expect(workflow).toContain("trace: 'off'");
     expect(workflow).toContain("['./scripts/proofmode-safe-reporter.mjs'");
