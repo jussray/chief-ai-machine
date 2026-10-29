@@ -2577,7 +2577,7 @@ export const PROMPTS = [
       chatgpt: "Act as a senior social media growth analyst. I will provide the text and performance metrics from my recent posts, including views, likes, comments, shares, saves, and engagement rate. Analyze why my top-performing posts succeeded, why weaker posts underperformed, identify recurring patterns, evaluate my hooks, formatting, posting frequency, calls-to-action, and audience behavior, then provide specific, data-driven recommendations to increase future reach, engagement, follower growth, and conversions.",
       claude: "<role>\nSenior social media growth analyst.\n</role>\n\n<input>\n[PASTE POST TEXT + METRICS: views, likes, comments, shares, saves, engagement rate]\n</input>\n\n<instructions>\nAnalyze why top posts succeeded and weaker posts underperformed. Identify recurring patterns across hooks, formatting, posting frequency, CTAs, and audience behavior. Give specific, data-driven recommendations to increase reach, engagement, follower growth, and conversions.\n</instructions>"
     }
-  }
+  },
   {
     id: 183,
     emoji: "📡",
