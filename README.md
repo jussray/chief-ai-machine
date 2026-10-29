@@ -95,7 +95,7 @@ The founding pilot includes:
 
 **Founding price:** $300 one time.
 
-### Founding subscription — $199/month
+### Founding subscription — $150/month
 
 For founders who want the system maintained instead of treated as a one-off setup, the recurring option has a **lower entry price** and adds a repeat service loop:
 
@@ -105,9 +105,9 @@ For founders who want the system maintained instead of treated as a one-off setu
 - a refreshed portable export; and
 - one follow-up review each month.
 
-**Approved founding subscription price:** $199/month.
+**Approved founding subscription price:** $150/month.
 
-The recurring checkout is **not active yet**. Stripe live-account, tax, and recurring-price verification remain the activation gate. Once that path is verified, the first 3 founding customers may choose either the $300 one-time pilot or the $199/month continuity subscription.
+The recurring checkout is **not active yet**. Stripe live-account, tax, and recurring-price verification remain the activation gate. Once that path is verified, the first 3 founding customers may choose either the $300 one-time pilot or the $150/month continuity subscription.
 
 This is a hands-on pilot around the current browser-local prototype, **not** a claim of production SaaS, encrypted cloud sync, multi-user collaboration, or managed private hosting. Those capabilities remain separately gated on the roadmap.
 
