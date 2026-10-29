@@ -2578,4 +2578,20 @@ export const PROMPTS = [
       claude: "<role>\nSenior social media growth analyst.\n</role>\n\n<input>\n[PASTE POST TEXT + METRICS: views, likes, comments, shares, saves, engagement rate]\n</input>\n\n<instructions>\nAnalyze why top posts succeeded and weaker posts underperformed. Identify recurring patterns across hooks, formatting, posting frequency, CTAs, and audience behavior. Give specific, data-driven recommendations to increase reach, engagement, follower growth, and conversions.\n</instructions>"
     }
   }
+  {
+    id: 183,
+    emoji: "📡",
+    title: "Review AI Provider Capability Changes",
+    sub: "Verify ChatGPT, Claude, and Perplexity changes before adapting workflows",
+    cat: "research",
+    platforms: ["chatgpt","claude","perplexity"],
+    repos: ["l99"],
+    notes: "Use with a new FCR provider-change receipt. Chief reviews evidence and workflow impact; it does not authorize provider or repository actions.",
+    versions: {
+      chatgpt: "Review this provider-change receipt against current official source pages. Compare ChatGPT, Claude, and Perplexity for coding, computer use, integrations, authorized actions, plan entitlements, prices, and usage limits. Cite official URLs and published/effective dates. Label each item GA, preview/beta, plan-gated, region/device-gated, API-billed, or UNKNOWN. Distinguish public capability from my account entitlement. Explain impact on FCR, Chief AI Machine, SolContinuity, and PromptOS. Return VERIFIED / INFERRED / UNKNOWN / BLOCKED claims and exactly one safe read-only test. Never change accounts, plans, settings, permissions, repositories, files, or provider data. Receipt: [PASTE FCR EVENT].",
+      claude: "Review this provider-change receipt against the current official source pages. Compare ChatGPT, Claude, and Perplexity for coding, computer use, integrations, authorized actions, plan entitlements, prices, and usage limits. Cite source URLs and dates; distinguish GA, preview/beta, plan-gated, region/device-gated, API-billed, and UNKNOWN. Keep public availability separate from account entitlement. Map impact to FCR, Chief AI Machine, SolContinuity, and PromptOS. Mark claims VERIFIED / INFERRED / UNKNOWN / BLOCKED and give exactly one safe, read-only test. Make no account, setting, permission, repository, file, or provider-data changes. Receipt: [PASTE FCR EVENT].",
+      perplexity: "Verify this FCR provider-change receipt using only current official OpenAI, Anthropic, and Perplexity sources. Compare coding, computer use, integrations, authorized actions, prices, plan entitlements, and usage limits; cite direct URLs and dates; label GA, preview/beta, plan-gated, region/device-gated, API-billed, or UNKNOWN. Separate public availability from account-specific entitlement. Explain impact on FCR, Chief AI Machine, SolContinuity, and PromptOS, classify claims VERIFIED / INFERRED / UNKNOWN / BLOCKED, and propose exactly one safe, read-only test. Do not change accounts, settings, permissions, repositories, files, or provider data. Receipt: [PASTE FCR EVENT]."
+    }
+  },
+
 ];
