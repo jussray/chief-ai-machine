@@ -218,7 +218,7 @@ jobs:
           retention-days: 14
 
   verify:
-    name: Verify production ProofMode MCP with Playwright
+    name: Prepare exact-head production version
     needs: protected-access
     if: always() && (github.event_name == 'push' || needs.protected-access.result == 'success')
     runs-on: ubuntu-22.04
@@ -432,26 +432,76 @@ jobs:
             --message "Founder-authorized exact-head $EXPECTED_HEAD_SHA receipt $AUTHORITY_RECEIPT" \
             -y
 
+  production-proof:
+    name: Verify production ProofMode MCP with Playwright
+    needs: [protected-access, verify]
+    if: always() && needs.verify.result == 'success' && (github.event_name == 'push' || needs.protected-access.result == 'success')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    environment:
+      name: proofmode-access-admin
+    env:
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+      PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+    steps:
+      - name: Check out exact workflow source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked application dependencies
+        run: npm ci
+
+      - name: Install isolated production proof tools
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0
+
       - name: Wait for production runtime to serve exact head
         shell: bash
         run: |
           set -euo pipefail
+          if [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] || [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+            printf 'Production proof requires the existing scoped Cloudflare Access service-token pair in proofmode-access-admin.\n' >&2
+            exit 1
+          fi
+          body_file="$RUNNER_TEMP/proofmode-production-version.body"
+          trap 'rm -f "$body_file"' EXIT
           for attempt in {1..90}; do
-            body="$(curl --fail --silent --show-error "$PROOFMODE_BASE_URL/version" || true)"
-            actual="$(printf '%s' "$body" | node -e '
+            status="$(curl --silent --show-error \
+              --output "$body_file" \
+              --write-out '%{http_code}' \
+              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID" \
+              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET" \
+              "$PROOFMODE_BASE_URL/version" || true)"
+            actual="$(cat "$body_file" 2>/dev/null | node -e '
               let raw = "";
+              process.stdin.setEncoding("utf8");
               process.stdin.on("data", (chunk) => { raw += chunk; });
               process.stdin.on("end", () => {
                 try { process.stdout.write(JSON.parse(raw).sha || ""); }
                 catch { process.stdout.write(""); }
               });
             ')"
-            if [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
+            if [ "$status" = "200" ] && [ "$actual" = "$EXPECTED_HEAD_SHA" ]; then
+              printf 'Production runtime serves exact head %s.\n' "$EXPECTED_HEAD_SHA"
               exit 0
             fi
+            if [[ "$status" == 3?? ]]; then
+              printf 'Production Worker redirected to Cloudflare Access (HTTP %s); verify the scoped service-token policy and binding.\n' "$status" >&2
+              exit 1
+            fi
             if [ "$attempt" -eq 90 ]; then
-              printf 'Production runtime never served expected head %s; last observed %s\n' \
-                "$EXPECTED_HEAD_SHA" "$actual" >&2
+              printf 'Production runtime did not serve expected head %s (HTTP %s; observed sha %s).\n' \
+                "$EXPECTED_HEAD_SHA" "$status" "${actual:-unavailable}" >&2
               exit 1
             fi
             sleep 2
@@ -477,7 +527,13 @@ jobs:
               ['line'],
               ['html', { outputFolder: './playwright-report/proofmode-production', open: 'never' }],
             ],
-            use: { trace: 'retain-on-failure' },
+            use: {
+              trace: 'retain-on-failure',
+              extraHTTPHeaders: {
+                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+              },
+            },
           });
           EOF
           npx playwright test --config=playwright.proofmode-production.config.mjs
@@ -497,7 +553,7 @@ jobs:
 
   finalize-authority:
     name: Consume one-shot founder authority after attempted execution
-    needs: [protected-access, verify]
+    needs: [protected-access, verify, production-proof]
     if: always() && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 5
