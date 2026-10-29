@@ -69,6 +69,24 @@ describe('credential-safe manual MCP Playwright workflow', () => {
     );
   });
 
+  it('restricts privileged manual proof to the repository owner on main', () => {
+    expect(workflow).toContain("github.event_name != 'workflow_dispatch'");
+    expect(workflow).toContain("github.ref == 'refs/heads/main'");
+    expect(workflow).toContain('github.actor == github.repository_owner');
+    expect(workflow).toContain('github.triggering_actor == github.repository_owner');
+  });
+
+  it('rejects arbitrary URLs before Access credentials can be sent', () => {
+    expect(workflow).toContain('normalized="$(node -e');
+    expect(workflow).toContain('h==="chief.foundercontrolroom.org"');
+    expect(workflow).toContain('h==="api.chief.foundercontrolroom.org"');
+    expect(workflow).toContain('h==="chief-ai.mcgill-raylene.workers.dev"');
+    expect(workflow).toContain('url.username || url.password');
+    expect(workflow).toContain('url.port || url.search || url.hash');
+    expect(workflow).toContain('PROOFMODE_BASE_URL=%s');
+    expect(workflow).not.toContain('PROOFMODE_BASE_URL=%s\\n\' "$MANUAL_BASE_URL"');
+  });
+
   it('disables browser traces, video, and screenshots while retaining only allowlisted outcome fields', () => {
     expect(workflow).toContain(
       "['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-mcp-safe.json' }]",
