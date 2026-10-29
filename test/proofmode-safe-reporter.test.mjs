@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildProofReceipt } from '../scripts/proofmode-safe-reporter.mjs';
 
@@ -49,5 +50,33 @@ describe('credential-safe ProofMode evidence', () => {
       attempts: [{ status: 'unknown', durationMs: null }],
     });
     expect(JSON.stringify(receipt)).not.toContain(secret);
+  });
+});
+
+describe('credential-safe manual MCP Playwright workflow', () => {
+  const workflow = readFileSync(
+    new URL('../.github/workflows/proofmode-mcp-playwright.yml', import.meta.url),
+    'utf8',
+  );
+
+  it('keeps Access credentials gated to explicit manual dispatch', () => {
+    expect(workflow).toContain(
+      "CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}",
+    );
+    expect(workflow).toContain(
+      "CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}",
+    );
+  });
+
+  it('disables browser traces, video, and screenshots while retaining only allowlisted outcome fields', () => {
+    expect(workflow).toContain(
+      "['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-mcp-safe.json' }]",
+    );
+    expect(workflow).toContain("trace: 'off', screenshot: 'off', video: 'off'");
+    expect(workflow).not.toContain("trace: 'retain-on-failure'");
+    expect(workflow).not.toContain("['html', { outputFolder: './playwright-report/proofmode-mcp'");
+    const retained = workflow.slice(workflow.indexOf('- name: Retain credential-safe Playwright outcome receipt'));
+    expect(retained).toContain('path: artifacts/proofmode-mcp-safe.json');
+    expect(retained).not.toMatch(/playwright-report\/|test-results\//);
   });
 });
