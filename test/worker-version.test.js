@@ -20,8 +20,11 @@ const assetsIgnore = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes every request through the Worker before asset fallback', () => {
-    expect(wranglerConfig).toMatch(/"run_worker_first":\s*true/);
+  it('routes dynamic requests through the Worker before asset fallback', () => {
+    expect(wranglerConfig).toMatch(/"run_worker_first":\s*\[/);
+    expect(wranglerConfig).toContain('/api');
+    expect(wranglerConfig).toContain('/github');
+    expect(wranglerConfig).toContain('/mcp');
   });
 
   it('keeps governance, secrets, tests, and tooling out of public Worker assets', () => {
