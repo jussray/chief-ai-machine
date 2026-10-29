@@ -79,6 +79,40 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 
 ---
 
+## Founding pilot — $300
+
+**Chief AI Founder Intelligence Pilot** is a one-time founding engagement for the **first 3 paying users**.
+
+> A focused setup that turns a founder's scattered AI prompts, decisions, workflows and company knowledge into a portable operating brain they own.
+
+The founding pilot includes:
+
+- a company-intelligence inventory;
+- workspace setup using the current Chief AI prototype;
+- reusable company-intelligence assets;
+- a portable export of the resulting company brain; and
+- one follow-up review.
+
+**Founding price:** $300 one time.
+
+### Founding subscription — $160/month
+
+For founders who want the system maintained instead of treated as a one-off setup, the recurring option has a **lower entry price** and adds a repeat service loop:
+
+- the initial company-intelligence setup;
+- one monthly intelligence review;
+- updates, retirement, or refinement of existing intelligence assets based on observed outcomes;
+- a refreshed portable export; and
+- one follow-up review each month.
+
+**Approved founding subscription price:** $160/month.
+
+The recurring checkout is **not active yet**. Stripe live-account, tax, and recurring-price verification remain the activation gate. Once that path is verified, the first 3 founding customers may choose either the $300 one-time pilot or the $160/month continuity subscription.
+
+This is a hands-on pilot around the current browser-local prototype, **not** a claim of production SaaS, encrypted cloud sync, multi-user collaboration, or managed private hosting. Those capabilities remain separately gated on the roadmap.
+
+**Interested in a pilot?** Start from [Juss Rayy's GitHub profile](https://github.com/jussray) or [Juss & Co](https://jussco.company). Public-build support is also available through [GitHub Sponsors](https://github.com/sponsors/jussray).
+
 ## Quick start
 
 ```bash
