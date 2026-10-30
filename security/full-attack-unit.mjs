@@ -9,7 +9,7 @@ export function runFullAttackUnit(observation) {
   const suspicious = verdict === 'HALLWAY' || verdict === 'UNKNOWN_AUTOMATION' || verdict === 'CLAIMED_AUTOMATION';
   const authorityBounded = boundaries.ownedOrAuthorizedSurfacesOnly === true && boundaries.externalCompromise === false && boundaries.externalExploit === false && boundaries.outboundRetaliation === false;
   const hallwayBounded = hallway.productionExposure === 0 && hallway.realCustomerData === false && hallway.realCredentials === false && hallway.crossSessionSharing === false;
-  const expansionBounded = Number.isSafeInteger(hallway.logicalExpansion) && hallway.logicalExpansion >= 0 && hallway.logicalExpansion <= 95_999 && (hallway.active === true ? hallway.logicalExpansion >= 48_000 : hallway.logicalExpansion === 0);
+  const expansionBounded = Number.isSafeInteger(hallway.logicalExpansion) && hallway.logicalExpansion >= 0 && hallway.logicalExpansion <= 95_999 && (((observation?.meaningful === true && verdict !== 'OBSERVE_ERROR') || hallway.active === true) ? hallway.logicalExpansion >= 48_000 : hallway.logicalExpansion === 0);
   const hasReceipt = typeof observation?.receipt === 'string' && /^[a-f0-9]{64}$/i.test(observation.receipt);
   const claimedButUnverified = Boolean(identity.claimedCrawler) && identity.verifiedBot !== true;
   const results = [
