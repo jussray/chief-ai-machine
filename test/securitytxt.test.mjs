@@ -8,13 +8,13 @@ const policy = [
   'Expires: 2027-06-30T00:00:00.000Z',
   'Preferred-Languages: en',
   'Canonical: https://chief-ai.cloudflare.app/.well-known/security.txt',
-].join('\\n') + '\\n';
+].join('\n') + '\n';
 
 test('Chief publishes its exact security.txt on GET and HEAD', async () => {
   for (const method of ['GET', 'HEAD']) {
     const response = await worker.fetch(new Request(origin + '/.well-known/security.txt', { method }), {});
     assert.equal(response.status, 200);
-    assert.match(response.headers.get('content-type') || '', /^text\\/plain/);
+    assert.match(response.headers.get('content-type') || '', /^text\/plain/);
     assert.equal(await response.text(), method === 'HEAD' ? '' : policy);
   }
 });
