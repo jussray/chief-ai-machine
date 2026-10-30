@@ -86,6 +86,27 @@ export default {
       response = await handleChiefFounderContentProposal(request);
     } else if (url.pathname === '/api/stripe-webhook') {
       response = await handleStripeWebhook(request, env);
+    } else if (url.pathname === '/.well-known/security.txt' && url.hostname === 'chief-ai.cloudflare.app') {
+      const policy = [
+        'Contact: mailto:support@jussco.company',
+        'Expires: 2027-06-30T00:00:00.000Z',
+        'Preferred-Languages: en',
+        'Canonical: https://chief-ai.cloudflare.app/.well-known/security.txt',
+      ].join('\n') + '\n';
+      response = request.method === 'GET' || request.method === 'HEAD'
+        ? new Response(request.method === 'HEAD' ? null : policy, {
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'public, max-age=300',
+            },
+          })
+        : new Response('Method not allowed', {
+            status: 405,
+            headers: {
+              Allow: 'GET, HEAD',
+              'Content-Type': 'text/plain; charset=utf-8',
+            },
+          });
     } else if (url.pathname === '/.well-known/mcp/server-card.json') {
       response = Response.json(buildProofModeServerCard(url.origin), {
         headers: { 'Cache-Control': 'public, max-age=300' },
