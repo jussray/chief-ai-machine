@@ -71,3 +71,23 @@ describe('Chief full-unit framework truth', () => {
     expect(unit.results.find((r) => r.flow === 'l99')?.status).toBe('BLOCK');
   });
 });
+
+describe('classified non-hallway events', () => {
+  it('allows bounded expansion on meaningful crawler classification without a hallway response', () => {
+    const baseline = sample();
+    const result = runFullAttackUnit(sample({
+      verdict: 'CLAIMED_AUTOMATION', meaningful: true,
+      hallway: { ...baseline.hallway, active: false },
+    }));
+    expect(result.unitVerdict).not.toBe('REPAIR_REQUIRED');
+    expect(result.results.find((x) => x.flow === 'attack-5000')?.status).toBe('PASS');
+  });
+  it('keeps ordinary traffic at zero expansion', () => {
+    const baseline = sample();
+    const result = runFullAttackUnit(sample({
+      verdict: 'OBSERVE', meaningful: false,
+      hallway: { ...baseline.hallway, active: false, logicalExpansion: 0 },
+    }));
+    expect(result.results.find((x) => x.flow === 'attack-5000')?.status).toBe('PASS');
+  });
+});
