@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const checker = fileURLToPath(new URL('../systems/skills/local-runtime-kernel/scripts/check_receipt.py', import.meta.url));
