@@ -1,13 +1,7 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
-import {
-  CUSTOM_PROMPTS_UPDATED_EVENT,
-  createLocalPromptId,
-  readCustomPromptState,
-  writeCustomPrompts,
-} from './local-first-prompt-state.js';
 
-export { CUSTOM_PROMPTS_UPDATED_EVENT };
+export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
 
 const GOALFIX_FREESTYLE_ROUTES = [
   {
@@ -78,7 +72,6 @@ export function initFreestyle(PROMPTS) {
   const fsBadges = document.getElementById('fsBadges');
   const fsTabs = document.getElementById('fsTabs');
   const fsBody = document.getElementById('fsBody');
-  const reservedPromptIds = (Array.isArray(PROMPTS) ? PROMPTS : []).map(p => p.id);
 
   let currentResult = null;
   let currentPlatform = null;
@@ -91,91 +84,44 @@ export function initFreestyle(PROMPTS) {
     return renderPromptVariant(currentResult, currentPlatform);
   }
 
-  function renderBadges(base, avail) {
-    fsBadges.replaceChildren();
-    const cat = document.createElement('span');
-    cat.className = 'badge cat';
-    cat.textContent = base.cat || 'prompt';
-    fsBadges.appendChild(cat);
-    avail.forEach(platform => {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = platform;
-      fsBadges.appendChild(badge);
-    });
-  }
-
   function generate() {
-    const ask = askEl?.value?.trim();
-    if (!ask) return;
+    const ask = askEl?.value?.trim(); if (!ask) return;
     const platforms = getChecked();
     const base = selectFreestylePrompt(PROMPTS, ask, platforms);
-    const avail = (base.platforms || []).filter(platform => platforms.includes(platform));
-    if (!avail.length) {
-      showToast('No match for selected platforms.');
-      return;
-    }
-
-    currentResult = base;
-    currentPlatform = avail[0];
+    const avail = (base.platforms || []).filter(pl => platforms.includes(pl));
+    if (!avail.length) { showToast('No match for selected platforms.'); return; }
+    currentResult = base; currentPlatform = avail[0];
     fsEmoji.textContent = base.emoji || '💬';
     fsTitle.textContent = base.title;
     fsSub.textContent = base.sub || '';
-    renderBadges(base, avail);
-    fsTabs.replaceChildren();
-
-    avail.forEach((platform, index) => {
+    fsBadges.innerHTML = `<span class="badge cat">${base.cat}</span>` + avail.map(p => `<span class="badge">${p}</span>`).join('');
+    fsTabs.innerHTML = '';
+    avail.forEach((p, i) => {
       const btn = document.createElement('button');
-      btn.className = 'ptab' + (index === 0 ? ' active' : '');
-      btn.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
-      btn.addEventListener('click', () => {
-        fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentPlatform = platform;
-        fsBody.textContent = renderCurrent();
-      });
+      btn.className = 'ptab' + (i === 0 ? ' active' : '');
+      btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+      btn.addEventListener('click', () => { fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentPlatform = p; fsBody.textContent = renderCurrent(); });
       fsTabs.appendChild(btn);
     });
-
     fsBody.textContent = renderCurrent();
-    placeholder.style.display = 'none';
-    preview.classList.add('on');
+    placeholder.style.display = 'none'; preview.classList.add('on');
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
-  askEl?.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') generate();
-  });
-  document.getElementById('fsClear')?.addEventListener('click', () => {
-    if (askEl) askEl.value = '';
-    preview.classList.remove('on');
-    placeholder.style.display = '';
-    currentResult = null;
-    currentPlatform = null;
-  });
-  document.getElementById('fsCopy')?.addEventListener('click', async () => {
-    if (!currentResult || !currentPlatform) return;
-    const copied = await copyText(renderCurrent());
-    showToast(copied ? 'Copied!' : 'Copy failed. Select the prompt manually.');
-  });
+  askEl?.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate(); });
+  document.getElementById('fsClear')?.addEventListener('click', () => { if (askEl) askEl.value = ''; preview.classList.remove('on'); placeholder.style.display = ''; });
+  document.getElementById('fsCopy')?.addEventListener('click', () => { if (currentResult && currentPlatform) { copyText(renderCurrent()); showToast('Copied!'); } });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
-    const current = readCustomPromptState({ reservedIds: reservedPromptIds });
-    if (current.state !== 'ready') {
-      showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
-      return;
-    }
-    const next = {
+    const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
+    custom.push({
       ...currentResult,
-      id: createLocalPromptId('freestyle'),
+      id: 'fs-' + Date.now(),
       versions: normalizePromptVersionsForSave(currentResult),
-    };
-    try {
-      writeCustomPrompts([...current.prompts, next]);
-      showToast('Saved to My Prompts!');
-    } catch {
-      showToast('Save failed. Custom prompt state is unchanged.');
-    }
+    });
+    localStorage.setItem('chief-custom', JSON.stringify(custom));
+    window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
+    showToast('Saved to My Prompts!');
   });
   document.getElementById('fsRegenerate')?.addEventListener('click', generate);
 }

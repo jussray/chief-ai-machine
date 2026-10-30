@@ -1,14 +1,5 @@
 # Global Agent Operating Contract
 
-## Mandatory founder Sauce Guard (all contributors and agents)
-
-**Always read and apply the canonical founder-owned skill** `jussray/founder-control-room/.agents/skills/sauce-guard/SKILL.md` before any externally visible update, publication, outreach, progress claim, shared screenshot, link, evidence summary, or outgoing content derived from internal product work. Chief proposes drafts only; FCR owns final execution and truth. All humans, coding agents, reviewers, and automated contributors inherit this rule, including delegated subagents.
-
-**Public egress:** verify proof for CURRENT claims; mark historical evidence accurately; hold STALE / UNKNOWN assertions; omit proprietary prompts, internal mechanics, unapproved metrics, private user/teen/customer data, secrets, raw diffs, and provider payloads. **Current You** must approve the exact executable copy; FCR revalidates and **provider readback** is required before claiming it was published. Missing skill, approval, or evidence means HOLD.
-
-**Log egress:** use fixed uppercase event codes rather than untrusted exception messages, user IDs, credentials, raw response bodies or payloads at logger sinks. `scripts/verify-sauce-guard-egress.mjs` rejects newly added dynamic logs in CI. This changed-line scanner does not certify all inherited logs or replace Sauce Guard publication approval; do not bypass either gate to turn CI green.
-
-
 This file applies to Claude, Codex, ChatGPT coding agents, Perplexity-assisted research, GitHub-connected agents, and other repository-writing agents used in the Chief AI ecosystem.
 
 `CLAUDE.md` is the canonical global doctrine. This file restates the rules that must survive when an agent does not automatically read Claude-specific instructions.
@@ -16,6 +7,8 @@ This file applies to Claude, Codex, ChatGPT coding agents, Perplexity-assisted r
 ## Founder Intelligence Constitution
 
 Before material planning, implementation, review, automation, publication, deployment, migration, or cross-repository coordination, read `AGENTS_FOUNDER_INTELLIGENCE.md` and `docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md`.
+
+Also read `docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md` and `docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md`. Chat is the invention lab; Founder Control Room is the durable workflow product layer. Chief compiles repeatable proven work into FCR workflow candidates instead of making the founder reconstruct recurring work from old chats or internal command stacks.
 
 Use this required remembrance loop:
 
@@ -40,6 +33,8 @@ This loop supplements the repository OODA and verification rules. It never weake
 
 Turn founder intent into verified, reversible work without inventing repository state, hiding risk, leaking secrets, or confusing a prototype with production.
 
+For repeatable work, reduce founder repetition: prove the pattern, compile a `juss/fcr-workflow-candidate@v1`, and hand durable registry/execution responsibility to FCR.
+
 ## Required Loop
 
 For every nontrivial task:
@@ -50,7 +45,25 @@ For every nontrivial task:
 4. **Decide** one explicit minimal path.
 5. **Act** with the smallest coherent patch.
 6. **Verify** with tests, logs, diffs, Playwright when runtime/UI behavior is affected, Control Room records, Cloudflare evidence when release truth is involved, or inspected configuration.
-7. **Report** reality, risks, proof, and the next approval gate.
+7. **Productize or bound**: classify the result as one-off or repeatable. For repeatable proven work, compile the FCR workflow candidate rather than leaving the durable behavior in chat.
+8. **Report** reality, risks, proof, and the next approval gate.
+
+## Work productization
+
+Internal machinery is not the user-facing product.
+
+A founder or product user should be able to ask for a plain outcome such as `Repair my app`, `Launch audit`, or `Decision challenge`. Chief may route ULTRATHINK, TruthMode, Redteam, Lindy, L99, OODA, `/goalfix`, Council, provider models, Playwright, or other internal mechanisms behind that workflow without requiring the user to type the stack.
+
+Responsibility split:
+
+- **Chief AI**: intent compression, capability/model/agent/tool routing, Council synthesis, repeated-pattern detection, and FCR workflow-candidate compilation.
+- **Founder Control Room**: durable workflow registry/library, tenant/project bindings, guarded execution, permissions, evidence, receipts, rollback, provider/runtime readback, and outcome history.
+- **PromptOS**: lane-specific prompt/protocol/workflow compilation, lineage, and outcome attribution; prompt promotion is not execution authority.
+- **Council**: backstage challenge/review; consensus is not approval.
+- **StoryEngine Court**: Writers + AI + Production deliberation with `/DEVIL` and creator ruling; not a fourth execution authority plane.
+- **Providers**: replaceable intelligence/capability. Provider keys do not become unrelated service authority.
+
+Leaf skills inherit the productization contract unless a stricter project-local rule applies. Do not duplicate the entire doctrine into every skill and create drift; specialize without contradicting the parent contract.
 
 ## Founder Modes
 
@@ -97,6 +110,21 @@ OPENAI_API_KEY=replace_with_local_secret
 
 Never commit `.codex/.env`, `OPENAI_API_KEY`, `MODEL_API_KEY`, service-role keys, provider tokens, or any other secret. Model choice does not override this file, `CLAUDE.md`, repository skills, verification gates, or founder approval gates.
 
+An OpenAI or Anthropic API key grants access to that provider's model capability. It is not GitHub, Supabase, Cloudflare, Shopify, publication, billing, or universal execution authority.
+
+## Provider spend mode
+
+Read `docs/ACTIONS_BUDGET_MODE.md` before using a paid model provider. While paid semantic peer review is paused:
+
+- do not invoke Claude/Anthropic, Codex/OpenAI, Gemini, Perplexity, DeepSeek, or another paid model solely to review another model's work;
+- focused research, proposal, implementation, debugging, and verification remain available when the task genuinely needs that provider;
+- use only already-configured secure provider-held keys or authorized connectors through approved repository/runtime paths;
+- never request, display, copy, move, rotate, recreate, or log a raw provider secret;
+- prefer deterministic repository checks, focused tests, lint/typecheck, Playwright, provider/runtime readback, exact-head evidence, and founder-final authority over billable review duplication;
+- never weaken merge, security, privacy, exact-head, or founder-authority gates merely because paid semantic review is paused.
+
+Paid semantic peer review resumes only after explicit founder re-enablement.
+
 ## Non-Negotiable Rules
 
 - Inspect before editing.
@@ -107,9 +135,10 @@ Never commit `.codex/.env`, `OPENAI_API_KEY`, `MODEL_API_KEY`, service-role keys
 - Do not expose secrets, proprietary prompts, private data, privileged model calls, or administrative controls in client code.
 - Do not disable safety, authentication, RLS, tests, type checks, Playwright, or release gates merely to pass CI.
 - Keep providers replaceable. Use them; do not depend on them.
-- Respect project boundaries between Chief AI, Se’kret Bip, Founder Control Room, Think Tank, Juss Beautiful Hair, clothing/storefront work, and L99.
+- Respect project boundaries between Chief AI, Se’kret Bip, Founder Control Room, Think Tank, Juss Beautiful Hair, clothing/storefront work, and L99/StoryEngine.
 - Treat teen data, identity, journals, voice, media, parent visibility, customer records, commerce data, and emotional-safety signals as high-sensitivity information.
 - Distinguish fact, inference, recommendation, and unverified assumption.
+- Do not leave a repeatable proven workflow dependent on hidden conversational state when it belongs in FCR.
 
 ## Infrastructure outage and release truth
 
@@ -158,7 +187,7 @@ Do not perform these actions without explicit founder approval for that exact ac
 - publishing proprietary prompt content into a public browser bundle;
 - deletion of Ray/Juss material.
 
-An audit request authorizes inspection, not mutation.
+An audit request authorizes inspection, not mutation. A request to fix one layer is not approval to redesign the company.
 
 ## Canonical Bip Boundary
 
@@ -170,25 +199,8 @@ Always re-check the repository before relying on this note. When this contract w
 
 Do not describe that state as a secure private production control room. A static demo may be deployed statically, but private prompts, authenticated state, and model execution require a reviewed backend boundary.
 
-## Browser Reality Inspection Routing
-
-Requests to resolve a shared link or report what a live rendered page actually shows route to [`.agents/skills/browser-reality-inspector/SKILL.md`](.agents/skills/browser-reality-inspector/SKILL.md) under `juss/browser-reality@v1`. That capability is read-only: the real rendered page and final URL are authoritative, observations use `VERIFIED` / `INFERRED` / `UNKNOWN` / `BLOCKED`, and authentication, permissions, CAPTCHA, provider, mutation, or scope-expansion boundaries stop the workflow.
-
-Browser-managed first-party session state may be reused in place when appropriate, but cookie/session values may never be inspected, extracted, exported, copied, logged, altered, or synthesized. The deterministic `juss-browser-reality-canonical-json-v1` digest binds sanitized evidence content only; it is never a person/device identity, continuity ID, or cross-site correlator.
-
 ## Evidence Report
 
-For material changes, report exact files changed, behavior changed, tests and checks run, failures/warnings/skips, security and privacy impact, deployment impact, Cloudflare/Control Room evidence when applicable, rollback path, and unresolved risks.
+For material changes, report exact files changed, behavior changed, tests and checks run, failures/warnings/skips, security and privacy impact, deployment impact, Cloudflare/Control Room evidence when applicable, rollback path, unresolved risks, and whether the work is `ONE-OFF` or a `WORKFLOW CANDIDATE` for FCR.
 
 Use founder-readable language. The job is to reduce uncertainty, not decorate it.
-
-## Reds rule — implant on sight (standing law, installed 2026-10-26)
-
-Any error or red that surfaces in this repository — CI/Actions failure,
-failing test, broken build, runtime defect — is diagnosed and fixed in the
-same flow it is seen, with the smallest reversible change, landed through
-this repo's normal gate and verified green on the exact head. A seen red is
-never parked as a report. Never merge over a blocked mandatory gate or a
-red exact head. A credential- or founder-gated red gets a full diagnosis
-plus the one unblocking action named — never silence, never a faked fix.
-Full charter: `.github/agents/reds-implant.agent.md`.

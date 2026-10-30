@@ -1,19 +1,32 @@
+import { normalizeCustomPrompts } from '../domain/intelligence.js';
+import { readStarStorage, writeStarStorage } from './star-storage.js';
 import { showToast } from './ui.js';
-import {
-  CUSTOM_PROMPTS_UPDATED_EVENT,
-  STARRED_PROMPTS_UPDATED_EVENT,
-  migrateLegacyCustomStarIds,
-  readCustomPromptState,
-  readStarState,
-  remapStarReferences,
-  writeStars,
-} from './prompt-state.js';
 
 function makeTextElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
   element.textContent = String(text ?? '');
   return element;
+}
+
+function readCustomPromptStorage() {
+  let raw;
+  try {
+    raw = localStorage.getItem('chief-custom');
+  } catch {
+    return { state: 'unavailable', prompts: [] };
+  }
+  if (raw === null) return { state: 'ready', prompts: [] };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return { state: 'corrupt', prompts: [] };
+    const prompts = normalizeCustomPrompts(parsed);
+    if (prompts.length !== parsed.length) return { state: 'corrupt', prompts: [] };
+    return { state: 'ready', prompts };
+  } catch {
+    return { state: 'corrupt', prompts: [] };
+  }
 }
 
 export function initLibrary(PROMPTS, modal) {
@@ -28,90 +41,38 @@ export function initLibrary(PROMPTS, modal) {
   const statPlatforms = document.getElementById('statPlatforms');
   const repoClear = document.getElementById('repoClear');
   const repoBtns = document.querySelectorAll('[data-repo]');
-  const reservedPromptIds = PROMPTS.map(prompt => prompt.id);
 
-  let stars = [];
-  let starState = 'ready';
-  let custom = [];
-  let customState = 'ready';
-  let allPrompts = [];
+  let starRead = readStarStorage();
+  let stars = starRead.stars;
+  const customRead = readCustomPromptStorage();
+  let custom = customRead.prompts;
+  let allPrompts = [...PROMPTS, ...custom.map((c, i) => ({ ...c, id: 'c' + i, cat: c.cat || 'custom' }))];
   let activeFilter = null;
   let activeRepo = null;
   let searchQuery = '';
 
-  function sameId(a, b) {
-    return String(a) === String(b);
-  }
+  const CATS = [...new Set(allPrompts.map(p => p.cat))];
+  const PLATFORMS = [...new Set(allPrompts.flatMap(p => p.platforms || []))];
 
-  function isStarred(id) {
-    return stars.some(starId => sameId(starId, id));
-  }
-
-  function reloadState({ migrate = false } = {}) {
-    const customRead = readCustomPromptState({ reservedIds: reservedPromptIds });
-    customState = customRead.state;
-    custom = customRead.state === 'ready' ? customRead.prompts : [];
-
-    const starRead = readStarState();
-    starState = starRead.state;
-    stars = starRead.state === 'ready' ? starRead.stars : [];
-
-    if (customState === 'ready' && starState === 'ready') {
-      const identityMigration = remapStarReferences(stars, customRead.idRemap, customRead.ambiguousIds);
-      stars = identityMigration.stars;
-      if (identityMigration.changed) {
-        try {
-          writeStars(stars);
-        } catch {
-          starState = 'unavailable';
-          stars = [];
-        }
-      }
-    }
-
-    if (migrate && customState === 'ready' && starState === 'ready') {
-      const migration = migrateLegacyCustomStarIds(custom, stars);
-      stars = migration.stars;
-      if (migration.changed) {
-        try {
-          writeStars(stars);
-        } catch {
-          starState = 'unavailable';
-          stars = [];
-        }
-      }
-    }
-
-    allPrompts = [...PROMPTS, ...custom.map(prompt => ({
-      ...prompt,
-      cat: prompt.cat || 'custom',
-    }))];
-  }
-
-  function categories() {
-    return [...new Set(allPrompts.map(p => p.cat).filter(Boolean))];
-  }
-
-  function platforms() {
-    return [...new Set(allPrompts.flatMap(p => p.platforms || []))];
+  function refreshStars() {
+    starRead = readStarStorage();
+    stars = starRead.stars;
   }
 
   function buildChips() {
+    refreshStars();
     chips.replaceChildren();
     const all = makeTextElement('button', 'chip' + (!activeFilter ? ' active' : ''), 'All');
     all.addEventListener('click', () => { activeFilter = null; render(); buildChips(); });
     chips.appendChild(all);
 
     const starChip = makeTextElement('button', 'chip c-star' + (activeFilter === '__star' ? ' active' : ''), '★ Starred');
-    const starFilterKnown = starState === 'ready' && customState === 'ready';
-    starChip.disabled = !starFilterKnown;
-    starChip.setAttribute('aria-disabled', starFilterKnown ? 'false' : 'true');
-    starChip.title = starFilterKnown ? '' : 'Starred prompt set is UNKNOWN until saved prompt state is readable.';
+    const starReady = starRead.state === 'ready';
+    starChip.disabled = !starReady;
+    starChip.setAttribute('aria-disabled', starReady ? 'false' : 'true');
+    starChip.title = starReady ? '' : 'Saved star state is UNKNOWN and has not been treated as empty.';
     starChip.addEventListener('click', () => {
-      if (!starFilterKnown) {
-        showToast('Starred prompt set is UNKNOWN. Nothing was filtered.');
-        return;
-      }
+      if (!starReady) return;
       activeFilter = activeFilter === '__star' ? null : '__star';
       render();
       buildChips();
@@ -122,13 +83,9 @@ export function initLibrary(PROMPTS, modal) {
     sep.className = 'chip-sep';
     chips.appendChild(sep);
 
-    categories().forEach(cat => {
+    CATS.forEach(cat => {
       const btn = makeTextElement('button', 'chip' + (activeFilter === cat ? ' active' : ''), cat);
-      btn.addEventListener('click', () => {
-        activeFilter = activeFilter === cat ? null : cat;
-        render();
-        buildChips();
-      });
+      btn.addEventListener('click', () => { activeFilter = activeFilter === cat ? null : cat; render(); buildChips(); });
       chips.appendChild(btn);
     });
   }
@@ -136,117 +93,104 @@ export function initLibrary(PROMPTS, modal) {
   function filtered() {
     let list = allPrompts;
     if (activeRepo) list = list.filter(p => (p.repos || []).includes(activeRepo));
-    if (activeFilter === '__star') list = list.filter(p => isStarred(p.id));
+    if (activeFilter === '__star') list = list.filter(p => stars.includes(p.id));
     else if (activeFilter) list = list.filter(p => p.cat === activeFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(p => [
-        p.title,
-        p.sub,
-        p.notes,
-        p.cat,
-        ...(p.platforms || []),
-        ...Object.values(p.versions || {}),
-      ].some(value => String(value || '').toLowerCase().includes(q)));
+      list = list.filter(p => p.title?.toLowerCase().includes(q) || p.sub?.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q) || p.cat?.toLowerCase().includes(q));
     }
     return list;
   }
 
   function render() {
-    if (activeFilter === '__star' && (starState !== 'ready' || customState !== 'ready')) {
-      activeFilter = null;
-    }
-
+    refreshStars();
     const list = filtered();
     grid.replaceChildren();
     if (!list.length) {
-      grid.appendChild(makeTextElement('div', 'empty', 'No prompts match. Try a different filter.'));
+      const message = activeFilter === '__star' && starRead.state !== 'ready'
+        ? 'Saved star state is UNKNOWN. Repair or reset local state before using Starred.'
+        : 'No prompts match. Try a different filter.';
+      grid.appendChild(makeTextElement('div', 'empty', message));
     } else {
       list.forEach(p => grid.appendChild(makeCard(p)));
     }
-
     const count = list.length;
-    const customKnown = customState === 'ready';
-    const starsKnown = starState === 'ready' && customKnown;
-    countPill.textContent = customKnown
-      ? count + ' prompt' + (count !== 1 ? 's' : '')
-      : count + ' known prompt' + (count !== 1 ? 's' : '');
-    navCount.textContent = customKnown ? String(count) : '?';
-    statTotal.textContent = customKnown ? String(allPrompts.length) : '?';
-    statTotal.title = customKnown ? '' : 'Saved custom prompt state is UNKNOWN, so the total prompt count is UNKNOWN.';
-    statStar.textContent = starsKnown ? String(allPrompts.filter(p => isStarred(p.id)).length) : '?';
-    statStar.title = starsKnown ? '' : 'Starred prompt state is UNKNOWN or depends on unreadable custom prompt state.';
-    statCustom.textContent = customKnown ? String(custom.length) : '?';
-    statCustom.title = customKnown ? '' : 'Saved custom prompt state is UNKNOWN and has not been treated as empty.';
-    statPlatforms.textContent = customKnown ? String(platforms().length) : '?';
+    countPill.textContent = count + ' prompt' + (count !== 1 ? 's' : '');
+    navCount.textContent = count;
+    statTotal.textContent = allPrompts.length;
+    statStar.textContent = starRead.state === 'ready' ? String(stars.length) : '?';
+    statStar.title = starRead.state === 'ready'
+      ? ''
+      : 'Saved star state is UNKNOWN and has not been treated as empty.';
+    statCustom.textContent = customRead.state === 'ready' ? String(custom.length) : '?';
+    statCustom.title = customRead.state === 'ready'
+      ? ''
+      : 'Saved custom prompt state is UNKNOWN and has not been treated as empty.';
+    statPlatforms.textContent = PLATFORMS.length;
   }
 
   function makeCard(p) {
     const card = document.createElement('div');
     card.className = 'pcard';
-    const starred = starState === 'ready' && isStarred(p.id);
+    const starReady = starRead.state === 'ready';
+    const starred = starReady && stars.includes(p.id);
+    const vcount = Object.keys(p.versions || {}).length;
 
     const top = document.createElement('div');
     top.className = 'top';
     top.appendChild(makeTextElement('span', 'emoji', p.emoji || '💬'));
 
-    const textWrap = document.createElement('div');
-    textWrap.style.minWidth = '0';
-    textWrap.style.flex = '1';
-    textWrap.append(
+    const heading = document.createElement('div');
+    heading.style.minWidth = '0';
+    heading.style.flex = '1';
+    heading.append(
       makeTextElement('h3', '', p.title || 'Untitled'),
       makeTextElement('div', 'sub', p.sub || ''),
     );
-    top.appendChild(textWrap);
+    top.appendChild(heading);
 
-    const star = makeTextElement('button', 'star-btn' + (starred ? ' on' : ''), starred ? '★' : '☆');
-    star.type = 'button';
-    star.disabled = starState !== 'ready';
-    star.setAttribute('aria-disabled', starState === 'ready' ? 'false' : 'true');
-    star.setAttribute('aria-label', `${starred ? 'Unstar' : 'Star'} ${p.title || 'prompt'}`);
-    star.title = starState === 'ready' ? '' : 'Star state is UNKNOWN.';
-    top.appendChild(star);
+    const starButton = makeTextElement('button', `star-btn${starred ? ' on' : ''}`, starReady ? (starred ? '★' : '☆') : '?');
+    starButton.dataset.id = String(p.id ?? '');
+    starButton.disabled = !starReady;
+    starButton.setAttribute('aria-disabled', starReady ? 'false' : 'true');
+    starButton.title = starReady ? '' : 'Saved star state is UNKNOWN. Nothing will be overwritten.';
+    top.appendChild(starButton);
 
     const badges = document.createElement('div');
     badges.className = 'badges';
     badges.appendChild(makeTextElement('span', 'badge cat', p.cat || 'custom'));
-    (p.platforms || []).forEach(platform => badges.appendChild(makeTextElement('span', 'badge', platform)));
-    card.append(top, badges);
+    (p.platforms || []).forEach((platform) => {
+      badges.appendChild(makeTextElement('span', 'badge', platform));
+    });
 
+    card.append(top, badges);
     if (p.notes) card.appendChild(makeTextElement('div', 'snippet', p.notes));
 
     const foot = document.createElement('div');
     foot.className = 'foot';
-    const vcount = Object.keys(p.versions || {}).length;
     foot.appendChild(makeTextElement('span', 'kind', `${vcount} version${vcount !== 1 ? 's' : ''}`));
-    const open = makeTextElement('button', 'mini-btn push', 'Open →');
-    open.type = 'button';
-    foot.appendChild(open);
+    const openButton = makeTextElement('button', 'mini-btn push', 'Open →');
+    foot.appendChild(openButton);
     card.appendChild(foot);
 
-    star.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const current = readStarState();
-      if (current.state !== 'ready') {
+    starButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      refreshStars();
+      if (starRead.state !== 'ready') {
         showToast('Star state is UNKNOWN. Nothing was changed.');
-        reloadState();
-        buildChips();
         render();
         return;
       }
-      const next = current.stars.some(id => sameId(id, p.id))
-        ? current.stars.filter(id => !sameId(id, p.id))
-        : [...current.stars, p.id];
+      const idx = stars.indexOf(p.id);
+      if (idx === -1) stars.push(p.id); else stars.splice(idx, 1);
       try {
-        writeStars(next);
+        writeStarStorage(stars);
       } catch {
-        showToast('Star update failed. Saved star state was not replaced.');
-        reloadState();
-        buildChips();
-        render();
+        showToast('Star storage is unavailable. Nothing else was changed.');
       }
+      render();
     });
-    open.addEventListener('click', (event) => { event.stopPropagation(); modal.open(p); });
+    openButton.addEventListener('click', (e) => { e.stopPropagation(); modal.open(p); });
     card.addEventListener('click', () => modal.open(p));
     return card;
   }
@@ -258,7 +202,6 @@ export function initLibrary(PROMPTS, modal) {
     repoClear.hidden = !activeRepo;
     render();
   }));
-
   repoClear?.addEventListener('click', () => {
     activeRepo = null;
     repoBtns.forEach(b => b.classList.remove('active'));
@@ -266,23 +209,7 @@ export function initLibrary(PROMPTS, modal) {
     render();
   });
 
-  search?.addEventListener('input', (event) => {
-    searchQuery = event.target.value;
-    render();
-  });
-
-  window.addEventListener(CUSTOM_PROMPTS_UPDATED_EVENT, () => {
-    reloadState();
-    buildChips();
-    render();
-  });
-  window.addEventListener(STARRED_PROMPTS_UPDATED_EVENT, () => {
-    reloadState();
-    buildChips();
-    render();
-  });
-
-  reloadState({ migrate: true });
+  search?.addEventListener('input', (e) => { searchQuery = e.target.value; render(); });
   buildChips();
   render();
 }

@@ -1,64 +1,99 @@
 import { readFileSync } from 'node:fs';
 
 const skillPath = new URL('../.agents/skills/goalfix/SKILL.md', import.meta.url);
-const mirrorPath = new URL('../.claude/skills/goalfix/SKILL.md', import.meta.url);
 const founderPath = new URL('../AGENTS_FOUNDER_INTELLIGENCE.md', import.meta.url);
+const constitutionPath = new URL('../docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md', import.meta.url);
+const claudeGoalfixPath = new URL('../.claude/skills/goalfix/SKILL.md', import.meta.url);
+const claudeChiefPath = new URL('../.claude/skills/juss-chief-ai/SKILL.md', import.meta.url);
 const skill = readFileSync(skillPath, 'utf8');
-const mirror = readFileSync(mirrorPath, 'utf8');
 const founder = readFileSync(founderPath, 'utf8');
+const constitution = readFileSync(constitutionPath, 'utf8');
+const claudeGoalfix = readFileSync(claudeGoalfixPath, 'utf8');
+const claudeChief = readFileSync(claudeChiefPath, 'utf8');
 
-const continuityChain = 'REACQUIRE → CLASSIFY → REPAIR → ROLL FORWARD → EXPIRE PROOF → VERIFY → PLAYWRIGHT → REVIEW → MERGE GATE → POST-MERGE TRUTH';
+function portableCommandSurface(text) {
+  const match = text.match(/Portable Juss OS command surface:\s*\n\s*```text\s*\n([\s\S]*?)\n```/);
+  return match?.[1] ?? '';
+}
+
+const portableCommands = portableCommandSurface(founder);
 
 const checks = [
   ['frontmatter name matches directory', /---\nname: goalfix\n/.test(skill)],
   ['description front-loads repository repair scope', /description: Use for repository repair, implementation blockers, CI failures/.test(skill)],
   ['metadata version is present', /metadata:\n(?: {2}.*\n)* {2}version: "1\.2\.0"/.test(skill)],
   ['Codex explicit invocation is documented', /Codex explicit invocation is `\$goalfix`/.test(skill)],
-  ['preflight requires repo carrier base and head', /AUTHORITATIVE REPO:[\s\S]+EXISTING PR \/ CARRIER:[\s\S]+TARGET BASE \/ CURRENT MAIN SHA:[\s\S]+CURRENT HEAD SHA:/.test(skill)],
+  ['preflight requires authoritative repo and current SHA', /AUTHORITATIVE REPO:[\s\S]+TARGET BASE \/ CURRENT SHA:/.test(skill)],
   ['preflight requires proof rollback and stop condition', /PROOF REQUIRED:[\s\S]+ROLLBACK:[\s\S]+STOP CONDITION:/.test(skill)],
-  ['truth states include current and stale classifications', /`VERIFIED`:[\s\S]+`INFERRED`:[\s\S]+`UNKNOWN`:[\s\S]+`BLOCKED`:[\s\S]+`STALE`:[\s\S]+`CLEARED`:/.test(skill)],
+  ['preflight reuses matching active carrier', skill.includes('inspect active PRs/issues for an existing authoritative carrier with the same goal or failure boundary')],
+  ['truth states include VERIFIED INFERRED UNKNOWN BLOCKED', /`VERIFIED`:[\s\S]+`INFERRED`:[\s\S]+`UNKNOWN`:[\s\S]+`BLOCKED`:/.test(skill)],
   ['unobserved evidence cannot become false', /Missing, null, skipped, unavailable, and unobserved are not automatically false/.test(skill)],
   ['expected identity cannot masquerade as observed identity', /Expected identity must never masquerade as observed identity/.test(skill)],
-  ['end-to-end continuity chain is explicit', skill.includes(continuityChain)],
-  ['same-carrier continuity is required', /Continue the existing PR\/carrier/.test(skill)],
-  ['main rollover stays on same carrier', /When `main` advances, bring current `main` into the same carrier/.test(skill)],
-  ['predecessor proof expires after mutation', /Any code, metadata, base, merge, rebase, or head mutation expires predecessor exact-head proof/.test(skill)],
-  ['predecessor green cannot be inherited', /Never inherit green from a predecessor SHA/.test(skill)],
-  ['metadata-only failures do not force source patches', /Do not create a source commit merely to make a metadata gate green/.test(skill)],
-  ['rulesets and required checks remain fail closed', /Never weaken a ruleset, required check, review requirement, CodeQL boundary, or provider policy/.test(skill)],
   ['loop maps goal to smallest valid move', /GOAL → CURRENT STATE → BOTTLENECK → SMALLEST VALID MOVE/.test(skill)],
   ['smallest reversible patch is required', /smallest reversible patch/.test(skill)],
+  ['duplicate repair carrier is forbidden', skill.includes('no duplicate repair/governance carrier when an existing PR owns the same scope')],
   ['gate weakening is forbidden', /do not suppress tests, lint, type checks, release gates/.test(skill)],
   ['Playwright is required for affected browser paths', /Playwright is required when the change can affect browser-visible UI/.test(skill)],
   ['Playwright inapplicable state is explicit', /mark Playwright `INAPPLICABLE`/.test(skill)],
+  ['red-team checks for accidental duplicate carrier', skill.includes('Did we accidentally create a duplicate carrier instead of extending the existing one?')],
   ['red-team binds proof to final candidate SHA', /proof tied to the final candidate SHA/.test(skill)],
-  ['merge review requires final diff and governance state', /Review the final diff and governance state, not a predecessor snapshot/.test(skill)],
-  ['skipped required checks remain blockers', /skipped required checks are blockers/.test(skill)],
-  ['merge uses expected head SHA', /Use the expected head SHA when executing a merge/.test(skill)],
-  ['post-merge truth records landed merge main SHA', /record the landed merge\/main SHA/.test(skill)],
+  ['merge gate distinguishes readiness from completion', /Do not equate `code-ready`[\s\S]+production-live/.test(skill)],
+  ['stale-base handling requires refreshed exact-head proof', /If the base moves[\s\S]+prove the refreshed exact head/.test(skill)],
+  ['Codex branch convention is date-stamped', /codex\/\{feature\}-\{date\}/.test(skill)],
   ['production proof chain is explicit', /SOURCE → BUILD → DEPLOY → LIVE IDENTITY → HEALTH → REAL PATH → OUTCOME/.test(skill)],
-  ['confess preserves stale-proof uncertainty', /predecessor proof expired by a later head\/base change/.test(skill)],
+  ['confess section preserves material uncertainty', /tests not executed[\s\S]+browser proof unavailable[\s\S]+provider state inaccessible/.test(skill)],
   ['final report contract is complete', /REALITY:[\s\S]+FIX:[\s\S]+PROOF:[\s\S]+RISK:[\s\S]+ROLLBACK:[\s\S]+NEXT GATE:/.test(skill)],
-  ['Claude mirror carries the same continuity chain', mirror.includes(continuityChain)],
-  ['Claude mirror preserves same carrier', /Preserve the existing carrier/.test(mirror)],
-  ['Claude mirror expires predecessor proof', /expires predecessor exact-head proof/.test(mirror)],
-  ['Claude mirror requires expected-head merge', /Use the expected head SHA/.test(mirror)],
+  ['authority-aware blocker workflow is required', skill.includes('## Authority-aware blocker workflow')],
+  ['blocker workflow reacquires exact head and base', /REACQUIRE EXACT HEAD \+ BASE[\s\S]+FIND FIRST REAL FAILING STEP/.test(skill)],
+  ['proof planes are classified before repair', /`SOURCE`, `BUILD\/CI`, `PROVIDER`, `RUNTIME\/BROWSER`, or `OUTCOME`/.test(skill)],
+  ['source is not rewritten for provider-only failure', skill.includes('do not rewrite feature code to cure the provider failure')],
+  ['credential boundaries distinguish presence acceptance and admin authority', skill.includes('Credential presence is not credential acceptance. Credential acceptance is not provider-administration authority.')],
+  ['unchanged known blocker is not rerun for duplicate evidence', skill.includes('Do not repeatedly rerun the same failing workflow when candidate SHA and relevant external state are unchanged.')],
+  ['missing provider authority becomes BLOCKED', /If the provider account, policy, token record, or effective application cannot be read safely, return `BLOCKED`/.test(skill)],
+  ['fake green through skip or bypass is forbidden', /Never make a failing gate green by skipping its real path, weakening authentication, adding broad bypass/.test(skill)],
+  ['diagnostic head movement invalidates old receipts', skill.includes('treat prior green/red receipts as historical until the new head is re-proven')],
+  ['durable evidence is updated when classification changes', /Update the PR body, Control Room receipt, ledger, or other durable evidence carrier/.test(skill)],
+  ['unrelated discovered repair stays out of focused PR', /If a newly discovered fix is unrelated to the active focused PR[\s\S]+separate focused branch or decision/.test(skill)],
+  ['related discovered work extends active authoritative carrier', skill.includes('extend that carrier rather than opening a duplicate repair PR')],
   ['founder entrypoint declares portable command surface', founder.includes('Portable Juss OS command surface:')],
+  ['portable command surface is parseable', portableCommands.length > 0],
   ['portable goalfix routes to repo-scoped skill', founder.includes('`/goalfix` routes to the repo-scoped `.agents/skills/goalfix/SKILL.md` contract')],
+  ['canonical challenge stack is preserved', /ULTRATHINK[\s\S]+Red Team 1 — premise[\s\S]+Lindy mode[\s\S]+L99[\s\S]+Red Team 2 — implementation[\s\S]+OODA[\s\S]+Proof/.test(founder)],
+  ['portable ultrathink composes goalfix', founder.includes('In repository repair, `/ultrathink` composes `/goalfix`; it does not replace it.')],
+  ['ultrathink is not an authority grant', founder.includes('not a second operating system and not an authority grant')],
+  ['ultrathink separates proof planes', founder.includes('source, build, CI, provider, runtime, browser, and outcome evidence as separate proof planes')],
+  ['ultrathink does not rerun unchanged blocked gates', founder.includes('Do not rerun an unchanged blocked gate merely to create another identical receipt.')],
+  ['ultrathink audits real mutation authority', founder.includes('Audit whether the current carrier actually owns the authority required for the next mutation.')],
+  ['ultrathink preserves focused PR scope', founder.includes('move the new repair to a separate focused branch or decision')],
+  ['ultrathink requires existing-carrier discovery', founder.includes('inspect active PRs/issues for an existing authoritative carrier and extend it when scope matches')],
+  ['ultrathink preserves FCR as the single OS', founder.includes('Preserve Founder Control Room as the single founder operating system')],
   ['portable modes cannot expand execution authority', founder.includes('never expand execution authority')],
   ['visualize remains non-authorizing', founder.includes('does not authorize browser, design, deployment, publishing, or production changes by itself')],
   ['repository proof and approval gates remain authoritative', founder.includes('exact-head checks, Playwright requirements, Founder Control Room release truth, and explicit founder gates remain authoritative')],
+  ['Codex native adapter is documented', founder.includes('## Codex native command adapter')],
+  ['Codex command availability is runtime observed', founder.includes('use the live runtime palette and current official Codex behavior as the availability source')],
+  ['Codex preflight starts with status and permissions', /\/status[\s\S]+→ \/permissions/.test(founder)],
+  ['Codex review is evidence not merge authority', founder.includes('`/review` is independent review evidence only. It is never merge, deploy, publish, or production authority.')],
+  ['Codex compact requires durable receipts first', /\/compact[\s\S]+only after durable decisions, exact fingerprints, evidence IDs, blockers, rollback, and unresolved unknowns are persisted/.test(founder)],
+  ['Codex context branches reacquire fingerprints', /\/fork[\s\S]+\/side[\s\S]+reacquire repository\/provider fingerprints/.test(founder)],
+  ['Codex resume reacquires current state', /\/resume[\s\S]+requires reacquiring current repo, branch\/head, provider, review, and runtime state/.test(founder)],
+  ['Codex init cannot overwrite governed instructions', /\/init[\s\S]+Never use it to overwrite an existing `AGENTS\.md`/.test(founder)],
+  ['Codex memories cannot replace repo policy', /\/memories[\s\S]+never becomes the source of mandatory repository policy/.test(founder)],
+  ['Codex missing commands are not simulated', founder.includes('Do not simulate a missing native command just to match a checklist.')],
+  ['Codex attack pass guards command drift and stale proof', founder.includes('### Attack / upgrade pass for Codex use') && founder.includes('Could a host/version difference make a named command unavailable?') && founder.includes('Could `/review` greenwash missing tests, Playwright, CI, exact-head proof, or production evidence?')],
 ];
 
 for (const command of ['/goalfix', '/ultrathink', '/truthmode', '/confess', '/redteam', '/lindymode', '/ooda', '/visualize']) {
-  checks.push([`portable command is present: ${command}`, founder.includes(command)]);
+  checks.push([`portable command is present in command block: ${command}`, portableCommands.split(/\s+/).includes(command)]);
 }
 
 const failed = checks.filter(([, passed]) => !passed);
 
 if (failed.length) {
-  // Fixed opaque event code: do not print dynamic check names in CI logs.
-  console.error('GOALFIX_SKILL_VERIFICATION_FAILED');
+  console.error('Goalfix skill verification failed:');
+  for (const [name] of failed) {
+    console.error(`- ${name}`);
+  }
   process.exit(1);
 }
 

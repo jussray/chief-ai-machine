@@ -3,13 +3,10 @@ import { loadPublicRepositoryEvidence } from '../plugins/proofmode/src/github.js
 import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
-export const PROOFMODE_SERVER_INFO = Object.freeze({ name: 'proofmode', title: 'ProofMode', version: '0.1.0' });
-export const PROOFMODE_INSTRUCTIONS =
-  'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 
-export const PROOFMODE_TOOL = {
+const TOOL = {
   name: 'audit_repository',
   title: 'Audit repository evidence',
   description:
@@ -114,19 +111,20 @@ async function dispatch(message, deps, env) {
     return jsonRpc(id, {
       protocolVersion: negotiated,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: PROOFMODE_SERVER_INFO,
-      instructions: PROOFMODE_INSTRUCTIONS,
+      serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
+      instructions:
+        'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
     });
   }
 
   if (method === 'ping') return jsonRpc(id, {});
 
   if (method === 'tools/list') {
-    return jsonRpc(id, { tools: [PROOFMODE_TOOL] });
+    return jsonRpc(id, { tools: [TOOL] });
   }
 
   if (method === 'tools/call') {
-    if (params?.name !== PROOFMODE_TOOL.name) {
+    if (params?.name !== TOOL.name) {
       return jsonRpcError(id, -32602, `Unknown tool: ${params?.name || 'missing'}`);
     }
 
@@ -196,26 +194,4 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
   }
 
   return jsonResponse(await dispatch(message, deps, env));
-}
-
-// Discovery card for /.well-known/mcp/server-card.json (draft MCP server-card
-// shape). Built from the same constants the live server answers with, so the
-// card cannot advertise a tool or version the endpoint does not serve.
-export function buildProofModeServerCard(origin) {
-  return {
-    serverInfo: PROOFMODE_SERVER_INFO,
-    description: PROOFMODE_INSTRUCTIONS,
-    protocolVersion: PROTOCOL_VERSION,
-    transport: { type: 'streamable-http', url: `${origin}/mcp` },
-    authentication: { required: false },
-    capabilities: { tools: { listChanged: false } },
-    tools: [
-      {
-        name: PROOFMODE_TOOL.name,
-        title: PROOFMODE_TOOL.title,
-        description: PROOFMODE_TOOL.description,
-        inputSchema: PROOFMODE_TOOL.inputSchema,
-      },
-    ],
-  };
 }
