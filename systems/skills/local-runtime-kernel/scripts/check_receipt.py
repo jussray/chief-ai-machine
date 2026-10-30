@@ -38,10 +38,10 @@ def check(r):
     phase = r.get("phase", "DECLARE")
     if phase not in PHASES:
         errs.append(f"bad phase {phase}")
-    elif PHASES.index(phase) >= PHASES.index("ATTEMPT"):
+    elif PHASES.index(phase) >= PHASES.index("PERMIT"):
         pa = r.get("prospective_authority", {})
         if pa.get("status") != "PROVEN" or not pa.get("evidence"):
-            errs.append("acted (phase>=ATTEMPT) without PROVEN prospective authority -> BLOCKED")
+            errs.append("phase>=PERMIT without PROVEN prospective authority -> BLOCKED")
 
     state = r.get("state", "UNKNOWN")
     if state not in STATES:
@@ -52,9 +52,11 @@ def check(r):
                 errs.append(f"VERIFIED but Must slot {m} not PROVEN")
         ex = who.get("EXECUTED", {})
         ve = who.get("VERIFIED", {})
+        if ex.get("status") != "PROVEN":
+            errs.append("VERIFIED but WHO.EXECUTED not PROVEN")
         if ve.get("status") != "PROVEN":
             errs.append("VERIFIED but WHO.VERIFIED not PROVEN")
-        elif ex.get("actor") and ex.get("actor") == ve.get("actor"):
+        if ex.get("status") == "PROVEN" and ve.get("status") == "PROVEN" and ex.get("actor") and ex.get("actor") == ve.get("actor"):
             errs.append("self-certification: executor == sole verifier")
     return errs
 
