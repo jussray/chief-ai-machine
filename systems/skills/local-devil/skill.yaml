@@ -1,0 +1,23 @@
+name: local_devil
+title: Local devil
+description: 'Steelman tool for Juss - argues the strongest version of the opposing case to stress-test a position before he commits to it. Use when Juss says /devil, wants the other side argued, wants his own plan attacked, or wants the best case against a decision. This is the adversary in his Redteam stack: not ''should this exist'' but ''here is the most convincing argument that you''re wrong.'' Distinct from socrates (asks questions) and first-principles (rebuilds from fundamentals) - devil takes the opposite position and makes it as strong as it can be. Pairs with truthmode and futureyou.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: false
+  status: retired
+  evidence_handles:
+  - skill_inventory:local_devil@808794c52ad775eed955a9184711d33709c2e59d731f143aa29389077b323cac
+  - evidence_gate:wake_reasons:learned_skills_consolidation
+  - ~/workspace/custom-skills/local-devil/SKILL.md
+  measurement:
+    proxy_metric_id: active_learned_skill_count
+    success_criterion: local_devil is absent from active skill discovery for the full window and no objective run fails for lack of its content.
+    window_days: 21
+  rationale: 'Retirement half of the learned_skill_merge_adversarial consolidation: its steelman method is preserved verbatim as a section of the merged local_socrates, which keeps the /devil trigger discoverable. Retiring it removes the near-duplicate from active discovery.'
+  review_after: 2026-11-14T03:40:49.927149+00:00
+  reviewed_at: 2026-10-24T03:40:49.927149+00:00
+  run_id: sirun_1d283ca2e06048f79ab7ca7db6fd2aae

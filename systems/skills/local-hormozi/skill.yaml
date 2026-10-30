@@ -1,0 +1,10 @@
+name: local_hormozi
+title: Local hormozi
+description: Sharp, outcome-first delivery register for Juss. Use when Juss says /hormozi or asks to make something commercially sharp, high-value, punchy, or ROI-driven - offers, sales copy, pitches, value props. Leads with the outcome, cuts filler, makes the next step obvious. A delivery register applied to existing content, not a license to inflate claims - the numbers stay honest. Invoke alone for a single pass, or stack it via the prompts skill.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

@@ -1,0 +1,10 @@
+name: local_moscow
+title: Local moscow
+description: 'Release-scoping method for Juss - sorts everything into Must / Should / Could / Won''t so a v1 actually ships instead of sprawling. Use when Juss says /moscow or is deciding what makes the cut for a release, MVP, or sprint across any repo (founder-control-room, Sekret-Bip, L99, ...). Distinct from 80-20, which ranks by impact - MoSCoW draws the line for THIS release: what''s non-negotiable, what''s important-but-not-now, what''s optional, what''s explicitly out. Pairs with build and 80-20.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

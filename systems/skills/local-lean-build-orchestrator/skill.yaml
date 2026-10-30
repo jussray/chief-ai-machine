@@ -1,0 +1,23 @@
+name: local_lean_build_orchestrator
+title: Local lean build orchestrator
+description: 'Maximize build output while minimizing token usage. Use when building projects incrementally with working code-first approach, slow grinding through small tested increments, free-tier optimization across AI tools. Triggers: build project, write code, ship increment, token efficient, slow grind, working code, free tier.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: false
+  status: retired
+  evidence_handles:
+  - skill_inventory:local_lean_build_orchestrator@b10f3cf6e1476be0c9abbbea18a24278d5c5cd1313e35617dc3c6bf0151dd79c
+  - evidence_gate:wake_reasons:learned_skills_consolidation
+  - ~/workspace/custom-skills/local-lean-build-orchestrator/SKILL.md
+  measurement:
+    proxy_metric_id: active_learned_skill_count
+    success_criterion: local_lean_build_orchestrator is absent from active skill discovery for the full window and no objective run fails for lack of its content.
+    window_days: 21
+  rationale: 'Retirement half of the learned_skill_merge_build consolidation: its unique incremental-grind mechanics (TODO ledger, increment scoping, test-immediately with the two-failure stop rule, commit checkpoint, token budget tiers) are preserved in the merged local_build, and its token-economy rules already live in local_minimal_token_protocol. Retiring it removes the near-duplicate from active discovery.'
+  review_after: 2026-11-14T03:40:49.927149+00:00
+  reviewed_at: 2026-10-24T03:40:49.927149+00:00
+  run_id: sirun_1d283ca2e06048f79ab7ca7db6fd2aae

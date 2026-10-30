@@ -1,0 +1,10 @@
+name: local_urlfix
+title: Local urlfix
+description: Given a URL, inspect the real deployed browser experience with Playwright, identify reproducible material defects, collect browser, network, console, visual, and trace evidence, resolve ownership through the registry, and — only for confirmed-owned URLs — delegate the smallest reversible source repair to goalfix. Re-run the exact failing browser witness locally, in preview when applicable, and against the original live URL until the repair is proven. Unowned or external URLs are strictly observation-only.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

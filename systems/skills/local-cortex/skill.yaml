@@ -1,0 +1,23 @@
+name: local_cortex
+title: Local cortex
+description: 'The reasoning hierarchy wiring all of Ray''s skills into one dispatch order. Load at the start of any nontrivial task: it places every skill in its layer (identity, reasoning overlays, build lifecycle, product/business, infrastructure), defines the IN→FRAME→MODE→SCOPE→RESEARCH→BUILD→GUARD→REPAIR→SHIP pipeline, and sets composition rules (what stacks, what never runs alone, what gates what). Triggers: start of a build session, multi-skill task, ''wire the skills'', ''how do you reason'', dispatch order.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: false
+  evidence_handles:
+  - skill_inventory:local_cortex@4846610c3fed2d95601c9b46515456d27126119d98727b349ff1bafc0379b2ef
+  - ~/workspace/custom-skills/local-cortex/SKILL.md
+  - ~/workspace/custom-skills/local-prompts/SKILL.md
+  measurement:
+    proxy_metric_id: objective_success_rate
+    success_criterion: Zero objective runs in the window fail, stall, or emit guidance naming the retired skills local_lean_build_orchestrator or local_devil; skill_search for 'devil' resolves to local_socrates and for 'lean build' resolves to local_build.
+    window_days: 21
+  rationale: local_cortex is the dispatch map that names every skill; the two merges in this batch retire names it references. L2 listed lean-build-orchestrator in the build chain, the BUILD pipeline stage named it, and a composition rule contrasted 'build for scaffolding, lean-build-orchestrator for grinding'; L1, the MODE stage, and a composition rule routed /redteam and pre-irreversible attacks through devil. Left stale, the map would keep dispatching to retired skills. This update folds the grind role into build, routes adversarial work through the merged local_socrates, corrects the skill count to 27, and brings the Available connectors section to the template's closing bullets. No other skill references the retired names (skill_search for 'devil' and 'lean.build.orchestrator' returned only the retired skills themselves; local_prompts' roster names socrates, not devil).
+  review_after: 2026-11-14T03:40:49.927149+00:00
+  reviewed_at: 2026-10-24T03:40:49.927149+00:00
+  run_id: sirun_1d283ca2e06048f79ab7ca7db6fd2aae
+  status: active
