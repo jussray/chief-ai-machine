@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ATTACK_UNIT_MEMBERS, runFullAttackUnit } from '../security/full-attack-unit.mjs';
 
@@ -89,5 +90,30 @@ describe('classified non-hallway events', () => {
       hallway: { ...baseline.hallway, active: false, logicalExpansion: 0 },
     }));
     expect(result.results.find((x) => x.flow === 'attack-5000')?.status).toBe('PASS');
+  });
+});
+
+describe('GitHub security event runtime contract', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/firewall-v10.yml', import.meta.url), 'utf8');
+  const agent = readFileSync(new URL('../.github/agents/reds-implant.agent.md', import.meta.url), 'utf8');
+  const instructions = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
+
+  it('supports GitHub API-authenticated dispatch, bounded scheduled checks, and exact-head checkout', () => {
+    expect(workflow).toMatch(/repository_dispatch:\s*\n\s*types: \[juss_security_audit_v1\]/);
+    expect(workflow).toMatch(/schedule:\s*\n\s*- cron:/);
+    expect(workflow).toContain('workflow_dispatch:');
+    expect(workflow).toContain('EXPECTED_HEAD_SHA:');
+    expect(workflow).toContain('persist-credentials: false');
+    expect(workflow).toContain('git rev-parse HEAD');
+    expect(workflow).toContain('npx vitest run test/full-attack-unit.truth.test.js');
+    expect(workflow).toContain('contents: read');
+    expect(workflow).not.toMatch(/github\.event\.client_payload|contents:\s*write|secrets\./);
+  });
+
+  it('keeps named frameworks as instructions without inventing Council execution authority', () => {
+    expect(agent).toContain('Founder frameworks, history, and exact-head recovery');
+    expect(agent).toContain('never standing permissions');
+    expect(instructions).toContain('GitHub agent inheritance: founder security frameworks');
+    expect(workflow).toContain('Provider/council invocations: none');
   });
 });
