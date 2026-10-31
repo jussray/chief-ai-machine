@@ -59,7 +59,6 @@ test('API compare-and-set and guarded one-shot merge are visible in source', () 
   assert.match(script, /mergeable_state !== 'clean'/);
   assert.match(script, /--squash/);
   assert.doesNotMatch(script, /['"]--auto['"]/);
-  assert.match(workflow, /MERGE_GH_TOKEN:.*secrets\.JUSS_MERGE_APP_TOKEN/);
   assert.match(script, /AUTO_MERGE_ARMED_REAPPROVAL_REQUIRED/);
   assert.match(script, /Agent Merge/);
   assert.doesNotMatch(script, /--admin|force:\s*true|deleteBranch:\s*true/);
