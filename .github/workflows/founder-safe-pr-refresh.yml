@@ -64,6 +64,8 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
+      - name: Install locked dependencies for focused test
+        run: npm ci
       - name: Validate safe refresh contract before any API writes
         run: npx vitest run test/safe-pr-autoupdate.test.mjs
       - name: Bounded opted-in PR refresh or SHA-bound founder auto-merge arm
