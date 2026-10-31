@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 
 const LABEL = 'juss-auto-update';
 const OWNER = 'jussray';
@@ -44,7 +45,8 @@ async function api(repo, path, method = 'GET', body = undefined) {
 }
 
 function log(message) {
-  process.stdout.write(message + '\n');
+  // Internal run summary receives bounded metadata, not dynamic console logs.
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, message + '\n');
 }
 
 async function armMerge(repo) {
@@ -148,7 +150,8 @@ async function main() {
 
 if (process.argv.includes('--run')) {
   main().catch((error) => {
-    console.error('SAFE_PR_AUTOMATION_BLOCKED: ' + error.message);
+    log('BLOCKED: ' + error.message);
+    console.error('SAFE_PR_AUTOMATION_BLOCKED');
     process.exitCode = 1;
   });
 }
