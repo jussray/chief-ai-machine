@@ -1,4 +1,6 @@
-import test from 'node:test';
+import { test } from 'vitest';
+import { URL } from 'node:url';
+import process from 'node:process';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { decision } from '../scripts/safe-pr-autoupdate.mjs';
