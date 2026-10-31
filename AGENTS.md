@@ -192,3 +192,11 @@ never parked as a report. Never merge over a blocked mandatory gate or a
 red exact head. A credential- or founder-gated red gets a full diagnosis
 plus the one unblocking action named — never silence, never a faked fix.
 Full charter: `.github/agents/reds-implant.agent.md`.
+
+## GitHub agent inheritance: founder security frameworks
+
+Any GitHub agent working on Art of War, AI Labyrinth, Lantern, hallway, Cloudflare defense, continuity fingerprints/cookies, or founder commands (`/ultrathink`, `/godmode`, `/goalfix`, `/truthmode`, `/confess`, Red Team I/II, L99, Lindy, OODA) must read **existing repo-owned skills first**, specifically `.agents/skills/goalfix/SKILL.md`, `docs/CONTINUITY_FINGERPRINT_PROTOCOL.md`, `CLAUDE.md`, and `.github/agents/reds-implant.agent.md` if acting as the Reds agent. Prefer existing first-party PromptOS skill routing to invented replacement executors. External skill names are **not** proof of invocation.
+
+**Stale branch repair happens before new modifications:** reacquire current `main` and exact PR head/base, compare both diff sets, safely integrate current `main` into the same branch while preserving both histories and unrelated files, never force-push just to drop conflicts, and expire all older-head test/review evidence. Re-run exact-head CI and Playwright for impacted browser/runtime paths before proposing any merge. No blanket `cont` approval permits a merge/deploy of a new SHA.
+
+Preserve independent Art of War receipts, lazy bounded reciprocal hallway, signed first-party Active Defense cookies, and unverified AI Labyrinth licensing proposals as **different** mechanisms. Cloudflare is an external comparison target, not an authorized attack target or a provenance conclusion. For source and build history use `VERIFIED / INFERRED / REMEMBERED / UNKNOWN / STALE`, redact secrets, apply Sauce Guard, protect teen/guardian data, and report `REALITY / FIX / PROOF / RISK / ROLLBACK / NEXT GATE`. A GitHub agent file documents instructions; scheduled execution or provider calls require their own observable runtime receipts.

@@ -2,9 +2,18 @@ name: Firewall v10
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - security/firewall-v10.policy.json
       - scripts/verify-firewall-v10.mjs
+      - security/full-attack-unit.mjs
+      - test/full-attack-unit.truth.test.js
+      - scripts/safe-pr-autoupdate.mjs
+      - test/safe-pr-autoupdate.test.mjs
+      - .github/workflows/founder-safe-pr-refresh.yml
+      - .github/agents/reds-implant.agent.md
+      - AGENTS.md
       - .github/workflows/firewall-v10.yml
   push:
     branches:
@@ -12,7 +21,22 @@ on:
     paths:
       - security/firewall-v10.policy.json
       - scripts/verify-firewall-v10.mjs
+      - security/full-attack-unit.mjs
+      - test/full-attack-unit.truth.test.js
+      - scripts/safe-pr-autoupdate.mjs
+      - test/safe-pr-autoupdate.test.mjs
+      - .github/workflows/founder-safe-pr-refresh.yml
+      - .github/agents/reds-implant.agent.md
+      - AGENTS.md
       - .github/workflows/firewall-v10.yml
+  workflow_dispatch:
+  # Requires an authorized caller of GitHub's repository dispatch API.
+  # Intentionally ignores all client_payload data.
+  repository_dispatch:
+    types: [juss_security_audit_v1]
+  # Low-cost read-only drift witness; default branch only.
+  schedule:
+    - cron: '43 9 * * *'
 
 permissions:
   contents: read
@@ -21,14 +45,36 @@ concurrency:
   group: firewall-v10-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   verify-firewall-v10:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
-      - name: Checkout
+      - name: Check out exact head without saved credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
-      - name: Verify policy-as-code
-        run: node scripts/verify-firewall-v10.mjs
+      - name: Verify actual head
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify policy-as-code and local defensive runtime
+        run: |
+          node scripts/verify-firewall-v10.mjs
+          npx vitest run test/full-attack-unit.truth.test.js
+          npx vitest run test/safe-pr-autoupdate.test.mjs
+      - name: Record exact-head local-policy evidence
+        if: always()
+        shell: bash
+        run: |
+          printf '## Chief defensive skill audit\n\n- Event: %s\n- Exact checkout: %s\n- Scope: local policy and source tests only\n- Provider/council invocations: none\n- Deployment and merge authority: none\n' "$GITHUB_EVENT_NAME" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
