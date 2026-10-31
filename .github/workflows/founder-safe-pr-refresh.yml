@@ -1,0 +1,74 @@
+name: Founder Safe PR Refresh
+
+# Workflow is trusted from default branch. Never check out an unreviewed PR
+# using the write-scoped token or carry approval to a new head.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '29 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Refresh opted-in founder PRs, or explicitly arm native auto-merge at an exact approved SHA'
+        required: true
+        type: choice
+        options: [refresh, arm]
+        default: refresh
+      pr_number:
+        description: 'Optional specific opted-in PR number for refresh; required for arm'
+        required: false
+        type: string
+      expected_head_sha:
+        description: 'Exact 40-character PR head SHA; required for arm'
+        required: false
+        type: string
+      expected_base_sha:
+        description: 'Exact 40-character main/base SHA; required for arm'
+        required: false
+        type: string
+      approval_phrase:
+        description: 'Type ARM_EXACT_AUTO_MERGE to explicitly approve that exact PR candidate'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: founder-pr-refresh-jussray/chief-ai-machine
+  cancel-in-progress: false
+
+jobs:
+  refresh-or-arm:
+    if: github.repository == 'jussray/chief-ai-machine' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AUTOBRANCH_ACTION: ${{ inputs.action || 'refresh' }}
+      PR_NUMBER: ${{ inputs.pr_number || '' }}
+      EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || '' }}
+      EXPECTED_BASE_SHA: ${{ inputs.expected_base_sha || '' }}
+      APPROVAL_PHRASE: ${{ inputs.approval_phrase || '' }}
+    steps:
+      - name: Check out trusted main only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Confirm trusted main head
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - name: Validate safe refresh contract before any API writes
+        run: node --test test/safe-pr-autoupdate.test.mjs
+      - name: Bounded opted-in PR refresh or SHA-bound founder auto-merge arm
+        run: node scripts/safe-pr-autoupdate.mjs --run
+      - name: No proof carry-forward
+        if: always()
+        run: |
+          printf '## Founder PR maintenance\n\n- Auto-branch update: opted-in same-repo founder PRs only\n- Code repair: requires existing Reds Implant or enabled GitHub Agent Merge\n- Auto-merge: only exact founder workflow_dispatch approval, after GitHub provider gates\n- Old SHA approvals/tests: never carry forward after refresh\n- No force-push or protected-main bypass\n' >> "$GITHUB_STEP_SUMMARY"
