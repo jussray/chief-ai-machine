@@ -1,0 +1,30 @@
+name: Actions Mail Audit Contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/skills/actions-mail-audit/**'
+      - '.github/agents/actions-mail-auditor.agent.md'
+      - '.github/workflows/actions-mail-audit-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-contract:
+    name: Verify read-only mail/Actions triage contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 pinned
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4 pinned
+        with:
+          node-version: '24'
+      - name: Execute offline red-team classification tests
+        run: node --test .github/skills/actions-mail-audit/tests/triage.test.mjs
