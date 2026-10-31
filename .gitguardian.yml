@@ -1,0 +1,11 @@
+# GitGuardian configuration for false-positive suppression
+# See: https://docs.gitguardian.com/ggshield-docs/configuration/gitguardian-config-file
+
+paths-ignore:
+  - path: src/domain/browser-reality-evidence.js
+    # Whitelist: This file contains a static list of common secret-like token names
+    # used for pattern detection in the evidence collection system. These are not
+    # actual secrets and are part of the security-scanning infrastructure.
+    # Suppresses GitGuardian incident #39280284 (Generic Password detection on 'phpsessid')
+    reason: Static pattern list for security scanning, not actual credentials
+    comment: Pattern names are used to identify suspicious token keywords in browser reality
