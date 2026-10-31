@@ -34,7 +34,7 @@ async function api(repo, path, method = 'GET', body = undefined) {
     },
     body: body ? JSON.stringify(body) : undefined,
     redirect: 'error',
-    signal: AbortSignal.timeout(18000),
+    signal: globalThis.AbortSignal.timeout(18000),
   });
   const raw = await response.text();
   const data = raw && response.ok ? JSON.parse(raw) : {};
