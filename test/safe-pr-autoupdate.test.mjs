@@ -40,11 +40,13 @@ test('workflow runs only on trusted main, bounded schedule, and explicit manual 
   assert.match(workflow, /node scripts\/safe-pr-autoupdate\.mjs --run/);
   assert.match(workflow, /github\.token/);
   assert.doesNotMatch(workflow, /pull_request_target:/);
-  assert.doesNotMatch(workflow, /secrets\./);
+  assert.match(workflow, /MERGE_GH_TOKEN:.*secrets\.JUSS_MERGE_APP_TOKEN/);
+  assert.deepEqual([...workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]), ['JUSS_MERGE_APP_TOKEN']);
 });
 
-test('API compare-and-set, fail-closed repair, and exact-head auto-merge are visible in source', () => {
+test('API compare-and-set and guarded one-shot merge are visible in source', () => {
   const script = readFileSync(new URL('../scripts/safe-pr-autoupdate.mjs', import.meta.url), 'utf8');
+  const workflow = readFileSync(new URL('../.github/workflows/founder-safe-pr-refresh.yml', import.meta.url), 'utf8');
   assert.match(script, /expected_head_sha: fresh\.head\.sha/);
   assert.match(script, /MAX_UPDATES = 5/);
   assert.match(script, /ARM_EXACT_AUTO_MERGE/);
