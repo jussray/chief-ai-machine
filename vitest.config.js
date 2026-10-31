@@ -7,7 +7,9 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '**/*-playwright.test.js',
       // NVIDIA advisory suites run on the Node.js built-in test runner
       // (zero-dependency offline review bundles); not Vitest suites.
-      '**/nvidia-*.test.mjs'],
+      '**/nvidia-*.test.mjs',
+      // This dependency-free audit contract uses node:test; GitHub Actions runs it with node --test.
+      '.github/skills/actions-mail-audit/tests/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json'],
