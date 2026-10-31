@@ -1,0 +1,10 @@
+name: local_prompts
+title: Local prompts
+description: 'Prompt-engineering entrypoint and overlay orchestrator for Juss. Use when Juss wants to write, rewrite, compress, or sharpen a prompt, or when he wants to apply several of his style/reasoning overlays at once instead of one at a time. This is the bundled call: it rewrites the prompt and composes the overlays (truthmode, humanize, hormozi, 80-20, futureyou, first-principles, antiadvice, socrates) in a sane order. Each overlay is also its own skill for when Juss only needs one - call the overlay directly for a single register, call this to stack them.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

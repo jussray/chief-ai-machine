@@ -1,0 +1,10 @@
+name: local_intent_repair_reader
+title: Local intent repair reader
+description: 'Parse what a human actually meant, not just what they typed. Uses context clues, keyboard-neighbor phonetic analysis, and reading comprehension fundamentals to repair typos, detect ambiguity, and infer intent. Use when user input is ambiguous, contains typos, uses non-standard spelling, or seems unclear. Triggers: typo, ambiguous, unclear, what did they mean, misspelled, context clues, phonics, intent parsing.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

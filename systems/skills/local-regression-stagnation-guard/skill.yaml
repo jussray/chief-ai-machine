@@ -1,0 +1,10 @@
+name: local_regression_stagnation_guard
+title: Local regression stagnation guard
+description: 'Prevent code regression, project stagnation, and dead-end wandering. Use when checking that changes don''t break existing functionality, detecting when a project is stuck or going in circles, managing dependencies, or running pre-commit safety checks. Triggers: regression test, stagnation, stuck, circular, backsliding, dependency drift, before commit, safety check.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

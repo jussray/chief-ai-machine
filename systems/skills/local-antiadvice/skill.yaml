@@ -1,0 +1,10 @@
+name: local_antiadvice
+title: Local antiadvice
+description: Catches generic advice and replaces it with something specific and useful - for Juss. Use when Juss says /antiadvice or wants the clichés stripped out, the empty best-practices called out, or advice that would actually change what he does. Flags guidance people repeat without evidence and swaps it for concrete tradeoffs and actions. Invoke alone, or stack it via the prompts skill.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

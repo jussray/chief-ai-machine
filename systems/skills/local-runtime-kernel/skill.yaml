@@ -1,0 +1,10 @@
+name: local_runtime_kernel
+title: Local runtime kernel
+description: 'Juss''s first-class runtime verification kernel: ULTRATHINK routing → Socrates → 80/20 → MoSCoW → Redteam I + Twin → Lindymode + Twin → L99 → OODA → /goalfix → DECLARE/PERMIT/ATTEMPT/RECORD/PROVE/DECIDE. Enforces WHO = UNKNOWN and WHY = UNKNOWN until evidence binds them. Use whenever Juss says ULTRATHINK, /truthmode, /goalfix, "verify", "is this actually live/fixed/deployed", "who did this", "why did this break", "repair verify merge", or asks for proof of any runtime, deploy, CI, provider, or attribution claim across jussray repos (FCR, Chief, PromptOS, Sol, Se''kret Bip, JBH, AYURE, etc.) — even when the word "kernel" is never said.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

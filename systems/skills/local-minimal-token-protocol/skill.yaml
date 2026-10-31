@@ -1,0 +1,10 @@
+name: local_minimal_token_protocol
+title: Local minimal token protocol
+description: 'Token-economy operating protocol: maximum output per token. Code first, no preamble/postamble, file-first architecture, one ask per message, batch independent ops, reference don''t repeat, session management, cross-tool relay. Use when optimizing for token efficiency, terse output, or free-tier limits. Triggers: token economy, save tokens, minimal tokens, terse mode, token budget, MTOP.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

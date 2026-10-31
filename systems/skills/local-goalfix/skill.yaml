@@ -1,0 +1,10 @@
+name: local_goalfix
+title: Local goalfix
+description: Repair-verify workflow for Juss's GitHub-based projects (e.g. founder-control-room, Sekret-Bip, L99, chief-ai-machine, trading-agent). Use whenever Juss reports something broken - a failing build, red CI/CD job, stuck PR, runtime bug, deployment error - or invokes /goalfix, /fixfast, /repair-verify-merge, or ULTRATHINK on a real repo problem. Finds the single root cause, makes the smallest reversible patch, verifies against real evidence (tests, logs, CI, Playwright for UI/runtime work) before calling anything done, and reports in a fixed REALITY/FIX/PROOF/RISK/ROLLBACK/NEXT GATE format with VERIFIED/INFERRED/UNKNOWN/BLOCKED separation throughout. Not for greenfield feature-building or general coding Q&A - specifically for diagnosing and closing out something currently broken.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true
