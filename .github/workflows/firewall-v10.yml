@@ -9,6 +9,9 @@ on:
       - scripts/verify-firewall-v10.mjs
       - security/full-attack-unit.mjs
       - test/full-attack-unit.truth.test.js
+      - scripts/safe-pr-autoupdate.mjs
+      - test/safe-pr-autoupdate.test.mjs
+      - .github/workflows/founder-safe-pr-refresh.yml
       - .github/agents/reds-implant.agent.md
       - AGENTS.md
       - .github/workflows/firewall-v10.yml
@@ -20,6 +23,9 @@ on:
       - scripts/verify-firewall-v10.mjs
       - security/full-attack-unit.mjs
       - test/full-attack-unit.truth.test.js
+      - scripts/safe-pr-autoupdate.mjs
+      - test/safe-pr-autoupdate.test.mjs
+      - .github/workflows/founder-safe-pr-refresh.yml
       - .github/agents/reds-implant.agent.md
       - AGENTS.md
       - .github/workflows/firewall-v10.yml
@@ -66,6 +72,7 @@ jobs:
         run: |
           node scripts/verify-firewall-v10.mjs
           npx vitest run test/full-attack-unit.truth.test.js
+          node --test test/safe-pr-autoupdate.test.mjs
       - name: Record exact-head local-policy evidence
         if: always()
         shell: bash
