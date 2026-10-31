@@ -74,3 +74,13 @@ Optimized for token budget:
 - Batch processing (parallel investigation of multiple PRs)
 - Narrow searches (target specific commits, not full history)
 - Evidence-only output (no speculation or re-analysis)
+
+## Exact-head auto-update and automatic fix integration (v1)
+
+Reuse the existing carrier. The repo's `.github/workflows/founder-safe-pr-refresh.yml` runs a scheduled/push-triggered scan for same-repo, founder-authored, `juss-auto-update`-labeled PRs, with a maximum five API branch refresh requests per run. It uses GitHub's `PUT /pulls/{number}/update-branch` guarded by `expected_head_sha`; never reinterpret a new commit as approval of an earlier candidate.
+
+When a refresh is blocked by a conflict, or a new current-head test fails: use the existing `.github/agents/reds-implant.agent.md` and `.agents/skills/goalfix/SKILL.md` to inspect exact logs, repair only the concrete cause on the same PR, and re-verify. GitHub's Agent Merge can perform automatic conflict/test-failure repair **only if separately enabled with eligible Copilot licensing and consent**; this skill file itself cannot start that paid service or prove it ran.
+
+Native auto-merge is a separate, explicit, founder-dispatched action. Require the exact repo, PR, base and head SHA and the typed approval phrase; only arm the current non-draft PR after policy review. Never auto-arm when a branch refresh, skill execution, issue comment, CI passing, or `cont` occurs. GitHub branch protection, required review, real-path proof, security checks and founder authority all remain independent gates. Stop and label BLOCKED on missing or stale evidence rather than completing a merge by bypassing the gate.
+
+Audit depth: founder value → Lindy → Red Team I → L99 → Red Team II / Devil → OODA → Goalfix → test and Playwright where applicable → review. Do not claim these skill passes or an external Council ran unless an actual invocation receipt exists. Report newly observed head SHA and no forced branch-history rewrite.
