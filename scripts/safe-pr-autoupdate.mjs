@@ -50,10 +50,12 @@ function log(message) {
 }
 
 async function armMerge(repo) {
+  // No deferred native auto-merge: --match-head-commit does not persist
+  // a base/head approval lease after this command exits.
   const event = process.env.GITHUB_EVENT_NAME;
   const actor = (process.env.GITHUB_ACTOR || '').toLowerCase();
   if (event !== 'workflow_dispatch' || actor !== OWNER) {
-    throw new Error('Only founder manual workflow dispatch can arm auto-merge.');
+    throw new Error('Only founder manual workflow dispatch can request a one-shot merge.');
   }
   if (process.env.APPROVAL_PHRASE !== 'ARM_EXACT_AUTO_MERGE') {
     throw new Error('Exact founder approval phrase is missing.');
@@ -64,23 +66,70 @@ async function armMerge(repo) {
   if (!n || !/^[a-f0-9]{40}$/.test(head) || !/^[a-f0-9]{40}$/.test(base)) {
     throw new Error('Exact PR number, head SHA and base SHA required.');
   }
-  const { data: pr } = await api(repo, '/pulls/' + n);
-  if (decision(pr, repo) !== 'CHECK_ANCESTRY') throw new Error('PR is not eligible for founder auto-merge arming.');
-  if (pr.draft || pr.head.sha !== head || pr.base.sha !== base || pr.mergeable === false) {
-    throw new Error('PR draft, conflicted, or changed since exact approval.');
+  const mergeToken = process.env.MERGE_GH_TOKEN || '';
+  if (!mergeToken || mergeToken === process.env.GH_TOKEN) {
+    throw new Error('APP_IDENTITY_REQUIRED: a separately authorized GitHub App merge token is required to preserve post-merge workflows.');
   }
+
+  // Enforce a provider-side strict up-to-date requirement to close the
+  // unavoidable base-ref race between the final read and merge API call.
+  const { data: list } = await api(repo, '/rulesets');
+  if (!Array.isArray(list)) throw new Error('Effective GitHub rulesets could not be inspected.');
+  let strict = false;
+  for (const item of list) {
+    if (item.enforcement !== 'active') continue;
+    const { data: rule } = await api(repo, '/rulesets/' + item.id);
+    const refs = rule.conditions?.ref_name;
+    const include = refs?.include || [];
+    const exclude = refs?.exclude || [];
+    if (!include.some((x) => ['~ALL', '~DEFAULT_BRANCH', 'refs/heads/main'].includes(x))
+      || exclude.some((x) => ['~ALL', '~DEFAULT_BRANCH', 'refs/heads/main'].includes(x))) continue;
+    if (rule.rules?.some((x) =>
+      x.type === 'required_status_checks'
+      && x.parameters?.strict_required_status_checks_policy === true)) strict = true;
+  }
+  if (!strict) throw new Error('STRICT_BASE_GUARD_REQUIRED: repository rules must require up-to-date check heads before any automatic merge.');
+
+  const { data: pr } = await api(repo, '/pulls/' + n);
+  if (decision(pr, repo) !== 'CHECK_ANCESTRY') throw new Error('PR is not eligible for a founder-approved one-shot merge.');
+  if (pr.draft || pr.head.sha !== head || pr.base.sha !== base
+    || pr.mergeable !== true || pr.mergeable_state !== 'clean') {
+    throw new Error('Candidate is unreviewed, conflicted, blocked, or changed since exact approval.');
+  }
+  const { data: main } = await api(repo, '/branches/main');
+  if (main.commit?.sha !== base) throw new Error('Main advanced after approval.');
   const { data: ancestry } = await api(repo, '/compare/' + head + '...' + base);
-  if (ancestry.ahead_by !== 0) throw new Error('Head is behind current base. Refresh first; prior approval does not carry forward.');
-  // This workflow itself is a founder's explicit, SHA-bound approval request.
-  // GitHub still enforces branch protection, mandatory reviews and checks.
-  const args = ['pr', 'merge', String(n), '--repo', repo, '--auto', '--merge', '--match-head-commit', head];
+  if (ancestry.ahead_by !== 0) {
+    throw new Error('Head is behind current base. Refresh first; prior approval does not carry forward.');
+  }
+  const { data: checks } = await api(repo, '/commits/' + head + '/check-runs?per_page=100');
+  if (!Array.isArray(checks.check_runs) || checks.total_count > 100 || checks.check_runs.length === 0) {
+    throw new Error('Exact-head check evidence unavailable or truncated.');
+  }
+  if (checks.check_runs.some((c) => c.head_sha !== head || c.status !== 'completed'
+    || !['success', 'skipped'].includes(c.conclusion))) {
+    throw new Error('All visible exact-head checks must finish without failures.');
+  }
+
+  // Re-read immediately before provider merge; the provider must still enforce
+  // strict up-to-date protection and the exact head via --match-head-commit.
+  const { data: fresh } = await api(repo, '/pulls/' + n);
+  const { data: freshMain } = await api(repo, '/branches/main');
+  if (fresh.head.sha !== head || fresh.base.sha !== base || freshMain.commit?.sha !== base
+    || fresh.mergeable_state !== 'clean') {
+    throw new Error('Candidate or base moved before one-shot merge. Reapproval required.');
+  }
+  const args = ['pr', 'merge', String(n), '--repo', repo, '--squash', '--match-head-commit', head];
   const ran = spawnSync('gh', args, {
-    env: { ...process.env, GH_TOKEN: process.env.GH_TOKEN },
+    env: { ...process.env, GH_TOKEN: mergeToken },
     encoding: 'utf8',
     timeout: 45000,
   });
-  if (ran.error || ran.status !== 0) throw new Error('Native auto-merge arm failed; inspect repository rules and PR state.');
-  log('ARMED_OR_MERGED PR #' + n + ' approved exact head ' + head + ' against base ' + base);
+  if (ran.error || ran.status !== 0) {
+    throw new Error('Provider rejected exact-head one-shot merge. No deferred merge was armed.');
+  }
+  log('MERGE_REQUESTED PR #' + n + ' exact head ' + head + ' base ' + base
+    + '; verify main contains the result and successor workflows ran.');
 }
 
 async function refresh(repo) {
