@@ -47,9 +47,6 @@ jobs:
     timeout-minutes: 8
     env:
       GH_TOKEN: ${{ github.token }}
-      # Optional, separately provisioned GitHub App installation token.
-      # GITHUB_TOKEN merges suppress ordinary post-merge push workflows.
-      MERGE_GH_TOKEN: ${{ secrets.JUSS_MERGE_APP_TOKEN }}
       AUTOBRANCH_ACTION: ${{ inputs.action || 'refresh' }}
       PR_NUMBER: ${{ inputs.pr_number || '' }}
       EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || '' }}
@@ -71,7 +68,26 @@ jobs:
         run: npm ci
       - name: Validate safe refresh contract before any API writes
         run: npx vitest run test/safe-pr-autoupdate.test.mjs
-      - name: Bounded opted-in PR refresh or SHA-bound founder auto-merge arm
+      # Only mint a one-hour scoped identity for an explicit founder merge operation.
+      # Main-push and scheduled branch refresh have NO access to the private key.
+      - name: Mint least-privilege GitHub App identity for merge
+        id: merge-token
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'arm'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          app-id: ${{ secrets.JUSS_MERGE_APP_ID }}
+          private-key: ${{ secrets.JUSS_MERGE_APP_PRIVATE_KEY }}
+          owner: jussray
+          repositories: chief-ai-machine
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Refresh opted-in PRs without merge credentials
+        if: github.event_name != 'workflow_dispatch' || inputs.action != 'arm'
+        run: node scripts/safe-pr-autoupdate.mjs --run
+      - name: One-shot exact-head founder merge after provider gates
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'arm'
+        env:
+          MERGE_GH_TOKEN: ${{ steps.merge-token.outputs.token }}
         run: node scripts/safe-pr-autoupdate.mjs --run
       - name: No proof carry-forward
         if: always()
