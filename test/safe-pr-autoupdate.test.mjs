@@ -40,8 +40,11 @@ test('workflow runs only on trusted main, bounded schedule, and explicit manual 
   assert.match(workflow, /node scripts\/safe-pr-autoupdate\.mjs --run/);
   assert.match(workflow, /github\.token/);
   assert.doesNotMatch(workflow, /pull_request_target:/);
-  assert.match(workflow, /MERGE_GH_TOKEN:.*secrets\.JUSS_MERGE_APP_TOKEN/);
-  assert.deepEqual([...workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]), ['JUSS_MERGE_APP_TOKEN']);
+  assert.ok(workflow.includes('MERGE_GH_TOKEN: ${{ steps.merge-token.outputs.token }}'));
+  assert.match(workflow, /create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510/);
+  assert.deepEqual([...workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]), ['JUSS_MERGE_APP_ID', 'JUSS_MERGE_APP_PRIVATE_KEY']);
+  assert.match(workflow, /permission-contents: write/);
+  assert.match(workflow, /permission-pull-requests: write/);
 });
 
 test('API compare-and-set and guarded one-shot merge are visible in source', () => {
