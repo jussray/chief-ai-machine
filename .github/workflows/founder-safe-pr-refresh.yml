@@ -20,15 +20,15 @@ on:
         required: false
         type: string
       expected_head_sha:
-        description: 'Exact 40-character PR head SHA; required for arm'
+        description: 'Exact 40-character PR head SHA; required for one-shot merge'
         required: false
         type: string
       expected_base_sha:
-        description: 'Exact 40-character main/base SHA; required for arm'
+        description: 'Exact 40-character main/base SHA; required for one-shot merge'
         required: false
         type: string
       approval_phrase:
-        description: 'Type ARM_EXACT_AUTO_MERGE to explicitly approve that exact PR candidate'
+        description: 'Type ARM_EXACT_AUTO_MERGE to approve an immediate, SHA-bound provider merge'
         required: false
         type: string
 
@@ -47,6 +47,9 @@ jobs:
     timeout-minutes: 8
     env:
       GH_TOKEN: ${{ github.token }}
+      # Optional, separately provisioned GitHub App installation token.
+      # GITHUB_TOKEN merges suppress ordinary post-merge push workflows.
+      MERGE_GH_TOKEN: ${{ secrets.JUSS_MERGE_APP_TOKEN }}
       AUTOBRANCH_ACTION: ${{ inputs.action || 'refresh' }}
       PR_NUMBER: ${{ inputs.pr_number || '' }}
       EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha || '' }}
@@ -73,4 +76,4 @@ jobs:
       - name: No proof carry-forward
         if: always()
         run: |
-          printf '## Founder PR maintenance\n\n- Auto-branch update: opted-in same-repo founder PRs only\n- Code repair: requires existing Reds Implant or enabled GitHub Agent Merge\n- Auto-merge: only exact founder workflow_dispatch approval, after GitHub provider gates\n- Old SHA approvals/tests: never carry forward after refresh\n- No force-push or protected-main bypass\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '## Founder PR maintenance\n\n- Auto-branch update: opted-in same-repo founder PRs only\n- Code repair: requires existing Reds Implant or enabled GitHub Agent Merge\n- Merge: founder workflow_dispatch is one-shot only, requires strict base checks and independent GitHub App token; never defers native auto-merge\n- Old SHA approvals/tests: never carry forward after refresh\n- No force-push or protected-main bypass\n' >> "$GITHUB_STEP_SUMMARY"
