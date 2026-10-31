@@ -65,7 +65,7 @@ jobs:
         with:
           node-version: '24'
       - name: Validate safe refresh contract before any API writes
-        run: node --test test/safe-pr-autoupdate.test.mjs
+        run: npx vitest run test/safe-pr-autoupdate.test.mjs
       - name: Bounded opted-in PR refresh or SHA-bound founder auto-merge arm
         run: node scripts/safe-pr-autoupdate.mjs --run
       - name: No proof carry-forward
