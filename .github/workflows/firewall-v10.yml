@@ -72,7 +72,7 @@ jobs:
         run: |
           node scripts/verify-firewall-v10.mjs
           npx vitest run test/full-attack-unit.truth.test.js
-          node --test test/safe-pr-autoupdate.test.mjs
+          npx vitest run test/safe-pr-autoupdate.test.mjs
       - name: Record exact-head local-policy evidence
         if: always()
         shell: bash
