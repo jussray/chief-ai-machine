@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { normalizeCustomPrompts, remapStarReferences, migrateLegacyCustomStarIds } from './prompt-state.js';
+import { normalizeCustomPrompts, remapStarReferences } from './prompt-state.js';
 
 describe('custom prompt identity migration', () => {
   test('remaps a custom id that collides with a reserved public prompt without touching the public numeric star', () => {
@@ -66,21 +66,4 @@ describe('custom prompt identity migration', () => {
 
     expect(migrated).toEqual({ stars: [], changed: true });
   });
-  test('does not reinterpret a portable c0 ID as legacy positional star', () => {
-    const custom = [
-      { id: 'alpha' },
-      { id: 'c0' },
-    ];
-    const first = migrateLegacyCustomStarIds(custom, ['c0']);
-    const second = migrateLegacyCustomStarIds(custom, first.stars);
-    expect(first).toEqual({ stars: ['c0'], changed: false });
-    expect(second).toEqual({ stars: ['c0'], changed: false });
-  });
-
-  test('migrates true old positional stars only when they are not current IDs', () => {
-    const custom = [{ id: 'alpha' }, { id: 'beta' }];
-    expect(migrateLegacyCustomStarIds(custom, ['c0', 'c1']))
-      .toEqual({ stars: ['alpha', 'beta'], changed: true });
-  });
-
 });

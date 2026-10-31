@@ -1,328 +1,257 @@
 name: ProofMode MCP Playwright
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
     inputs:
-      base_url:
-        description: "Cloudflare Worker base URL to verify"
+      expected_head_sha:
+        description: "Exact repository SHA to verify"
         required: true
+        type: string
+      base_url:
+        description: "Optional immutable Chief Cloudflare preview origin"
+        required: false
         type: string
 
 permissions:
   contents: read
   checks: read
-  actions: read
-  deployments: read
-
-concurrency:
-  group: proofmode-mcp-playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha }}
+  BASE_SHA: ${{ github.sha }}
+  TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}
-  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}
+  CLOUDFLARE_CHECK_APP_ID: '85455'
+
+concurrency:
+  group: proofmode-mcp-playwright-trusted-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     name: Verify live ProofMode MCP with Playwright
-    # Only founder-executed, protected-main manual runs can request a provider URL.
-    if: ${{ github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/main' && github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
-      - name: Check out exact requested head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.EXPECTED_HEAD_SHA }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Record and verify exact head
+      - name: Verify trusted event boundary
+        if: github.event_name == 'pull_request_target'
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         shell: bash
         run: |
           set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = 'main'
+          test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"
 
-      - name: Determine ProofMode applicability
+      - name: Validate exact proof subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
+
+      - name: Check out trusted evaluator snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TRUSTED_EVALUATOR_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify ProofMode applicability
         id: scope
         shell: bash
         run: |
           set -euo pipefail
-          applicable=true
-          reason=manual-dispatch
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            applicable=false
-            reason=no-proofmode-runtime-path-changed
-            while IFS= read -r file; do
-              case "$file" in
-                worker/proofmode-mcp.js|worker/index.js|wrangler.jsonc|e2e/proofmode-mcp.pw.mjs)
-                  applicable=true
-                  reason=proofmode-runtime-path-changed
-                  break
-                  ;;
-                .github/workflows/proofmode-mcp-playwright.yml|.github/workflows/proofmode-production-playwright.yml)
-                  applicable=true
-                  reason=proofmode-proof-workflow-changed
-                  break
-                  ;;
-              esac
-            done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
-          fi
-          printf 'applicable=%s\n' "$applicable" >> "$GITHUB_OUTPUT"
-          {
-            echo '### ProofMode MCP required-check receipt'
-            echo
-            echo '- status: success'
-            if [ "$applicable" = "true" ]; then
-              echo '- applicability: applicable'
-            else
-              echo '- applicability: skipped'
-            fi
-            echo "- reason: $reason"
-            echo "- head: \`$EXPECTED_HEAD_SHA\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
+          changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
+          printf '%s\n' "$changed"
 
-      - name: Set up Node
-        if: steps.scope.outputs.applicable == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install locked application dependencies
-        if: steps.scope.outputs.applicable == 'true'
-        run: npm ci
-
-      - name: Install pinned runtime proof tools
-        if: steps.scope.outputs.applicable == 'true'
-        run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0 wrangler@4.129.0
-
-      - name: Require exact-head Cloudflare build materialization
-        if: steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD_SHA}/check-runs"
-          for attempt in {1..45}; do
-            checks="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$api" || true)"
-            state="$(printf '%s' "$checks" | node -e '
-              let input = "";
-              process.stdin.setEncoding("utf8");
-              process.stdin.on("data", (chunk) => { input += chunk; });
-              process.stdin.on("end", () => {
-                if (!input) return;
-                const data = JSON.parse(input);
-                const run = data.check_runs?.find((item) => item.name === "Workers Builds: chief-ai");
-                if (run) process.stdout.write(`${run.status}:${run.conclusion || ""}`);
-              });
-            ')"
-            if [ "$state" = "completed:success" ]; then
-              echo "Cloudflare build check is successful for exact head $EXPECTED_HEAD_SHA."
-              {
-                echo '- provider-build: exact-head-success'
-                echo '- provider-runtime-equivalence: not-claimed-by-local-proof'
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            if [[ "$state" == completed:* ]] && [ "$state" != "completed:success" ]; then
-              printf 'Cloudflare build check finished without success for %s: %s\n' "$EXPECTED_HEAD_SHA" "$state" >&2
-              exit 1
-            fi
-            sleep 2
-          done
-          printf 'Cloudflare build check did not materialize for %s\n' "$EXPECTED_HEAD_SHA" >&2
-          exit 1
-
-      - name: Start exact checked-out Worker locally for local exact-head proof
-        if: steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
-        env:
-          PROOFMODE_CI_GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "$PROOFMODE_CI_GITHUB_TOKEN" ]; then
-            printf 'PROOFMODE_GITHUB_CI_CREDENTIAL_UNAVAILABLE\n' >&2
-            exit 1
-          fi
-          # Use the existing, short-lived Actions token with read-only scopes.
-          # Keep the local Worker binding outside the repository/assets root,
-          # never in a CLI argument, committed file, or uploaded report.
-          umask 077
-          token_file="$RUNNER_TEMP/proofmode-github-read.env"
-          printf 'PROOFMODE_GITHUB_TOKEN=%s\n' "$PROOFMODE_CI_GITHUB_TOKEN" > "$token_file"
-          local_url="http://127.0.0.1:8788"
-          log="$RUNNER_TEMP/proofmode-wrangler.log"
-          printf 'PROOFMODE_BASE_URL=%s\n' "$local_url" >> "$GITHUB_ENV"
-          RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev --ip 127.0.0.1 --port 8788 --env-file "$token_file" > "$log" 2>&1 &
-          pid=$!
-          printf '%s\n' "$pid" > "$RUNNER_TEMP/proofmode-wrangler.pid"
-          for attempt in {1..45}; do
-            if ! kill -0 "$pid" 2>/dev/null; then
-              cat "$log" >&2 || true
-              exit 1
-            fi
-            body="$(curl --fail --silent "$local_url/version" || true)"
-            if printf '%s' "$body" | grep -Fq "$EXPECTED_HEAD_SHA"; then
-              echo "Local workerd runtime is serving exact head $EXPECTED_HEAD_SHA."
-              {
-                echo '- local-runtime-proof: local-workerd-exact-head'
-                echo '- Cloudflare Access: remains a separate privileged provider boundary'
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 1
-          done
-          cat "$log" >&2 || true
-          printf 'Local exact-head Worker did not become ready.\n' >&2
-          exit 1
-
-      - name: Use founder-authorized provider target for workflow dispatch
-        if: steps.scope.outputs.applicable == 'true' && github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$MANUAL_BASE_URL"
-          # Reject redirect destinations, credentials, ports, query strings and
-          # arbitrary origins before this job can attach Cloudflare Access headers.
-          normalized="$(node -e '
-            const raw=process.argv[1] || "";
-            try {
-              const url=new URL(raw);
-              const h=url.hostname.toLowerCase();
-              const allowed=h==="chief.foundercontrolroom.org"
-                || h==="api.chief.foundercontrolroom.org"
-                || h==="chief-ai.mcgill-raylene.workers.dev"
-                || /^[a-f0-9]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(h);
-              if (!allowed || url.protocol!=="https:" || url.username || url.password
-                || url.port || url.search || url.hash
-                || (url.pathname!=="/" && url.pathname!=="")) process.exit(1);
-              process.stdout.write(url.origin);
-            } catch { process.exit(1); }
-          ' "$MANUAL_BASE_URL")" || {
-            printf 'Manual ProofMode base_url must be an exact approved Chief HTTPS origin.\n' >&2
-            exit 1
-          }
-          printf 'PROOFMODE_BASE_URL=%s\n' "$normalized" >> "$GITHUB_ENV"
-          echo '- runtime-proof-target: validated-chief-origin' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Verify exact runtime serves exact head
-        if: steps.scope.outputs.applicable == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if { [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; } \
-            || { [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; }; then
-            printf 'Cloudflare Access service auth is incomplete; both credentials must be configured together.\n' >&2
-            exit 1
-          fi
-
-          access_headers=()
-          if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
-            access_headers+=(
-              -H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"
-              -H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"
-            )
-          fi
-
-          headers="$RUNNER_TEMP/proofmode-version.headers"
-          body_file="$RUNNER_TEMP/proofmode-version.body"
-          status="000"
-          status="$(curl --silent --show-error \
-            "${access_headers[@]}" \
-            --dump-header "$headers" \
-            --output "$body_file" \
-            --write-out '%{http_code}' \
-            "$PROOFMODE_BASE_URL/version" || true)"
-          if [ "$status" = "200" ] && grep -Fq "$EXPECTED_HEAD_SHA" "$body_file"; then
-            printf 'Runtime target is serving exact head %s\n' "$EXPECTED_HEAD_SHA"
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          printf 'Runtime target did not serve expected head %s\n' "$EXPECTED_HEAD_SHA" >&2
-          printf 'Observed HTTP status: %s\n' "$status" >&2
-          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
-          if [ "$status" = "302" ] && printf '%s' "$location" | grep -Fq '.cloudflareaccess.com/'; then
-            if [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
-              printf 'Cloudflare Access rejected the configured service token; verify the effective Access application, Service Auth policy, token selection, and token status for this exact preview.\n' >&2
-            else
-              printf 'Cloudflare Access intercepted the immutable preview; privileged service auth is intentionally unavailable on pull_request and main-push local exact-head proof. Use founder-authorized workflow_dispatch only after provider policy is verified.\n' >&2
+          shared_changed=false
+          if printf '%s\n' "$changed" | grep -Fxq 'wrangler.jsonc'; then
+            base_wrangler="$(git show "$BASE_SHA:wrangler.jsonc" | node scripts/proofmode-scope-normalize.mjs wrangler)"
+            head_wrangler="$(git show "$EXPECTED_HEAD_SHA:wrangler.jsonc" | node scripts/proofmode-scope-normalize.mjs wrangler)"
+            if [ "$base_wrangler" != "$head_wrangler" ]; then
+              shared_changed=true
             fi
+          fi
+
+          if printf '%s\n' "$changed" | grep -Fxq 'worker/http-worker.js'; then
+            base_http="$(git show "$BASE_SHA:worker/http-worker.js" | node scripts/proofmode-scope-normalize.mjs http-worker)"
+            head_http="$(git show "$EXPECTED_HEAD_SHA:worker/http-worker.js" | node scripts/proofmode-scope-normalize.mjs http-worker)"
+            if [ "$base_http" != "$head_http" ]; then
+              shared_changed=true
+            fi
+          fi
+
+          if [ "$shared_changed" = true ]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'N/A proven from trusted exact-head semantic diff: ProofMode surfaces unchanged after removing the bounded GitHub-only route additions.'
+          fi
+
+      - name: Resolve authenticated exact-head Cloudflare preview
+        if: steps.scope.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          validate_preview() {
+            node -e '
+              const raw=process.argv[1]||"";
+              const u=new URL(raw);
+              if (u.protocol!=="https:" || u.username || u.password || u.port || u.search || u.hash || (u.pathname!=="/" && u.pathname!=="")) process.exit(1);
+              if (!/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(u.hostname)) process.exit(1);
+              process.stdout.write(u.origin);
+            ' "$1"
+          }
+          if [ -n "$MANUAL_BASE_URL" ]; then
+            preview="$(validate_preview "$MANUAL_BASE_URL")" || { echo 'Manual base_url is not an immutable Chief preview origin.' >&2; exit 1; }
+            echo "PROOFMODE_BASE_URL=$preview" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          api="https://api.github.com/repos/${REPO}/commits/${EXPECTED_HEAD_SHA}/check-runs?per_page=100"
+          for attempt in {1..45}; do
+            checks="$(curl --fail --silent --show-error -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$api" || true)"
+            preview="$(printf '%s' "$checks" | node -e '
+              let s=""; process.stdin.on("data",c=>s+=c); process.stdin.on("end",()=>{
+                if(!s) return; const d=JSON.parse(s);
+                const r=(d.check_runs||[]).find(x=>x.name==="Workers Builds: chief-ai" && x.head_sha===process.env.EXPECTED_HEAD_SHA && x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID) && x.status==="completed" && x.conclusion==="success");
+                const m=String(r?.output?.summary||"").match(/Preview URL:\s*(https:\/\/\S+)/); if(m) process.stdout.write(m[1]);
+              });
+            ')"
+            if [ -n "$preview" ]; then
+              preview="$(validate_preview "$preview")" || { echo 'Provider returned an invalid preview origin.' >&2; exit 1; }
+              echo "PROOFMODE_BASE_URL=$preview" >> "$GITHUB_ENV"
+              printf 'Resolved authenticated immutable preview: %s\n' "$preview"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "No authenticated exact-head Cloudflare preview found for ${EXPECTED_HEAD_SHA}" >&2
+          exit 1
+
+      - name: Verify direct exact-head runtime admission without candidate secrets
+        if: steps.scope.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$RUNNER_TEMP/proofmode-version.headers"
+          body_file="$RUNNER_TEMP/proofmode-version.body"
+          status="$(curl --silent --show-error --dump-header "$headers" --output "$body_file" --write-out '%{http_code}' "$PROOFMODE_BASE_URL/version" || true)"
+          if [ "$status" = '200' ] && grep -Fq "$EXPECTED_HEAD_SHA" "$body_file"; then
+            printf 'Immutable preview directly serves exact head %s\n' "$EXPECTED_HEAD_SHA"
+            exit 0
+          fi
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")"
+          redirect_host="$(node -e 'try{process.stdout.write(new URL(process.argv[1]).host)}catch{}' "$location")"
+          printf 'Direct exact-head runtime admission failed. status=%s redirect_host=%s\n' "$status" "$redirect_host" >&2
+          if printf '%s' "$redirect_host" | grep -Fq '.cloudflareaccess.com'; then
+            printf 'Cloudflare Access blocks candidate proof. Long-lived Access credentials are intentionally withheld from candidate runtime.\n' >&2
           fi
           exit 1
 
-      - name: Run live ProofMode MCP Playwright proof
-        if: steps.scope.outputs.applicable == 'true'
+      - name: Set up Node from trusted evaluator
+        if: steps.scope.outputs.changed == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install trusted locked dependencies
+        if: steps.scope.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Install trusted Chromium
+        if: steps.scope.outputs.changed == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run trusted live ProofMode and asset-boundary Playwright proof
+        if: steps.scope.outputs.changed == 'true'
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
         run: |
           cat > playwright.proofmode-mcp.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-
-          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-            ? {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              }
-            : {};
-
           export default defineConfig({
-            testDir: './e2e',
-            testMatch: /proofmode-mcp\.pw\.mjs$/,
-            fullyParallel: false,
-            retries: 0,
-            workers: 1,
-            outputDir: './test-results/proofmode-mcp',
-            reporter: [
-              ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-mcp-safe.json' }],
-            ],
-            use: { trace: 'off', screenshot: 'off', video: 'off', extraHTTPHeaders: accessHeaders },
+            testDir:'./e2e',
+            testMatch:/(proofmode-mcp|static-assets-boundary)\.pw\.mjs$/,
+            fullyParallel:false,
+            retries:0,
+            workers:1,
+            outputDir:'./test-results/proofmode-mcp',
+            reporter:[['line'],['html',{outputFolder:'./playwright-report/proofmode-mcp',open:'never'}]],
+            use:{trace:'retain-on-failure',screenshot:'only-on-failure'},
           });
           EOF
           npx playwright test --config=playwright.proofmode-mcp.config.mjs
 
-      - name: Preserve local runtime log
-        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
-        shell: bash
-        run: |
-          mkdir -p test-results/proofmode-mcp
-          cp "$RUNNER_TEMP/proofmode-wrangler.log" test-results/proofmode-mcp/wrangler.log 2>/dev/null || true
-
-      - name: Stop local exact-head Worker
-        if: always() && steps.scope.outputs.applicable == 'true' && github.event_name != 'workflow_dispatch'
-        shell: bash
-        run: |
-          pid_file="$RUNNER_TEMP/proofmode-wrangler.pid"
-          if [ -f "$pid_file" ]; then
-            kill "$(cat "$pid_file")" 2>/dev/null || true
-          fi
-          # This file is generated by this CI job only; never retain credentials.
-          rm -f "$RUNNER_TEMP/proofmode-github-read.env"
-
-      - name: Retain credential-safe Playwright outcome receipt
-        if: always() && steps.scope.outputs.applicable == 'true'
+      - name: Retain credential-free ProofMode evidence
+        if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-mcp-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: artifacts/proofmode-mcp-safe.json
+          path: |
+            playwright-report/proofmode-mcp
+            test-results/proofmode-mcp
           if-no-files-found: warn
           retention-days: 14
+
+  publish-candidate-required-check:
+    name: Publish candidate-bound ProofMode check
+    if: always() && github.event_name == 'pull_request_target'
+    needs: verify
+    runs-on: ubuntu-22.04
+    permissions:
+      checks: write
+    steps:
+      - name: Publish required context on candidate SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REQUIRED_CHECK_NAME: Verify live ProofMode MCP with Playwright
+          SOURCE_RESULT: ${{ needs.verify.result }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const expected = process.env.EXPECTED_HEAD_SHA;
+          if (!/^[0-9a-f]{40}$/.test(expected || '')) throw new Error('INVALID_EXPECTED_HEAD_SHA');
+          const conclusion = process.env.SOURCE_RESULT === 'success' ? 'success' : 'failure';
+          const payload = {
+            name: process.env.REQUIRED_CHECK_NAME,
+            head_sha: process.env.EXPECTED_HEAD_SHA,
+            status: 'completed',
+            conclusion,
+            output: {
+              title: `${process.env.REQUIRED_CHECK_NAME}: ${conclusion}`,
+              summary: `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${process.env.SOURCE_RESULT}.`,
+            },
+          };
+          const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              'Content-Type': 'application/json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) throw new Error(`CHECK_RUN_${response.status}: ${await response.text()}`);
+          NODE

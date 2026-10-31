@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Chief AI",
+    "slug": "chief-ai-mobile",
+    "scheme": "chiefai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "updates": { "enabled": false },
+    "ios": {
+      "supportsTablet": true,
+      "buildNumber": "1"
+    },
+    "android": {
+      "versionCode": 1
+    },
+    "plugins": ["expo-router"]
+  }
+}

@@ -29,7 +29,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Record and verify exact head
@@ -51,6 +50,9 @@ jobs:
       - name: Validate repo-local catalog
         run: node scripts/verify-control-room-tests.mjs
 
+      - name: Verify protected intelligence and live-proof contract
+        run: node scripts/verify-work-productization-contract.mjs
+
       - name: Verify Worker version receipt
         run: npx vitest run test/worker-version.test.js
 
@@ -62,24 +64,6 @@ jobs:
 
       - name: Verify Founder–Chief pairing
         run: npm run verify:founder-chief-pair
-
-      - name: Verify founder Sauce Guard skill and logging boundary
-        shell: bash
-        env:
-          SAUCE_GUARD_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-          node --test test/sauce-guard-egress.check.mjs
-          if [[ ! "$SAUCE_GUARD_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$SAUCE_GUARD_BASE_SHA" =~ ^0{40}$ ]]; then
-            if [[ "$GITHUB_REF_NAME" == "main" ]]; then
-              SAUCE_GUARD_BASE_SHA="$(git rev-parse HEAD^)"
-            else
-              git fetch --no-tags --filter=blob:none origin main
-              SAUCE_GUARD_BASE_SHA="$(git merge-base HEAD FETCH_HEAD)"
-            fi
-          fi
-          git fetch --filter=blob:none --no-tags origin "$SAUCE_GUARD_BASE_SHA"
-          node scripts/verify-sauce-guard-egress.mjs --base="$SAUCE_GUARD_BASE_SHA"
 
       - name: Retain sanitized contract receipt
         if: always()

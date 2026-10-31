@@ -129,8 +129,8 @@ async function requestJson(fetchImpl, env, path, options = {}) {
     },
   });
   if (!response.ok) {
-    // Never return GitHub provider bodies to CI logs or an agent-visible error.
-    throw new Error('PROOFMODE_GITHUB_API_REQUEST_FAILED');
+    const text = await response.text();
+    throw new Error(`GitHub API ${response.status}: ${text.slice(0, 500)}`);
   }
   if (response.status === 204) return null;
   return response.json();
@@ -266,9 +266,8 @@ async function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(() => {
-    // Fixed diagnostic only: internal exception bodies could contain user or provider data.
-    console.error('PROOFMODE_AUTHORITY_CHECK_FAILED');
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });
 }

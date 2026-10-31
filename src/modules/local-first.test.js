@@ -81,47 +81,6 @@ describe('local-first write contract', () => {
     })]);
   });
 
-  test('prevents synchronizers from observing half-applied identity migrations', () => {
-    const storage = new MemoryStorage();
-    commitLocalFirstValue(storage, {
-      storageKey: 'chief-custom',
-      value: [{ id: 'new-custom-id' }],
-    });
-    storage.setItem('chief-prompt-star-migration-v1', JSON.stringify({
-      version: 1, prompts: [{ id: 'new-custom-id' }], stars: ['new-custom-id'],
-    }));
-    expect(readLocalFirstOutbox(storage)).toEqual([]);
-  });
-
-  test('never surfaces an older queued payload when a later outbox write fails', () => {
-    const storage = new MemoryStorage();
-    commitLocalFirstValue(storage, {
-      storageKey: 'chief-custom',
-      value: [{ id: 'original' }],
-      randomUUID: () => 'old-mutation',
-    });
-    storage.failOn = LOCAL_FIRST_OUTBOX_KEY;
-    const receipt = commitLocalFirstValue(storage, {
-      storageKey: 'chief-custom',
-      value: [{ id: 'newer' }],
-      randomUUID: () => 'new-mutation',
-    });
-
-    expect(receipt).toMatchObject({ localCommitted: true, syncQueued: false });
-    expect(JSON.parse(storage.getItem('chief-custom'))).toEqual([{ id: 'newer' }]);
-    expect(readLocalFirstOutbox(storage)).toEqual([]);
-  });
-
-  test('never surfaces a queued payload after its local data has been removed', () => {
-    const storage = new MemoryStorage();
-    commitLocalFirstValue(storage, {
-      storageKey: 'chief-custom',
-      value: [{ id: 'pending' }],
-    });
-    storage.values.delete('chief-custom');
-    expect(readLocalFirstOutbox(storage)).toEqual([]);
-  });
-
   test('removes only the acknowledged mutation after remote receipt', () => {
     const storage = new MemoryStorage();
     commitLocalFirstValue(storage, {

@@ -81,7 +81,7 @@ function evaluateDivergence(divergence = {}) {
   const reconstructable = assumptions.length > 0 && Boolean(falsifier);
   const verifiedResolution = resolutionEvidence.some((item) => item?.state === 'VERIFIED' && item?.ref);
 
-  let disposition = 'NEEDS_RECONSTRUCTION';
+  let disposition;
   let resolution = 'unresolved';
 
   if (boundaryBlocked) {
@@ -410,7 +410,7 @@ export function evaluateEvidenceDecision(input = {}) {
       && primarySignal === 'improved',
   );
 
-  let claimState = 'UNKNOWN';
+  let claimState;
   if (subjectChanged || staleEvidence) {
     claimState = 'UNKNOWN';
   } else if (outcomeVerified) {
