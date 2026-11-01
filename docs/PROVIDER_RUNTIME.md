@@ -1,6 +1,6 @@
 # Operator-only provider runtime
 
-`worker/index.js` routes `/api/chief/provider` to the bounded server-side adapter in `worker/chief-provider.js`. The lane is optional, stateless, and separate from browser-local company intelligence. It does not read workspace assets or promote results into approved intelligence.
+`security/chief-edge-entry.js` wraps `worker/index.js`, which routes `/api/chief/provider` through the operator-authenticated membrane in `worker/chief-provider.js` to the shared provider adapter in `worker/provider-runtime.js`. The lane is optional, stateless, and separate from browser-local company intelligence. It does not read workspace assets or promote results into approved intelligence.
 
 Required runtime configuration:
 
@@ -14,7 +14,7 @@ No values belong in source, static assets, screenshots, logs, issues, or PRs. Th
 
 An authenticated GET reports configuration only (`INTEGRATED` or `ABSENT`), never key validity. An authenticated POST accepts exactly `prompt` (1–8000 characters) and `sensitivity` (`public` or `internal`). The trusted operator must classify and minimize context before calling; labels are not a private-data detector. Restricted, teen, family, journal, customer-private, and credential-bearing context must not be submitted. The adapter bounds request/response bytes, disables redirects, uses a 30-second provider timeout, makes one request with `store: false` and at most 1000 output tokens, and exposes neither upstream error bodies nor transport exceptions.
 
-Only completed assistant output with a valid response ID returns a draft and `provider:openai:<response-id>` provenance. Every result retains `authority: none`. No tools, storage, retries, automatic fallback, publication, execution, or approvals are granted. Output still requires human review. This is not a browser login, tenant authorization system, or automated agent runtime.
+Only an OpenAI Responses API result with `status: completed`, usable assistant text, and a valid response ID returns a draft and `provider:openai:<response-id>` provenance. Failed, incomplete, cancelled, queued, in-progress, or missing-status responses fail closed even if they contain partial text. Every result retains `authority: none`. No tools, storage, retries, automatic fallback, publication, execution, or approvals are granted. Output still requires human review. This is not a browser login, tenant authorization system, or automated agent runtime.
 
 ## Verification and release
 
