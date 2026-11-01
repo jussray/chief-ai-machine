@@ -1,6 +1,7 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
 import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
@@ -97,6 +98,8 @@ export default {
       response = await handleChiefCapabilityPlan(request);
     } else if (url.pathname === '/api/chief/founder-content-proposal') {
       response = await handleChiefFounderContentProposal(request);
+    } else if (url.pathname === '/api/chief/provider') {
+      response = await handleChiefProviderRequest(request, env);
     } else if (url.pathname === '/api/federated-relay') {
       response = await handleFederatedRelayV31Runtime(
         request,
