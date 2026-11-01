@@ -1,0 +1,27 @@
+name: local_build
+title: Local build
+description: 'Build discipline for Juss from greenfield scaffolding through incremental shipping, distinct from goalfix which repairs what is already broken. Use when Juss is starting something new, wiring infrastructure, or grinding a project forward in small tested increments: spec before code, plan before touching files, smallest next increment with a test and a commit checkpoint after each, token-economy output throughout. Pairs with goalfix (build ships, goalfix fixes) and prompts. Not for debugging a failure - that is goalfix.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: false
+  evidence_handles:
+  - skill_inventory:local_build@2fc70ff79cfc2529b6b9ef8c926c578d9fe4381a6419273ac34cf20fa01995e3
+  - skill_inventory:local_lean_build_orchestrator@b10f3cf6e1476be0c9abbbea18a24278d5c5cd1313e35617dc3c6bf0151dd79c
+  - evidence_gate:wake_reasons:learned_skills_consolidation
+  - report:skill_audit_gate:learned_skills=29
+  - ~/workspace/custom-skills/local-build/SKILL.md
+  - ~/workspace/custom-skills/local-lean-build-orchestrator/SKILL.md
+  - ~/workspace/custom-skills/local-cortex/SKILL.md
+  measurement:
+    proxy_metric_id: active_learned_skill_count
+    success_criterion: local_lean_build_orchestrator is absent from active skill discovery for the full window, no objective run fails or stalls for lack of its content, and the merged local_build surfaces for the retired skill's triggers (incremental build, slow grind, token efficient, free tier).
+    window_days: 21
+  rationale: 'The inventory carries 29 active learned skills and the gate woke on learned_skills_consolidation (report.learned_skills=29; evidence_gate.wake_reasons includes learned_skills_consolidation). Reading both files shows local_lean_build_orchestrator duplicates two neighbors: its token rules (code first, no preamble, file-first, batch ops, session management, cross-tool relay) restate local_minimal_token_protocol, and its incremental workflow (smallest increment, test after every change, commit checkpoint) is the execution half of local_build''s build discipline, which cortex already places adjacent in L2 (''build scaffolds greenfield...; lean-build-orchestrator grinds increments''). Merging the grind mechanics that are unique to it (TODO ledger, increment scoping, test-immediately with the two-failure stop rule, commit checkpoint, green/yellow/red token budget tiers) into local_build removes the duplicate discovery entry while keeping every distinct instruction. The deterministic hypotheses (repeated_handoff_suppression, recurring_failure on objective-loop prompts) were reviewed and rejected: they target objective-loop prompts this loop cannot change, and the 44 subagent/tool failures are scattered runtime/tool errors with no repeated shape pointing at a missing instruction.'
+  review_after: 2026-11-14T03:40:49.927149+00:00
+  reviewed_at: 2026-10-24T03:40:49.927149+00:00
+  run_id: sirun_1d283ca2e06048f79ab7ca7db6fd2aae
+  status: active

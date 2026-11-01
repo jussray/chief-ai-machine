@@ -1,0 +1,10 @@
+name: local_futureyou
+title: Local futureyou
+description: Long-horizon judgment lens for Juss - frames a decision around the version of him who has to live with it. Use when Juss says /futureyou or is weighing an option and wants the durable call over the convenient one. Asks what future-you will be glad you did, optimizes for compounding, makes downstream costs visible. Juss already enforces this idea in his trading-agent (a decision built without a forward-look is rejected), so this is the reusable form of a pattern he trusts. Invoke alone, or stack it via the prompts skill.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

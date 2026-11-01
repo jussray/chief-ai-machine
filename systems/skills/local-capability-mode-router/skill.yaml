@@ -1,0 +1,10 @@
+name: local_capability_mode_router
+title: Local capability mode router
+description: 'Route AI behavior through operational modes that push Claude, ChatGPT, and Perplexity to their actual capabilities. Includes redteam, lindymode, OODA loop, /human, /confess, truthmode, ultrathink, and artifacts commands. Use when switching between deep reasoning, adversarial testing, honest limitation reporting, humanized output, proven-tech selection, or artifact production. Triggers: redteam, lindy, ooda, human, confess, truth, ultrathink, artifacts, mode, capability.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

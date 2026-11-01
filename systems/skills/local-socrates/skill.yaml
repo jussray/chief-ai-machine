@@ -1,0 +1,10 @@
+name: local_socrates
+title: Local socrates
+description: Targeted questioning that exposes hidden assumptions - for Juss. Use when Juss says /socrates or wants the assumptions surfaced, the real problem clarified, or the few questions that actually change the answer. Asks sparingly and precisely, to clarify rather than to stall. Invoke alone, or stack it via the prompts skill.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true
