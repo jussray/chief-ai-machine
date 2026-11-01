@@ -1,5 +1,3 @@
-/* global crypto */
-
 import { invokeChiefProvider } from './provider-runtime.js';
 
 const MAX_REQUEST_BYTES = 16 * 1024;
