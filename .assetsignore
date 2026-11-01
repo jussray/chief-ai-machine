@@ -45,6 +45,7 @@ global/
 worker/
 plugins/
 security/
+supabase/
 testdata/
 wrangler.jsonc
 .assetsignore
