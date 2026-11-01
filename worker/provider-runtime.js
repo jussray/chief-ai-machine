@@ -11,9 +11,9 @@
 //       INTEGRATED only when this module's wired invoke path can actually
 //       advertise the provider; VERIFIED is never reported from wiring.
 //
-// Server-side only. Exposed via worker/fcr-service.js -> worker/index.js
-// service-binding RPC. Never a public HTTP surface. Authority: none —
-// Muse is a bounded Council peer, never the brain, never an approver.
+// Server-side only. The shared runtime is mounted by worker/chief-provider.js
+// behind the operator-authenticated /api/chief/provider membrane in worker/index.js.
+// Provider output has authority: none; Council peers never become approvers.
 
 export const PROVIDER_INTEGRATION_STATES = Object.freeze([
   'ABSENT',
