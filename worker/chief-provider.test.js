@@ -8,6 +8,11 @@ const env = {
   CHIEF_OPENAI_MODEL: 'fixture-model',
 };
 
+/**
+ * @param {Record<string, unknown> | null} [body]
+ * @param {string} [authorization]
+ * @param {string} [method]
+ */
 function request(
   body = { prompt: 'Compare two public options.', sensitivity: 'public' },
   authorization = 'Bearer operator-fixture',
@@ -85,7 +90,16 @@ describe('bounded Chief provider HTTP membrane', () => {
   });
 
   it('uses the shared runtime once and returns a nonauthorizing draft receipt', async () => {
-    const fetchImpl = vi.fn(async () => Response.json(completed));
+    const fetchImpl = vi.fn(/** @type {typeof fetch} */ (async (url, options) => {
+      expect(String(url)).toBe('https://api.openai.com/v1/responses');
+      expect(options?.redirect).toBe('error');
+      expect(JSON.parse(String(options?.body))).toMatchObject({
+        model: 'fixture-model',
+        store: false,
+        max_output_tokens: 2000,
+      });
+      return Response.json(completed);
+    }));
     const response = await handleChiefProviderRequest(request(), env, fetchImpl);
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
@@ -99,14 +113,6 @@ describe('bounded Chief provider HTTP membrane', () => {
     });
     expect(JSON.stringify(body)).not.toContain('provider-fixture');
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const [url, options] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://api.openai.com/v1/responses');
-    expect(options?.redirect).toBe('error');
-    expect(JSON.parse(String(options?.body))).toMatchObject({
-      model: 'fixture-model',
-      store: false,
-      max_output_tokens: 2000,
-    });
   });
 
   it.each(['incomplete', 'failed', 'cancelled', 'queued', 'in_progress', undefined])(
