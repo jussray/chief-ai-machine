@@ -74,3 +74,13 @@ Optimized for token budget:
 - Batch processing (parallel investigation of multiple PRs)
 - Narrow searches (target specific commits, not full history)
 - Evidence-only output (no speculation or re-analysis)
+
+## Exact-head auto-update and automatic fix integration (v1)
+
+Reuse the existing carrier. The repo's `.github/workflows/founder-safe-pr-refresh.yml` runs a scheduled/push-triggered scan for same-repo, founder-authored, `juss-auto-update`-labeled PRs, with a maximum five API branch refresh requests per run. It uses GitHub's `PUT /pulls/{number}/update-branch` guarded by `expected_head_sha`; never reinterpret a new commit as approval of an earlier candidate.
+
+When a refresh is blocked by a conflict, or a new current-head test fails: use the existing `.github/agents/reds-implant.agent.md` and `.agents/skills/goalfix/SKILL.md` to inspect exact logs, repair only the concrete cause on the same PR, and re-verify. GitHub's Agent Merge can perform automatic conflict/test-failure repair **only if separately enabled with eligible Copilot licensing and consent**; this skill file itself cannot start that paid service or prove it ran.
+
+**Safe merge gate (review correction):** Deferred native `--auto` is forbidden because it cannot preserve the founder's exact base/head approval after another writer pushes. Use `action=arm` only for a *one-shot immediate* merge of the current reviewed, non-draft PR after current-head checks, clean provider mergeability, and GitHub-enforced strict base freshness. The script must require a separately provisioned event-producing GitHub App token (`JUSS_MERGE_APP_TOKEN`); the ordinary `GITHUB_TOKEN` suppresses successor push workflows. If the token, strict ruleset, independent review, production deployment gate, or SHA binding is missing, report BLOCKED and do not queue or merge. For Chief, strict required-status freshness is currently not enabled on its inspected main rulesets, so founder/provider policy must be corrected separately before this merge mode can operate. Never bypass protection.
+
+Audit depth: founder value → Lindy → Red Team I → L99 → Red Team II / Devil → OODA → Goalfix → test and Playwright where applicable → review. Do not claim these skill passes or an external Council ran unless an actual invocation receipt exists. Report newly observed head SHA and no forced branch-history rewrite.

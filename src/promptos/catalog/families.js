@@ -183,5 +183,25 @@ export const canonicalFamilies = {
       "method.compliance-sweep",
       "output.compliance-report"
     ]
+  },
+
+  "browser.reality.inspector": {
+    id: "browser.reality.inspector",
+    title: "Browser Reality Inspector",
+    pack: "browser-evidence",
+    allowedPlatforms: ["chatgpt", "claude", "perplexity"],
+    allowedStages: ["audit", "debug", "test", "research"],
+    allowedModes: ALL_MODES,
+    allowedRiskLenses: ALL_RISK_LENSES,
+    requiredInputs: ["targetUrl", "goal"],
+    baseClauseIds: [
+      "role.browser-reality-inspector",
+      "classification.four-state",
+      "method.browser-reality-inspection",
+      "guardrail.browser-reality-privacy",
+      "evidence.browser-reality-fingerprint",
+      "stop-condition.required",
+      "output.browser-reality-report"
+    ]
   }
 };
