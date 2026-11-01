@@ -4,6 +4,7 @@ import {
   BRIDGE_WORKFLOW_PATH,
   assertAuthoritySnapshot,
   consumptionMarker,
+  discoverAuthority,
 } from '../scripts/proofmode-production-authority.mjs';
 
 const sha = 'a'.repeat(40);
@@ -176,4 +177,21 @@ describe('production authority receipt', () => {
       }),
     ).toThrow('Authority receipt lacks the one-shot marker');
   });
+  it('rejects provider failures without leaking raw response text or credentials', async () => {
+    const sensitiveResponse = 'PRIVATE_RESPONSE_DO_NOT_LOG';
+    const mockRequest = async () => ({
+      ok: false,
+      status: 401,
+      text: async () => sensitiveResponse,
+    });
+    await expect(discoverAuthority({
+      ...baseEnv,
+      GH_TOKEN: 'placeholder-not-a-real-credential',
+    }, mockRequest)).rejects.toThrow('PROOFMODE_GITHUB_API_REQUEST_FAILED');
+    await expect(discoverAuthority({
+      ...baseEnv,
+      GH_TOKEN: 'placeholder-not-a-real-credential',
+    }, mockRequest)).rejects.not.toThrow(sensitiveResponse);
+  });
+
 });

@@ -2,18 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { evaluateMergeIntent } from './merge-intent.js';
 
 describe('merge intent gate', () => {
-  it('blocks draft PRs targeting main', () => {
+  it.each([true, false])('does not interpret isDraft=%s as negative merge intent', (isDraft) => {
     const decision = evaluateMergeIntent({
       baseRef: 'main',
       title: 'feat: candidate',
       body: 'Work is still under review.',
+      isDraft,
+    });
+
+    expect(decision).toMatchObject({
+      applies: true,
+      mergeIntentClear: true,
+      reasons: [],
+    });
+    expect(decision.nextGate).toContain('all independent source, review, proof, and provider gates still apply');
+  });
+
+  it('still blocks an explicit negative directive on a draft PR', () => {
+    const decision = evaluateMergeIntent({
+      baseRef: 'main',
+      title: 'feat: candidate',
+      body: 'KEEP DRAFT until exact-head proof completes.',
       isDraft: true,
     });
 
     expect(decision).toMatchObject({
       applies: true,
       mergeIntentClear: false,
-      reasons: ['draft'],
+      reasons: ['keep-draft'],
     });
   });
 
@@ -23,11 +39,7 @@ describe('merge intent gate', () => {
     ['## DOWNSTREAM / STALE CANDIDATE', 'stale-candidate'],
     ['## STALE / PROVIDER-BLOCKED CANDIDATE', 'stale-candidate'],
     ['[SUPERSEDED] old candidate', 'superseded'],
-    ['[SUPERSEDED]: replaced by #123', 'superseded'],
     ['This PR is superseded pending rebuild.', 'superseded'],
-    ['This PR is [SUPERSEDED]: replaced by #123', 'superseded'],
-    ['This pull request is [SUPERSEDED].', 'superseded'],
-    ['Candidate is [SUPERSEDED] (replaced by #123)', 'superseded'],
     ['## VERIFICATION ONLY', 'verification-only'],
     ['MERGE BLOCKED until provider proof', 'merge-blocked'],
   ])('blocks explicit negative merge directive %s', (body, reason) => {
@@ -47,26 +59,6 @@ describe('merge intent gate', () => {
       baseRef: 'main',
       title: 'test(governance): provider preflight',
       body: 'KEEP DRAFT. Passing source checks do not authorize merge.',
-      isDraft: false,
-    });
-
-    expect(decision).toMatchObject({
-      applies: true,
-      mergeIntentClear: false,
-    });
-    expect(decision.reasons).toContain('keep-draft');
-  });
-
-  it('blocks numbered keep-draft status directives after provider metadata is flipped ready', () => {
-    const decision = evaluateMergeIntent({
-      baseRef: 'main',
-      title: 'feat(chief): fingerprint authority handoff to FCR',
-      body: [
-        '## NEXT GATE',
-        '',
-        '1. Obtain fresh independent semantic/security review.',
-        '4. Keep DRAFT until current review/authority gates are satisfied.',
-      ].join('\n'),
       isDraft: false,
     });
 

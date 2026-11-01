@@ -1,6 +1,10 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
-import { readStarStorage, writeStarStorage } from './star-storage.js';
 import { showToast, copyText } from './ui.js';
+import {
+  STARRED_PROMPTS_UPDATED_EVENT,
+  readStarState,
+  writeStars,
+} from './prompt-state.js';
 
 export function initModal() {
   const wrap = document.getElementById('modalWrap');
@@ -17,89 +21,137 @@ export function initModal() {
 
   let currentPrompt = null;
   let currentTab = null;
-  let starRead = readStarStorage();
-  let stars = starRead.stars;
+  let stars = [];
+  let starState = 'ready';
+  let returnFocus = null;
 
-  function renderStarState(prompt) {
-    if (!mStar) return;
-    const writable = starRead.state === 'ready';
-    mStar.disabled = !writable;
-    mStar.setAttribute('aria-disabled', writable ? 'false' : 'true');
-    mStar.title = writable ? '' : 'Saved star state is UNKNOWN. Repair or reset local state before changing stars.';
-    if (!writable) {
-      mStar.textContent = '?';
+  function reloadStars() {
+    const read = readStarState();
+    starState = read.state;
+    stars = read.state === 'ready' ? read.stars : [];
+  }
+
+  reloadStars();
+
+  function sameId(a, b) {
+    return String(a) === String(b);
+  }
+
+  function isStarred(id) {
+    return stars.some(starId => sameId(starId, id));
+  }
+
+  function syncStar() {
+    if (!currentPrompt || !mStar) return;
+    const readable = starState === 'ready';
+    mStar.disabled = !readable;
+    mStar.setAttribute('aria-disabled', readable ? 'false' : 'true');
+    mStar.title = readable ? '' : 'Star state is UNKNOWN. Nothing can be changed.';
+    if (!readable) {
+      mStar.textContent = '☆';
       mStar.classList.remove('on');
+      mStar.setAttribute('aria-label', 'Star status UNKNOWN');
       return;
     }
-    const starred = stars.includes(prompt.id);
-    mStar.textContent = starred ? '★' : '☆';
-    mStar.classList.toggle('on', starred);
+    const on = isStarred(currentPrompt.id);
+    mStar.textContent = on ? '★' : '☆';
+    mStar.classList.toggle('on', on);
+    mStar.setAttribute('aria-label', `${on ? 'Unstar' : 'Star'} ${currentPrompt.title || 'prompt'}`);
   }
 
   function open(prompt) {
+    returnFocus = document.activeElement;
+    reloadStars();
     currentPrompt = prompt;
-    starRead = readStarStorage();
-    stars = starRead.stars;
-    mTitle.textContent = (prompt.emoji || '') + '  ' + prompt.title;
+    mTitle.textContent = (prompt.emoji || '') + '  ' + (prompt.title || 'Untitled');
     mSub.textContent = prompt.sub || '';
-    if (prompt.notes) { mNote.hidden = false; mNoteText.textContent = ' ' + prompt.notes; }
-    else mNote.hidden = true;
+    if (prompt.notes) {
+      mNote.hidden = false;
+      mNoteText.textContent = ' ' + prompt.notes;
+    } else {
+      mNote.hidden = true;
+    }
+
     const platforms = Object.keys(prompt.versions || {});
-    mTabs.innerHTML = '';
-    platforms.forEach((p, i) => {
+    mTabs.replaceChildren();
+    platforms.forEach((platform, index) => {
       const btn = document.createElement('button');
-      btn.className = 'ptab' + (i === 0 ? ' active' : '');
-      btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+      btn.className = 'ptab' + (index === 0 ? ' active' : '');
+      btn.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
       btn.addEventListener('click', () => {
         mTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active'); currentTab = p; mBody.textContent = renderPromptVariant(prompt, p);
+        btn.classList.add('active');
+        currentTab = platform;
+        mBody.textContent = renderPromptVariant(prompt, platform);
       });
       mTabs.appendChild(btn);
     });
-    currentTab = platforms[0];
-    mBody.textContent = renderPromptVariant(prompt, currentTab);
-    renderStarState(prompt);
+
+    currentTab = platforms[0] || null;
+    if (currentTab) {
+      mBody.textContent = renderPromptVariant(prompt, currentTab);
+      mCopy.disabled = false;
+    } else {
+      mBody.textContent = 'No prompt versions are available.';
+      mCopy.disabled = true;
+    }
+
+    syncStar();
     wrap.classList.add('open');
     document.body.style.overflow = 'hidden';
+    mClose?.focus();
   }
 
   function close() {
+    if (!wrap.classList.contains('open')) return;
     wrap.classList.remove('open');
     document.body.style.overflow = '';
+    currentPrompt = null;
+    currentTab = null;
+    if (returnFocus?.focus) returnFocus.focus();
+    returnFocus = null;
   }
 
   mStar?.addEventListener('click', () => {
     if (!currentPrompt) return;
-    starRead = readStarStorage();
-    stars = starRead.stars;
-    if (starRead.state !== 'ready') {
+    // Recheck immediately before mutation; modal state may have changed.
+    const read = readStarState();
+    if (read.state !== 'ready') {
+      reloadStars();
+      syncStar();
       showToast('Star state is UNKNOWN. Nothing was changed.');
-      renderStarState(currentPrompt);
       return;
     }
-
-    const idx = stars.indexOf(currentPrompt.id);
-    if (idx === -1) stars.push(currentPrompt.id); else stars.splice(idx, 1);
+    const next = read.stars.some(id => sameId(id, currentPrompt.id))
+      ? read.stars.filter(id => !sameId(id, currentPrompt.id))
+      : [...read.stars, currentPrompt.id];
     try {
-      writeStarStorage(stars);
+      writeStars(next);
     } catch {
-      starRead = { state: 'unavailable', stars: [] };
-      stars = [];
-      showToast('Star storage is unavailable. Nothing else was changed.');
-      renderStarState(currentPrompt);
-      return;
+      showToast('Star update failed. Saved star state was not replaced.');
     }
-    renderStarState(currentPrompt);
+    reloadStars();
+    syncStar();
   });
 
-  mCopy?.addEventListener('click', () => {
-    if (currentPrompt && currentTab) { copyText(renderPromptVariant(currentPrompt, currentTab)); showToast('Copied!'); }
+  mCopy?.addEventListener('click', async () => {
+    if (!currentPrompt || !currentTab) return;
+    const copied = await copyText(renderPromptVariant(currentPrompt, currentTab));
+    showToast(copied ? 'Copied!' : 'Copy failed. Select the prompt manually.');
   });
 
   mClose?.addEventListener('click', close);
   mClose2?.addEventListener('click', close);
-  wrap?.addEventListener('click', (e) => { if (e.target === wrap) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  wrap?.addEventListener('click', (event) => {
+    if (event.target === wrap) close();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  });
+  window.addEventListener(STARRED_PROMPTS_UPDATED_EVENT, () => {
+    reloadStars();
+    syncStar();
+  });
 
-  return { open, stars: () => (starRead.state === 'ready' ? [...stars] : null) };
+  return { open, stars: () => stars };
 }

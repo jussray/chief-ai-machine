@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getReleaseSha } from './fcr-service.js';
+import { getReleaseSha } from './index.js';
 import { makeRelayFetch } from './relay-fetch.js';
 
 describe('Chief relay runtime bindings', () => {
   it('uses the baked release SHA when runtime SHA variables are absent', () => {
-    expect(getReleaseSha({})).toBe('unknown');
+    const baked = 'a'.repeat(40);
+    expect(getReleaseSha({}, baked)).toBe(baked);
   });
 
   it('authenticates GitHub head lookups with the server-only token', async () => {

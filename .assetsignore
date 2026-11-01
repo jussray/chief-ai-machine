@@ -30,6 +30,7 @@
 *.sqlite
 **/*.sqlite
 *.sqlite-*
+supabase/
 CLAUDE.md
 CHATGPT.md
 PERPLEXITY.md
@@ -44,6 +45,7 @@ global/
 worker/
 plugins/
 security/
+supabase/
 testdata/
 wrangler.jsonc
 .assetsignore

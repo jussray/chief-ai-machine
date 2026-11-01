@@ -3,7 +3,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   aggregateTestLedger,
-  mapCheckState,
   selectLatestChecks,
 } from './control-room-test-ledger.mjs';
 
@@ -30,7 +29,7 @@ export function classifyChecks(checks, requiredNames) {
   }));
 }
 
-export function buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames, observerState, observedAt = new Date(), policyPath, runtimeState = null }) {
+export function buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames, observerState, observedAt = new Date(), policyPath }) {
   const classified = classifyChecks(checks, requiredNames);
   const authoritativeChecks = classified.filter((check) => check.authority === 'required');
   const discoveredRequiredNames = new Set(authoritativeChecks.map((check) => check.name));
@@ -41,7 +40,6 @@ export function buildPolicyLedger({ repository, sha, branch, runId, checks, requ
     commitSha: normalizeSha(sha),
     branch: clean(branch) || null,
     generatedAt: observedAt.toISOString(),
-    ...(runtimeState ? { runtimeState } : {}),
     source: {
       provider: 'github-check-runs',
       exactRef: 'commit-sha',
@@ -117,52 +115,6 @@ async function fetchAllCheckRuns({ repository, sha, token }) {
   return runs;
 }
 
-// GitHub's commit check-run view can temporarily lag behind its Actions job
-// endpoint. Resolve ONLY still-pending repository-required GitHub Actions jobs,
-// and only on exact job ID, name, commit, and terminal provider result.
-// No absence, mismatch, skipped status, or API error can ever imply success.
-export async function corroboratePendingRequiredJobs({
-  checks, requiredNames, repository, sha, token, getJob = githubJson,
-}) {
-  const [owner, repo] = clean(repository).split('/');
-  const required = new Set(requiredNames);
-  const expectedSha = normalizeSha(sha);
-  return Promise.all((Array.isArray(checks) ? checks : []).map(async (check) => {
-    if (!required.has(check.name)
-      || check.app !== 'github-actions'
-      || !['queued', 'running'].includes(check.state)
-      || !/^[1-9][0-9]*$/.test(check.id)
-      || !owner || !repo) return check;
-    let job;
-    try {
-      job = await getJob(
-        new URL('https://api.github.com/repos/' + owner + '/' + repo + '/actions/jobs/' + check.id),
-        token,
-      );
-    } catch {
-      // Fail closed: the original pending state remains authoritative.
-      return check;
-    }
-    if (String(job?.id) !== check.id
-      || normalizeSha(job?.head_sha) !== expectedSha
-      || clean(job?.name) !== check.name
-      || job?.status !== 'completed'
-      || !clean(job?.completed_at)) return check;
-    return {
-      ...check,
-      state: mapCheckState(job),
-      status: job.status,
-      conclusion: clean(job.conclusion) || null,
-      completedAt: job.completed_at,
-      corroboration: {
-        provider: 'github-actions-job',
-        exactHead: expectedSha,
-        jobId: check.id,
-      },
-    };
-  }));
-}
-
 function writeLedger(outputPath, ledger) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
@@ -176,13 +128,6 @@ export async function observePolicyChecks(env = process.env) {
   const runId = clean(env.GITHUB_RUN_ID);
   const observerCheckName = clean(env.CONTROL_ROOM_LEDGER_SELF_CHECK || 'Publish exact-head test ledger');
   const outputPath = clean(env.CONTROL_ROOM_TEST_LEDGER_PATH) || 'artifacts/control-room-test-ledger.json';
-  const runtimeStatePath = clean(env.CONTROL_ROOM_RUNTIME_STATE_PATH);
-  const runtimeState = runtimeStatePath ? JSON.parse(fs.readFileSync(runtimeStatePath, 'utf8')) : null;
-  if (runtimeState) {
-    if (clean(runtimeState.repository) !== repository) throw new Error('Runtime-state receipt repository does not match the ledger repository.');
-    if (normalizeSha(runtimeState.sourceSha) !== sha) throw new Error('Runtime-state receipt sourceSha does not match the exact ledger head.');
-    if (!/^sha256:[0-9a-f]{64}$/u.test(clean(runtimeState?.trackedConfig?.sha256))) throw new Error('Runtime-state receipt is missing a valid tracked-config fingerprint.');
-  }
   const timeoutMs = Number(env.CONTROL_ROOM_LEDGER_TIMEOUT_MS || 20 * 60 * 1000);
   const pollMs = Number(env.CONTROL_ROOM_LEDGER_POLL_MS || 10_000);
   const minimumObservationMs = Number(env.CONTROL_ROOM_LEDGER_MINIMUM_MS || 30_000);
@@ -201,8 +146,7 @@ export async function observePolicyChecks(env = process.env) {
 
   while (Date.now() - startedAt < timeoutMs) {
     checks = selectLatestChecks(await fetchAllCheckRuns({ repository, sha, token }), sha, observerCheckName);
-    checks = await corroboratePendingRequiredJobs({ checks, requiredNames: requiredChecks, repository, sha, token });
-    const snapshot = buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames: requiredChecks, observerState: 'observing', policyPath, runtimeState });
+    const snapshot = buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames: requiredChecks, observerState: 'observing', policyPath });
     writeLedger(outputPath, snapshot);
     const authoritative = snapshot.checks.filter((check) => check.authority === 'required');
     const fingerprint = JSON.stringify(authoritative.map((check) => [check.app, check.name, check.state]));
@@ -226,7 +170,6 @@ export async function observePolicyChecks(env = process.env) {
     requiredNames: requiredChecks,
     observerState: reachedStableTerminal ? 'stable' : 'window-expired',
     policyPath,
-    runtimeState,
   });
   writeLedger(outputPath, ledger);
   console.log(JSON.stringify(ledger, null, 2));
