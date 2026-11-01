@@ -218,9 +218,10 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
   try { parsed = JSON.parse(raw); } catch { throw new Error(`${provider} provider returned invalid JSON`); }
   const responseId = safeId(parsed?.id);
   if (!responseId) throw new Error(`${provider} provider returned invalid response identity`);
-  // FCR parity: a Muse response counts only when it completed.
-  if (provider === 'muse' && parsed?.status !== 'completed') {
-    throw new Error('muse provider returned a non-completed response');
+  // Responses-style providers count only when the provider declares completion.
+  // Partial text from failed, cancelled, queued, or in-progress responses is never promoted.
+  if ((provider === 'openai' || provider === 'muse') && parsed?.status !== 'completed') {
+    throw new Error(`${provider} provider returned a non-completed response`);
   }
 
   const text = provider === 'anthropic'
