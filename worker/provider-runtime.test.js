@@ -117,8 +117,24 @@ describe('Chief provider runtime — Muse hardening', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it.each(['incomplete', 'failed', 'cancelled', 'queued', 'in_progress', undefined])(
+    'rejects non-completed OpenAI status %s without retries',
+    async (status) => {
+      const fetchMock = vi.fn(async () => jsonResponse({
+        id: 'resp_openai_partial',
+        status,
+        output_text: 'unfinished answer',
+        error: { message: 'untrusted-provider-detail' },
+      }));
+      await expect(invokeChiefProvider({ OPENAI_API_KEY: 'openai-key', CHIEF_OPENAI_MODEL: 'gpt-test-model' }, {
+        provider: 'openai', prompt: 'Challenge this architecture.',
+      }, fetchMock)).rejects.toThrow('openai provider returned a non-completed response');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('still invokes OpenAI and Anthropic from the ported snapshot runtime', async () => {
-    const openaiFetch = vi.fn(async () => jsonResponse({ id: 'resp_openai_1', output_text: 'OpenAI result' }));
+    const openaiFetch = vi.fn(async () => jsonResponse({ id: 'resp_openai_1', status: 'completed', output_text: 'OpenAI result' }));
     const openai = await invokeChiefProvider({ OPENAI_API_KEY: 'openai-key' }, {
       provider: 'openai', prompt: 'Challenge this architecture.',
     }, openaiFetch);
