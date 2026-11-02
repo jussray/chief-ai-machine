@@ -32,6 +32,14 @@ const releaseBranch = [
   .map((value) => value?.trim())
   .find(Boolean) || 'unknown';
 
+const releaseBranch = [
+  process.env.RELEASE_BRANCH,
+  process.env.WORKERS_CI_BRANCH,
+  process.env.GITHUB_REF_NAME,
+]
+  .map((value) => value?.trim())
+  .find(Boolean) || 'unknown';
+
 const target = new URL('../worker/release-sha.js', import.meta.url);
 await writeFile(
   target,
