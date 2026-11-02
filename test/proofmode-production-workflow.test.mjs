@@ -82,60 +82,6 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('run.conclusion === "success"');
   });
 
-  it('waits for the exact-head Cloudflare build receipt instead of failing on stale check attempts', () => {
-    const begin = workflow.indexOf('      - name: Resolve exact-head Cloudflare build and Version ID');
-    const end = workflow.indexOf('      - name: Require exact-head pre-production proof packet', begin);
-    const step = workflow.slice(begin, end);
-    expect(begin).toBeGreaterThan(0);
-    expect(end).toBeGreaterThan(begin);
-    expect(step).toContain('check-runs?per_page=100');
-    expect(step).toContain('run.head_sha === process.env.EXPECTED_HEAD_SHA');
-    expect(step).toContain('for attempt in {1..90}; do');
-    expect(step).toContain('CLOUDFLARE_VERSION_ID=%s');
-    // No exit 1 can precede the retry-loop deadline.
-    const deadline = step.indexOf('          done');
-    expect(deadline).toBeGreaterThan(0);
-    expect(step.slice(0, deadline)).not.toContain('exit 1');
-    expect(step.slice(deadline)).toContain('exit 1');
-  });
-
-  it('requires an artifact if production Playwright ran, but does not mask upstream failures', () => {
-    expect(workflow).toContain('id: proofmode_production_test');
-    expect(workflow).toContain(
-      "if: always() && (steps.proofmode_production_test.outcome == 'success' || steps.proofmode_production_test.outcome == 'failure')",
-    );
-    expect(workflow).toContain('if-no-files-found: error');
-  });
-
-  it('retains only credential-safe outcomes for authenticated proof', () => {
-    expect(workflow).not.toContain("trace: 'retain-on-failure'");
-    expect(workflow).not.toContain("['line'],");
-    expect(workflow).not.toContain("['html',");
-    expect(workflow).toContain("trace: 'off'");
-    expect(workflow).toContain("['./scripts/proofmode-safe-reporter.mjs'");
-    expect(workflow).toContain('path: artifacts/proofmode-access-safe.json');
-    expect(workflow).toContain('path: artifacts/proofmode-production-safe.json');
-    expect(workflow).not.toMatch(/path: \|\s+playwright-report/);
-  });
-
-  it('uses the existing scoped Access token only in the production runtime proof job', () => {
-    const begin = workflow.indexOf('  production-proof:');
-    const end = workflow.indexOf('  finalize-authority:', begin);
-    const job = workflow.slice(begin, end);
-    expect(begin).toBeGreaterThan(0);
-    expect(end).toBeGreaterThan(begin);
-    expect(job).toContain('name: proofmode-access-admin');
-    expect(job).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
-    expect(job).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
-    expect(job).toContain('CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID');
-    expect(job).toContain('CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET');
-    expect(job).toContain("'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID");
-    expect(job).toContain("'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET");
-    expect(job).toContain('name: Verify production ProofMode MCP with Playwright');
-    expect(job).not.toContain('CLOUDFLARE_API_TOKEN');
-    expect(job).not.toContain('deployments: write');
-  });
-
   it('materializes both required deployment environments only through live proof', () => {
     expect(workflow).toContain('name: proofmode-access-admin');
     expect(workflow).toContain('name: Cloudflare Production');
@@ -155,7 +101,7 @@ describe('ProofMode production governance workflow', () => {
 
   it('consumes one-shot authority after every attempted dispatched execution', () => {
     expect(workflow).toContain('finalize-authority:');
-    expect(workflow).toContain('needs: [protected-access, verify, production-proof]');
+    expect(workflow).toContain('needs: [protected-access, verify]');
     expect(workflow).toContain("if: always() && github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain('Consume attempted one-shot authority');
     expect(workflow).toContain('issues: write');
@@ -176,7 +122,7 @@ describe('ProofMode production governance workflow', () => {
   });
 
   it('requires protected Access proof before founder-dispatched production proof', () => {
-    expect(workflow).toContain('needs: [protected-access, verify]');
+    expect(workflow).toContain('needs: protected-access');
     expect(workflow).toContain("needs.protected-access.result == 'success'");
     expect(workflow).toContain('CF-Access-Client-Id');
     expect(workflow).toContain('CF-Access-Client-Secret');

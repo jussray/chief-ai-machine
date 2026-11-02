@@ -2,14 +2,16 @@
 .goal-item{display:grid;gap:10px}
 .goal-meta{display:flex;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;color:var(--text-faint)}
 .goal-trace{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--code-bg)}
-.goal-trace-step{min-width:0;padding:9px 10px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border)}
+.goal-trace-step{min-width:0;padding:10px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border)}
+.goal-trace-step[data-truth-kind="known"]{border-color:var(--primary-glow)}
+.goal-trace-step[data-truth-kind="blocked"]{box-shadow:inset 3px 0 0 var(--warn)}
+.goal-trace-step[data-truth-kind="authority"]{grid-column:1/-1;background:var(--primary-dim);border-color:var(--primary-glow)}
+.goal-trace-step[data-truth-kind="next-gate"]{grid-column:1/-1}
 .goal-trace-label{display:block;margin-bottom:4px;font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--primary)}
 .goal-trace-value{display:block;font-size:12px;line-height:1.45;color:var(--text);overflow-wrap:anywhere}
 .goal-trace-step.is-muted .goal-trace-value{color:var(--text-faint);font-weight:500}
-.goal-authority{grid-column:1/-1;padding:9px 10px;border-radius:var(--r-md);background:var(--primary-dim);border:1px solid var(--primary-glow);font-size:11px;line-height:1.45;color:var(--text-muted)}
-.goal-authority strong{color:var(--text)}
 .goal-actions{padding-top:2px}
 #page-goals .page-head p{max-width:72ch}
 #page-goals .stat .n{font-size:18px}
 #goalForm textarea[name="goal"],#goalForm textarea[name="definitionOfDone"]{min-height:110px}
-@media(max-width:900px){#page-goals .stat-row{grid-template-columns:1fr 1fr}.goal-trace{grid-template-columns:1fr}}
+@media(max-width:900px){#page-goals .stat-row{grid-template-columns:1fr 1fr}.goal-trace{grid-template-columns:1fr}.goal-trace-step[data-truth-kind="authority"],.goal-trace-step[data-truth-kind="next-gate"]{grid-column:auto}}

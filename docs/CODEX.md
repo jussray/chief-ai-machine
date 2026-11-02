@@ -2,7 +2,7 @@
 
 Use Codex for focused code edits, tests, Playwright verification, CI triage, repository operations, and small reversible implementation work across the Chief AI ecosystem.
 
-Codex must read `AGENTS.md`, `CLAUDE.md` when present, and any project-local instructions before acting.
+Codex must read `AGENTS.md`, `CLAUDE.md` when present, `docs/ACTIONS_BUDGET_MODE.md`, and any project-local instructions before acting.
 
 ## Required stack
 
@@ -15,6 +15,17 @@ Do not collapse the two redteam passes. The first attacks the premise; the secon
 ## Work rule
 
 Continue the requested task until it is done or a real blocker is reached. Do not stop at a plan when a focused implementation, verification, or documentation update is available.
+
+## Provider spend mode
+
+While `docs/ACTIONS_BUDGET_MODE.md` says paid semantic peer review is paused:
+
+- do not invoke Codex/OpenAI, Claude, Gemini, Perplexity, DeepSeek, or another paid model solely to review another model's work;
+- keep focused research/propose/implement work available when the task explicitly needs it;
+- use only the repository/runtime's already-configured secure provider key or authorized connector;
+- never request, display, copy, rotate, recreate, or move a raw provider secret;
+- prefer deterministic checks, focused tests, lint/typecheck, Playwright, provider/runtime readback, and exact-head evidence for verification;
+- do not treat the absence of a paid semantic review as permission to weaken merge, security, privacy, or founder-authority gates.
 
 ## CI and outage classification
 

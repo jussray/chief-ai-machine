@@ -6,7 +6,7 @@ import {
   readCustomPromptState,
   readStarState,
   writeCustomPrompts,
-  writeRecoverablePromptAndStarState,
+  writeStars,
 } from './prompt-state.js';
 
 function makeTextElement(tag, className, text) {
@@ -30,21 +30,20 @@ function setCustomFormWritable(writable) {
   save.title = writable ? '' : 'Custom prompt storage must be readable before saving.';
 }
 
-export function initCustom(PROMPTS, modal) {
+export function initCustom(modal) {
   const titleEl = document.getElementById('cTitle');
   const subEl = document.getElementById('cSub');
   const catEl = document.getElementById('cCat');
   const platformsEl = document.getElementById('cPlatforms');
   const bodyEl = document.getElementById('cBody');
   const list = document.getElementById('customList');
-  const reservedPromptIds = (Array.isArray(PROMPTS) ? PROMPTS : []).map(p => p.id);
 
   function openPrompt(prompt) {
     modal.open(prompt);
   }
 
   function render() {
-    const read = readCustomPromptState({ reservedIds: reservedPromptIds });
+    const read = readCustomPromptState();
     const custom = read.prompts;
     list.replaceChildren();
     const navCustom = document.getElementById('navCustom');
@@ -100,7 +99,7 @@ export function initCustom(PROMPTS, modal) {
 
       del.addEventListener('click', (event) => {
         event.stopPropagation();
-        const current = readCustomPromptState({ reservedIds: reservedPromptIds });
+        const current = readCustomPromptState();
         if (current.state !== 'ready') {
           showToast('Custom prompt state is UNKNOWN. Nothing was deleted.');
           render();
@@ -120,8 +119,9 @@ export function initCustom(PROMPTS, modal) {
         }
         const [removed] = current.prompts.splice(promptIndex, 1);
         try {
+          writeCustomPrompts(current.prompts);
           const nextStars = starRead.stars.filter(id => String(id) !== String(removed?.id));
-          writeRecoverablePromptAndStarState(current.prompts, nextStars);
+          if (nextStars.length !== starRead.stars.length) writeStars(nextStars);
           showToast('Deleted.');
         } catch {
           showToast('Delete failed. Local state was not fully writable.');
@@ -139,7 +139,7 @@ export function initCustom(PROMPTS, modal) {
   }
 
   document.getElementById('saveCustom')?.addEventListener('click', () => {
-    const current = readCustomPromptState({ reservedIds: reservedPromptIds });
+    const current = readCustomPromptState();
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Repair or reset local state before saving.');
       render();
