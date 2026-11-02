@@ -5,7 +5,7 @@ import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.j
 const PROTOCOL_VERSION = '2025-06-18';
 export const PROOFMODE_SERVER_INFO = Object.freeze({ name: 'proofmode', title: 'ProofMode', version: '0.1.0' });
 export const PROOFMODE_INSTRUCTIONS =
-  'This is a customer-first, stateless public MCP. It never inherits founder or company context, scans accounts, reads private repositories, or uses privileged GitHub credentials. Repository audits require a caller-named public repository and never establish runtime verification.';
+  'This is a customer-first, stateless public MCP. It never inherits founder or company context, scans accounts, reads private repositories, or uses privileged GitHub credentials. Repository audits require a caller-named public repository, produce juss-proof/v1 receipts, and never establish runtime verification.';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 
