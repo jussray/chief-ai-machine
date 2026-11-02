@@ -43,7 +43,7 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
   });
 
-  test('lists only the read-only audit_repository tool', async ({ request }) => {
+  test('lists only the public-audit and stateless customer-start tools', async ({ request }) => {
     const response = await postMcp(request, {
       jsonrpc: '2.0',
       id: 2,
@@ -53,7 +53,8 @@ test.describe('ProofMode live MCP runtime', () => {
 
     expect(response.status()).toBe(200);
     const payload = await response.json();
-    expect(payload.result.tools).toHaveLength(1);
+    expect(payload.result.tools).toHaveLength(2);
+    expect(payload.result.tools[1].name).toBe('customer_start');
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
   });
