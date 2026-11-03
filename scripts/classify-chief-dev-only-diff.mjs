@@ -70,9 +70,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         headManifest: load(headRef, 'package.json'),
         baseLock: load(baseRef, 'package-lock.json'),
         headLock: load(headRef, 'package-lock.json'),
-        changedPaths: git('diff', '--name-only', baseRef, headRef).trim().split('\\n').filter(Boolean),
+        changedPaths: git('diff', '--name-only', baseRef, headRef).trim().split('\n').filter(Boolean),
       });
-      process.stdout.write(developmentOnly ? 'development-only-npm-diff\\n' : 'runtime-or-unverified-diff\\n');
+      process.stdout.write(developmentOnly ? 'development-only-npm-diff\n' : 'runtime-or-unverified-diff\n');
       if (!developmentOnly) process.exitCode = 1;
     }
   } catch {
