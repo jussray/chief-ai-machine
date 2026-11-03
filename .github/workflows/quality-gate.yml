@@ -68,6 +68,7 @@ jobs:
       - run: npm run lint
       - run: npm run verify:pr-credential-membrane
       - run: npm run verify:gmail-resolve-skill
+      - run: npm run verify:scoped-parallel-proof-workflow
       - run: npm run verify:goalfix-skill
       - run: npm run eval:gmail-resolve -- --output gmail-resolve-eval-scorecard.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
