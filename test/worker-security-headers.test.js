@@ -1,5 +1,3 @@
-/* global Request */
-
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import worker from '../worker/index.js';
