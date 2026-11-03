@@ -137,15 +137,27 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             applicable=false
             reason=no-worker-runtime-path-changed
+            dependency_changed=false
             while IFS= read -r file; do
               case "$file" in
-                worker/*|plugins/proofmode/*|wrangler.jsonc|package.json|package-lock.json)
+                worker/*|plugins/proofmode/*|wrangler.jsonc|src/*|security/*|scripts/bake-worker-release-sha.mjs)
                   applicable=true
                   reason=worker-runtime-path-changed
                   break
                   ;;
+                package.json|package-lock.json)
+                  dependency_changed=true
+                  ;;
               esac
             done < <(git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA")
+            if [ "$dependency_changed" = true ] && [ "$applicable" = false ]; then
+              if node scripts/classify-chief-dev-only-diff.mjs "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA"; then
+                reason=verified-development-only-npm-change
+              else
+                applicable=true
+                reason=root-runtime-dependency-change-or-unverified
+              fi
+            fi
           fi
           printf 'applicable=%s\n' "$applicable" >> "$GITHUB_OUTPUT"
           {
