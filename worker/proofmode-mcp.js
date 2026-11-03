@@ -13,19 +13,6 @@ const CLIENT_INFO_META = 'io.modelcontextprotocol/clientInfo';
 const SERVER_INFO_META = 'io.modelcontextprotocol/serverInfo';
 const SERVER_INFO = { name: 'proofmode', title: 'ProofMode', version: '0.3.0' };
 
-export function buildProofModeServerCard(origin) {
-  return {
-    protocolVersion: MODERN_PROTOCOL_VERSION,
-    serverInfo: SERVER_INFO,
-    capabilities: {
-      tools: { listChanged: true },
-      sampling: {},
-    },
-    urls: {
-      connect: `${origin}/.well-known/mcp`,
-    },
-  };
-}
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_CONTEXT7_RESPONSE_BYTES = 64 * 1024;
 const MAX_DOCUMENTATION_BYTES = 48 * 1024;
@@ -98,6 +85,28 @@ const DOCUMENTATION_TOOL = {
 };
 
 const TOOLS = [AUDIT_TOOL, DOCUMENTATION_TOOL];
+
+export function buildProofModeServerCard(origin) {
+  return {
+    protocolVersion: MODERN_PROTOCOL_VERSION,
+    serverInfo: SERVER_INFO,
+    capabilities: {
+      tools: { listChanged: true },
+      sampling: {},
+    },
+    urls: {
+      connect: `${origin}/.well-known/mcp`,
+    },
+    transport: {
+      type: 'streamable-http',
+      url: `${origin}/mcp`,
+    },
+    authentication: {
+      required: false,
+    },
+    tools: TOOLS,
+  };
+}
 
 function jsonRpc(id, result) {
   return { jsonrpc: '2.0', id, result };
