@@ -512,7 +512,7 @@ async function dispatch(message, deps, env, protocol) {
       capabilities: { tools: { listChanged: false } },
       serverInfo: SERVER_INFO,
       instructions:
-        'ProofMode is read-only. Customer 5W1H starts with no inherited founder/company context. Repository audits and Context7 documentation are optional, explicitly requested, non-authorizing evidence, not live runtime verification.',
+        'ProofMode is read-only. Customer 5W1H starts with no inherited founder/company context. Repository audit evidence and Context7 documentation evidence remain optional, explicitly requested, non-authorizing inputs and never prove live runtime verification.',
     });
   }
 
