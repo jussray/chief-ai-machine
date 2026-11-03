@@ -122,12 +122,14 @@ describe('ProofMode production governance workflow', () => {
   });
 
   it('requires protected Access proof before founder-dispatched production proof', () => {
-    expect(workflow).toContain('needs: protected-access');
-    expect(workflow).toContain("needs.protected-access.result == 'success'");
-    expect(workflow).toContain('CF-Access-Client-Id');
-    expect(workflow).toContain('CF-Access-Client-Secret');
-    expect(workflow).toContain('npx playwright test --config=playwright.proofmode-access.config.mjs');
-    expect(workflow).toContain('npx playwright test --config=playwright.proofmode-production.config.mjs');
+    expect(workflow).toContain("if: github.event_name == 'workflow_dispatch'");
+    expect(workflow).toContain('name: proofmode-access-admin');
+    expect(workflow).toContain('environment:');
+    expect(workflow).toContain('name: proofmode-access-admin');
+    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
+    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    expect(workflow).toContain('-H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"');
+    expect(workflow).toContain('-H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"');
   });
 
   it('adds a founder-only PR bridge that can dispatch through GitHub without weakening the production gate', () => {

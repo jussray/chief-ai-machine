@@ -1,4 +1,3 @@
-/* global Response, URL */
 const RATE_LIMIT_BINDING = 'CHIEF_RATE_LIMITER';
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 

@@ -28,9 +28,15 @@ This file applies to Claude, Codex, ChatGPT coding agents, Perplexity-assisted r
 
 `CLAUDE.md` is the canonical global doctrine. This file restates the rules that must survive when an agent does not automatically read Claude-specific instructions.
 
+## Work productization
+
+See `docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md` and `docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md` for the lifecycle from one-off investigation to durable workflow registration.
+
+Chief compiles `juss/fcr-workflow-candidate@v1` packets for FCR ownership and execution. Leaf skills inherit productization boundaries from parent contracts. This policy applies across Chief AI, Se'kret Bip, Think Tank, Juss Beautiful Hair, and L99.
+
 ## Founder Intelligence Constitution
 
-Before material planning, implementation, review, automation, publication, deployment, migration, or cross-repository coordination, read `AGENTS_FOUNDER_INTELLIGENCE.md` and `docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md`.
+Before material planning, implementation, review, automation, publication, deployment, migration, or cross-repository coordination, read `docs/FOUNDER_WORK_PRODUCTIZATION_CONTRACT.md`, `docs/FCR_WORKFLOW_GRADUATION_HANDOFF.md`, `AGENTS_FOUNDER_INTELLIGENCE.md` and `docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md`.
 
 Use this required remembrance loop:
 
