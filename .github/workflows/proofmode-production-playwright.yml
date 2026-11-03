@@ -47,6 +47,7 @@ env:
 jobs:
   protected-access:
     name: Verify proofmode-access-admin exact head
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
@@ -63,29 +64,19 @@ jobs:
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
       AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
     steps:
-      - name: Skip workflow_dispatch-only protected access on push
-        if: github.event_name != 'workflow_dispatch'
-        shell: bash
-        run: |
-          printf 'Protected access verification only runs on workflow_dispatch events.\n'
-          exit 0
-
       - name: Check out exact authorized head
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
 
       - name: Set up Node
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
 
       - name: Bind authenticated founder authority to exact receipt
-        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -95,15 +86,12 @@ jobs:
           node scripts/proofmode-production-authority.mjs validate
 
       - name: Install locked application dependencies
-        if: github.event_name == 'workflow_dispatch'
         run: npm ci
 
       - name: Install isolated Playwright runner
-        if: github.event_name == 'workflow_dispatch'
         run: npm install --no-save --package-lock=false --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Resolve exact-head immutable Cloudflare preview
-        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -141,7 +129,6 @@ jobs:
           exit 1
 
       - name: Verify protected preview serves exact head
-        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -189,7 +176,6 @@ jobs:
           fi
 
       - name: Run protected ProofMode MCP Playwright proof
-        if: github.event_name == 'workflow_dispatch'
         env:
           PLAYWRIGHT_HTML_OPEN: never
         shell: bash
@@ -221,7 +207,7 @@ jobs:
           PROOFMODE_BASE_URL="$PROOFMODE_PREVIEW_URL" npx playwright test --config=playwright.proofmode-access.config.mjs
 
       - name: Retain protected Playwright report
-        if: always() && github.event_name == 'workflow_dispatch'
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: proofmode-access-playwright-${{ env.EXPECTED_HEAD_SHA }}
@@ -233,8 +219,8 @@ jobs:
 
   verify:
     name: Verify production ProofMode MCP with Playwright
-    needs: protected-access
     if: always() && (github.event_name == 'push' || needs.protected-access.result == 'success')
+    needs: [protected-access]
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     permissions:
