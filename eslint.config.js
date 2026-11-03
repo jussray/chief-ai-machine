@@ -52,13 +52,39 @@ export default [
     },
   },
   {
-    files: ['**/*.test.js'],
+    files: ['**/*.test.js', '**/*.test.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
         describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
-        Response: 'readonly', process: 'readonly', console: 'readonly', document: 'readonly',
+        Response: 'readonly', Request: 'readonly', process: 'readonly', console: 'readonly', document: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['mobile/**/*.js', 'mobile/**/*.mjs', 'mobile/**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
+      globals: {
+        console: 'readonly', process: 'readonly', __dirname: 'readonly',
+        URL: 'readonly', module: 'readonly', require: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['security/**/*.mjs', 'security/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        crypto: 'readonly', TextEncoder: 'readonly', console: 'readonly',
+        URL: 'readonly', Response: 'readonly', Request: 'readonly',
       },
     },
   },
