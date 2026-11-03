@@ -1,0 +1,53 @@
+name: Scoped Google Workspace Exact-Head Proof
+on:
+  push:
+    branches:
+      - 'fix/google-workspace-skill-routing-20261103'
+permissions:
+  contents: read
+concurrency:
+  group: scoped-workspace-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  focused-contracts:
+    name: Focused skill and defensive proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify exact push SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run focused contracts
+        run: |
+          set -euo pipefail
+          npm run verify:scoped-parallel-proof-workflow
+          npm run verify:gmail-resolve-skill
+  typecheck:
+    name: Typecheck and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify exact push SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: Check the full project types
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm run lint
