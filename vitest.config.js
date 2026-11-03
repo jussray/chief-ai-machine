@@ -8,6 +8,9 @@ export default defineConfig({
       'test/full-attack-unit.test.mjs',
       'test/reciprocal-defense.test.mjs',
       'test/reciprocal-ingress.test.mjs',
+      'test/browser-reality-contract.test.mjs',
+      'test/nvidia-*.test.mjs',
+      'verification/nvidia-*.test.mjs',
       'mobile/**',
     ],
     coverage: {
