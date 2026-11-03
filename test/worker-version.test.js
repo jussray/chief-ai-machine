@@ -16,6 +16,10 @@ const governanceWorkflow = readFileSync(
   new URL('../.github/workflows/governance-boundary-required-receipts.yml', import.meta.url),
   'utf8',
 );
+const securityWorkflow = readFileSync(
+  new URL('../.github/workflows/security-gates-playwright.yml', import.meta.url),
+  'utf8',
+);
 const assetsIgnore = readFileSync(
   new URL('../.assetsignore', import.meta.url),
   'utf8',
@@ -71,6 +75,9 @@ describe('Chief AI Worker version receipt', () => {
 
   it('sets every PR runtime release-SHA source to the exact checked-out head', () => {
     expect(governanceWorkflow).toContain(
+      'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
+    );
+    expect(securityWorkflow).toContain(
       'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
     );
     expect(releaseBakeScript).toContain('Release SHA inputs disagree; refusing to bake ambiguous artifact identity');
