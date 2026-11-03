@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { it } from 'vitest';
 import {
   assessDefensivePromotion,
   collectFiles,
@@ -22,13 +22,13 @@ const valid = {
   outcomeReadbackObserved: true,
 };
 
-test('unverified simulations never promote automatically, even with apparently complete evidence', () => {
+it('unverified simulations never promote automatically, even with apparently complete evidence', () => {
   const result = assessDefensivePromotion(valid, SHA);
   assert.equal(result.eligibleForIndependentReview, true);
   assert.equal(result.autoPromote, false);
 });
 
-test('forged green, absent run, unapproved scope and missing readback all fail closed', () => {
+it('forged green, absent run, unapproved scope and missing readback all fail closed', () => {
   const result = assessDefensivePromotion({
     ...valid,
     runStatus: 'success-looking',
@@ -42,7 +42,7 @@ test('forged green, absent run, unapproved scope and missing readback all fail c
   }
 });
 
-test('stale head and path traversal cannot be treated as a successful attack', () => {
+it('stale head and path traversal cannot be treated as a successful attack', () => {
   const result = assessDefensivePromotion({
     ...valid,
     testPath: 'tests/../../secret.test.ts',
@@ -52,13 +52,13 @@ test('stale head and path traversal cannot be treated as a successful attack', (
   assert.ok(result.reasons.includes('INVALID_TEST_TARGET'));
 });
 
-test('an apparent pass without the original failing test remains a candidate', () => {
+it('an apparent pass without the original failing test remains a candidate', () => {
   const result = assessDefensivePromotion({ ...valid, baselineFailureObserved: false }, SHA);
   assert.equal(result.eligibleForIndependentReview, false);
   assert.ok(result.reasons.includes('MISSING_RED_PROOF'));
 });
 
-test('skill discovery stays within requested roots and ignores symlinked external data', async () => {
+it('skill discovery stays within requested roots and ignores symlinked external data', async () => {
   const root = await mkdtemp(join(tmpdir(), 'juss-skill-audit-'));
   try {
     await mkdir(join(root, 'skills', 'founder-owned'), { recursive: true });
@@ -72,7 +72,7 @@ test('skill discovery stays within requested roots and ignores symlinked externa
   }
 });
 
-test('live repository inventory is explicitly source-only, not a claim of executed attack runs', async () => {
+it('live repository inventory is explicitly source-only, not a claim of executed attack runs', async () => {
   const result = await verifyScopedWorkflow();
   assert.ok(result.sourceSkillDefinitions > 0);
   assert.equal(result.status, 'SOURCE_CONTRACT_ONLY');
