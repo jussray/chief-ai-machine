@@ -17,7 +17,7 @@ Use for a requested `@skills` inventory, Google Drive/Docs/Sheets/Slides impleme
 
 - Project: `jussray/chief-ai-machine`. Owner of reasoning, capability composition, and skill/tool selection.
 - Canonical runtime: `src/domain/capability-registry.js + src/domain/capability-plan.js`. Do not create a second capability router or event bus.
-- Discover **all project-local founder-authored skill definitions** from `skills`, `.agents/skills` using a bounded filesystem scan. Use names, manifests, versions, and hashes to resolve, not copy or rewrite skill internals.
+- Discover **all project-local skill definitions**, identifying founder-authored skills only from verified owner metadata from `skills`, `.agents/skills` using a bounded filesystem scan. Use names, manifests, versions, and hashes to resolve, not copy or rewrite skill internals.
 - Route each requested task to the existing Chief capability plan and project authorization. Do not automatically execute every discovered skill; select only needed, installed, permitted, current skills.
 - ChatGPT-installed skills, Google Drive accounts, and FCR/Chief deployment credentials are separate. The presence of a skill file does not prove that a runtime installed or invoked it. Cross-repository skills require an explicit, permissioned handoff; never silently import private user data, credentials, memory, or founder-only knowledge into customer accounts.
 
@@ -46,6 +46,8 @@ The following states must not be conflated:
 Only upgrade from one state with a trusted, inspectable receipt for that exact scope. A passing mock/contract test is not live Google OAuth or file-write proof. Successful attacks that expose a defect should become deterministic regressions before the fix is considered complete; do not overwrite or remove the original evidence. Do not infer an attack succeeded from its filename or a model report.
 
 ## Google Workspace scope
+
+No broad Drive sweep without explicit user scope. 
 
 Drive routes file search and metadata; Docs routes native text edits; Sheets routes tab/range/formula edits; Slides routes native deck edits; Drive Comments routes anchored review. Require exact file ID, MIME type, account/tenant, revision, least-privilege scope, exact approved write, and readback. Deny broad unrelated file searches and all cross-user data inheritance. Separate Google Cloud CLI/OAuth identity from Workspace content permission.
 
