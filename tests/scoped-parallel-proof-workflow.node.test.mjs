@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test as it } from 'node:test';
+import { it } from 'vitest';
 import {
   assessDefensivePromotion,
   collectFiles,
