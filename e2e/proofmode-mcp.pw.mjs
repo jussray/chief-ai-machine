@@ -129,10 +129,11 @@ test.describe('Chief live MCP runtime', () => {
 
     expect(response.status()).toBe(200);
     const payload = await response.json();
-    expect(payload.result.tools).toHaveLength(3);
+    expect(payload.result.tools).toHaveLength(4);
     expect(payload.result.tools.map((tool) => tool.name)).toEqual([
       'audit_repository',
       'lookup_dependency_docs',
+      'customer_start',
       'compose_capability_plan',
     ]);
     for (const tool of payload.result.tools) {
@@ -153,11 +154,25 @@ test.describe('Chief live MCP runtime', () => {
     expect(payload.result.supportedVersions).toContain('2026-07-28');
     expect(payload.result.capabilities).toEqual({ tools: {} });
     expect(payload.result.cacheScope).toBe('public');
-    expect(payload.result.instructions).toContain('Chief composes bounded capability-plan proposals');
+    expect(payload.result.instructions).toContain('Chief is a standalone AI operator');
     expect(payload.result._meta['io.modelcontextprotocol/serverInfo']).toMatchObject({
       name: 'chief-ai-machine',
       title: 'Chief AI Machine',
     });
+  });
+
+  test('asks only this customer 5W1H questions with no inherited context', async ({ request }) => {
+    const response = await postMcp(request, {
+      jsonrpc: '2.0', id: 23, method: 'tools/call',
+      params: { name: 'customer_start', arguments: {} },
+    });
+    expect(response.status()).toBe(200);
+    const payload = await response.json();
+    expect(payload.result.isError).toBe(false);
+    expect(payload.result.structuredContent.inheritedContext).toBe(false);
+    expect(payload.result.structuredContent.externalSourcesQueried).toBe(false);
+    expect(payload.result.structuredContent.questions.map(({ key }) => key))
+      .toEqual(['who', 'what', 'when', 'where', 'why', 'how']);
   });
 
   test('composes a real Chief capability plan without minting authority', async ({ request }) => {
