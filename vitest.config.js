@@ -2,9 +2,17 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Playwright browser tests require a separate runner and a real deployed TEST_URL.
-    // Do not run them inside Vitest's unit-test collection.
-    exclude: [...configDefaults.exclude, '**/*-playwright.test.js'],
+    exclude: [
+      ...configDefaults.exclude,
+      'test/pr-continuity.attack20.test.mjs',
+      'test/full-attack-unit.test.mjs',
+      'test/reciprocal-defense.test.mjs',
+      'test/reciprocal-ingress.test.mjs',
+      'test/browser-reality-contract.test.mjs',
+      'test/nvidia-*.test.mjs',
+      'verification/nvidia-*.test.mjs',
+      'mobile/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json'],

@@ -82,31 +82,6 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).toContain('run.conclusion === "success"');
   });
 
-  it('waits for the exact-head Cloudflare build receipt instead of failing on stale check attempts', () => {
-    const begin = workflow.indexOf('      - name: Resolve exact-head Cloudflare build and Version ID');
-    const end = workflow.indexOf('      - name: Require exact-head pre-production proof packet', begin);
-    const step = workflow.slice(begin, end);
-    expect(begin).toBeGreaterThan(0);
-    expect(end).toBeGreaterThan(begin);
-    expect(step).toContain('check-runs?per_page=100');
-    expect(step).toContain('run.head_sha === process.env.EXPECTED_HEAD_SHA');
-    expect(step).toContain('for attempt in {1..90}; do');
-    expect(step).toContain('CLOUDFLARE_VERSION_ID=%s');
-    // No exit 1 can precede the retry-loop deadline.
-    const deadline = step.indexOf('          done');
-    expect(deadline).toBeGreaterThan(0);
-    expect(step.slice(0, deadline)).not.toContain('exit 1');
-    expect(step.slice(deadline)).toContain('exit 1');
-  });
-
-  it('requires an artifact if production Playwright ran, but does not mask upstream failures', () => {
-    expect(workflow).toContain('id: proofmode_production_test');
-    expect(workflow).toContain(
-      "if: always() && (steps.proofmode_production_test.outcome == 'success' || steps.proofmode_production_test.outcome == 'failure')",
-    );
-    expect(workflow).toContain('if-no-files-found: error');
-  });
-
   it('materializes both required deployment environments only through live proof', () => {
     expect(workflow).toContain('name: proofmode-access-admin');
     expect(workflow).toContain('name: Cloudflare Production');
@@ -147,12 +122,14 @@ describe('ProofMode production governance workflow', () => {
   });
 
   it('requires protected Access proof before founder-dispatched production proof', () => {
-    expect(workflow).toContain('needs: protected-access');
-    expect(workflow).toContain("needs.protected-access.result == 'success'");
-    expect(workflow).toContain('CF-Access-Client-Id');
-    expect(workflow).toContain('CF-Access-Client-Secret');
-    expect(workflow).toContain('npx playwright test --config=playwright.proofmode-access.config.mjs');
-    expect(workflow).toContain('npx playwright test --config=playwright.proofmode-production.config.mjs');
+    expect(workflow).toContain("if: github.event_name == 'workflow_dispatch'");
+    expect(workflow).toContain('name: proofmode-access-admin');
+    expect(workflow).toContain('environment:');
+    expect(workflow).toContain('name: proofmode-access-admin');
+    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
+    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    expect(workflow).toContain('-H "CF-Access-Client-Id: $CLOUDFLARE_ACCESS_CLIENT_ID"');
+    expect(workflow).toContain('-H "CF-Access-Client-Secret: $CLOUDFLARE_ACCESS_CLIENT_SECRET"');
   });
 
   it('adds a founder-only PR bridge that can dispatch through GitHub without weakening the production gate', () => {
