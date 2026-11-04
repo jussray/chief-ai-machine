@@ -1,18 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { selectTrustedChiefPreview } from '../scripts/validate-chief-preview.mjs';
+import { selectTrustedChiefPreview, selectTrustedChiefVersion } from '../scripts/validate-chief-preview.mjs';
 
 const sha = 'a'.repeat(40);
 const otherSha = 'b'.repeat(40);
 const appId = 85455;
 const validUrl = 'https://1234abcd-chief-ai.mcgill-raylene.workers.dev';
+const validVersion = '1234abcd-e89b-12d3-a456-426614174000';
 const build = (patch = {}) => ({
   name: 'Workers Builds: chief-ai',
   head_sha: sha,
   app: { id: appId },
   status: 'completed',
   conclusion: 'success',
-  output: { summary: `Version ID: 123e4567-e89b-12d3-a456-426614174000\nPreview URL: ${validUrl}\n` },
+  output: { summary: `Version ID: ${validVersion}\nPreview URL: ${validUrl}\n` },
   ...patch,
 });
 const response = (...checks) => ({ check_runs: checks });
@@ -42,6 +43,39 @@ describe('trusted exact-head Chief preview resolution', () => {
     expect(workflow).not.toContain('playwright-report/proofmode-production');
     expect(workflow).not.toContain('test-results/proofmode-access\\n');
     expect(workflow).not.toContain('test-results/proofmode-production\\n');
+  });
+
+  it('uses the same trusted parser for release-version selection and all check pages', () => {
+    const workflow = readFileSync(
+      new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
+      'utf8',
+    );
+    expect(workflow).toContain('node scripts/validate-chief-preview.mjs version');
+    expect(workflow.match(/check-runs\\?per_page=100/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(workflow).not.toContain('(run) => run.name === "Workers Builds: chief-ai"');
+  });
+
+  it('selects a version only from the exact-head trusted Cloudflare build', () => {
+    expect(selectTrustedChiefVersion(response(build()), sha)).toBe(validVersion);
+    expect(() => selectTrustedChiefVersion(response(build({ app: { id: 2 } })), sha)).toThrow();
+    expect(() => selectTrustedChiefVersion(response(build({ head_sha: otherSha })), sha)).toThrow();
+    expect(() => selectTrustedChiefVersion(response(build({ conclusion: 'failure' })), sha)).toThrow();
+  });
+
+  it('rejects malformed, absent, duplicated or conflicting version IDs', () => {
+    for (const summary of [
+      `Preview URL: ${validUrl}`,
+      `Version ID: 1234abcd-0000\\nPreview URL: ${validUrl}`,
+      `Version ID: ${validVersion}\\nVersion ID: ${validVersion}\\nPreview URL: ${validUrl}`,
+      `Version ID: 87654321-e89b-12d3-a456-426614174000\\nPreview URL: ${validUrl}`,
+    ]) {
+      expect(() => selectTrustedChiefVersion(response(build({ output: { summary } })), sha)).toThrow();
+    }
+    const different = '1234abcd-0000-4000-8000-000000000000';
+    expect(() => selectTrustedChiefVersion(response(
+      build(),
+      build({ output: { summary: `Version ID: ${different}\\nPreview URL: ${validUrl}` } }),
+    ), sha)).toThrow();
   });
 
   it('accepts a single authenticated exact-head Cloudflare preview', () => {
