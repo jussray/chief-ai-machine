@@ -51,7 +51,7 @@ describe('trusted exact-head Chief preview resolution', () => {
       'utf8',
     );
     expect(workflow).toContain('node scripts/validate-chief-preview.mjs version');
-    expect(workflow.match(/check-runs\\?per_page=100/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(workflow.match(/check-runs\?per_page=100/g)?.length).toBeGreaterThanOrEqual(3);
     expect(workflow).not.toContain('(run) => run.name === "Workers Builds: chief-ai"');
   });
 
