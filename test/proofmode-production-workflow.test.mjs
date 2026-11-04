@@ -66,6 +66,12 @@ describe('ProofMode production governance workflow', () => {
     expect(workflow).not.toContain('cancel-in-progress: true');
   });
 
+  it('filters Cloudflare checks for both protected preview and production Version ID with complete pagination', () => {
+    const url = '/commits/$EXPECTED_HEAD_SHA/check-runs?check_name=Workers%20Builds%3A%20chief-ai&per_page=100';
+    expect(workflow.split(url)).toHaveLength(3);
+    expect(workflow).not.toContain('/commits/$EXPECTED_HEAD_SHA/check-runs" || true)');
+  });
+
   it('requires the exact-head pre-production proof packet before promotion', () => {
     expect(workflow).toContain('Require exact-head pre-production proof packet');
     expect(workflow).toContain('"Typecheck"');
