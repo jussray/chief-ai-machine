@@ -187,10 +187,7 @@ jobs:
               trace: 'off',
               screenshot: 'off',
               video: 'off',
-              extraHTTPHeaders: {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              },
+
             },
           });
           EOF
@@ -447,13 +444,6 @@ jobs:
           cat > playwright.proofmode-production.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
 
-          const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-            ? {
-                'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-                'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-              }
-            : {};
-
           export default defineConfig({
             testDir: './e2e',
             testMatch: /proofmode-mcp\.pw\.mjs$/,
@@ -464,7 +454,7 @@ jobs:
             reporter: [
               ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-production-safe.json' }],
             ],
-            use: { trace: 'off', screenshot: 'off', video: 'off', extraHTTPHeaders: accessHeaders },
+            use: { trace: 'off', screenshot: 'off', video: 'off' },
           });
           EOF
           npx playwright test --config=playwright.proofmode-production.config.mjs
