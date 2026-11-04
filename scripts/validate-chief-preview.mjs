@@ -67,7 +67,7 @@ export function selectTrustedChiefVersion(data, expectedSha, cloudflareAppId = 8
   const ids = trusted.map((check) => {
     const summary = check.output?.summary;
     if (typeof summary !== 'string') throw new Error('Missing trusted Cloudflare version receipt');
-    const receipts = [...summary.matchAll(/^Version ID:[ \\t]*([0-9a-f-]+)[ \\t]*$/gim)];
+    const receipts = [...summary.matchAll(/^Version ID:[ \t]*([0-9a-f-]+)[ \t]*$/gim)];
     if (receipts.length !== 1) throw new Error('Ambiguous Cloudflare Version ID');
     const id = receipts[0][1].toLowerCase();
     if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(id)) {
