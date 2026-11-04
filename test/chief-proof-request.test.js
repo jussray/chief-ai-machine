@@ -40,6 +40,7 @@ describe('Chief privileged proof request boundary', () => {
       'https://1234abcd-chief-ai.mcgill-raylene.workers.dev.attacker.example/mcp',
       'http://1234abcd-chief-ai.mcgill-raylene.workers.dev/mcp',
       'https://evil@1234abcd-chief-ai.mcgill-raylene.workers.dev/mcp',
+      'https://:mock@1234abcd-chief-ai.mcgill-raylene.workers.dev/mcp',
       `${origin}/mcp?return=https://evil.example`,
     ]) {
       expect(() => bound.get(url)).toThrow();
