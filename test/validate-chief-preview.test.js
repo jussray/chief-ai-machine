@@ -28,6 +28,22 @@ describe('trusted exact-head Chief preview resolution', () => {
     expect(workflow).not.toContain('const run = (data.check_runs || []).find((item) =>');
   });
 
+  it('retains only credential-safe Playwright receipts from protected and production runs', () => {
+    const workflow = readFileSync(
+      new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
+      'utf8',
+    );
+    for (const phase of ['access', 'production']) {
+      expect(workflow).toContain(`./artifacts/proofmode-${phase}-safe.json`);
+    }
+    expect(workflow).toContain("'./scripts/proofmode-safe-reporter.mjs'");
+    expect(workflow).not.toContain("trace: 'retain-on-failure'");
+    expect(workflow).not.toContain('playwright-report/proofmode-access');
+    expect(workflow).not.toContain('playwright-report/proofmode-production');
+    expect(workflow).not.toContain('test-results/proofmode-access\\n');
+    expect(workflow).not.toContain('test-results/proofmode-production\\n');
+  });
+
   it('accepts a single authenticated exact-head Cloudflare preview', () => {
     expect(selectTrustedChiefPreview(response(build()), sha)).toBe(validUrl);
   });
