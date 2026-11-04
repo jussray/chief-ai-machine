@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { selectTrustedChiefPreview } from '../scripts/validate-chief-preview.mjs';
 
@@ -17,6 +18,16 @@ const build = (patch = {}) => ({
 const response = (...checks) => ({ check_runs: checks });
 
 describe('trusted exact-head Chief preview resolution', () => {
+  it('requires the production workflow to call the trusted parser before sending Access headers', () => {
+    const workflow = readFileSync(
+      new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
+      'utf8',
+    );
+    expect(workflow).toContain('node scripts/validate-chief-preview.mjs');
+    expect(workflow).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
+    expect(workflow).not.toContain('const run = (data.check_runs || []).find((item) =>');
+  });
+
   it('accepts a single authenticated exact-head Cloudflare preview', () => {
     expect(selectTrustedChiefPreview(response(build()), sha)).toBe(validUrl);
   });
