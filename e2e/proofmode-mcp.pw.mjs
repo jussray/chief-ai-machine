@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
+import { chiefAccessHeaders, createChiefBoundRequest } from '../scripts/chief-proof-request.mjs';
 import { createCapabilityRegistry } from '../src/domain/capability-registry.js';
 import { sha256Hex } from '../src/domain/capability-plan.js';
 import { createGoalPlan } from '../src/domain/goal-plan.js';
@@ -7,6 +8,21 @@ const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
 
 if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
+
+// Create the Access-capable API context inside a bounded test fixture. Only
+// /version and /mcp on the approved Chief origin are reachable with credentials;
+// maxRedirects=0 stops tokens from following a cross-origin redirect.
+const test = base.extend({
+  request: async ({ playwright }, use) => {
+    const headers = chiefAccessHeaders(process.env, baseURL);
+    const client = await playwright.request.newContext({ extraHTTPHeaders: headers });
+    try {
+      await use(createChiefBoundRequest(client, baseURL));
+    } finally {
+      await client.dispose();
+    }
+  },
+});
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
 
 async function postMcp(request, message) {
