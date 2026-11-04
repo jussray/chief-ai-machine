@@ -4,7 +4,7 @@ const allowedHost = (hostname) => hostname === 'chief-ai.mcgill-raylene.workers.
 function validChiefOrigin(raw) {
   let url;
   try { url = new URL(raw); } catch { throw new Error('Invalid Chief proof origin'); }
-  if (url.protocol !== 'https:' || url.username || url.password || url.port
+  if (url.protocol !== 'https:' || url.href.includes('@') || url.port
     || url.search || url.hash || url.pathname !== '/' || !allowedHost(url.hostname)) {
     throw new Error('Unapproved Chief proof origin');
   }
@@ -31,7 +31,7 @@ export function createChiefBoundRequest(client, rawOrigin) {
     }
     let url;
     try { url = new URL(rawUrl); } catch { throw new Error('Invalid Chief proof URL'); }
-    if (url.origin !== origin || url.username || url.password || url.search || url.hash
+    if (url.origin !== origin || url.href.includes('@') || url.search || url.hash
       || !['/version', '/mcp'].includes(url.pathname)) {
       throw new Error('Chief proof request exceeds approved origin or path');
     }
