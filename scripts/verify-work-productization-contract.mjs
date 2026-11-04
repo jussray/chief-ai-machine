@@ -121,7 +121,11 @@ requireValue(pairContract.relationship?.crossSystem?.failureCollapseAllowed === 
 requireValue(pairContract.relationship?.crossSystem?.continuityCollapseAllowed === false, 'continuity collapse must stay forbidden');
 requireValue(pairContract.commercialPackaging?.technicalTopology === 'standalone-peers', 'commercial packaging must not rewrite technical topology');
 requireValue(pairContract.commercialPackaging?.chiefTechnicalIndependence === true, 'Chief technical independence must remain true');
-requireValue(pairContract.commercialPackaging?.chiefDefaultCommercialPackaging === 'inside-founder-control-room', 'Chief may be packaged inside FCR only as commercial/product packaging');
+requireValue(pairContract.commercialPackaging?.chiefCommercialIndependence === true, 'Chief commercial independence must remain true');
+requireValue(pairContract.commercialPackaging?.chiefDefaultCommercialRole === 'standalone-product', 'Chief commercial role must remain standalone');
+requireValue(pairContract.commercialPackaging?.chiefDefaultCommercialPackaging === 'chief-owned-offer', 'Chief must remain a Chief-owned standalone offer by default');
+requireValue(pairContract.commercialPackaging?.bundleRule?.includes('only as an explicit go-to-market choice') === true, 'Chief may be bundled inside FCR only by explicit commercial choice');
+requireValue(pairContract.commercialPackaging?.bundleRule?.includes('does not collapse product identity') === true, 'Commercial bundling must never collapse identity or authority');
 requireValue(pairContract.v10?.capabilitySelector === 'chief-ai-machine', 'Chief must remain capability selector');
 requireValue(pairContract.v10?.governanceAuthority === 'founder-control-room', 'FCR must remain governance authority');
 

@@ -102,6 +102,8 @@ Chief owns intent compression and capability composition:
 
 Chief is a standalone executive synthesis/reasoning intelligence. It is not the durable execution authority. A `WorkflowCandidate` is a proposal package, not permission to mutate external systems.
 
+Chief is a **Chief-owned standalone commercial offer by default** (`chief-owned-offer`), independently callable and governed. Packaging Chief inside Founder Control Room is an **optional, explicit product bundle**, not an implicit change of product identity, runtime ownership, authority, receipts, or pricing. A bundle requires its own founder-authorized commercial choice and truth-backed evidence; no cross-repository source alignment grants it.
+
 ### PromptOS
 
 PromptOS owns prompt/protocol/workflow compilation and lineage within its lanes:
