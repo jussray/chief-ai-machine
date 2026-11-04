@@ -53,13 +53,47 @@ export function selectTrustedChiefPreview(data, expectedSha, cloudflareAppId = 8
   return urls[0];
 }
 
+// Version promotion must be bound to the same trusted preview identity.
+// A matching check name or an unvalidated provider summary is not authority.
+export function selectTrustedChiefVersion(data, expectedSha, cloudflareAppId = 85455) {
+  const preview = selectTrustedChiefPreview(data, expectedSha, cloudflareAppId);
+  const trusted = data.check_runs.filter((check) => (
+    check?.name === 'Workers Builds: chief-ai'
+    && check.head_sha === expectedSha
+    && check.app?.id === cloudflareAppId
+    && check.status === 'completed'
+    && check.conclusion === 'success'
+  ));
+  const ids = trusted.map((check) => {
+    const summary = check.output?.summary;
+    if (typeof summary !== 'string') throw new Error('Missing trusted Cloudflare version receipt');
+    const receipts = [...summary.matchAll(/^Version ID:[ \\t]*([0-9a-f-]+)[ \\t]*$/gim)];
+    if (receipts.length !== 1) throw new Error('Ambiguous Cloudflare Version ID');
+    const id = receipts[0][1].toLowerCase();
+    if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(id)) {
+      throw new Error('Malformed Cloudflare Version ID');
+    }
+    if (id.slice(0, 8) !== new URL(preview).hostname.slice(0, 8)) {
+      throw new Error('Cloudflare version is not bound to the verified preview');
+    }
+    return id;
+  });
+  if (new Set(ids).size !== 1) throw new Error('Conflicting Cloudflare Version IDs');
+  return ids[0];
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     let raw = '';
     for await (const chunk of process.stdin) raw += chunk;
     const expectedSha = process.env.EXPECTED_HEAD_SHA;
     const appId = Number(process.env.CLOUDFLARE_CHECK_APP_ID);
-    process.stdout.write(selectTrustedChiefPreview(JSON.parse(raw), expectedSha, appId));
+    const mode = process.argv[2] || 'preview';
+    if (mode !== 'preview' && mode !== 'version') throw new Error('Unsupported proof mode');
+    const data = JSON.parse(raw);
+    process.stdout.write(mode === 'version'
+      ? selectTrustedChiefVersion(data, expectedSha, appId)
+      : selectTrustedChiefPreview(data, expectedSha, appId));
   } catch {
     // Do not echo an untrusted URL, response body, token or authorization header.
     process.stderr.write('Trusted exact-head Chief preview is unavailable.\n');
