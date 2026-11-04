@@ -12,6 +12,10 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
+const governanceWorkflow = readFileSync(
+  new URL('../.github/workflows/governance-boundary-required-receipts.yml', import.meta.url),
+  'utf8',
+);
 const assetsIgnore = readFileSync(
   new URL('../.assetsignore', import.meta.url),
   'utf8',
@@ -63,6 +67,13 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('WORKERS_CI_BRANCH');
     expect(releaseBakeScript).toContain('BUILD_RELEASE_BRANCH');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
+  });
+
+  it('binds every local PR release identity source to the checked-out head', () => {
+    expect(governanceWorkflow).toContain(
+      'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
+    );
+    expect(releaseBakeScript).toContain('Release SHA inputs disagree; refusing to bake ambiguous artifact identity');
   });
 
   it('returns the explicit release SHA without touching assets', async () => {
