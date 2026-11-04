@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { createChiefBoundRequest, chiefAccessHeaders } from '../scripts/chief-proof-request.mjs';
 
@@ -47,6 +48,16 @@ describe('Chief privileged proof request boundary', () => {
     expect(() => bound.post(`${origin}/mcp`, { headers: { 'CF-Access-Client-Secret': 'overwrite' } })).toThrow();
     expect(client.get).not.toHaveBeenCalled();
     expect(client.post).not.toHaveBeenCalled();
+  });
+
+  it('uses the constrained fixture and never configures global Access headers', () => {
+    const proofTest = readFileSync(new URL('../e2e/proofmode-mcp.pw.mjs', import.meta.url), 'utf8');
+    const workflow = readFileSync(new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url), 'utf8');
+    expect(proofTest).toContain('createChiefBoundRequest(client, baseURL)');
+    expect(proofTest).toContain('chiefAccessHeaders(process.env, baseURL)');
+    expect(workflow).not.toContain('extraHTTPHeaders: {');
+    expect(workflow).not.toContain('extraHTTPHeaders: accessHeaders');
+    expect(workflow).toContain("'./scripts/proofmode-safe-reporter.mjs'");
   });
 
   it('restricts requests to Chief proof endpoints', () => {
