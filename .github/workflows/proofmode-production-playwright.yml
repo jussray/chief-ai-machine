@@ -94,6 +94,7 @@ jobs:
       - name: Resolve exact-head immutable Cloudflare preview
         env:
           GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_CHECK_APP_ID: '85455'
         shell: bash
         run: |
           set -euo pipefail
@@ -103,22 +104,10 @@ jobs:
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs" || true)"
-            preview="$(printf '%s' "$checks" | node -e '
-              let raw = "";
-              process.stdin.on("data", (chunk) => { raw += chunk; });
-              process.stdin.on("end", () => {
-                try {
-                  const data = JSON.parse(raw);
-                  const run = (data.check_runs || []).find((item) =>
-                    item.name === "Workers Builds: chief-ai"
-                    && item.status === "completed"
-                    && item.conclusion === "success"
-                  );
-                  const match = run?.output?.summary?.match(/Preview URL:\s*(https:\/\/\S+)/);
-                  if (match) process.stdout.write(match[1]);
-                } catch {}
-              });
-            ')"
+            # Fail closed unless a successful check from the installed Cloudflare
+            # GitHub App binds this exact SHA to one allowlisted immutable origin.
+            # This check runs before any Access service-token header is attached.
+            preview="$(printf '%s' "$checks" | node scripts/validate-chief-preview.mjs 2>/dev/null)" || preview=""
             if [ -n "$preview" ]; then
               printf 'PROOFMODE_PREVIEW_URL=%s\n' "$preview" >> "$GITHUB_ENV"
               exit 0
