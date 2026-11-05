@@ -1,4 +1,3 @@
-/* global Request, URL */
 import { test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import worker from '../front-door/worker.mjs';
