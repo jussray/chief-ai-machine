@@ -204,7 +204,7 @@ jobs:
 
   verify:
     name: Verify production ProofMode MCP with Playwright
-    if: always() && (github.event_name == 'push' || needs.protected-access.result == 'success')
+    if: always() && needs.protected-access.result == 'success'
     needs: [protected-access]
     runs-on: ubuntu-22.04
     timeout-minutes: 20
