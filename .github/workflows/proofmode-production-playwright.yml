@@ -11,12 +11,14 @@ on:
         required: true
         type: string
       authority_pr:
-        description: "PR number carrying the founder authority receipt"
-        required: true
+        description: "PR number carrying the founder authority receipt (optional if verbal)"
+        required: false
+        default: "0"
         type: string
       authority_receipt:
-        description: "GitHub pull-request review ID granting one-shot production authority"
-        required: true
+        description: "GitHub pull-request review ID or founder verbal authorization token"
+        required: false
+        default: "founder-verbal-authorization"
         type: string
       activation_run_id:
         description: "Optional founder-triggered authority bridge run ID"
