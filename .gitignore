@@ -19,3 +19,4 @@ __pycache__/
 *.keystore
 *.sqlite
 *.db
+test-results/
