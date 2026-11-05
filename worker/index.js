@@ -1,16 +1,29 @@
-import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
+import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
+import { buildChiefMcpServerCard, handleChiefMcp } from './chief-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
+import { makeRelayFetch } from './relay-fetch.js';
 import { verifyStripeWebhookSignature } from './stripe-webhook-verify.js';
 
-function getReleaseSha(env) {
+export function getReleaseSha(env, bakedReleaseSha = BUILD_RELEASE_SHA) {
   const candidates = [
     env?.RELEASE_SHA,
     env?.GITHUB_SHA,
     env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
+    bakedReleaseSha,
+  ];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
+}
+
+export function getReleaseBranch(env, bakedReleaseBranch = BUILD_RELEASE_BRANCH) {
+  const candidates = [
+    env?.FEDERATED_RELAY_BRANCH,
+    env?.RELEASE_BRANCH,
+    env?.WORKERS_CI_BRANCH,
+    bakedReleaseBranch,
   ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
   return value?.trim() || 'unknown';
@@ -79,15 +92,25 @@ export default {
         { headers: { 'Cache-Control': 'no-store' } },
       );
     } else if (url.pathname === '/mcp') {
-      response = await handleProofModeMcp(request, env);
+      response = await handleChiefMcp(request, env);
     } else if (url.pathname === '/api/chief/capability-plan') {
       response = await handleChiefCapabilityPlan(request);
     } else if (url.pathname === '/api/chief/founder-content-proposal') {
       response = await handleChiefFounderContentProposal(request);
+    } else if (url.pathname === '/api/federated-relay') {
+      response = await handleFederatedRelayV31Runtime(
+        request,
+        {
+          ...env,
+          RELEASE_SHA: getReleaseSha(env),
+          FEDERATED_RELAY_BRANCH: getReleaseBranch(env),
+        },
+        makeRelayFetch(env),
+      );
     } else if (url.pathname === '/api/stripe-webhook') {
       response = await handleStripeWebhook(request, env);
     } else if (url.pathname === '/.well-known/mcp/server-card.json') {
-      response = Response.json(buildProofModeServerCard(url.origin), {
+      response = Response.json(buildChiefMcpServerCard(url.origin), {
         headers: { 'Cache-Control': 'public, max-age=300' },
       });
     } else if (url.pathname.startsWith('/.well-known/') || url.pathname === '/auth.md') {

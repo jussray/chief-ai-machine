@@ -44,7 +44,6 @@ export function initBuilder(PROMPTS) {
   const taskEl = document.getElementById('bTask');
   const constraintsEl = document.getElementById('bConstraints');
   const out = document.getElementById('builderOut');
-  const reservedPromptIds = (Array.isArray(PROMPTS) ? PROMPTS : []).map(p => p.id);
 
   installGoalfixBuilderOptions(packEl);
 
@@ -79,7 +78,7 @@ export function initBuilder(PROMPTS) {
   document.getElementById('saveBuilder')?.addEventListener('click', () => {
     const text = out.textContent;
     if (!text) return;
-    const current = readCustomPromptState({ reservedIds: reservedPromptIds });
+    const current = readCustomPromptState();
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
       return;

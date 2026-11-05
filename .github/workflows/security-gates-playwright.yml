@@ -5,6 +5,15 @@ on:
     branches:
       - main
       - fix/security-gates-against-main
+  pull_request:
+    branches: [main]
+    paths:
+      - "wrangler.jsonc"
+      - "worker/index.js"
+      - "security/**"
+      - "e2e/worker-security-gates-3-4.pw.mjs"
+      - "test/worker-version.test.js"
+      - ".github/workflows/security-gates-playwright.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +25,7 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  EXPECTED_HEAD_SHA: ${{ github.sha }}
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CHIEF_SECURITY_BASE_URL: http://127.0.0.1:8791
   STRIPE_WEBHOOK_SECRET: whsec_chief_security_playwright
 
@@ -66,7 +75,7 @@ jobs:
           set -euo pipefail
           printf 'STRIPE_WEBHOOK_SECRET="%s"\n' "$STRIPE_WEBHOOK_SECRET" > .dev.vars
           log="$RUNNER_TEMP/security-gates-wrangler.log"
-          RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev \
+          GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev \
             --ip 127.0.0.1 \
             --port 8791 \
             > "$log" 2>&1 &

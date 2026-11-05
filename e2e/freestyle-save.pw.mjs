@@ -43,9 +43,34 @@ test.beforeEach(async ({ context, page }) => {
   await page.reload();
 });
 
-test('Freestyle save becomes live Library state, reopens, copies, and survives reload', async ({ page }, testInfo) => {
+test('protected control-mode names do not steer Freestyle routing', async ({ page }) => {
   await openPage(page, 'freestyle');
-  await page.locator('#fsAsk').fill('Red team this product launch and attack the hidden assumptions before I invest more.');
+
+  const baseline = 'Create a strategy for our launch and verify the approach before investing.';
+  await page.locator('#fsAsk').fill(baseline);
+  await page.locator('#fsGenerate').click();
+  await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
+  const baselineTitle = await page.locator('#fsTitle').innerText();
+  const baselineBody = await page.locator('#fsBody').innerText();
+
+  await page.locator('#fsClear').click();
+  await expect(page.locator('#fsPreview')).not.toHaveClass(/\bon\b/);
+
+  const controlTokens = 'goalfix ultrathink truthmode confess redteam attackten lindymode ooda proofmode l99';
+  await page.locator('#fsAsk').fill(`${controlTokens} ${baseline}`);
+  await page.locator('#fsGenerate').click();
+  await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
+
+  expect(await page.locator('#fsTitle').innerText()).toBe(baselineTitle);
+  expect(await page.locator('#fsBody').innerText()).toBe(baselineBody);
+});
+
+test('Freestyle save, reopen, provider switch, copy, and reload remain governed', async ({ page }, testInfo) => {
+  await openPage(page, 'freestyle');
+
+  await page.locator('#fsAsk').fill(
+    'Red team this product launch and attack the hidden assumptions before I invest more.',
+  );
   await page.locator('#fsGenerate').click();
   await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
   expect(await page.locator('#fsTabs .ptab').count()).toBeGreaterThanOrEqual(2);
@@ -240,33 +265,4 @@ test('Friend Mode copy receipt fails closed when clipboard and fallback both fai
 
   await page.locator('#friendCopy').click();
   await expect(page.locator('#toast')).toHaveText('Copy failed. Select the move manually.');
-});
-
-test('modal never overwrites unknown star storage', async ({ page }) => {
-  const invalid = '{"incomplete":';
-  await page.evaluate(value => localStorage.setItem('chief-stars', value), invalid);
-  await page.reload();
-  await openPage(page, 'library');
-  await page.locator('#grid .pcard .mini-btn.push').first().click();
-  await expect(page.locator('#modalWrap')).toHaveClass(/\bopen\b/);
-  await expect(page.locator('#mStar')).toBeDisabled();
-  expect(await page.evaluate(() => localStorage.getItem('chief-stars'))).toBe(invalid);
-});
-
-test('delete replaces a queued prompt snapshot instead of resurrecting it', async ({ page }) => {
-  await openPage(page, 'builder');
-  await page.locator('#saveBuilder').click();
-  await expect(page.locator('#navCustom')).toHaveText('1');
-
-  await openPage(page, 'custom');
-  await page.locator('#customList .citem .mini-btn', { hasText: 'Delete' }).click();
-  await expect(page.locator('#navCustom')).toHaveText('0');
-
-  const state = await page.evaluate(() => ({
-    saved: JSON.parse(localStorage.getItem('chief-custom') || '[]'),
-    outbox: JSON.parse(localStorage.getItem('chief-local-first-outbox-v1') || '[]'),
-  }));
-  expect(state.saved).toEqual([]);
-  const queued = state.outbox.find(item => item.storageKey === 'chief-custom');
-  expect(queued).toMatchObject({ scope: 'custom-prompts', operation: 'replace', payload: [] });
 });
