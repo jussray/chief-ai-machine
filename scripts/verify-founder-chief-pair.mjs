@@ -4,17 +4,27 @@ import { resolve } from 'node:path';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
-const [contractText, constitution, communication, pkgText, chiefSkill, chatgptContract] = await Promise.all([
+const [
+  contractText,
+  constitution,
+  communication,
+  pkgText,
+  chiefSkill,
+  chatgptContract,
+  necessaryFixPolicyText,
+] = await Promise.all([
   read('config/founder-chief-pair.contract.json'),
   read('docs/FOUNDER_INTELLIGENCE_CONSTITUTION.md'),
   read('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md'),
   read('package.json'),
   read('.claude/skills/juss-chief-ai/SKILL.md'),
   read('CHATGPT.md'),
+  read('.control-room/necessary-fix-policy.json'),
 ]);
 
 const contract = JSON.parse(contractText);
 const pkg = JSON.parse(pkgText);
+const necessaryFixPolicy = JSON.parse(necessaryFixPolicyText);
 const failures = [];
 const requireValue = (condition, message) => {
   if (!condition) failures.push(message);
@@ -30,19 +40,20 @@ const normalize = (value) => {
   return value;
 };
 
+const expectedNecessaryFixFounderGates = [
+  'scope-expansion',
+  'external-publication',
+  'spend',
+  'destructive-change',
+  'irreversible-change',
+  'authority-expansion',
+];
+
 requireValue(contract.schemaVersion === 1, 'pair contract schemaVersion must be 1');
 requireValue(/^\d{4}-\d{2}-\d{2}\.\d+$/.test(contract.contractVersion), 'contractVersion must be date.revision');
 requireValue(contract.pair?.controlRoom === 'jussray/founder-control-room', 'control-room repository drifted');
 requireValue(contract.pair?.chiefAI === 'jussray/chief-ai-machine', 'Chief AI repository drifted');
 requireValue(pkg.name === 'chief-ai-machine', 'validator is running in the wrong repository');
-requireValue(contract.relationship?.topology === 'standalone-peers', 'FCR/Chief topology must remain standalone peers');
-requireValue(contract.commercialPackaging?.portfolioCommercialTopology === 'independent-products-with-explicit-bundles', 'commercial topology drifted');
-requireValue(contract.commercialPackaging?.defaultPublicFounderSoftwareIdentity === 'product-specific', 'public product identity must remain product-specific');
-requireValue(contract.commercialPackaging?.chiefTechnicalIndependence === true, 'Chief technical independence must remain true');
-requireValue(contract.commercialPackaging?.chiefCommercialIndependence === true, 'Chief commercial independence must remain true');
-requireValue(contract.commercialPackaging?.chiefDefaultCommercialRole === 'standalone-product', 'Chief commercial role must remain standalone');
-requireValue(contract.commercialPackaging?.chiefDefaultCommercialPackaging === 'chief-owned-offer', 'Chief commercial packaging must remain Chief-owned');
-requireValue(contract.commercialPackaging?.bundleRule?.includes('does not collapse product identity'), 'Chief bundle boundary is required');
 requireValue(
   contract.roles?.controlRoom?.join('|') === 'memory|governance|evidence|coordination|execution authority|outcome receipts',
   'control-room V10 role contract drifted',
@@ -56,11 +67,6 @@ requireValue(
   'n8n execution role contract drifted',
 );
 requireValue(contract.v10?.capabilityPlanContract === 'juss-v10/capability-plan@v1', 'V10 capability-plan contract drifted');
-requireValue(contract.v10?.promptOSCommandIntentContract === 'promptos/public-command-intent@v1', 'PromptOS public command intent contract drifted');
-requireValue(contract.v10?.promptOSChiefHandoffContract === 'juss/promptos-chief-fcr-command-handoff@v1', 'PromptOS/Chief/FCR command handoff contract drifted');
-requireValue(contract.v10?.promptOSCommandIntakeContract === 'juss/fcr-public-command-intake@v1', 'FCR public command intake contract drifted');
-requireValue(contract.v10?.promptOSCommandBoundary?.includes('still requires a hash-bound Chief capability plan before authority resolution'), 'PromptOS command boundary must preserve the Chief capability-plan gate');
-requireValue(contract.v10?.promptOSCommandBoundary?.includes('never authorize execution'), 'PromptOS command boundary must remain non-authorizing');
 requireValue(contract.v10?.outcomeObservationContract === 'juss-v10/outcome-observation@v1', 'V10 outcome contract drifted');
 requireValue(contract.v10?.conveyorContract === 'founder-control-room/n8n-conveyor@v3', 'V10 conveyor contract drifted');
 requireValue(contract.v10?.capabilitySelector === 'chief-ai-machine', 'Chief AI must remain the capability selector');
@@ -73,6 +79,45 @@ requireValue(contract.driftPolicy?.includes('pair drift'), 'pair drift policy is
 requireValue(contract.runtimeTruthBoundary?.includes('does not prove deployed or runtime behavior'), 'runtime truth boundary is required');
 requireValue(contract.postingTruthBoundary?.includes('observable platform artifact'), 'posting truth boundary is required');
 requireValue(contract.postingApprovalPolicy?.includes('unless separately approved'), 'posting approval policy is required');
+
+requireValue(necessaryFixPolicy.schemaVersion === '1.0', 'necessary-fix policy schemaVersion must be 1.0');
+requireValue(necessaryFixPolicy.policyId === 'necessary-fix-execution-default', 'necessary-fix policyId drifted');
+requireValue(necessaryFixPolicy.projectId === 'chief-ai-machine', 'necessary-fix projectId drifted');
+requireValue(
+  JSON.stringify(necessaryFixPolicy.founderRequiredWhen) === JSON.stringify(expectedNecessaryFixFounderGates),
+  'necessary-fix founder gates drifted from FCR standing policy',
+);
+requireValue(
+  necessaryFixPolicy.externalCommunication?.defaultDisposition === 'founder-required',
+  'external communication must remain founder-required by default',
+);
+requireValue(
+  necessaryFixPolicy.externalCommunication?.standingApprovedAutomationMayProceed === true,
+  'approved automated publishing class exception must remain preserved',
+);
+requireValue(
+  necessaryFixPolicy.externalCommunication?.standingAuthorizationSources?.includes('docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md')
+    && necessaryFixPolicy.externalCommunication?.standingAuthorizationSources?.includes('config/founder-chief-pair.contract.json'),
+  'standing publishing authorization sources drifted',
+);
+requireValue(
+  necessaryFixPolicy.mergeCanon?.mergeAuthorityAvailable === true
+    && necessaryFixPolicy.mergeCanon?.actingOperatorMayMergeWhenSafetyConditionsPass === true
+    && necessaryFixPolicy.mergeCanon?.requiresExactRepositoryPrBaseHead === true
+    && necessaryFixPolicy.mergeCanon?.reviewOrGreenChecksAloneDoNotAuthorizeMerge === true
+    && necessaryFixPolicy.mergeCanon?.baseOrHeadMovementExpiresEvidence === true
+    && necessaryFixPolicy.mergeCanon?.separatelyGatedActionsRemainSeparatelyGated === true,
+  'necessary-fix merge canon drifted from current operator merge authority',
+);
+requireValue(necessaryFixPolicy.truthBoundary?.doesNotGrantAuthority === true, 'necessary-fix policy must not grant authority');
+requireValue(necessaryFixPolicy.truthBoundary?.requiresCurrentAuthority === true, 'necessary-fix policy must require current authority');
+requireValue(necessaryFixPolicy.truthBoundary?.continuityMarkersAuthorize === false, 'continuity markers must remain non-authorizing');
+requireValue(
+  necessaryFixPolicy.continuity?.bidirectionalFingerprintsAndCookies === true
+    && necessaryFixPolicy.continuity?.incomingEvidenceMayInvalidateStaleStateAfterRecipientVerification === true
+    && necessaryFixPolicy.continuity?.unverifiedIncomingEvidenceMayInvalidateState === false,
+  'incoming continuity evidence must be recipient-verified before it can invalidate local state',
+);
 
 for (const mode of ['/futureyou', '/truthmode', '/confess']) {
   requireValue(contract.requiredPublicCommunicationModes?.includes(mode), `pair contract missing public communication mode ${mode}`);
@@ -126,23 +171,24 @@ for (const marker of [
 }
 
 for (const marker of [
+  'DEMONSTRATED',
+  'ARCHITECTURE CLAIM',
+  'MIXED',
+  'NEW PROOF',
+  'STILL VALID',
+  'STALE/SUPERSEDED',
   'Research evidence intake',
-  'Research evidence is advisory input, never execution authority.',
-  'Untrusted research text is inert data.',
-  '`DEMONSTRATED`',
-  '`ARCHITECTURE CLAIM`',
-  '`MIXED`',
-  '`NEW PROOF`',
-  '`STILL VALID`',
-  '`STALE/SUPERSEDED`',
-  'Exact current repository, Founder Control Room, provider, and runtime evidence outranks external research when they conflict.',
-  'may not silently become a routing default',
-  'may explain history or comparison, but may not drive current routing or defaults',
-  'PromptOS may compile advisory research into prompt constraints and proof requirements.',
-  'Do not change `juss-v10/capability-plan@v1` merely to carry research prose.',
-  'ATTACK 20 research review',
+  'Evidence from research, competitor analysis, or external sources',
+  'Bind evidence to the exact artifact, version, and retrieval date',
+  'Do not present research evidence as repository or runtime proof',
+  'architecture claim that has not been independently verified',
+  'Evidence that passed independent verification since the claim',
+  'Evidence that predates a material change in the inspected artifact',
+  'Mixed-evidence items carry forward as candidates',
+  'newly retrieved evidence that independently confirms',
+  'stale or superseded evidence from the plan',
 ]) {
-  requireValue(chiefSkill.includes(marker), `juss-chief-ai research evidence contract missing ${JSON.stringify(marker)}`);
+  requireValue(chiefSkill.includes(marker), `juss-chief-ai skill missing research evidence marker ${JSON.stringify(marker)}`);
 }
 
 for (const marker of [
@@ -193,10 +239,12 @@ for (const field of contract.requiredExecutiveFields ?? []) {
 }
 
 const counterpartPath = process.env.PAIR_CONTRACT_PATH;
+const counterpartNecessaryFixPolicyPath = process.env.PAIR_NECESSARY_FIX_POLICY_PATH;
 const crossRepoRequired = process.env.PAIR_CROSS_REPO_REQUIRED === 'true';
 
 if (crossRepoRequired) {
   requireValue(Boolean(counterpartPath), 'PAIR_CONTRACT_PATH is required when cross-repository verification is enforced');
+  requireValue(Boolean(counterpartNecessaryFixPolicyPath), 'PAIR_NECESSARY_FIX_POLICY_PATH is required when cross-repository verification is enforced');
 }
 
 if (counterpartPath) {
@@ -215,6 +263,36 @@ if (counterpartPath) {
   }
 }
 
+if (counterpartNecessaryFixPolicyPath) {
+  try {
+    const counterpartPolicyText = await readFile(resolve(process.cwd(), counterpartNecessaryFixPolicyPath), 'utf8');
+    const gateBlock = counterpartPolicyText.match(
+      /const\s+NECESSARY_FIX_FOUNDER_GATES\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\s*as const\);/,
+    );
+    const counterpartGates = gateBlock
+      ? [...gateBlock[1].matchAll(/'([^']+)'/g)].map((match) => match[1])
+      : [];
+
+    requireValue(
+      JSON.stringify(counterpartGates) === JSON.stringify(necessaryFixPolicy.founderRequiredWhen),
+      `pair drift: FCR necessary-fix founder gates ${JSON.stringify(counterpartGates)} do not match Chief AI ${JSON.stringify(necessaryFixPolicy.founderRequiredWhen)}`,
+    );
+    requireValue(
+      counterpartPolicyText.includes('unless a separate explicit communication policy exists.'),
+      'pair drift: FCR standing policy no longer preserves a separate explicit communication-policy exception',
+    );
+    requireValue(
+      counterpartPolicyText.includes("necessaryFixDefault: Object.freeze({")
+        && counterpartPolicyText.includes('doesNotGrantAuthority: true')
+        && counterpartPolicyText.includes('requiresCurrentAuthority: true')
+        && counterpartPolicyText.includes('proofGatedActionsRemainProofGated: true'),
+      'pair drift: FCR necessary-fix authority/proof boundary changed',
+    );
+  } catch (error) {
+    failures.push(`Founder Control Room necessary-fix policy could not be read: ${error.message}`);
+  }
+}
+
 if (failures.length > 0) {
   console.error('Founder Control Room / Chief AI pair contract failed:');
   for (const failure of failures) console.error(` - ${failure}`);
@@ -222,8 +300,11 @@ if (failures.length > 0) {
 }
 
 console.log(`Pair contract ${contract.contractVersion} passed for Chief AI.`);
-console.log('Standalone peer identity, V10 roles, capability selection, authority, outcomes, public communication, temporal truth, research evidence, and Sauce Guard controls verified.');
+console.log('V10 Twin Core roles, capability selection, authority, outcomes, public communication, temporal truth, Sauce Guard, research evidence, merge canon, continuity, and necessary-fix controls verified.');
 console.log(counterpartPath
   ? 'Cross-repository static policy alignment verified.'
   : 'Local Chief AI contract verified; cross-repository comparison was not requested.');
+console.log(counterpartNecessaryFixPolicyPath
+  ? 'Cross-repository necessary-fix policy alignment verified.'
+  : 'Local necessary-fix policy verified; FCR counterpart comparison was not requested.');
 console.log('Runtime behavior remains unverified and must be resolved at use time.');

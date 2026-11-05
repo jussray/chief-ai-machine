@@ -3,7 +3,7 @@ export function initThemeToggle() {
   const btn = document.getElementById('themeBtn');
   if (!btn) return;
   const saved = localStorage.getItem('chief-ai-theme');
-  if (saved) root.setAttribute('data-theme', saved);
+  if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
   btn.addEventListener('click', () => {
     const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
@@ -15,16 +15,10 @@ export function initNav() {
   const allBtns = document.querySelectorAll('[data-page]');
   const allPages = document.querySelectorAll('.page');
   function goTo(page) {
-    document.querySelectorAll('.brand-more[open]').forEach((d) => { d.open = false; });
     allBtns.forEach(b => b.classList.toggle('active', b.dataset.page === page));
     allPages.forEach(p => p.classList.toggle('on', p.id === 'page-' + page));
   }
   allBtns.forEach(btn => btn.addEventListener('click', () => goTo(btn.dataset.page)));
-
-  // Menus in the top bar (More, Data) close on outside tap or Escape, so they never sit over the page.
-  const closeMenus = (keep) => document.querySelectorAll('.brand-more[open]').forEach((d) => { if (!d.contains(keep)) d.open = false; });
-  document.addEventListener('click', (e) => closeMenus(e.target));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(null); });
 }
 
 export function showToast(msg) {
@@ -32,7 +26,37 @@ export function showToast(msg) {
   if (!t) return;
   t.textContent = String(msg);
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  clearTimeout(t._chiefToastTimer);
+  t._chiefToastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-export function copyText(text) { navigator.clipboard?.writeText(text); }
+export async function copyText(text) {
+  const value = String(text ?? '');
+  if (!value) return false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    // Fall through to the local textarea fallback.
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return Boolean(document.execCommand?.('copy'));
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+  }
+}

@@ -97,11 +97,10 @@ export function upsertIntelligenceAsset(assets, nextAsset) {
   const current = Array.isArray(assets) ? assets : [];
   const existingIndex = current.findIndex((asset) => asset.id === nextAsset.id);
   if (existingIndex === -1) {
-    const assetVersion = Number.isInteger(nextAsset.version) && nextAsset.version > 0 ? nextAsset.version : 1;
     const initial = {
       ...nextAsset,
       history: [],
-      historyComplete: assetVersion === 1,
+      historyComplete: nextAsset.version === 1,
     };
     const validation = validateIntelligenceAsset(initial);
     if (!validation.valid) throw new Error(validation.errors.join('; '));

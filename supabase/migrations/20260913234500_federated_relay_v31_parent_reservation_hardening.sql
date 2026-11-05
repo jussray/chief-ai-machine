@@ -72,8 +72,8 @@ begin
   -- Read the parent once without a lock only to determine the target-scoped cursor.
   -- All state is re-read after acquiring the canonical cursor -> chain -> parent locks.
   select * into v_parent
-  from public.federated_relay_messages
-  where message_id = p_parent_message_id;
+  from public.federated_relay_messages as relay_message
+  where relay_message.message_id = p_parent_message_id;
   if not found then raise exception 'relay_reply_parent_invalid'; end if;
   if v_parent.target_member <> 'chief-ai-machine'
      or v_parent.target_repository <> 'jussray/chief-ai-machine' then
@@ -102,8 +102,8 @@ begin
   if not found then raise exception 'relay_reply_chain_unknown'; end if;
 
   select * into v_parent
-  from public.federated_relay_messages
-  where message_id = p_parent_message_id
+  from public.federated_relay_messages as relay_message
+  where relay_message.message_id = p_parent_message_id
   for update;
   if not found or v_parent.status <> 'accepted' then
     raise exception 'relay_reply_parent_invalid';
@@ -112,6 +112,22 @@ begin
      or v_parent.target_repository <> 'jussray/chief-ai-machine' then
     raise exception 'relay_reply_parent_target_invalid';
   end if;
+
+  -- A finalized reply is immutable historical evidence. Exact retries must
+  -- return it even after finalization advanced the chain tip to outbound.
+  select * into v_existing
+  from public.federated_relay_outbox as existing_reply
+  where existing_reply.parent_message_id = p_parent_message_id
+    and existing_reply.relation_type = 'reply'
+  for update;
+  if found and (v_existing.envelope is not null or v_existing.delivery_status <> 'draft') then
+    return query
+    select v_existing.message_id, v_existing.source_sequence,
+           v_existing.predecessor_proof_cookie, v_existing.delivery_status,
+           v_existing.envelope;
+    return;
+  end if;
+
   if v_chain.last_message_id is distinct from v_parent.message_id
      or v_chain.last_position <> v_parent.chain_position
      or v_chain.last_successor_cookie <> v_parent.successor_proof_cookie
@@ -127,8 +143,8 @@ begin
   end if;
 
   select * into v_existing
-  from public.federated_relay_outbox
-  where parent_message_id = p_parent_message_id
+  from public.federated_relay_outbox as relay_outbox
+  where relay_outbox.parent_message_id = p_parent_message_id
     and relation_type = 'reply'
   for update;
 
@@ -160,8 +176,8 @@ begin
       where source_member = v_cursor.source_member
         and source_key_id = v_cursor.source_key_id
         and target_member = v_cursor.target_member;
-    delete from public.federated_relay_outbox
-      where message_id = v_existing.message_id;
+    delete from public.federated_relay_outbox as relay_outbox
+      where relay_outbox.message_id = v_existing.message_id;
     v_cursor.pending_sequence := null;
     v_cursor.pending_message_id := null;
   end if;

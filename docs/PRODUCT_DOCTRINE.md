@@ -2,17 +2,25 @@
 
 ## Category
 
-Chief AI is a **standalone Founder Intelligence system** for portable company intelligence, executive reasoning, capability composition, and provider-independent continuity.
+Chief AI is a **Founder Intelligence system**: the governed cognition and portable company-intelligence layer paired with Founder Control Room.
 
-It turns founder judgment, company context, reusable prompts, decisions, workflows, research, benchmarks, brand voice, evidence, and outcomes into portable company-owned intelligence.
+It converts founder judgment, company context, reusable prompts, decisions, workflows, research, benchmarks, brand voice, and operating playbooks into portable company-owned intelligence.
 
-Chief owns its product identity, interface, intelligence, architecture, lifecycle, receipts, failure state, continuity markers, and bounded Chief-native capabilities. It can interoperate with Founder Control Room, PromptOS, Sol, L99, and other first-party systems through explicit contracts without becoming a module or shell of another product.
+Chief AI is a standalone product. Its runtime, customer identities, permissions, data, receipts, lifecycle, and commercial offer belong to Chief—not to Founder Control Room. Founder Control Room may integrate with or bundle Chief only through an explicitly authorized boundary. Customer acquisition, pricing, and paid demand are hypotheses until independently verified.
 
 ## Customer problem
 
 Founders and small teams repeatedly lose valuable context inside disconnected AI chats, documents, tools, providers, and projects. They restart decisions, rewrite instructions, forget why a workflow was approved, and become dependent on one provider's memory or interface.
 
-Chief AI exists to make useful company intelligence explicit, structured, versioned, testable, portable, reusable, and attributable to evidence and outcomes.
+Chief AI exists to make useful company intelligence:
+
+1. explicit;
+2. structured;
+3. versioned;
+4. testable;
+5. portable;
+6. reusable;
+7. attributable to evidence and outcomes.
 
 ## Product promise
 
@@ -20,110 +28,106 @@ Chief AI exists to make useful company intelligence explicit, structured, versio
 
 ## Commercial packaging
 
-Chief AI is a **commercial product in its own right**. It may be sold, licensed, piloted, deployed, or explicitly bundled with another Juss product without surrendering its standalone identity.
+**Chief owns its standalone product identity and proposed commercial offer.** A Chief-owned customer path must not require a Founder Control Room account, FCR runtime, shared keys, imported founder context, or default FCR approval authority. Bundling with FCR or another product is optional, explicit, and permissioned.
 
-Two rules apply:
-
-- Chief remains independently callable, portable, testable, useful, and commercially legible without Founder Control Room.
-- A bundle may combine complementary products for a buyer, but bundling does not collapse product identity, runtime, authority, receipts, pricing truth, or evidence.
-
-The default Chief money path is:
+Proposed standalone path (not yet verified as converting):
 
 ```text
-Founder / team
--> Chief workspace or deployment
--> portable company intelligence + executive reasoning + capability composition
--> important decisions and reusable operating intelligence
--> retained / renewed Chief use
+Customer
+→ Chief-owned entry, identity and consent
+→ portable intelligence, council, decisions and capability proposals
+→ verified customer outcome
+→ optional Chief-owned paid offer and renewal
 ```
 
-An explicit FCR + Chief bundle may also be tested when the combined buyer outcome is clearer or more valuable. Bundling is a go-to-market choice, not the architecture.
+An authorized FCR bundle may be tested as a separate acquisition channel. Neither product inherits the other's identity, operations, receipts, pricing, users, or deployment rights.
 
 ## Commercial measurement
 
-- **customer:** founder or team needing portable company intelligence, structured executive reasoning, and provider-independent continuity;
-- **payer:** founder, team, organization, or deployment owner purchasing Chief directly or through an explicit bundle;
-- **value:** preserved company intelligence, better synthesis, provider-neutral reuse, capability composition, and evidence-shaped decisions;
-- **revenue mechanism:** subscription, license, premium intelligence capability, deployment/service layer, or explicit bundle allocation;
-- **repeat engine:** intelligence compounds as approved assets, decisions, evidence, outcomes, benchmarks, and provider comparisons accumulate;
-- **North Star:** retained Chief users or workspaces relying on Chief for consequential reasoning and reusable company intelligence;
-- **next money test:** prove an external user completes an important Chief-native job, returns, pays or commits to a paid path, and retains value over a defined window.
+- **customer hypothesis:** founders and teams needing reusable, provider-neutral business intelligence;
+- **payer hypothesis:** the Chief account or workspace owner, independent of FCR;
+- **value:** preserved company intelligence, evidence-shaped decisions, reusable capabilities, and portability;
+- **revenue mechanism:** an independently offered Chief plan or license only when checkout, entitlements, delivery, privacy, and security are verified;
+- **repeat engine:** ongoing use and updates of validated intelligence assets and decisions;
+- **North Star:** retained Chief customers achieving verified outcomes;
+- **next money test:** measure independent Chief activation, conversion, value delivered, retention, willingness to pay, and costs; compare an authorized FCR bundle only as an alternative.
 
-Internal use, tests, portable exports, successful synthesis, repository separation, or technical independence are not revenue proof.
+Internal use, tests, portable exports, successful synthesis, a storefront mockup, or standalone architecture do not prove paid demand or revenue.
 
 ## Core loop
 
 ```text
 Capture intent
--> create an intelligence asset
--> test or use it
--> record evidence and outcome
--> approve, revise, or retire it
--> reuse it across the business
--> export it without provider lock-in
+→ create an intelligence asset
+→ test or use it
+→ record evidence and outcome
+→ approve, revise, or retire it
+→ reuse it across the business
+→ export it without provider lock-in
 ```
 
 ## Core objects
 
-Chief AI owns:
+Chief AI owns these product objects:
 
-- **Workspace**: a company or bounded operating context.
-- **Project**: a business, client, initiative, or workstream.
-- **Intelligence asset**: a prompt, workflow, decision, playbook, benchmark, brand voice, or research artifact.
-- **Version**: an immutable historical state of an asset.
-- **Evidence**: source material used to justify an asset or decision.
-- **Outcome**: what happened when the asset was used.
-- **Provider run**: an optional execution record for one provider/model.
-- **Approval state**: draft, tested, approved, or retired.
+- **Workspace** — a company or bounded operating context.
+- **Project** — a business, client, initiative, or workstream.
+- **Intelligence asset** — a prompt, workflow, decision, playbook, benchmark, brand voice, or research artifact.
+- **Version** — an immutable historical state of an asset.
+- **Evidence** — the source material used to justify an asset or decision.
+- **Outcome** — what happened when the asset was used.
+- **Provider run** — an optional execution record for one provider/model.
+- **Approval state** — draft, tested, approved, or retired.
 
 ## Independence tests
 
-Chief AI must remain useful when:
+Chief AI must remain useful when all of the following are true:
 
 - the user has no GitHub account;
 - the user does not write code;
 - no Founder Control Room instance exists;
 - no L99 runtime exists;
 - the preferred model provider changes;
-- repository names change;
+- the current repository names disappear;
 - the user manages one business or many unrelated businesses.
 
-These are product-sovereignty tests. They protect Chief's standalone usefulness while allowing explicit integrations and bundles.
+These are **standalone-product sovereignty tests**. Customer-facing identity, offer, acquisition, and delivery remain Chief-owned. Market claims still require independent evidence.
 
 ## Product boundaries
 
-### Chief AI
+### Chief AI: think and preserve
 
-Chief reasons, synthesizes, composes capabilities, preserves reusable intelligence, compares provider output, records evidence and outcomes, and can run bounded capabilities that belong to Chief itself.
+Chief AI defines intent, structures reusable intelligence, compares provider output, preserves decisions, and records outcomes.
 
-### Founder Control Room
+### Founder Control Room: independently govern and execute FCR workflows
 
-Founder Control Room is an independent founder operating environment. In paired workflows it can provide governance, evidence, coordination, execution authority, and outcome receipts under the pair contract.
+Founder Control Room is a standalone peer with its own users, workflows, authorizations, deployment, evidence, rollback, and offer. It has no automatic authority over Chief's users, prompts, data, runtime, approvals, or product lifecycle.
 
-Chief and FCR keep separate identity, lifecycle, receipts, failure state, continuity markers, and authority boundaries.
+Chief may propose an explicitly permissioned FCR handoff. Neither peer grants the other execution or release authority by default.
 
-### PromptOS and Sol
+### L99: verify and protect
 
-PromptOS and Sol remain independent systems. Chief may exchange explicit inputs, prompts, capability plans, continuity state, or evidence with them through defined interfaces.
+L99 enforces provenance, isolation, revocation, promotion controls, and incident evidence for AI runtime state where used.
 
-### L99
-
-L99 is an optional provenance, isolation, revocation, promotion, and recovery integration. Chief remains useful without it.
+Chief AI may use L99 assurance services. It must remain usable without them.
 
 ## Non-goals
 
 Chief AI is not:
 
-- an FCR feature or subordinate module;
+- an autonomous coding agent;
+- a deployment platform;
 - a generic note-taking app;
-- a prompt marketplace;
-- a model-provider wrapper;
-- a replacement for founder accountability;
-- proof of deployment, product-market fit, revenue, retention, or demand merely because the repository or runtime exists.
+- a team chat product;
+- a vector database exposed as a product;
+- a marketplace of random prompts;
+- a promise that an AI model is a legal, medical, financial, or human cofounder;
+- a system that executes irreversible actions without separate approval;
+- proof of customer demand or realized revenue merely because it is independently deployable.
 
 ## Product capability target
 
-Chief should support:
+The Chief product layer should support:
 
 1. workspaces and projects;
 2. intelligence asset creation;
@@ -134,20 +138,43 @@ Chief should support:
 7. provider/model comparison records;
 8. evidence and outcome notes;
 9. private local-first use;
-10. bounded Chief-native runtime capabilities;
-11. a migration path to encrypted account sync.
+10. a migration path to encrypted account sync.
 
 ## Commercial wedge
 
-The strongest buyer is a founder or small operator already using multiple AI tools who repeatedly loses context, proven prompts, decision history, provider consistency, or portable company intelligence.
+The strongest buyer is a founder or small operator who already uses multiple AI tools and has felt at least one of these pains:
 
-That pain may lead directly to Chief or to an explicit multi-product bundle when another system solves a distinct adjacent job. The buyer path must not rewrite the product boundaries.
+- repeating company context in every chat;
+- losing high-performing prompts;
+- receiving inconsistent output across providers;
+- forgetting why a decision was made;
+- onboarding collaborators into undocumented founder judgment;
+- fearing that one provider shutdown or policy change will erase company intelligence.
+
+Chief may serve that need directly through its own product. An FCR integration or bundle is an optional, explicitly authorized channel, never the default runtime or identity.
 
 ## Product language
 
-Prefer: company intelligence, founder judgment, reusable operating assets, evidence, outcomes, portability, provider-neutral, capability composition, standalone peers, explicit integration.
+Prefer:
 
-Avoid positioning Chief as a prompt library, ChatGPT wrapper, GitHub dashboard, FCR feature, or proof of commercial traction without economic evidence.
+- company intelligence;
+- founder judgment;
+- reusable operating assets;
+- evidence;
+- outcomes;
+- portability;
+- provider-neutral;
+- approved workflow;
+- decision receipt.
+
+Avoid positioning the entire product as:
+
+- a prompt library;
+- a ChatGPT wrapper;
+- an AI cofounder that replaces accountability;
+- an autonomous business;
+- a GitHub dashboard;
+- an offer with proven conversion, revenue, or retention before the evidence exists.
 
 ## Prime directive
 
