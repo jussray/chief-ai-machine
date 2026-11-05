@@ -150,3 +150,22 @@ describe('ProofMode production governance workflow', () => {
     expect(bridge).toContain('cancel-in-progress: true');
   });
 });
+
+describe('founder-main workflow dispatch contract', () => {
+  it('offers a separate founder-main release mode without manufacturing PR review IDs', () => {
+    expect(workflow).toContain('authority_mode:');
+    expect(workflow).toContain('- founder-main');
+    expect(workflow).toContain('AUTHORITY_MODE:');
+    expect(workflow).toContain('authority_pr:\n        description:');
+    expect(workflow).toContain('required: false');
+    expect(authorityScript).toContain("assertDirectMainAuthority");
+    expect(authorityScript).toContain("main?.commit?.sha !== expectedSha");
+  });
+
+  it('serializes attempts on the exact SHA and persists run-scoped release status', () => {
+    expect(workflow).toContain("inputs.expected_sha || github.sha");
+    expect(workflow).toContain('statuses: write');
+    expect(authorityScript).toContain('chief/production-authority/run-');
+    expect(workflow).toContain('name: Cloudflare Production');
+  });
+});

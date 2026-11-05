@@ -6,17 +6,27 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      authority_mode:
+        description: "Release authorization: PR review or direct founder-authenticated main commit"
+        required: true
+        default: pr-review
+        type: choice
+        options:
+          - pr-review
+          - founder-main
       expected_sha:
         description: "Exact candidate SHA authorized for production proof"
         required: true
         type: string
       authority_pr:
-        description: "PR number carrying the founder authority receipt"
-        required: true
+        description: "PR number carrying the founder authority receipt; blank in founder-main mode"
+        required: false
+        default: ""
         type: string
       authority_receipt:
-        description: "GitHub pull-request review ID granting one-shot production authority"
-        required: true
+        description: "GitHub pull-request review ID; blank in founder-main mode"
+        required: false
+        default: ""
         type: string
       activation_run_id:
         description: "Optional founder-triggered authority bridge run ID"
@@ -33,11 +43,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: proofmode-production-authority-${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || github.sha }}
+  group: proofmode-production-authority-${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
   cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AUTHORITY_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_mode || 'pr-review' }}
   EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
   AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
   AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
@@ -449,6 +460,7 @@ jobs:
       actions: read
       contents: read
       issues: write
+      statuses: write
       pull-requests: read
     env:
       REPOSITORY_OWNER: ${{ github.repository_owner }}

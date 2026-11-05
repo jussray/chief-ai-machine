@@ -5,6 +5,52 @@ export const AUTHORITY_MARKER =
 export const CONSUMPTION_PREFIX = 'proofmode-production-authority-consumed:v1';
 export const BRIDGE_WORKFLOW_PATH = '.github/workflows/proofmode-production-authority-bridge.yml';
 
+export const PRODUCTION_WORKFLOW_PATH = '.github/workflows/proofmode-production-playwright.yml';
+
+// Separate founder approval for an exact commit on main; no synthetic PR review.
+export function assertDirectMainAuthority({ run, main, env }) {
+  const expectedSha = requireValue(env, 'EXPECTED_HEAD_SHA');
+  const repository = requireValue(env, 'GITHUB_REPOSITORY');
+  const repositoryOwner = requireValue(env, 'REPOSITORY_OWNER');
+  const runId = requirePositiveInteger(requireValue(env, 'GITHUB_RUN_ID'), 'GITHUB_RUN_ID');
+  if (!/^[0-9a-f]{40}$/.test(expectedSha)) throw new Error('Expected head must be a full commit SHA');
+  if (requireValue(env, 'AUTHORITY_MODE') !== 'founder-main') throw new Error('Invalid release authority mode');
+  if (requireValue(env, 'AUTHORIZE_PRODUCTION') !== 'true') throw new Error('Production authorization flag is not true');
+  if (optionalValue(env, 'AUTHORITY_PR') || optionalValue(env, 'AUTHORITY_RECEIPT') || optionalValue(env, 'ACTIVATION_RUN_ID')) {
+    throw new Error('Founder-main authority cannot be mixed with PR review authority');
+  }
+  if (requireValue(env, 'GITHUB_EVENT_NAME') !== 'workflow_dispatch') {
+    throw new Error('Founder-main authority requires explicit workflow dispatch');
+  }
+  if (requireValue(env, 'GITHUB_REF') !== 'refs/heads/main') throw new Error('Founder-main dispatch must originate on main');
+  if (requireValue(env, 'GITHUB_SHA') !== expectedSha) throw new Error('Dispatched head does not match the authorized SHA');
+  if (requireValue(env, 'GITHUB_RUN_ATTEMPT') !== '1') throw new Error('Workflow reruns cannot reuse production authority');
+  if (requireValue(env, 'GITHUB_ACTOR') !== repositoryOwner || requireValue(env, 'TRIGGERING_ACTOR') !== repositoryOwner) {
+    throw new Error('Founder-main authority requires authenticated repository owner');
+  }
+  if (!run || String(run.id) !== runId || run.path !== PRODUCTION_WORKFLOW_PATH) {
+    throw new Error('Founder-main receipt workflow mismatch');
+  }
+  if (run.event !== 'workflow_dispatch' || run.head_branch !== 'main' || run.head_sha !== expectedSha) {
+    throw new Error('Founder-main run is not bound to exact main head');
+  }
+  if (String(run.run_attempt) !== '1' || !['in_progress', 'completed'].includes(run.status)) {
+    throw new Error('Founder-main run is not a first execution');
+  }
+  if (run.repository?.full_name !== repository || run.actor?.login !== repositoryOwner
+      || run.triggering_actor?.login !== repositoryOwner) {
+    throw new Error('Founder-main receipt is not repository-owner authenticated');
+  }
+  if (main?.commit?.sha !== expectedSha) throw new Error('Main advanced beyond the authorized release SHA');
+  return {
+    expectedSha,
+    authorityPr: null,
+    authorityReceipt: `run:${runId}`,
+    authenticatedBy: 'founder-main',
+    runId,
+  };
+}
+
 function requireValue(env, name) {
   const value = String(env[name] ?? '').trim();
   if (!value) throw new Error(`Missing ${name}`);
@@ -129,8 +175,7 @@ async function requestJson(fetchImpl, env, path, options = {}) {
     },
   });
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`GitHub API ${response.status}: ${text.slice(0, 500)}`);
+    throw new Error(`PROOFMODE_GITHUB_API_REQUEST_FAILED HTTP ${response.status}`);
   }
   if (response.status === 204) return null;
   return response.json();
@@ -169,6 +214,17 @@ export async function loadAuthoritySnapshot(env = process.env, fetchImpl = globa
 }
 
 export async function validateAuthority(env = process.env, fetchImpl = globalThis.fetch) {
+  const mode = optionalValue(env, 'AUTHORITY_MODE') || 'pr-review';
+  if (mode === 'founder-main') {
+    const repo = requireValue(env, 'GITHUB_REPOSITORY');
+    const id = requirePositiveInteger(requireValue(env, 'GITHUB_RUN_ID'), 'GITHUB_RUN_ID');
+    const [run, main] = await Promise.all([
+      requestJson(fetchImpl, env, `/repos/${repo}/actions/runs/${id}`),
+      requestJson(fetchImpl, env, `/repos/${repo}/branches/main`),
+    ]);
+    return assertDirectMainAuthority({ run, main, env });
+  }
+  if (mode !== 'pr-review') throw new Error('Unsupported production authority mode');
   const snapshot = await loadAuthoritySnapshot(env, fetchImpl);
   return assertAuthoritySnapshot({ ...snapshot, env });
 }
@@ -225,6 +281,19 @@ export async function discoverAuthority(env = process.env, fetchImpl = globalThi
 export async function consumeAuthority(env = process.env, fetchImpl = globalThis.fetch) {
   const validated = await validateAuthority(env, fetchImpl);
   const repository = requireValue(env, 'GITHUB_REPOSITORY');
+  if (validated.authenticatedBy === 'founder-main') {
+    await requestJson(fetchImpl, env, `/repos/${repository}/statuses/${validated.expectedSha}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        state: 'success',
+        context: `chief/production-authority/run-${validated.runId}`,
+        description: 'Founder-authenticated one-shot production attempt recorded',
+        target_url: `https://github.com/${repository}/actions/runs/${validated.runId}`,
+      }),
+    });
+    return validated;
+  }
   const body = [
     validated.consumedMarker,
     `Production authority receipt \`${validated.authorityReceipt}\` consumed for exact head \`${validated.expectedSha}\`.`,
