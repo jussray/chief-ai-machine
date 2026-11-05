@@ -114,10 +114,11 @@ describe('ProofMode MCP transport', () => {
     );
 
     const payload = await json(response);
-    expect(payload.result.tools).toHaveLength(2);
+    expect(payload.result.tools).toHaveLength(3);
     expect(payload.result.tools.map((tool) => tool.name)).toEqual([
       'audit_repository',
       'lookup_dependency_docs',
+      'customer_start',
     ]);
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
     expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
@@ -151,7 +152,7 @@ describe('ProofMode MCP transport', () => {
         resultType: 'complete',
         ttlMs: 300000,
         cacheScope: 'public',
-        tools: [{ name: 'audit_repository' }, { name: 'lookup_dependency_docs' }],
+        tools: [{ name: 'audit_repository' }, { name: 'lookup_dependency_docs' }, { name: 'customer_start' }],
       },
     });
   });
@@ -222,13 +223,13 @@ describe('ProofMode MCP transport', () => {
     );
   });
 
-  it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
+  it('never forwards the Worker GitHub credential through customer-facing MCP audits', async () => {
     const evidence = evidenceFixture();
     const toolDeps = deps({
       loadPublicRepositoryEvidence: async ({ owner, repo, token }) => {
         expect(owner).toBe('acme');
         expect(repo).toBe('app');
-        expect(token).toBe('server-secret');
+        expect(token).toBeUndefined();
         return evidence;
       },
     });
@@ -344,6 +345,37 @@ describe('ProofMode MCP transport', () => {
       code: -32602,
       data: ['token'],
     });
+  });
+
+  it('returns stateless 5W1H without probing the founder or customer repository for legacy and modern MCP', async () => {
+    const guarded = deps({
+      loadPublicRepositoryEvidence: () => { throw new Error('Unexpected repository read'); },
+      queryContext7Documentation: () => { throw new Error('Unexpected provider read'); },
+    });
+    for (const modern of [false, true]) {
+      const request = modern
+        ? modernMcpRequest('tools/call', { name: 'customer_start', arguments: {} })
+        : mcpRequest({ jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'customer_start', arguments: {} } });
+      const response = await handleProofModeMcp(request, { PROOFMODE_GITHUB_TOKEN: 'private-credential', CONTEXT7_API_KEY: 'provider-credential' }, guarded);
+      expect(response.status).toBe(200);
+      const payload = await json(response);
+      expect(payload.result.isError).toBe(false);
+      expect(payload.result.structuredContent.questions.map(({ key }) => key))
+        .toEqual(['who', 'what', 'when', 'where', 'why', 'how']);
+      expect(payload.result.structuredContent.inheritedContext).toBe(false);
+      expect(payload.result.structuredContent.externalSourcesQueried).toBe(false);
+      expect(payload.result.structuredContent.serverStateWritten).toBe(false);
+      expect(JSON.stringify(payload)).not.toContain('private-credential');
+    }
+  });
+
+  it('rejects attempts to import a founder workspace through customer_start', async () => {
+    const response = await handleProofModeMcp(mcpRequest({
+      jsonrpc: '2.0', id: 92, method: 'tools/call',
+      params: { name: 'customer_start', arguments: { workspaceId: 'founder-private' } },
+    }), deps());
+    expect(response.status).toBe(200);
+    expect((await json(response)).error.code).toBe(-32602);
   });
 
   it('rejects browser cross-origin requests', async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import worker from './index.js';
-import { handleProofModeMcp } from './proofmode-mcp.js';
+import { handleChiefMcp } from './chief-mcp.js';
 
 const noAssets = {
   ASSETS: {
@@ -23,7 +23,7 @@ describe('agent discovery surface', () => {
     expect(card.transport).toEqual({ type: 'streamable-http', url: 'https://chief-ai.example/mcp' });
     expect(card.authentication).toEqual({ required: false });
 
-    const listResponse = await handleProofModeMcp(
+    const listResponse = await handleChiefMcp(
       new Request('https://chief-ai.example/mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,7 @@ describe('agent discovery surface', () => {
     expect(card.tools.map((t) => t.name)).toEqual(result.tools.map((t) => t.name));
     expect(card.tools[0].inputSchema).toEqual(result.tools[0].inputSchema);
 
-    const initResponse = await handleProofModeMcp(
+    const initResponse = await handleChiefMcp(
       new Request('https://chief-ai.example/mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -70,7 +70,7 @@ describe('Chief MCP', () => {
       name: 'chief-ai-machine',
       title: 'Chief AI Machine',
     });
-    expect(payload.result.instructions).toContain('Chief composes bounded capability-plan proposals');
+    expect(payload.result.instructions).toContain('Chief is a standalone AI operator');
     expect(payload.result.instructions).toContain('Founder Control Room remains the authority');
   });
 
@@ -87,12 +87,31 @@ describe('Chief MCP', () => {
     expect(payload.result.tools.map((tool) => tool.name)).toEqual([
       'audit_repository',
       'lookup_dependency_docs',
+      'customer_start',
       'compose_capability_plan',
     ]);
     for (const tool of payload.result.tools) {
       expect(tool.annotations.readOnlyHint).toBe(true);
       expect(tool.annotations.destructiveHint).toBe(false);
     }
+  });
+
+  it('starts the authenticated caller at a clean 5W1H slate without consulting providers or founder context', async () => {
+    const response = await handleChiefMcp(legacyRequest({
+      jsonrpc: '2.0', id: 29, method: 'tools/call',
+      params: { name: 'customer_start', arguments: {} },
+    }), {
+      PROOFMODE_GITHUB_TOKEN: 'founder-token',
+      CONTEXT7_API_KEY: 'provider-token',
+    });
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(payload.result.isError).toBe(false);
+    expect(payload.result.structuredContent.questions.map(({ key }) => key))
+      .toEqual(['who', 'what', 'when', 'where', 'why', 'how']);
+    expect(payload.result.structuredContent.inheritedContext).toBe(false);
+    expect(payload.result.structuredContent.externalSourcesQueried).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain('founder-token');
   });
 
   it('composes a proposal with server-owned ULTRATHINK but refuses to become its own authority', async () => {

@@ -2,7 +2,7 @@ import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
-import { buildProofModeServerCard, handleProofModeMcp } from './proofmode-mcp.js';
+import { buildChiefMcpServerCard, handleChiefMcp } from './chief-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
 import { makeRelayFetch } from './relay-fetch.js';
 import { verifyStripeWebhookSignature } from './stripe-webhook-verify.js';
@@ -92,7 +92,7 @@ export default {
         { headers: { 'Cache-Control': 'no-store' } },
       );
     } else if (url.pathname === '/mcp') {
-      response = await handleProofModeMcp(request, env);
+      response = await handleChiefMcp(request, env);
     } else if (url.pathname === '/api/chief/capability-plan') {
       response = await handleChiefCapabilityPlan(request);
     } else if (url.pathname === '/api/chief/founder-content-proposal') {
@@ -110,7 +110,7 @@ export default {
     } else if (url.pathname === '/api/stripe-webhook') {
       response = await handleStripeWebhook(request, env);
     } else if (url.pathname === '/.well-known/mcp/server-card.json') {
-      response = Response.json(buildProofModeServerCard(url.origin), {
+      response = Response.json(buildChiefMcpServerCard(url.origin), {
         headers: { 'Cache-Control': 'public, max-age=300' },
       });
     } else if (url.pathname.startsWith('/.well-known/') || url.pathname === '/auth.md') {
