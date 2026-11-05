@@ -11,6 +11,15 @@ on:
     branches:
       - main
       - fix/security-gates-against-main
+  pull_request:
+    branches: [main]
+    paths:
+      - "wrangler.jsonc"
+      - "worker/index.js"
+      - "security/**"
+      - "e2e/worker-security-gates-3-4.pw.mjs"
+      - "test/worker-version.test.js"
+      - ".github/workflows/security-gates-playwright.yml"
   workflow_dispatch:
 
 permissions:
@@ -73,7 +82,7 @@ jobs:
           printf 'STRIPE_WEBHOOK_SECRET="%s"\n' "$STRIPE_WEBHOOK_SECRET" > .dev.vars
           printf '%s\n' 'CHIEF_AI_OPERATOR_KEY="chief-provider-playwright-fixture"' 'OPENAI_API_KEY="synthetic-provider-fixture"' 'CHIEF_OPENAI_MODEL="synthetic-model-fixture"' >> .dev.vars
           log="$RUNNER_TEMP/security-gates-wrangler.log"
-          RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev \
+          GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev \
             --ip 127.0.0.1 \
             --port 8791 \
             > "$log" 2>&1 &

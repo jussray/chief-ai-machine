@@ -1,8 +1,10 @@
-# Chief AI — Founder Intelligence OS
+# Chief AI — Founder Intelligence
 
 > **Use providers. Do not depend on them.**
 
-Chief AI is a **standalone Founder Intelligence OS** that turns founder judgment, company context, prompts, workflows, decisions, research, benchmarks, and brand voice into portable, versioned company intelligence — owned by the founder, not any model provider, platform, or Git host.
+Chief AI is the **governed cognition and portable company-intelligence layer paired with Founder Control Room**. It turns founder judgment, company context, prompts, workflows, decisions, research, benchmarks, and brand voice into portable, versioned company intelligence owned by the founder, not any model provider, platform, or Git host.
+
+**Chief AI is a standalone product.** It owns its customer-facing identity, runtime, permissions, accounts, data, operating evidence, and proposed commercial path. Founder Control Room is a separately owned peer, not a required shell or runtime. Integration or bundling requires explicit permission; customer demand and realized revenue remain unverified until measured.
 
 ---
 
@@ -28,16 +30,37 @@ Chief AI solves the **portable intelligence problem** for founders running multi
 │ Control Room Evidence · Council · Briefs · Company Brain    │
 │  Versioned portable export/import · Provider-agnostic        │
 └──────────────┬──────────────────────────┬───────────────────┘
-               │ authorizes execution      │ optional integration
+               │ proposes governed handoff │ optional integration
                ▼                          ▼
    ┌───────────────────────┐   ┌──────────────────────────┐
    │  Founder Control Room │   │          L99             │
-   │  Agent governance &   │   │  Provenance, isolation,  │
-   │  OODA execution loop  │   │  revocation & promotion  │
+   │  Human authority,     │   │  Provenance, isolation,  │
+   │  execution & evidence │   │  revocation & promotion  │
    └───────────────────────┘   └──────────────────────────┘
 ```
 
-These are **three separate products with optional integrations**. Chief AI delivers full value without the other two.
+Chief AI provides its own standalone reasoning and portable-intelligence value. Consequential actions remain bounded by Chief's authenticated, product-owned permission and evidence gates. An integration with Founder Control Room must be explicit and scoped; neither peer inherits authority over the other. Founder approval remains necessary where Chief's governance requires it. L99 is optional.
+
+### Commercial packaging
+
+Chief owns its product offer and can serve customers directly, independently of FCR. A Chief subscription, license, or other paid offering is a **proposed** path until real checkout, entitlement, delivery, safety, and retention are verified.
+
+```text
+Chief customer
+→ Chief-owned account and consent
+→ intelligence, council, synthesis, and company-brain value
+→ verified customer outcome
+→ optional Chief-owned plan and renewal
+```
+
+- **customer hypothesis:** founders and teams needing portable, provider-neutral business intelligence;
+- **payer hypothesis:** Chief account or workspace owner;
+- **revenue hypothesis:** Chief-owned plan or license; an FCR bundle is a separate, permissioned option;
+- **repeat engine:** updated approved assets, decisions, and evidence;
+- **North Star:** retained Chief customers with verified outcomes;
+- **next money test:** Chief activation, willingness to pay, paid conversion, retention, and cost per outcome.
+
+Internal use, repository separation, a green CI run, or an untested checkout are not proof of sales or revenue.
 
 ---
 
@@ -78,40 +101,6 @@ The application is a **vanilla JS SPA** running entirely in the browser (no serv
 > **Status:** prototype — browser-local only. Private auth, encrypted sync, durable version history, provider execution, specialist-agent runtime, authenticated Founder Control Room transport and signature verification, and Executive Brief UI are on the roadmap. See [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ---
-
-## Founding pilot — $300
-
-**Chief AI Founder Intelligence Pilot** is a one-time founding engagement for the **first 3 paying users**.
-
-> A focused setup that turns a founder's scattered AI prompts, decisions, workflows and company knowledge into a portable operating brain they own.
-
-The founding pilot includes:
-
-- a company-intelligence inventory;
-- workspace setup using the current Chief AI prototype;
-- reusable company-intelligence assets;
-- a portable export of the resulting company brain; and
-- one follow-up review.
-
-**Founding price:** $300 one time.
-
-### Founding subscription — $160/month
-
-For founders who want the system maintained instead of treated as a one-off setup, the recurring option has a **lower entry price** and adds a repeat service loop:
-
-- the initial company-intelligence setup;
-- one monthly intelligence review;
-- updates, retirement, or refinement of existing intelligence assets based on observed outcomes;
-- a refreshed portable export; and
-- one follow-up review each month.
-
-**Approved founding subscription price:** $160/month.
-
-The recurring checkout is **not active yet**. Stripe live-account, tax, and recurring-price verification remain the activation gate. Once that path is verified, the first 3 founding customers may choose either the $300 one-time pilot or the $160/month continuity subscription.
-
-This is a hands-on pilot around the current browser-local prototype, **not** a claim of production SaaS, encrypted cloud sync, multi-user collaboration, or managed private hosting. Those capabilities remain separately gated on the roadmap.
-
-**Interested in a pilot?** Start from [Juss Rayy's GitHub profile](https://github.com/jussray) or [Juss & Co](https://jussco.company). Public-build support is also available through [GitHub Sponsors](https://github.com/sponsors/jussray).
 
 ## Quick start
 
@@ -175,7 +164,7 @@ They define:
 
 | Document | Contents |
 |---|---|
-| [`docs/PRODUCT_DOCTRINE.md`](./docs/PRODUCT_DOCTRINE.md) | Category, customer problem, product promise, independence tests, MVP |
+| [`docs/PRODUCT_DOCTRINE.md`](./docs/PRODUCT_DOCTRINE.md) | Category, customer problem, product promise, independence tests, commercial packaging, and capability target |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Portable intelligence domain, storage phases, provider execution, Control Room evidence boundary, security boundaries |
 | [`docs/EXECUTIVE_INTELLIGENCE.md`](./docs/EXECUTIVE_INTELLIGENCE.md) | Control Room receipts, specialist reports, Executive Council synthesis, confidence policy, Chief AI boundary, and implementation truth |
 | [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Validation milestones, commercial tests, metrics, stop conditions |
@@ -200,8 +189,9 @@ Production security requires: private workspace authorization · encrypted persi
 
 | Repo | What it is |
 |---|---|
-| [`Sekret-Bip`](https://github.com/jussray/Sekret-Bip) | AI companion app for teens — Cloudflare Workers backend, React Native (Expo) |
-| [`l99-StoryEngine`](https://github.com/jussray/l99-StoryEngine) | Narrative intelligence layer — story provenance, isolation, and promotion |
+| [`Founder Control Room`](https://github.com/jussray/founder-control-room) | Standalone peer with its own identity, authorizations, workflows, deployments, and commercial path; integration with Chief is optional and permissioned |
+| [`Sekret-Bip`](https://github.com/jussray/Sekret-Bip) | Privacy-first emotional growth and self-expression product for teens and trusted family relationships |
+| [`StoryEngine`](https://github.com/jussray/StoryEngine) | Creator-facing product; L99 provides provenance, isolation, recovery, and promotion runtime underneath it |
 
 ---
 

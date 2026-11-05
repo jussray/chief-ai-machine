@@ -1,5 +1,3 @@
-/* global Request, URL */
-
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -14,13 +12,22 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
+const governanceWorkflow = readFileSync(
+  new URL('../.github/workflows/governance-boundary-required-receipts.yml', import.meta.url),
+  'utf8',
+);
+const securityWorkflow = readFileSync(
+  new URL('../.github/workflows/security-gates-playwright.yml', import.meta.url),
+  'utf8',
+);
 const assetsIgnore = readFileSync(
   new URL('../.assetsignore', import.meta.url),
   'utf8',
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes every request through the Worker before asset fallback', () => {
+  it('routes every request through the Worker before asset fallback so security headers cover static HTML', () => {
+    expect(wranglerConfig).toMatch(/"main":\s*"security\/chief-edge-entry\.js"/);
     expect(wranglerConfig).toMatch(/"run_worker_first":\s*true/);
   });
 
@@ -64,6 +71,16 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('WORKERS_CI_BRANCH');
     expect(releaseBakeScript).toContain('BUILD_RELEASE_BRANCH');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
+  });
+
+  it('sets every PR runtime release-SHA source to the exact checked-out head', () => {
+    expect(governanceWorkflow).toContain(
+      'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
+    );
+    expect(securityWorkflow).toContain(
+      'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
+    );
+    expect(releaseBakeScript).toContain('Release SHA inputs disagree; refusing to bake ambiguous artifact identity');
   });
 
   it('returns the explicit release SHA without touching assets', async () => {

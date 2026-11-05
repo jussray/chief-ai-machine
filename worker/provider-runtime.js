@@ -14,7 +14,6 @@
 // Server-side only. The shared runtime is mounted by worker/chief-provider.js
 // behind the operator-authenticated /api/chief/provider membrane in worker/index.js.
 // Provider output has authority: none; Council peers never become approvers.
-
 export const PROVIDER_INTEGRATION_STATES = Object.freeze([
   'ABSENT',
   'PRESENT',
@@ -55,10 +54,6 @@ function resolveProvider(env, provider) {
   if (!config) throw new Error('unsupported provider');
   const key = typeof env?.[config.key] === 'string' ? env[config.key].trim() : '';
   const configuredModel = typeof env?.[config.model] === 'string' ? env[config.model].trim() : '';
-
-  // Hardening (b): Muse never falls back to a default model. The model var
-  // must be set explicitly (wrangler [vars], as FCR does).
-  // Hardening (a): Muse advertises only allow-listed models.
   let modelName;
   let advertised;
   if (config.modelAllowlist) {
@@ -68,21 +63,16 @@ function resolveProvider(env, provider) {
     modelName = configuredModel || config.defaultModel;
     advertised = Boolean(key);
   }
-
   return { ...config, key, configuredModel, modelName, advertised };
 }
 
 export function chiefProviderStates(env = {}) {
   return Object.fromEntries(Object.keys(PROVIDERS).map((provider) => {
-    const resolved = resolveProvider(env, provider);
-    // Hardening (c): canon labels. No key = ABSENT. Key present but the
-    // provider cannot be advertised through this wired path = PRESENT.
-    // INTEGRATED only when advertised via this module. Never VERIFIED.
-    const state = !resolved.key ? 'ABSENT' : resolved.advertised ? 'INTEGRATED' : 'PRESENT';
+    const config = resolveProvider(env, provider);
     return [provider, {
-      state,
-      advertised: resolved.advertised,
-      model: resolved.advertised ? resolved.modelName : null,
+      state: !config.key ? 'ABSENT' : config.advertised ? 'INTEGRATED' : 'PRESENT',
+      advertised: config.advertised,
+      model: config.advertised ? config.modelName : null,
       secretName: PROVIDERS[provider].key,
     }];
   }));
@@ -157,15 +147,10 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
   const sensitivity = String(input?.sensitivity || 'standard').trim().toLowerCase();
   const capability = String(input?.capability || '').trim().toLowerCase();
   if (!prompt || prompt.length > 24_000) throw new Error('prompt must be 1..24000 characters');
-  // Restricted context is rejected before any config lookup or network call.
   if (sensitivity === 'restricted') throw new Error('restricted context is not authorized for external providers');
-  // FCR parity: founder cost-control pause on Muse 'review' capability.
-  // Do not re-enable without founder direction.
   if (provider === 'muse' && capability === 'review') throw new Error('muse review capability is paused');
 
   const config = resolveProvider(env, provider);
-  // Covers: no key, and (Muse) model var unset or not allow-listed.
-  // The unsafe/unset model value is never echoed.
   if (!config.advertised) throw new Error(`${provider} provider is not configured`);
 
   let headers;
@@ -209,7 +194,6 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
 
   if (!response.ok) {
     try { await response.body?.cancel(); } catch { /* best-effort cancellation */ }
-    // Sanitized: provider error bodies are never promoted into the error.
     throw new Error(`${provider} provider failed with HTTP ${response.status}`);
   }
 
@@ -236,8 +220,6 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
     model: config.modelName,
     responseId,
     evidenceRef: `provider:${provider === 'muse' ? 'meta' : provider}:${responseId}`,
-    // A successful wired call is INTEGRATED evidence, not VERIFIED.
-    // VERIFIED requires a real-path receipt bound to repo/branch/SHA/deploy.
     state: 'INTEGRATED',
     authority: 'none',
     text,
