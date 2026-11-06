@@ -41,8 +41,8 @@ describe('trusted exact-head Chief preview resolution', () => {
     expect(workflow).not.toContain("trace: 'retain-on-failure'");
     expect(workflow).not.toContain('playwright-report/proofmode-access');
     expect(workflow).not.toContain('playwright-report/proofmode-production');
-    expect(workflow).not.toContain('test-results/proofmode-access\\n');
-    expect(workflow).not.toContain('test-results/proofmode-production\\n');
+    expect(workflow).not.toContain('test-results/proofmode-access\n');
+    expect(workflow).not.toContain('test-results/proofmode-production\n');
   });
 
   it('uses the same trusted parser for release-version selection and all check pages', () => {
