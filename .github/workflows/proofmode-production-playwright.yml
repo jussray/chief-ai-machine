@@ -57,8 +57,6 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
-    environment:
-      name: proofmode-access-admin
     env:
       CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
       CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
