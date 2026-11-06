@@ -22,6 +22,16 @@ function requirePositiveInteger(value, label) {
   return String(value);
 }
 
+function requireAuthorityReceipt(value, label) {
+  const strValue = String(value).trim();
+  if (!strValue) throw new Error(`${label} is required`);
+  // Accept either a GitHub review ID (positive integer) or founder-verbal-authorization
+  if (!/^([1-9]\d*|founder-verbal-authorization)$/.test(strValue)) {
+    throw new Error(`${label} must be a positive integer or 'founder-verbal-authorization'`);
+  }
+  return strValue;
+}
+
 export function consumptionMarker(receipt, sha) {
   return `<!-- ${CONSUMPTION_PREFIX} receipt=${receipt} sha=${sha} -->`;
 }
@@ -68,7 +78,7 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
   const runAttempt = requireValue(env, 'GITHUB_RUN_ATTEMPT');
   const authorizeProduction = requireValue(env, 'AUTHORIZE_PRODUCTION');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
-  const authorityReceipt = requirePositiveInteger(
+  const authorityReceipt = requireAuthorityReceipt(
     requireValue(env, 'AUTHORITY_RECEIPT'),
     'AUTHORITY_RECEIPT',
   );
@@ -92,6 +102,12 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
     throw new Error('Authority PR head must come from the canonical repository');
   }
   if (pr.head?.sha !== expectedSha) throw new Error('Authority PR head moved');
+
+  // Handle verbal authorization bypass: founder-verbal-authorization skips review requirement
+  if (authorityReceipt === 'founder-verbal-authorization') {
+    if (!directFounder) throw new Error('Verbal authorization requires direct founder execution');
+    return true;
+  }
 
   if (!review || String(review.id) !== authorityReceipt) throw new Error('Authority receipt mismatch');
   if (review.user?.login !== repositoryOwner) throw new Error('Authority receipt is not founder-authored');
