@@ -6,6 +6,27 @@ import { expect, test } from '@playwright/test';
 const baseURL = process.env.CHIEF_SECURITY_BASE_URL;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+test.describe('Chief operator-only OpenAI boundary', () => {
+  test('public requests cannot inspect or invoke the provider', async ({ request }) => {
+    for (const method of ['get', 'post']) {
+      const response = await request[method](baseURL + '/api/chief/provider', { data: {} });
+      expect(response.status()).toBe(401);
+      expect(response.headers()['cache-control']).toBe('no-store');
+    }
+  });
+  test('operator configuration and rejected inputs traverse the real Worker without inference', async ({ request }) => {
+    const headers = { Authorization: 'Bearer chief-provider-playwright-fixture' };
+    const status = await request.get(baseURL + '/api/chief/provider', { headers });
+    expect(status.status()).toBe(200);
+    expect(await status.json()).toMatchObject({ service: 'chief-ai', provider: 'openai', state: 'INTEGRATED', authority: 'none' });
+    const denied = await request.post(baseURL + '/api/chief/provider', {
+      headers, data: { prompt: 'Synthetic restricted-context probe.', sensitivity: 'restricted' },
+    });
+    expect(denied.status()).toBe(400);
+    expect(await denied.text()).not.toContain('synthetic-provider-fixture');
+  });
+});
+
 if (!baseURL) throw new Error('CHIEF_SECURITY_BASE_URL is required');
 if (!stripeWebhookSecret) throw new Error('STRIPE_WEBHOOK_SECRET is required');
 

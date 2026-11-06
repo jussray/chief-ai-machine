@@ -23,10 +23,13 @@ const test = base.extend({
     }
   },
 });
+// Access headers must not be retained in failure trace archives.
+test.use({ trace: 'off' });
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
 
 async function postMcp(request, message) {
   return request.post(`${baseURL}/mcp`, {
+    method: 'POST',
     headers: {
       Accept: 'application/json, text/event-stream',
       'Content-Type': 'application/json',

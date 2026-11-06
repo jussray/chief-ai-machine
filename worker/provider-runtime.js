@@ -1,3 +1,19 @@
+// Chief provider runtime — Muse restoration draft (2026-10-25).
+//
+// Restores the snapshot implementation (origin/main 0f494e0, commit 9757048)
+// with three hardenings from the Cluster A audit, matching FCR's reference
+// adapter (src/lib/operatorRelayMuseProvider.ts):
+//   (a) Muse model allow-list — unsafe model = provider not advertised.
+//   (b) No default-model fallback for Muse — CHIEF_MUSE_MODEL unset =
+//       provider not advertised (the defaultModel value below is the
+//       expected wrangler [vars] value, never a runtime fallback).
+//   (c) Canon state labels — key presence alone reports PRESENT;
+//       INTEGRATED only when this module's wired invoke path can actually
+//       advertise the provider; VERIFIED is never reported from wiring.
+//
+// Server-side only. The shared runtime is mounted by worker/chief-provider.js
+// behind the operator-authenticated /api/chief/provider membrane in worker/index.js.
+// Provider output has authority: none; Council peers never become approvers.
 export const PROVIDER_INTEGRATION_STATES = Object.freeze([
   'ABSENT',
   'PRESENT',
@@ -8,6 +24,8 @@ export const PROVIDER_INTEGRATION_STATES = Object.freeze([
 
 const MAX_RESPONSE_BYTES = 64 * 1024;
 const TIMEOUT_MS = 60_000;
+
+const MUSE_MODEL_ALLOWLIST = /^muse-spark-1\.(?:1|2|3)$/;
 
 const PROVIDERS = Object.freeze({
   openai: {
@@ -27,27 +45,34 @@ const PROVIDERS = Object.freeze({
     model: 'CHIEF_MUSE_MODEL',
     defaultModel: 'muse-spark-1.3',
     url: 'https://api.meta.ai/v1/responses',
+    modelAllowlist: MUSE_MODEL_ALLOWLIST,
   },
 });
 
-function configFor(env, provider) {
+function resolveProvider(env, provider) {
   const config = PROVIDERS[provider];
   if (!config) throw new Error('unsupported provider');
   const key = typeof env?.[config.key] === 'string' ? env[config.key].trim() : '';
   const configuredModel = typeof env?.[config.model] === 'string' ? env[config.model].trim() : '';
-  return {
-    ...config,
-    key,
-    modelName: configuredModel || config.defaultModel,
-  };
+  let modelName;
+  let advertised;
+  if (config.modelAllowlist) {
+    modelName = config.modelAllowlist.test(configuredModel) ? configuredModel : null;
+    advertised = Boolean(key && modelName);
+  } else {
+    modelName = configuredModel || config.defaultModel;
+    advertised = Boolean(key);
+  }
+  return { ...config, key, configuredModel, modelName, advertised };
 }
 
 export function chiefProviderStates(env = {}) {
   return Object.fromEntries(Object.keys(PROVIDERS).map((provider) => {
-    const config = configFor(env, provider);
+    const config = resolveProvider(env, provider);
     return [provider, {
-      state: config.key ? 'INTEGRATED' : 'ABSENT',
-      model: config.modelName,
+      state: !config.key ? 'ABSENT' : config.advertised ? 'INTEGRATED' : 'PRESENT',
+      advertised: config.advertised,
+      model: config.advertised ? config.modelName : null,
       secretName: PROVIDERS[provider].key,
     }];
   }));
@@ -120,11 +145,13 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
   const provider = String(input?.provider || '').trim().toLowerCase();
   const prompt = String(input?.prompt || '').trim();
   const sensitivity = String(input?.sensitivity || 'standard').trim().toLowerCase();
+  const capability = String(input?.capability || '').trim().toLowerCase();
   if (!prompt || prompt.length > 24_000) throw new Error('prompt must be 1..24000 characters');
   if (sensitivity === 'restricted') throw new Error('restricted context is not authorized for external providers');
+  if (provider === 'muse' && capability === 'review') throw new Error('muse review capability is paused');
 
-  const config = configFor(env, provider);
-  if (!config.key) throw new Error(`${provider} provider is not configured`);
+  const config = resolveProvider(env, provider);
+  if (!config.advertised) throw new Error(`${provider} provider is not configured`);
 
   let headers;
   let body;
@@ -175,6 +202,11 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
   try { parsed = JSON.parse(raw); } catch { throw new Error(`${provider} provider returned invalid JSON`); }
   const responseId = safeId(parsed?.id);
   if (!responseId) throw new Error(`${provider} provider returned invalid response identity`);
+  // Responses-style providers count only when the provider declares completion.
+  // Partial text from failed, cancelled, queued, or in-progress responses is never promoted.
+  if ((provider === 'openai' || provider === 'muse') && parsed?.status !== 'completed') {
+    throw new Error(`${provider} provider returned a non-completed response`);
+  }
 
   const text = provider === 'anthropic'
     ? textFromAnthropic(parsed)
