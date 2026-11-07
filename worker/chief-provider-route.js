@@ -35,10 +35,8 @@ function runtimeEnabled(env) {
   return String(env?.CHIEF_PROVIDER_RUNTIME_ENABLED || '').trim().toLowerCase() === 'true';
 }
 
-async function authorizedRuntimeCaller(request, env) {
-  const expected = typeof env?.CHIEF_PROVIDER_RUNTIME_TOKEN === 'string'
-    ? env.CHIEF_PROVIDER_RUNTIME_TOKEN
-    : '';
+export async function verifyRuntimeBearer(request, token) {
+  const expected = typeof token === 'string' ? token : '';
   const presented = /^Bearer ([A-Za-z0-9._~-]{32,256})$/.exec(
     request.headers.get('authorization') || '',
   )?.[1];
@@ -49,8 +47,8 @@ async function authorizedRuntimeCaller(request, env) {
   // Compare digests without exposing token bytes or a variable-time early exit.
   const encoder = new TextEncoder();
   const [left, right] = await Promise.all([
-    crypto.subtle.digest('SHA-256', encoder.encode(expected)),
-    crypto.subtle.digest('SHA-256', encoder.encode(presented)),
+    globalThis.crypto.subtle.digest('SHA-256', encoder.encode(expected)),
+    globalThis.crypto.subtle.digest('SHA-256', encoder.encode(presented)),
   ]);
   const expectedHash = new Uint8Array(left);
   const suppliedHash = new Uint8Array(right);
@@ -85,7 +83,7 @@ export async function handleChiefProviderRoute(request, env, fetchImpl = fetch) 
     return errorResponse('provider_runtime_disabled', 'Chief provider runtime is disabled.', 503);
   }
 
-  if (!(await authorizedRuntimeCaller(request, env))) {
+  if (!(await verifyRuntimeBearer(request, env?.CHIEF_PROVIDER_RUNTIME_TOKEN))) {
     return errorResponse('unauthorized', 'Authorized provider runtime token required.', 401);
   }
 
