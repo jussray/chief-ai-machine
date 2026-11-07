@@ -4,6 +4,7 @@ on:
     paths:
       - '.agents/skills/**'
       - '.codex/config.toml'
+      - 'AGENTS.md'
       - '.github/workflows/codex-skill-release-proof.yml'
   pull_request:
     branches: [main]
@@ -28,6 +29,7 @@ jobs:
           import re
           import tomllib
 
+          assert Path('AGENTS.md').is_file(), 'Codex entry point AGENTS.md missing'
           config = tomllib.loads(Path('.codex/config.toml').read_text(encoding='utf-8'))
           assert config.get('model_reasoning_effort') == 'high', 'reasoning effort drift'
           assert config.get('model_reasoning_summary') == 'auto', 'summary config drift'
