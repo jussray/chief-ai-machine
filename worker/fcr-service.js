@@ -93,7 +93,7 @@ export function ingestFounderControlRoomBipEvidence(
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
       result,
     };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 422,
@@ -129,7 +129,7 @@ export function acceptFounderControlRoomPromptOSCommandIntent(
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
       result: handoff,
     };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 422,
