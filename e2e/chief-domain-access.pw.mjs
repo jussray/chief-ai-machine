@@ -6,6 +6,22 @@ const chiefSurfaces = [
   { role: 'api', origin: 'https://api.chief.foundercontrolroom.org', path: '/version', visibility: 'private' },
 ];
 
+// A generic Cloudflare bot challenge is not proof that an unauthenticated
+// visitor is denied by the app/API authorization boundary.
+export function verifiedPrivateDenial(observation) {
+  if (observation.cloudflareChallenge) return false;
+  return observation.accessRedirect === true
+    || observation.status === 401
+    || observation.status === 403;
+}
+
+test('Cloudflare bot challenge cannot satisfy the private Access proof', () => {
+  expect(verifiedPrivateDenial({ accessRedirect: false, status: 403, cloudflareChallenge: true })).toBe(false);
+  expect(verifiedPrivateDenial({ accessRedirect: true, status: 302, cloudflareChallenge: false })).toBe(true);
+  expect(verifiedPrivateDenial({ accessRedirect: false, status: 401, cloudflareChallenge: false })).toBe(true);
+  expect(verifiedPrivateDenial({ accessRedirect: false, status: 200, cloudflareChallenge: false })).toBe(false);
+});
+
 test('Chief public homepage stays reachable while private app and API remain protected', async ({ page }) => {
   const observations = [];
   for (const surface of chiefSurfaces) {
@@ -47,9 +63,7 @@ test('Chief public homepage stays reachable while private app and API remain pro
   expect(publicSurface.status).toBe(200);
 
   for (const observation of observations.filter((x) => x.visibility === 'private')) {
-    const denied = observation.accessRedirect
-      || observation.status === 401
-      || observation.status === 403;
+    const denied = verifiedPrivateDenial(observation);
     expect(denied, JSON.stringify(observation)).toBe(true);
   }
   // Denial and public reachability do NOT prove the exact deployed Worker SHA.
