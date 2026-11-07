@@ -1,34 +1,6 @@
-import { WorkerEntrypoint } from 'cloudflare:workers';
-import {
-  createFounderControlRoomCapabilityPlan,
-  getFounderControlRoomServiceVersion,
-  ingestFounderControlRoomBipEvidence,
-  acceptFounderControlRoomPromptOSCommandIntent,
-} from './fcr-service.js';
 import httpWorker from './http-worker.js';
 
-export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
-  async version() {
-    return getFounderControlRoomServiceVersion(this.env);
-  }
-
-  async createCapabilityPlan(input) {
-    return createFounderControlRoomCapabilityPlan(this.env, input);
-  }
-
-  async ingestBipEvidence(input) {
-    return ingestFounderControlRoomBipEvidence(this.env, input);
-  }
-
-  async acceptPromptOSCommandIntent(input) {
-    return acceptFounderControlRoomPromptOSCommandIntent(this.env, input);
-  }
-}
-
-// Chief AI Worker composition root.
-//
-// HTTP routing lives in a runtime-neutral module so Node/Vitest can verify the
-// /version and request-routing contract without loading Cloudflare's RPC-only
-// virtual module. Named WorkerEntrypoint exports remain here for the FCR
-// Cloudflare Service Binding.
+// Runtime-neutral HTTP composition root. The private FCR WorkerEntrypoint
+// lives in fcr-rpc-entry.js and is exported by security/chief-edge-entry.js,
+// so Node tests never import the Cloudflare-only virtual module.
 export default httpWorker;
