@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createCapabilityRegistry } from '../src/domain/capability-registry.js';
 import { sha256Hex } from '../src/domain/capability-plan.js';
@@ -86,6 +87,21 @@ function bipEvidence() {
     },
   };
 }
+
+describe('Chief Cloudflare FCR RPC entrypoint wiring', () => {
+  it('exports the FCR RPC binding independently of Node HTTP', () => {
+    const root = readFileSync(new URL('./index.js', import.meta.url), 'utf8');
+    const rpc = readFileSync(new URL('./fcr-rpc-entry.js', import.meta.url), 'utf8');
+    const edge = readFileSync(new URL('../security/chief-edge-entry.js', import.meta.url), 'utf8');
+
+    expect(root).not.toContain("from 'cloudflare:workers'");
+    expect(rpc).toContain("export class FounderControlRoomEntrypoint extends WorkerEntrypoint");
+    expect(rpc).toContain('ingestBipEvidence(input)');
+    expect(rpc).toContain('acceptPromptOSCommandIntent(input)');
+    expect(edge).toContain("export { FounderControlRoomEntrypoint } from '../worker/fcr-rpc-entry.js';");
+    expect(edge).toContain("export * from '../worker/index.js';");
+  });
+});
 
 describe('Founder Control Room RPC service contract', () => {
   it('binds service identity and contracts to the baked artifact SHA', () => {
