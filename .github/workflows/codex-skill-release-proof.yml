@@ -1,0 +1,55 @@
+name: Codex skills release proof
+on:
+  push:
+    paths:
+      - '.agents/skills/**'
+      - '.codex/config.toml'
+      - '.github/workflows/codex-skill-release-proof.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  codex-skills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate exported Codex config, manifests and dependencies
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import tomllib
+
+          config = tomllib.loads(Path('.codex/config.toml').read_text(encoding='utf-8'))
+          assert config.get('model_reasoning_effort') == 'high', 'reasoning effort drift'
+          assert config.get('model_reasoning_summary') == 'auto', 'summary config drift'
+          assert config.get('features', {}).get('multi_agent') is True, 'multi-agent disabled'
+          threads = config.get('agents', {}).get('max_concurrent_threads_per_session')
+          assert isinstance(threads, int) and not isinstance(threads, bool) and 1 <= threads <= 8, 'invalid thread budget'
+          names = ('juss-os', 'futureyou-me-v10', 'godmode-devil-ultrathink', 'goalfix', 'portfolio-bottleneck-finder')
+          for name in names:
+              path = Path('.agents/skills') / name / 'SKILL.md'
+              assert path.is_file(), f'missing {path}'
+              text = path.read_text(encoding='utf-8')
+              assert text.startswith('---\n') and '\n---\n' in text[4:], f'invalid YAML frontmatter: {path}'
+              front = text[4:].split('\n---\n', 1)[0]
+              match = re.search(r'''(?m)^name:\s*["']?([a-z0-9-]+)["']?\s*$''', front)
+              assert match and match.group(1) == name, f'wrong name: {path}'
+              assert re.search(r'(?m)^description:\s*\S', front), f'missing description: {path}'
+          scripts = Path('.agents/skills/juss-os/scripts')
+          for mod in ('receipts_check.py', 'ultrathink.py', 'test_modes.py', 'truthmode.py', 'confess.py', 'evidence_core.py'):
+              assert (scripts / mod).is_file(), f'missing Juss OS dependency: {mod}'
+          print('PASS: config, 5 manifests, 6 modules (static only)')
+          PY
+      - name: Compile and execute imported Juss OS mode tests
+        run: |
+          python -m compileall -q .agents/skills/juss-os/scripts
+          python .agents/skills/juss-os/scripts/test_modes.py
