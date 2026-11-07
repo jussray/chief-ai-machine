@@ -8,7 +8,7 @@ import {
   PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
   PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
   createPromptOSChiefCommandHandoff,
-} from '../src/domain/promptos-peer.js';
+} from '../src/domain/promptos-command-handoff.js';
 import {
   BIP_FCR_EVIDENCE_CONTRACT,
   ingestBipFounderControlRoomEvidence,
@@ -86,7 +86,7 @@ export async function invokeFounderControlRoomProvider(
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
       result,
     };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 503,
@@ -137,7 +137,7 @@ export function ingestFounderControlRoomBipEvidence(
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
       result,
     };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 422,
