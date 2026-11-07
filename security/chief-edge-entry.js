@@ -7,6 +7,7 @@ import {
 import { enforceChiefEdgeRateLimit } from './edge-rate-limit.mjs';
 
 export * from '../worker/index.js';
+export { FounderControlRoomEntrypoint } from '../worker/fcr-rpc-entry.js';
 
 const edge = {
   ...upstream,
