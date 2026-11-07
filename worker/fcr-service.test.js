@@ -189,6 +189,28 @@ describe('Founder Control Room RPC service contract', () => {
     expect(response.result.authority.permitsApproval).toBe(false);
   });
 
+  it('returns stable failure codes without serializing rejected RPC inputs', () => {
+    const bipResult = ingestFounderControlRoomBipEvidence(
+      {},
+      { ...bipEvidence(), sourceSystem: 'untrusted-user-LEAKMARKER' },
+      releaseSha,
+    );
+    expect(bipResult.ok).toBe(false);
+    expect(bipResult.status).toBe(422);
+    expect(bipResult.error).toBe('invalid_fcr_bip_evidence');
+    expect(JSON.stringify(bipResult)).not.toContain('LEAKMARKER');
+
+    const commandResult = acceptFounderControlRoomPromptOSCommandIntent(
+      {},
+      { intent: { schema: 'untrusted-user-LEAKMARKER' } },
+      releaseSha,
+    );
+    expect(commandResult.ok).toBe(false);
+    expect(commandResult.status).toBe(422);
+    expect(commandResult.error).toBe('invalid_promptos_command_intent');
+    expect(JSON.stringify(commandResult)).not.toContain('LEAKMARKER');
+  });
+
   it('fails closed when a non-FCR source tries to inject Bip evidence', () => {
     const response = ingestFounderControlRoomBipEvidence(
       {},
