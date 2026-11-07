@@ -124,7 +124,7 @@ describe('Chief provider HTTP route', () => {
     expect(response.status).toBe(502);
     const body = await response.json();
     expect(body.error.code).toBe('provider_execution_failed');
-    expect(body.error.message).toBe('openai provider returned a non-completed response');
+    expect(body.error.message).toBe('Provider execution failed.');
     expect(body.governance.externalProviderCall).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
