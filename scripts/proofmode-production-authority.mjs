@@ -22,16 +22,6 @@ function requirePositiveInteger(value, label) {
   return String(value);
 }
 
-function requireAuthorityReceipt(value, label) {
-  const strValue = String(value).trim();
-  if (!strValue) throw new Error(`${label} is required`);
-  // Accept either a GitHub review ID (positive integer) or founder-verbal-authorization
-  if (!/^([1-9]\d*|founder-verbal-authorization)$/.test(strValue)) {
-    throw new Error(`${label} must be a positive integer or 'founder-verbal-authorization'`);
-  }
-  return strValue;
-}
-
 export function consumptionMarker(receipt, sha) {
   return `<!-- ${CONSUMPTION_PREFIX} receipt=${receipt} sha=${sha} -->`;
 }
