@@ -101,7 +101,7 @@ export function ingestFounderControlRoomBipEvidence(
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
-      error: error instanceof Error ? error.message : String(error),
+      error: 'invalid_fcr_bip_evidence',
     };
   }
 }
@@ -138,7 +138,7 @@ export function acceptFounderControlRoomPromptOSCommandIntent(
       promptOSCommandIntentContract: PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
       promptOSCommandHandoffContract: PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
-      error: error instanceof Error ? error.message : String(error),
+      error: 'invalid_promptos_command_intent',
     };
   }
 }
