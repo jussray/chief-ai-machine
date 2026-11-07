@@ -69,10 +69,10 @@ describe('Chief provider HTTP route', () => {
       CHIEF_PROVIDER_RUNTIME_TOKEN: TEST_TOKEN,
       OPENAI_API_KEY: 'test-only-key',
     }, fetchMock);
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(502);
     const body = await response.json();
     expect(JSON.stringify(body)).not.toContain('LEAKMARKER');
-    expect(body.error.code).toBe('invalid_provider_request');
+    expect(body.error.code).toBe('provider_execution_failed');
   });
 
   it('returns completed provider evidence without widening authority', async () => {
