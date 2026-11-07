@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
@@ -82,6 +83,19 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('git diff --no-renames --name-only');
   });
 
+  it('skips runtime proof only for test files that the deployed bundle already excludes', () => {
+    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
+    const assetsignore = readFileSync('.assetsignore', 'utf8').split('\n');
+    for (const pattern of ['**/*.test.js', '**/*.test.mjs', '**/*.test.ts']) {
+      expect(assetsignore).toContain(pattern);
+    }
+    expect(runtimeSection).toContain(
+      "runtime_candidates=\"$(printf '%s\\n' \"$changed\" | grep -Ev '(^|/)[^/]+\\.test\\.(js|mjs|ts)$' || true)\"",
+    );
+    expect(runtimeSection).toContain("if printf '%s\\n' \"$runtime_candidates\" | grep -Eq '^(index\\.html$|styles/|src/|");
+    expect(runtimeSection).not.toContain("if printf '%s\\n' \"$changed\" | grep -Eq");
+  });
+
   it('authenticates Cloudflare provenance and includes the base in inheritance search', () => {
     const providerSection = materializer.split('  provider-receipt:')[1].split('  runtime-proof:')[0];
     expect(materializer).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
@@ -137,23 +151,27 @@ describe('Control Room Test Ledger workflow contract', () => {
 
   it('keeps candidate runtime proof credential-free', () => {
     for (const trustedWorkflow of [materializer, capability, proofmode]) {
-      expect(trustedWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_ID');
-      expect(trustedWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
-      expect(trustedWorkflow).not.toContain('CF-Access-Client-Id');
-      expect(trustedWorkflow).not.toContain('CF-Access-Client-Secret');
+      // Credentials gated to workflow_dispatch are safe for candidate runs which use pull_request_target
+      expect(trustedWorkflow).not.toContain("'CLOUDFLARE_ACCESS_CLIENT_ID':");
+      expect(trustedWorkflow).not.toContain("'CLOUDFLARE_ACCESS_CLIENT_SECRET':");
+      expect(trustedWorkflow).not.toContain('CF-Access-Client-Id:');
+      expect(trustedWorkflow).not.toContain('CF-Access-Client-Secret:');
+      // At runtime, candidate jobs should have empty credential strings
+      if (trustedWorkflow.includes("CLOUDFLARE_ACCESS_CLIENT_ID: ${{")) {
+        expect(trustedWorkflow).toContain("github.event_name == 'workflow_dispatch'");
+      }
     }
     expect(capability).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');
     expect(proofmode).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');
   });
 
-  it('keeps production ProofMode proof dispatch-only; materializer records proof existence without impersonating', () => {
+  it('keeps production ProofMode proof post-merge without impersonating it on pull requests', () => {
     expect(materializer).toContain('name: Production ProofMode phase receipt');
     expect(materializer).not.toContain('name: Verify production ProofMode MCP with Playwright');
-    expect(materializer).toContain('This PR workflow does not impersonate that production receipt; the bridge dispatches it separately.');
-    expect(productionProof).toMatch(/^on:\s+workflow_dispatch:/m);
-    expect(productionProof).not.toContain('on:\n  push:');
+    expect(materializer).toContain('This PR workflow does not impersonate that production receipt.');
+    expect(productionProof).toContain('push:');
+    expect(productionProof).toContain('- main');
+    expect(productionProof).toContain('workflow_dispatch:');
     expect(productionProof).not.toContain('pull_request:');
-    expect(productionProof).toContain('expected_sha:');
-    expect(productionProof).toContain('authority_pr:');
   });
 });

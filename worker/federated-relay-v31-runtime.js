@@ -1,5 +1,9 @@
 import { RelayV31Error, assertEnvelopeV31 } from './federated-relay-v31.js';
-import { handleFederatedRelayV31Transport, readBoundedRelayBodyV31 } from './federated-relay-v31-transport.js';
+import {
+  handleFederatedRelayV31Transport,
+  readBoundedRelayBodyV31,
+  verifyRelayEnvelopeSignatureWithKeyV31,
+} from './federated-relay-v31-transport.js';
 
 const KEY_QUERY_CONTRACT = 'juss/federated-agent-relay-key-query@v3.1';
 const DELIVERY_ACK_CONTRACT = 'juss/federated-agent-relay-delivery-ack@v3.1';
@@ -309,6 +313,7 @@ export async function handleFederatedRelayV31Runtime(request, env, fetchImpl = f
         sourceKey = await bootstrapFcrEnvelopeKey(request, body, env, fetchImpl);
       }
       relayAssert(sourceKey, 'relay_key_unknown', 401);
+      await verifyRelayEnvelopeSignatureWithKeyV31(body, sourceKey, body.issuedAt);
       await verifySourceCommitReachabilityV31(body.source, fetchImpl);
       const verifiedFetch = sourceReachabilityFetchV31(fetchImpl, body.source);
       return await handleFederatedRelayV31Transport(request, mergeRegistry(env, [sourceKey]), verifiedFetch, raw);

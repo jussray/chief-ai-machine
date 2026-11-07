@@ -1,10 +1,23 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
-import { normalizeCustomPrompt } from '../domain/intelligence.js';
 import { showToast, copyText } from './ui.js';
+import {
+  CUSTOM_PROMPTS_UPDATED_EVENT,
+  createLocalPromptId,
+  readCustomPromptState,
+  writeCustomPrompts,
+} from './local-first-prompt-state.js';
 
-export const CUSTOM_PROMPTS_UPDATED_EVENT = 'chief-custom-updated';
+export { CUSTOM_PROMPTS_UPDATED_EVENT };
 
-const PROTECTED_CONTROL_TOKEN_PATTERN = /(?:\/?goalfix\b|\bultrathink\b|\btruth\s*mode\b|\btruthmode\b|\/?confess\b|\bred\s*team\b|\bredteam\b|\battack\s*ten\b|\battackten\b|\blindy\s*mode\b|\blindymode\b|\blindy\b|\booda\b|\bproof\s*mode\b|\bproofmode\b|\bl99\b)/gi;
+const PROTECTED_CONTROL_TOKEN_PATTERN = /\b(?:goalfix|ultrathink|truthmode|confess|redteam|attackten|lindymode|ooda|proofmode|l99)\b/gi;
+
+export function stripProtectedControlTokens(rawText) {
+  return String(rawText || '')
+    .replace(/(?:^|\s)\/(?:goalfix|ultrathink|truthmode|confess|redteam|attackten|lindymode|ooda|proofmode|l99)\b/gi, '')
+    .replace(PROTECTED_CONTROL_TOKEN_PATTERN, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 const GOALFIX_FREESTYLE_ROUTES = [
   {
@@ -20,13 +33,6 @@ const GOALFIX_FREESTYLE_ROUTES = [
     pattern: /\bfinish line\b|\bbottleneck\b/i,
   },
 ];
-
-export function stripProtectedControlTokens(text) {
-  return String(text || '')
-    .replace(PROTECTED_CONTROL_TOKEN_PATTERN, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 export function normalizePromptVersionsForSave(prompt) {
   const platforms = [
@@ -57,22 +63,13 @@ function inferCat(text) {
 }
 
 export function selectFreestylePrompt(PROMPTS, rawText, platforms) {
-  const hasProtectedTokens = PROTECTED_CONTROL_TOKEN_PATTERN.test(rawText);
-  if (hasProtectedTokens) {
-    const text = stripProtectedControlTokens(rawText);
-    if (!text.trim()) {
-      return PROMPTS.find(prompt => prompt.platforms?.some(platform => (Array.isArray(platforms) ? platforms : []).includes(platform))) || PROMPTS[0];
-    }
-  }
-
   const text = stripProtectedControlTokens(rawText);
   const selectedPlatforms = Array.isArray(platforms) ? platforms : [];
 
   for (const route of GOALFIX_FREESTYLE_ROUTES) {
-    if (!hasProtectedTokens && route.pattern.test(text)) {
-      const prompt = PROMPTS.find(item => item.id === route.id);
-      if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
-    }
+    if (!route.pattern.test(text)) continue;
+    const prompt = PROMPTS.find(item => item.id === route.id);
+    if (prompt?.platforms?.some(platform => selectedPlatforms.includes(platform))) return prompt;
   }
 
   const cat = inferCat(text);
@@ -103,49 +100,91 @@ export function initFreestyle(PROMPTS) {
     return renderPromptVariant(currentResult, currentPlatform);
   }
 
+  function renderBadges(base, avail) {
+    fsBadges.replaceChildren();
+    const cat = document.createElement('span');
+    cat.className = 'badge cat';
+    cat.textContent = base.cat || 'prompt';
+    fsBadges.appendChild(cat);
+    avail.forEach(platform => {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = platform;
+      fsBadges.appendChild(badge);
+    });
+  }
+
   function generate() {
-    const ask = askEl?.value?.trim(); if (!ask) return;
+    const ask = askEl?.value?.trim();
+    if (!ask) return;
     const platforms = getChecked();
     const base = selectFreestylePrompt(PROMPTS, ask, platforms);
-    const avail = (base.platforms || []).filter(pl => platforms.includes(pl));
-    if (!avail.length) { showToast('No match for selected platforms.'); return; }
-    currentResult = base; currentPlatform = avail[0];
+    const avail = (base.platforms || []).filter(platform => platforms.includes(platform));
+    if (!avail.length) {
+      showToast('No match for selected platforms.');
+      return;
+    }
+
+    currentResult = base;
+    currentPlatform = avail[0];
     fsEmoji.textContent = base.emoji || '💬';
     fsTitle.textContent = base.title;
     fsSub.textContent = base.sub || '';
-    fsBadges.innerHTML = `<span class="badge cat">${base.cat}</span>` + avail.map(p => `<span class="badge">${p}</span>`).join('');
-    fsTabs.innerHTML = '';
-    avail.forEach((p, i) => {
+    renderBadges(base, avail);
+    fsTabs.replaceChildren();
+
+    avail.forEach((platform, index) => {
       const btn = document.createElement('button');
-      btn.className = 'ptab' + (i === 0 ? ' active' : '');
-      btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
-      btn.addEventListener('click', () => { fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentPlatform = p; fsBody.textContent = renderCurrent(); });
+      btn.className = 'ptab' + (index === 0 ? ' active' : '');
+      btn.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
+      btn.addEventListener('click', () => {
+        fsTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentPlatform = platform;
+        fsBody.textContent = renderCurrent();
+      });
       fsTabs.appendChild(btn);
     });
+
     fsBody.textContent = renderCurrent();
-    placeholder.style.display = 'none'; preview.classList.add('on');
+    placeholder.style.display = 'none';
+    preview.classList.add('on');
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
-  askEl?.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate(); });
-  document.getElementById('fsClear')?.addEventListener('click', () => { if (askEl) askEl.value = ''; preview.classList.remove('on'); placeholder.style.display = ''; });
-  document.getElementById('fsCopy')?.addEventListener('click', () => { if (currentResult && currentPlatform) { copyText(renderCurrent()); showToast('Copied!'); } });
+  askEl?.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') generate();
+  });
+  document.getElementById('fsClear')?.addEventListener('click', () => {
+    if (askEl) askEl.value = '';
+    preview.classList.remove('on');
+    placeholder.style.display = '';
+    currentResult = null;
+    currentPlatform = null;
+  });
+  document.getElementById('fsCopy')?.addEventListener('click', async () => {
+    if (!currentResult || !currentPlatform) return;
+    const copied = await copyText(renderCurrent());
+    showToast(copied ? 'Copied!' : 'Copy failed. Select the prompt manually.');
+  });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
-    const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    const normalizedPrompt = normalizeCustomPrompt({
-      ...currentResult,
-      id: 'freestyle-' + Date.now(),
-      versions: normalizePromptVersionsForSave(currentResult),
-    });
-    if (!normalizedPrompt) {
-      showToast('Custom prompt could not be saved safely.');
+    const current = readCustomPromptState();
+    if (current.state !== 'ready') {
+      showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
       return;
     }
-    custom.push(normalizedPrompt);
-    localStorage.setItem('chief-custom', JSON.stringify(custom));
-    window.dispatchEvent(new window.Event(CUSTOM_PROMPTS_UPDATED_EVENT));
-    showToast('Saved to My Prompts!');
+    const next = {
+      ...currentResult,
+      id: createLocalPromptId('freestyle'),
+      versions: normalizePromptVersionsForSave(currentResult),
+    };
+    try {
+      writeCustomPrompts([...current.prompts, next]);
+      showToast('Saved to My Prompts!');
+    } catch {
+      showToast('Save failed. Custom prompt state is unchanged.');
+    }
   });
   document.getElementById('fsRegenerate')?.addEventListener('click', generate);
 }

@@ -1,0 +1,64 @@
+name: Cloudflare Logpush Participation Contract
+
+on:
+  pull_request:
+    paths:
+      - ".control-room/cloudflare-logpush.contract.json"
+      - ".github/workflows/cloudflare-logpush-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".control-room/cloudflare-logpush.contract.json"
+      - ".github/workflows/cloudflare-logpush-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+concurrency:
+  group: cloudflare-logpush-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Verify exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - name: Verify participation contract
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = '.control-room/cloudflare-logpush.contract.json';
+          const c = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const errors = [];
+          if (c.schemaVersion !== '1.0') errors.push('schemaVersion');
+          if (c.repository !== process.env.GITHUB_REPOSITORY) errors.push('repository');
+          if (c.portfolioAuthority !== 'jussray/founder-control-room') errors.push('portfolioAuthority');
+          if (c.logpush?.participates !== true) errors.push('participates');
+          if (c.logpush?.scope !== 'account') errors.push('scope');
+          if (c.logpush?.dataset !== 'workers_trace_events') errors.push('dataset');
+          if (c.logpush?.providerMutationAuthority !== 'founder-control-room-only') errors.push('providerMutationAuthority');
+          if (c.logpush?.credentialsStoredHere !== false) errors.push('credentialsStoredHere');
+          if (c.evidence?.contractPassDoesNotProveProviderActivation !== true) errors.push('evidenceBoundary');
+          if (c.evidence?.providerVerificationRequired !== true) errors.push('providerVerificationRequired');
+          if (c.evidence?.destinationDeliveryVerificationRequired !== true) errors.push('destinationDeliveryVerificationRequired');
+          const raw = fs.readFileSync(path, 'utf8');
+          if (/api[_-]?token|secret\s*[":=]|destination_conf/i.test(raw)) errors.push('secretMaterial');
+          if (errors.length) { console.error('LOGPUSH_CONTRACT_INVALID'); process.exit(1); }
+          console.log('LOGPUSH_CONTRACT_VALID');
+          NODE

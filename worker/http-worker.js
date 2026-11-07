@@ -1,10 +1,20 @@
+import { BUILD_RELEASE_BRANCH } from './release-sha.js';
+import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
+import { handleGitHubAppRequest } from './github-app.js';
+import { makeRelayFetch } from './relay-fetch.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefControlRoomRecommendation } from './chief-control-room-recommendation.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { handleChiefProviderRoute } from './chief-provider-route.js';
-import { getReleaseSha } from './fcr-service.js';
+import { handleChiefProviderRoute, verifyRuntimeBearer } from './chief-provider-route.js';
+import { getReleaseSha, getArtifactReleaseSha } from './fcr-service.js';
 import { handleChiefMcp } from './chief-mcp.js';
 import { chiefProviderStates, invokeChiefProvider } from './provider-runtime.js';
+
+export function getReleaseBranch(env, bakedReleaseBranch = BUILD_RELEASE_BRANCH) {
+  const candidates = [env?.FEDERATED_RELAY_BRANCH, env?.WORKERS_CI_BRANCH, bakedReleaseBranch];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
+}
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
 const RUNTIME_PROOF_MARKER = 'CHIEF_RUNTIME_PROOF_OK';
@@ -18,24 +28,16 @@ function publicProviderStates(env) {
   );
 }
 
-function runtimeProofAuthorized(request, env) {
-  const token = typeof env?.CHIEF_RUNTIME_PROOF_TOKEN === 'string'
-    ? env.CHIEF_RUNTIME_PROOF_TOKEN.trim()
-    : '';
-  if (!token) return false;
-  return request.headers.get('authorization') === `Bearer ${token}`;
-}
-
 async function handleRuntimeProof(request, env) {
   if (request.method !== 'POST') {
     return Response.json({ ok: false, error: 'method_not_allowed' }, { status: 405 });
   }
 
-  if (!runtimeProofAuthorized(request, env)) {
+  if (!(await verifyRuntimeBearer(request, env?.CHIEF_RUNTIME_PROOF_TOKEN))) {
     return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
-  const releaseSha = getReleaseSha(env);
+  const releaseSha = getArtifactReleaseSha();
   if (!FULL_SHA.test(releaseSha)) {
     return Response.json({ ok: false, error: 'release_identity_unavailable' }, { status: 503 });
   }
@@ -115,7 +117,7 @@ const httpWorker = {
 
     if (url.pathname === '/version') {
       return Response.json(
-        { ok: true, sha: getReleaseSha(env) },
+        { ok: true, sha: getReleaseSha(env), branch: getReleaseBranch(env) },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
@@ -131,6 +133,10 @@ const httpWorker = {
 
     if (url.pathname === '/api/chief/runtime-proof') {
       return handleRuntimeProof(request, env);
+    }
+
+    if (url.pathname.startsWith('/github/')) {
+      return handleGitHubAppRequest(request, env);
     }
 
     if (url.pathname === '/mcp') {
@@ -151,6 +157,18 @@ const httpWorker = {
 
     if (url.pathname === '/api/chief/provider') {
       return handleChiefProviderRoute(request, env);
+    }
+
+    if (url.pathname === '/api/federated-relay') {
+      return handleFederatedRelayV31Runtime(
+        request,
+        {
+          ...env,
+          RELEASE_SHA: getReleaseSha(env),
+          FEDERATED_RELAY_BRANCH: getReleaseBranch(env),
+        },
+        makeRelayFetch(env),
+      );
     }
 
     if (url.pathname.startsWith('/api/')) {

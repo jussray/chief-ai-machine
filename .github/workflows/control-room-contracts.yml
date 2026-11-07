@@ -50,6 +50,9 @@ jobs:
       - name: Validate repo-local catalog
         run: node scripts/verify-control-room-tests.mjs
 
+      - name: Verify protected intelligence and live-proof contract
+        run: node scripts/verify-work-productization-contract.mjs
+
       - name: Verify Worker version receipt
         run: npx vitest run test/worker-version.test.js
 

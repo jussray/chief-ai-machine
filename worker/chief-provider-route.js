@@ -1,10 +1,4 @@
-import {
-  cancelChiefAnthropicBatch,
-  createChiefAnthropicBatch,
-  getChiefAnthropicBatch,
-  getChiefAnthropicBatchResults,
-  invokeChiefProvider,
-} from './provider-runtime.js';
+import { invokeChiefProvider } from './provider-runtime.js';
 
 const ROUTE = '/api/chief/provider';
 
@@ -100,18 +94,9 @@ export async function handleChiefProviderRoute(request, env, fetchImpl = fetch) 
   try {
     let result;
     if (String(input.mode || 'standard').trim().toLowerCase() === 'batch') {
-      const operation = String(input.operation || 'create').trim().toLowerCase();
-      if (operation === 'create') {
-        result = await createChiefAnthropicBatch(env, input, fetchImpl);
-      } else if (operation === 'status') {
-        result = await getChiefAnthropicBatch(env, input.batchId, fetchImpl);
-      } else if (operation === 'results') {
-        result = await getChiefAnthropicBatchResults(env, input.batchId, fetchImpl);
-      } else if (operation === 'cancel') {
-        result = await cancelChiefAnthropicBatch(env, input.batchId, fetchImpl);
-      } else {
-        throw new Error('unsupported Anthropic batch operation');
-      }
+      // Current main removed the legacy batch runtime. Never dispatch a provider
+      // mutation with an implementation that is no longer installed.
+      return errorResponse('batch_runtime_unavailable', 'Batch processing is unavailable.', 503);
     } else {
       result = await invokeChiefProvider(env, input, fetchImpl);
     }

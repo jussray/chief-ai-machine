@@ -1,20 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 const chiefSurfaces = [
-  { role: 'public', origin: 'https://chief.foundercontrolroom.org' },
-  { role: 'app', origin: 'https://app.chief.foundercontrolroom.org' },
-  { role: 'api', origin: 'https://api.chief.foundercontrolroom.org' },
+  { role: 'public', origin: 'https://chief.foundercontrolroom.org', path: '/', visibility: 'public' },
+  { role: 'app', origin: 'https://app.chief.foundercontrolroom.org', path: '/version', visibility: 'private' },
+  { role: 'api', origin: 'https://api.chief.foundercontrolroom.org', path: '/version', visibility: 'private' },
 ];
 
-test('Chief custom domains deny anonymous browser requests; this is NOT runtime proof', async ({ page }) => {
+test('Chief public homepage stays reachable while private app and API remain protected', async ({ page }) => {
   const observations = [];
-
-  // Inspect all hosts even when one fails. A denial does not prove the
-  // underlying Worker returned /version, nor does it prove authentication.
   for (const surface of chiefSurfaces) {
     const hostname = new URL(surface.origin).hostname;
     try {
-      const response = await page.goto(surface.origin + '/version', {
+      const response = await page.goto(surface.origin + surface.path, {
         waitUntil: 'domcontentloaded',
         timeout: 30_000,
       });
@@ -22,29 +19,38 @@ test('Chief custom domains deny anonymous browser requests; this is NOT runtime 
       const headers = response?.headers() ?? {};
       observations.push({
         role: surface.role,
+        visibility: surface.visibility,
         hostname,
         finalHostname,
         status: response?.status() ?? 0,
-        contentType: (headers['content-type'] || '').split(';')[0].slice(0, 80),
         cloudflareChallenge: headers['cf-mitigated'] === 'challenge',
         accessRedirect: finalHostname.endsWith('.cloudflareaccess.com'),
       });
-    } catch (error) {
+    } catch {
       observations.push({
         role: surface.role,
+        visibility: surface.visibility,
         hostname,
         status: 'navigation_error',
-        reason: error instanceof Error ? error.name : 'unknown',
+        cloudflareChallenge: false,
+        accessRedirect: false,
       });
     }
   }
 
-  // These metadata fields cannot expose cookies, tokens, Access URLs or bodies.
-  console.info('Chief anonymous-access observations:', JSON.stringify(observations));
+  // Metadata only; no cookies, URLs containing Access tokens, or response bodies.
+  console.info('Chief access-boundary observations:', JSON.stringify(observations));
   expect(observations).toHaveLength(chiefSurfaces.length);
-  for (const observation of observations) {
-    expect(observation.finalHostname, JSON.stringify(observation)).toBe(observation.hostname);
-    expect(observation.status, JSON.stringify(observation)).toBe(403);
+  const publicSurface = observations.find((x) => x.role === 'public');
+  expect(publicSurface.accessRedirect).toBe(false);
+  expect(publicSurface.cloudflareChallenge).toBe(false);
+  expect(publicSurface.status).toBe(200);
+
+  for (const observation of observations.filter((x) => x.visibility === 'private')) {
+    const denied = observation.accessRedirect
+      || observation.status === 401
+      || observation.status === 403;
+    expect(denied, JSON.stringify(observation)).toBe(true);
   }
-  // No /version SHA is asserted: a 403 cannot establish deployed identity.
+  // Denial and public reachability do NOT prove the exact deployed Worker SHA.
 });

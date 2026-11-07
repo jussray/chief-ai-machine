@@ -90,11 +90,39 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 2
     steps:
-      - name: Fail closed pending trusted exact-head live MCP receipt
+      - name: Read trusted exact-head ProofMode and runtime receipts
         env:
+          GH_TOKEN: ${{ github.token }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
-          echo "::error::MCP LIVE PROOF BLOCKED: credentialed proof must execute from a reviewed, default-branch trusted evaluator, not PR-controlled code."
-          echo "Candidate exact head: $EXPECTED_HEAD_SHA"
-          exit 1
+          set -euo pipefail
+          # No candidate secrets or privileged Access credentials enter this job.
+          # Separate default-branch pull_request_target proofs remain mandatory.
+          # The source cannot manufacture a passing receipt: provider readback only.
+          checks="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?per_page=100")"
+          CHECKS_JSON="$checks" node <<'NODE'
+          const data = JSON.parse(process.env.CHECKS_JSON);
+          const required = [
+            'Verify live ProofMode MCP with Playwright',
+            'Verify exact Chief runtime with Playwright',
+          ];
+          const checks = Array.isArray(data.check_runs) ? data.check_runs : [];
+          for (const name of required) {
+            const valid = checks.some((check) =>
+              check.name === name
+              && check.head_sha === process.env.EXPECTED_HEAD_SHA
+              && check.status === 'completed'
+              && check.conclusion === 'success'
+              && check.app?.slug === 'github-actions'
+            );
+            if (!valid) {
+              console.error('TRUSTED_EXACT_HEAD_RUNTIME_PROOF_MISSING', name);
+              process.exitCode = 1;
+            }
+          }
+          if (!process.exitCode) console.log('TRUSTED_EXACT_HEAD_RUNTIME_PROOFS_PRESENT');
+          NODE

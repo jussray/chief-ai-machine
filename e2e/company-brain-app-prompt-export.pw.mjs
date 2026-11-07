@@ -27,9 +27,15 @@ const FREESTYLE_PROMPT = {
 };
 
 async function openBrain(page) {
+  // NOTE: Company Brain feature is in development; export button creation depends on page initialization
+  // If button is not found, the feature may not be fully wired or the page init failed
   await page.locator('[data-page="brain"]:visible').first().click();
   await expect(page.locator('#page-brain')).toHaveClass(/\bon\b/);
-  await expect(page.locator('#brainExportBtn')).toBeVisible();
+  const btn = page.locator('#brainExportBtn');
+  if (await btn.count() === 0) {
+    throw new Error('Company Brain export button not found — feature initialization may be incomplete');
+  }
+  await expect(btn).toBeVisible();
 }
 
 test('Company Brain exports ordinary Builder and Freestyle saves without losing prompt data', async ({ page }) => {

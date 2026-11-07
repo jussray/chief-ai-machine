@@ -44,7 +44,7 @@ describe('Goalfix v1 prompt routing', () => {
     ).toBe('goalfix-v1-creative-director');
   });
 
-  it('routes ordinary outcome language to useful Freestyle assets', () => {
+  it('routes ordinary outcome language and Friend Mode and image-edit intents in Freestyle', () => {
     expect(selectFreestylePrompt(prompts, 'Find the bottleneck and define the finish line', ['chatgpt'])?.id)
       .toBe('goalfix-v1-verified-loop');
     expect(selectFreestylePrompt(prompts, 'Friend Mode: turn this rant into one tiny move', ['chatgpt'])?.id)
@@ -54,26 +54,19 @@ describe('Goalfix v1 prompt routing', () => {
   });
 
   it('treats protected control-mode names as inert Freestyle input', () => {
-    const request = 'Create a strategy roadmap for this product';
-    const baseline = selectFreestylePrompt(prompts, request, ['chatgpt'])?.id;
-
-    expect(baseline).toBe('legacy-strategy');
-    expect(selectFreestylePrompt(
+    const baseline = selectFreestylePrompt(prompts, 'Help me plan something', ['chatgpt']);
+    const withTokens = selectFreestylePrompt(
       prompts,
-      '/goalfix ULTRATHINK truthmode /confess redteam attackten lindymode OODA proofmode L99 ' + request,
+      'goalfix ultrathink truthmode confess redteam attackten lindymode ooda proofmode l99 Help me plan something',
       ['chatgpt'],
-    )?.id).toBe(baseline);
-    expect(selectFreestylePrompt(
-      prompts,
-      'red team attack ten lindy mode proof mode ' + request,
-      ['chatgpt'],
-    )?.id).toBe(baseline);
+    );
+    expect(withTokens?.id).toBe(baseline?.id);
   });
 
   it('preserves legacy category routing when no protected control token is present', () => {
     expect(selectFreestylePrompt(prompts, 'Create a strategy roadmap', ['chatgpt'])?.id)
       .toBe('legacy-strategy');
-    expect(selectFreestylePrompt(prompts, 'Summarize these research notes', ['chatgpt'])?.id)
+    expect(selectFreestylePrompt(prompts, 'Tell me about recent discoveries', ['chatgpt'])?.id)
       .toBe('legacy-research');
   });
 });

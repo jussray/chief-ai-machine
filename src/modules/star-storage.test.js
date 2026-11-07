@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { readStarStorage, writeStarStorage } from './star-storage.js';
-import { setupLocalStorageTest } from '../../test/fixtures/storage.js';
 
 let store;
 
 beforeEach(() => {
-  const setup = setupLocalStorageTest();
-  store = setup.store;
-  globalThis.localStorage = setup.localStorage;
+  store = new Map();
+  globalThis.localStorage = {
+    getItem(key) {
+      return store.has(key) ? store.get(key) : null;
+    },
+    setItem(key, value) {
+      store.set(key, String(value));
+    },
+    removeItem(key) {
+      store.delete(key);
+    },
+  };
 });
 
 describe('star storage truth boundary', () => {

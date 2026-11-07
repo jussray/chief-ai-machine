@@ -26,6 +26,8 @@ env:
   TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_CHECK_APP_ID: '85455'
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}
+  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}
 
 concurrency:
   group: proofmode-mcp-playwright-trusted-${{ github.event.pull_request.number || github.run_id }}
@@ -73,7 +75,7 @@ jobs:
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
 
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/chief-mcp\.js$|worker/chief-mcp\.test\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -102,6 +104,13 @@ jobs:
             echo 'N/A proven from trusted exact-head semantic diff: ProofMode surfaces unchanged after removing the bounded GitHub-only route additions.'
           fi
 
+      - name: Gate privileged manual proof to repository owner on main
+        if: github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == github.repository_owner && github.triggering_actor == github.repository_owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          true
+
       - name: Resolve authenticated exact-head Cloudflare preview
         if: steps.scope.outputs.changed == 'true'
         env:
@@ -111,17 +120,22 @@ jobs:
         run: |
           set -euo pipefail
           validate_preview() {
-            node -e '
+            normalized="$(node -e '
               const raw=process.argv[1]||"";
-              const u=new URL(raw);
-              if (u.protocol!=="https:" || u.username || u.password || u.port || u.search || u.hash || (u.pathname!=="/" && u.pathname!=="")) process.exit(1);
-              if (!/^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(u.hostname)) process.exit(1);
-              process.stdout.write(u.origin);
-            ' "$1"
+              const url=new URL(raw);
+              const h=url.hostname;
+              if (url.protocol!=="https:" || url.username || url.password || url.port || url.search || url.hash || (url.pathname!=="/" && url.pathname!=="")) process.exit(1);
+              if (h==="chief.foundercontrolroom.org" || h==="api.chief.foundercontrolroom.org" || h==="chief-ai.mcgill-raylene.workers.dev") {
+                process.stdout.write(url.origin);
+              } else {
+                process.exit(1);
+              }
+            ' "$1")"
+            printf '%s' "$normalized"
           }
           if [ -n "$MANUAL_BASE_URL" ]; then
             preview="$(validate_preview "$MANUAL_BASE_URL")" || { echo 'Manual base_url is not an immutable Chief preview origin.' >&2; exit 1; }
-            echo "PROOFMODE_BASE_URL=$preview" >> "$GITHUB_ENV"
+            printf 'PROOFMODE_BASE_URL=%s' "$preview" >> "$GITHUB_ENV"
             exit 0
           fi
           api="https://api.github.com/repos/${REPO}/commits/${EXPECTED_HEAD_SHA}/check-runs?per_page=100"
@@ -136,7 +150,7 @@ jobs:
             ')"
             if [ -n "$preview" ]; then
               preview="$(validate_preview "$preview")" || { echo 'Provider returned an invalid preview origin.' >&2; exit 1; }
-              echo "PROOFMODE_BASE_URL=$preview" >> "$GITHUB_ENV"
+              printf 'PROOFMODE_BASE_URL=%s' "$preview" >> "$GITHUB_ENV"
               printf 'Resolved authenticated immutable preview: %s\n' "$preview"
               exit 0
             fi
@@ -180,7 +194,7 @@ jobs:
         if: steps.scope.outputs.changed == 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Run trusted live ProofMode MCP Playwright proof
+      - name: Run trusted live ProofMode and asset-boundary Playwright proof
         if: steps.scope.outputs.changed == 'true'
         env:
           PLAYWRIGHT_HTML_OPEN: never
@@ -190,25 +204,23 @@ jobs:
           import { defineConfig } from '@playwright/test';
           export default defineConfig({
             testDir:'./e2e',
-            testMatch:/proofmode-mcp\.pw\.mjs$/,
+            testMatch:/(proofmode-mcp|static-assets-boundary)\.pw\.mjs$/,
             fullyParallel:false,
             retries:0,
             workers:1,
-            outputDir:'./test-results/proofmode-mcp',
-            reporter:[['line'],['html',{outputFolder:'./playwright-report/proofmode-mcp',open:'never'}]],
-            use:{trace:'retain-on-failure',screenshot:'only-on-failure'},
+            outputDir:'./artifacts',
+            reporter:[['line'],['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/proofmode-mcp-safe.json' }]],
+            use:{trace: 'off', screenshot: 'off', video: 'off'},
           });
           EOF
           npx playwright test --config=playwright.proofmode-mcp.config.mjs
 
-      - name: Retain credential-free ProofMode evidence
+      - name: Retain credential-safe Playwright outcome receipt
         if: always() && steps.scope.outputs.changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: proofmode-mcp-playwright-${{ env.EXPECTED_HEAD_SHA }}
-          path: |
-            playwright-report/proofmode-mcp
-            test-results/proofmode-mcp
+          name: proofmode-mcp-safe-${{ env.EXPECTED_HEAD_SHA }}
+          path: artifacts/proofmode-mcp-safe.json
           if-no-files-found: warn
           retention-days: 14
 

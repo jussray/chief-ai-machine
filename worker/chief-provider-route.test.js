@@ -147,13 +147,8 @@ describe('Chief provider HTTP route', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('routes Anthropic batch create without widening authority', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({
-      id: 'msgbatch_route_1',
-      type: 'message_batch',
-      processing_status: 'in_progress',
-      request_counts: { processing: 1, succeeded: 0, errored: 0, canceled: 0, expired: 0 },
-    }));
+  it('does not dispatch batch jobs after the current-main batch runtime was retired', async () => {
+    const fetchMock = vi.fn();
     const response = await handleChiefProviderRoute(post({
       mode: 'batch',
       operation: 'create',
@@ -164,20 +159,11 @@ describe('Chief provider HTTP route', () => {
       CHIEF_ANTHROPIC_BATCH_ENABLED: 'true',
       ANTHROPIC_API_KEY: 'test-key',
     }, fetchMock);
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     const body = await response.json();
-    expect(body.data).toMatchObject({
-      provider: 'anthropic',
-      mode: 'batch',
-      batchId: 'msgbatch_route_1',
-      authority: 'none',
-    });
-    expect(body.governance).toMatchObject({
-      authority: 'none',
-      executionAuthorized: false,
-      founderApprovalCarriedForward: false,
-      externalProviderCall: true,
-    });
+    expect(body.error.code).toBe('batch_runtime_unavailable');
+    expect(body.governance.externalProviderCall).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported batch operations before provider dispatch', async () => {
@@ -190,7 +176,8 @@ describe('Chief provider HTTP route', () => {
       CHIEF_PROVIDER_RUNTIME_TOKEN: TEST_TOKEN,
       ANTHROPIC_API_KEY: 'test-key',
     }, fetchMock);
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe('batch_runtime_unavailable');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
