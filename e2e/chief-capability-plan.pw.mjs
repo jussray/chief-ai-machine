@@ -46,6 +46,22 @@ function proposalInput() {
   };
 }
 
+function priorOutcome(overrides = {}) {
+  return {
+    contract: 'juss-v10/outcome-observation@v1',
+    capabilityPlanHash: 'a'.repeat(64),
+    executionReceiptId: `fcr-conveyor-receipt-v3:${'b'.repeat(64)}`,
+    verified: true,
+    goalSucceeded: true,
+    founderOverride: false,
+    rollbackUsed: false,
+    evidenceCompleteness: 100,
+    outcomeSignals: ['verification-pass'],
+    evidenceUrls: ['https://github.com/jussray/founder-control-room/actions/runs/1'],
+    ...overrides,
+  };
+}
+
 test.describe('Chief capability-plan live runtime', () => {
   test('serves the exact candidate head from /version', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
@@ -53,7 +69,7 @@ test.describe('Chief capability-plan live runtime', () => {
     await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
   });
 
-  test('returns a proposal-only plan plus a credential-free FCR connection handoff', async ({ request }) => {
+  test('returns a proposal-only plan plus a fingerprinted, credential-free FCR handoff', async ({ request }) => {
     const input = proposalInput();
     const response = await request.post(`${baseURL}/api/chief/capability-plan`, {
       headers: { 'Content-Type': 'application/json' },
@@ -87,12 +103,54 @@ test.describe('Chief capability-plan live runtime', () => {
         capabilities: ['inspect_repos'],
       }],
     });
+    expect(body.data.outcomeFeedback).toMatchObject({ observed: false, sourceTrust: 'none' });
+    expect(body.data.founderControl).toMatchObject({
+      contract: 'juss-v10/founder-control-decision@v1',
+      surfaces: ['fcr', 'chatgpt', 'claude', 'perplexity'],
+      orchestrators: ['n8n', 'zapier'],
+      capabilityPlanHash: body.data.capabilityPlan.planHash,
+      founderDecisionRequired: true,
+      explicitDecisionOnly: true,
+      proposalMutationInvalidatesApproval: true,
+      surfaceMaySelfAuthorize: false,
+      chiefMaySelfAuthorize: false,
+      executionAuthorized: false,
+      receiptRequiredAfterExecution: true,
+    });
+    expect(body.data.trustTransition).toMatchObject({
+      contract: 'juss/trust-transition@v1',
+      phase: 'proposal',
+      authorityGranted: false,
+      authorityAuthenticated: false,
+      executionAllowed: false,
+      disposition: 'awaiting_authority',
+      currentTruthState: 'unknown',
+      selfAuthorize: false,
+      attack1000: {
+        pressureBudget: 1000,
+        literalExternalActionsClaimed: 0,
+      },
+      invariants: {
+        providerAcceptanceIsNotOutcome: true,
+        staleCookieCannotRenewAuthority: true,
+        continuityCookieDoesNotAuthenticate: true,
+        authorityAuthenticationRequiredForExecution: true,
+        proposalCannotSelfGrantAuthority: true,
+        authorityGrantMovementPreservesTransitionSubject: true,
+      },
+    });
+    expect(body.data.trustTransition.transitionFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.data.trustTransition.authorityFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.data.trustTransition.continuityCookie).toMatch(/^[0-9a-f]{64}$/);
     expect(body.data.governanceBoundary).toMatchObject({
       proposalOnly: true,
       executionAuthorized: false,
       registrySnapshotResolvedByFcr: false,
       exactHeadVerifiedByFcr: false,
       founderApprovalRequired: true,
+      outcomeCanIncreaseAuthority: false,
+      submittedOutcomeAuthenticated: false,
+      remoteFounderSurfacesMaySelfAuthorize: false,
       connectionResolutionAuthority: 'founder-control-room',
       rawCredentialsAccepted: false,
       rawCredentialsReturned: false,
@@ -114,6 +172,34 @@ test.describe('Chief capability-plan live runtime', () => {
     const body = await response.json();
     expect(body.error.code).toBe('invalid_capability_plan_request');
     expect(body.error.message).toContain('forbidden fields: token');
+  });
+
+  test('reduces the live next-plan authority after submitted goal failure feedback', async ({ request }) => {
+    const input = proposalInput();
+    input.latestOutcomeObservation = priorOutcome({ goalSucceeded: false });
+    const response = await request.post(`${baseURL}/api/chief/capability-plan`, {
+      headers: { 'Content-Type': 'application/json' },
+      data: input,
+    });
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.error).toBeNull();
+    expect(body.data.outcomeFeedback).toMatchObject({
+      observed: true,
+      sourceTrust: 'submitted-unverified',
+      recommendation: 'review',
+      requestedAuthority: 'reversible',
+      effectiveAuthority: 'reason',
+      promotionAllowed: false,
+      founderReviewRequired: true,
+    });
+    expect(body.data.capabilityPlan.requestedAuthority).toBe('reason');
+    expect(body.data.capabilityPlan.routingReason).toContain('Submitted prior outcome recommends review');
+    expect(body.data.capabilityPlan.routingReason).toContain('Source trust remains submitted-unverified');
+    expect(body.data.trustTransition.authorityGranted).toBe(false);
+    expect(body.data.trustTransition.authorityAuthenticated).toBe(false);
+    expect(body.data.trustTransition.executionAllowed).toBe(false);
   });
 
   test('fails closed for a capability absent from the submitted snapshot', async ({ request }) => {

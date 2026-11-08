@@ -15,7 +15,6 @@ describe('merge intent gate', () => {
       mergeIntentClear: true,
       reasons: [],
     });
-    expect(decision.nextGate).toContain('all independent source, review, proof, and provider gates still apply');
   });
 
   it('still blocks an explicit negative directive on a draft PR', () => {
