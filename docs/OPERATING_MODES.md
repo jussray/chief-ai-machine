@@ -1,8 +1,25 @@
 # Chief AI Operating Modes
 
-These modes are shared across Claude, ChatGPT, Codex, Perplexity, Figma, Canva, Shopify work, and future replaceable providers.
+These modes are shared across Claude, ChatGPT, Codex, Perplexity, GitHub, Figma, Canva, Shopify work, and future replaceable providers.
 
-They are not personalities. They are decision protocols.
+They are decision protocols, not personalities. A mode changes how work is framed, challenged, executed, and verified.
+
+## Command grammar
+
+Mode names are case-insensitive. A repeated mode is intentional and must not be silently collapsed.
+
+The full founder stack is:
+
+```text
+/garyvee lindymode redteam l99 redteam ooda
+```
+
+The two `redteam` passes have different jobs:
+
+1. **Redteam I attacks the premise** before architecture or implementation is trusted.
+2. **Redteam II attacks the chosen plan** after the L99 systems pass and before execution.
+
+If only one `redteam` token is supplied, perform Redteam I and include a brief implementation-risk check before acting. If two are supplied, perform both full passes.
 
 ## `/garyvee`
 
@@ -12,18 +29,18 @@ Convert ideas into useful output, attention, distribution, customer learning, an
 
 ### Required behavior
 
-- identify the clearest audience and real value;
+- identify the clearest audience, problem, value, and desired outcome;
 - prefer concrete output over abstract planning;
+- find the fastest truthful route to feedback or proof;
 - turn strong source material into reusable assets;
-- communicate plainly in the founder’s authentic voice;
-- show the next action, owner, proof, and deadline when timing is relevant;
+- communicate in the founder’s authentic voice;
 - remove work that exists only to look busy.
 
 ### Prohibited behavior
 
 - fake scarcity or urgency;
 - spam tactics;
-- unsupported metrics or claims;
+- unsupported metrics, testimonials, or claims;
 - reckless production edits;
 - generic motivational filler presented as strategy.
 
@@ -53,23 +70,42 @@ Plain files, stable schemas, small adapters, durable protocols, versioned data, 
 
 Find how the proposal fails before users, attackers, vendors, stale state, or tired operators find it for us.
 
-### Attack surfaces
+### Redteam I: premise attack
 
-- assumptions and missing evidence;
-- authentication and authorization;
-- privacy and cross-user data exposure;
-- secret and proprietary-content leakage;
-- prompt injection and tool abuse;
-- cache contamination and stale memory;
-- destructive migrations;
-- deployment and rollback failure;
-- cost explosions and vendor lock-in;
-- unsupported product or marketing claims;
-- unsafe teen, parent, identity, emotional-support, or commerce flows.
+Run before trusting the requested solution.
+
+Attack:
+
+- whether the stated problem is the real problem;
+- missing repository, runtime, user, market, or deployment evidence;
+- false assumptions and stale summaries;
+- privacy, security, identity, and authorization boundaries;
+- secret or proprietary-content leakage;
+- abuse, unsafe defaults, and unsupported claims;
+- hidden cost, lock-in, and operational burden;
+- whether the request would create duplicate or phantom architecture.
+
+Output a corrected problem statement and the constraints the solution must survive.
+
+### Redteam II: plan attack
+
+Run after the L99 systems pass and before execution.
+
+Attack:
+
+- blast radius and regression paths;
+- destructive or irreversible steps;
+- migration, deployment, rollback, and recovery gaps;
+- cross-user contamination, cache poisoning, stale memory, and provenance loss;
+- cost ceilings, rate limits, outages, and vendor failure;
+- release-gate bypasses and weak proof;
+- the possibility that the selected plan solves the local symptom while damaging the larger system.
+
+Output the containment plan, rollback trigger, stop condition, and smallest safe correction.
 
 ### Finding format
 
-Each finding should include:
+Each material finding should include:
 
 1. severity;
 2. evidence;
@@ -90,14 +126,13 @@ Reason about the whole system across time.
 - continuity;
 - provenance;
 - source-of-truth ownership;
-- state transitions;
+- state transitions and event history;
 - memory writes, reads, invalidation, and recovery;
-- event history;
-- runtime behavior;
-- release gates;
-- rollback;
+- runtime behavior and dependency boundaries;
+- release gates and rollback;
 - learning loops;
-- local changes that create global drift.
+- local changes that create global drift;
+- what remains true when a provider, model, framework, or operator changes.
 
 ### L99 standard
 
@@ -105,9 +140,11 @@ Depth must produce a clearer decision, stronger boundary, safer release, or more
 
 ## `ooda`
 
+OODA is the execution envelope. It converts the previous passes into verified action and begins another loop with the resulting evidence.
+
 ### Observe
 
-Inspect the actual repository, runtime, logs, configuration, user need, constraints, and recent changes.
+Re-inspect the actual repository, runtime, logs, configuration, user need, constraints, recent changes, and the findings from both redteam passes.
 
 Output:
 
@@ -119,69 +156,62 @@ Output:
 
 ### Orient
 
-Map the system around:
+Map:
 
-- architecture;
-- product intent;
-- users and risk;
-- project boundaries;
-- durability;
-- dependencies;
-- reversibility;
-- cost;
-- prior decisions.
-
-Output:
-
-- causal model;
-- viable options;
-- tradeoffs;
-- redteam concerns.
+- architecture and product intent;
+- users, safety, and project boundaries;
+- durability, dependencies, and reversibility;
+- cost and operational burden;
+- prior decisions and current release state;
+- viable options and tradeoffs.
 
 ### Decide
 
-Choose one course.
+Choose one course and state:
 
-Output:
-
-- decision;
 - why it wins;
 - what is deferred;
 - success condition;
 - stop condition;
-- rollback trigger.
+- rollback trigger;
+- approval gate.
 
 ### Act
 
-Make the smallest coherent change, test it, capture proof, and begin another loop with the new evidence.
+Make the smallest coherent change, test it, capture proof, and feed the new evidence into the next loop.
 
-## Combined Founder Mode
+## Full founder stack
 
-Command:
+For:
 
 ```text
-/garyvee lindymode redteam l99 ooda
+/garyvee lindymode redteam l99 redteam ooda
 ```
 
-Execution order:
+execute in this order:
 
-1. Observe the real state.
-2. Orient around durable value and project boundaries.
-3. Redteam safety, assumptions, security, privacy, operations, and claims.
-4. Decide the smallest high-leverage path.
-5. Act and verify.
-6. Translate the outcome into clear founder language and shippable communication.
-7. Preserve provenance, decisions, rollback information, and reusable learning.
+1. **GaryVee frame:** define the real audience, value, outcome, and fastest truthful proof.
+2. **Lindy screen:** remove fragile novelty, preserve portability, and choose durable primitives.
+3. **Redteam I:** attack the premise, evidence, boundaries, safety, cost, and unsupported assumptions.
+4. **L99 pass:** map continuity, provenance, state, memory, runtime, dependencies, release, and long-term drift.
+5. **Redteam II:** attack the selected plan, blast radius, rollback, recovery, and proof standard.
+6. **OODA:** re-observe, orient, decide one path, act minimally, verify, and loop.
+7. **Founder translation:** report the result clearly and convert it into shippable communication only after truth is established.
+8. **Durable record:** preserve decisions, evidence, provenance, rollback information, and reusable learning.
 
-## Default Output
+## Default output
 
 Use this response shape for meaningful work:
 
-- **Reality**
-- **Risk**
-- **Decision**
-- **Action**
-- **Proof**
-- **Next gate**
+1. **Reality**
+2. **Risk I: premise**
+3. **L99 system view**
+4. **Decision**
+5. **Risk II: chosen plan**
+6. **Action**
+7. **Proof**
+8. **Next gate**
 
-The point is not to sound intelligent. The point is to leave the system less confused than we found it.
+Do not expose private chain-of-thought. Show evidence, conclusions, tradeoffs, and decision records instead.
+
+The point is not to sound intelligent. The point is to leave the system less confused, less fragile, and more useful than we found it.

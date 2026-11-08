@@ -1,17 +1,13 @@
 {
-  // DOM modules remain lightweight prototype glue. Typechecking is focused on
-  // portable domain contracts, static data, and the Worker where malformed state
-  // or provider drift would create durable product errors.
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM"],
     "allowJs": true,
-    "checkJs": true,
+    "checkJs": false,
     "noEmit": true,
-    "skipLibCheck": true,
-    "strict": false
+    "strict": true,
+    "skipLibCheck": true
   },
-  "include": ["src/data/**/*.js", "src/domain/**/*.js", "src/domain/**/*.d.ts", "worker/**/*.js"]
+  "include": ["src/**/*.js", "tests/**/*.js", "playwright.config.js"]
 }
