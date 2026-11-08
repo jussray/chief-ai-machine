@@ -201,4 +201,10 @@ Copyright © 2024–2026 Juss Ray. All rights reserved. Proprietary software —
 
 ---
 
+## License
+
+Copyright © 2024–2026 Juss Ray. All rights reserved. Proprietary software — see [LICENSE](LICENSE).
+
+---
+
 > Product truth, company memory, private data, decisions, approved workflows, and export rights belong to the customer.
