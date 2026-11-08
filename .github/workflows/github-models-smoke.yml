@@ -1,0 +1,39 @@
+name: GitHub Models synthetic smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  synthetic-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call GitHub Models with synthetic input
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$({
+            curl --fail-with-body --silent --show-error \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -H "Content-Type: application/json" \
+              https://models.github.ai/inference/chat/completions \
+              -d '{"model":"openai/gpt-4.1","temperature":0,"max_tokens":20,"messages":[{"role":"system","content":"Return exactly MODEL_OK CHIEF_AI_MACHINE."},{"role":"user","content":"This is a fixed synthetic connectivity test."}]}'
+          })"
+          RESPONSE="$response" node --input-type=module - <<'NODE'
+          const parsed = JSON.parse(process.env.RESPONSE ?? '{}');
+          const content = parsed?.choices?.[0]?.message?.content?.trim();
+          if (content !== 'MODEL_OK CHIEF_AI_MACHINE') {
+            console.error('Unexpected GitHub Models response:', content ?? '<missing>');
+            process.exit(1);
+          }
+          console.log('[github-models] synthetic smoke test passed');
+          NODE

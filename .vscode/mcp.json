@@ -1,9 +1,13 @@
 {
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "brightdata_api_token",
+      "description": "Bright Data API Token",
+      "password": true
+    }
+  ],
   "servers": {
-    "founder-control-room": {
-      "type": "http",
-      "url": "https://api.foundercontrolroom.org/mcp"
-    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
@@ -12,13 +16,25 @@
         "X-MCP-Lockdown": "true"
       }
     },
-    "supabase": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=lghpwoktsytutssjiwgy&read_only=true&features=database,docs"
+    "bright-data": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@brightdata/mcp"
+      ],
+      "env": {
+        "API_TOKEN": "${input:brightdata_api_token}",
+        "GROUPS": "code"
+      }
     },
-    "context7": {
+    "microsoft-learn": {
       "type": "http",
-      "url": "https://mcp.context7.com/mcp"
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "figma": {
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp"
     },
     "playwright": {
       "type": "stdio",
