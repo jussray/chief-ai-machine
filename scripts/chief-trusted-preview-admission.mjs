@@ -3,8 +3,6 @@
  * Never evaluates candidate source, never accepts an unsigned deployment URL,
  * and never opens Cloudflare credentials. No branch mutation or deploy here.
  */
-import { appendFileSync } from 'node:fs';
-
 const SHA = /^[0-9a-f]{40}$/;
 const PREVIEW_HOST = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/;
 const CLOUDFLARE_CHECK_APP_ID = 85455;
