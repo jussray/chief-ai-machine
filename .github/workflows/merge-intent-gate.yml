@@ -107,7 +107,7 @@ jobs:
             echo "::error::Candidate is not based on live main ${current_main}. Update the branch and rerun exact-head checks."
             exit 1
           }
-          if [[ "$GITHUB_REF" == "refs/heads/main" && "$candidate" != "$current_main" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" && "$candidate" != "$current_main" ]]; then
             echo "::error::This main run is superseded by ${current_main}"
             exit 1
           fi
