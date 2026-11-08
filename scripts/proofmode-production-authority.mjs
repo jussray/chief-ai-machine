@@ -152,15 +152,18 @@ async function listAll(fetchImpl, env, path) {
 export async function loadAuthoritySnapshot(env = process.env, fetchImpl = globalThis.fetch) {
   const repository = requireValue(env, 'GITHUB_REPOSITORY');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
-  const authorityReceipt = requirePositiveInteger(
-    requireValue(env, 'AUTHORITY_RECEIPT'),
-    'AUTHORITY_RECEIPT',
-  );
+  const rawReceipt = requireValue(env, 'AUTHORITY_RECEIPT');
+  // The verbal sentinel has no review to fetch; assertAuthoritySnapshot still
+  // requires direct founder execution for it. Every other receipt must be a review id.
+  const verbal = rawReceipt === 'founder-verbal-authorization';
+  const authorityReceipt = verbal ? rawReceipt : requirePositiveInteger(rawReceipt, 'AUTHORITY_RECEIPT');
   const activationRunId = optionalValue(env, 'ACTIVATION_RUN_ID');
 
   const [pr, review, comments, activation] = await Promise.all([
     requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}`),
-    requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}/reviews/${authorityReceipt}`),
+    verbal
+      ? Promise.resolve(null)
+      : requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}/reviews/${authorityReceipt}`),
     listAll(fetchImpl, env, `/repos/${repository}/issues/${authorityPr}/comments`),
     activationRunId
       ? requestJson(fetchImpl, env, `/repos/${repository}/actions/runs/${requirePositiveInteger(activationRunId, 'ACTIVATION_RUN_ID')}`)
