@@ -26,23 +26,9 @@ export function selectTrustedChiefPreview(data, expectedSha, cloudflareAppId = 8
     const summary = check.output?.summary;
     if (typeof summary !== 'string') throw new Error('Missing Cloudflare preview receipt');
     const receipts = [...summary.matchAll(/^Preview URL:[ \t]*(\S+)[ \t]*$/gm)];
+    if (receipts.length !== 1) throw new Error('Ambiguous Cloudflare preview receipt');
 
-    let raw;
-    if (receipts.length === 1) {
-      raw = receipts[0][1];
-    } else if (receipts.length === 0) {
-      // Fallback: derive preview URL from Version ID if Preview URL is missing
-      const versionReceipts = [...summary.matchAll(/^Version ID:[ \t]*([0-9a-f-]+)[ \t]*$/gim)];
-      if (versionReceipts.length === 1) {
-        const versionId = versionReceipts[0][1].toLowerCase();
-        raw = `https://${versionId.slice(0, 8)}-chief-ai.mcgill-raylene.workers.dev/`;
-      } else {
-        throw new Error('Missing Cloudflare preview receipt');
-      }
-    } else {
-      throw new Error('Ambiguous Cloudflare preview receipt');
-    }
-
+    const raw = receipts[0][1];
     let preview;
     try {
       preview = new URL(raw);

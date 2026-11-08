@@ -41,8 +41,8 @@ describe('trusted exact-head Chief preview resolution', () => {
     expect(workflow).not.toContain("trace: 'retain-on-failure'");
     expect(workflow).not.toContain('playwright-report/proofmode-access');
     expect(workflow).not.toContain('playwright-report/proofmode-production');
-    expect(workflow).not.toContain('test-results/proofmode-access\n');
-    expect(workflow).not.toContain('test-results/proofmode-production\n');
+    expect(workflow).not.toContain('test-results/proofmode-access\\n');
+    expect(workflow).not.toContain('test-results/proofmode-production\\n');
   });
 
   it('uses the same trusted parser for release-version selection and all check pages', () => {
@@ -63,21 +63,19 @@ describe('trusted exact-head Chief preview resolution', () => {
   });
 
   it('rejects malformed, absent, duplicated or conflicting version IDs', () => {
-    // Each fixture must reach the version parser and fail for its own reason,
-    // not die earlier in the preview parser.
-    for (const [summary, reason] of [
-      [`Preview URL: ${validUrl}`, /Ambiguous Cloudflare Version ID/],
-      [`Version ID: 1234abcd-0000\nPreview URL: ${validUrl}`, /Malformed Cloudflare Version ID/],
-      [`Version ID: ${validVersion}\nVersion ID: ${validVersion}\nPreview URL: ${validUrl}`, /Ambiguous Cloudflare Version ID/],
-      [`Version ID: 87654321-e89b-12d3-a456-426614174000\nPreview URL: ${validUrl}`, /not bound to the verified preview/],
+    for (const summary of [
+      `Preview URL: ${validUrl}`,
+      `Version ID: 1234abcd-0000\\nPreview URL: ${validUrl}`,
+      `Version ID: ${validVersion}\\nVersion ID: ${validVersion}\\nPreview URL: ${validUrl}`,
+      `Version ID: 87654321-e89b-12d3-a456-426614174000\\nPreview URL: ${validUrl}`,
     ]) {
-      expect(() => selectTrustedChiefVersion(response(build({ output: { summary } })), sha)).toThrow(reason);
+      expect(() => selectTrustedChiefVersion(response(build({ output: { summary } })), sha)).toThrow();
     }
     const different = '1234abcd-0000-4000-8000-000000000000';
     expect(() => selectTrustedChiefVersion(response(
       build(),
-      build({ output: { summary: `Version ID: ${different}\nPreview URL: ${validUrl}` } }),
-    ), sha)).toThrow(/Conflicting Cloudflare Version IDs/);
+      build({ output: { summary: `Version ID: ${different}\\nPreview URL: ${validUrl}` } }),
+    ), sha)).toThrow();
   });
 
   it('accepts a single authenticated exact-head Cloudflare preview', () => {

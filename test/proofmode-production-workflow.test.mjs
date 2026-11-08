@@ -14,6 +14,10 @@ const authorityScript = readFileSync(
   new URL('../scripts/proofmode-production-authority.mjs', import.meta.url),
   'utf8',
 );
+const previewResolver = readFileSync(
+  new URL('../scripts/validate-chief-preview.mjs', import.meta.url),
+  'utf8',
+);
 
 describe('ProofMode production governance workflow', () => {
   it('keeps production mutation founder-dispatched and exact-head bound', () => {
@@ -123,7 +127,9 @@ describe('ProofMode production governance workflow', () => {
   it('promotes the exact prebuilt Cloudflare version instead of rebuilding or weakening governance', () => {
     // TODO: Aspirational governance test - needs implementation
     expect(workflow).toContain('Workers Builds: chief-ai');
-    expect(workflow).toContain('Version ID:');
+    expect(workflow).toContain('node scripts/validate-chief-preview.mjs version');
+    expect(workflow).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
+    expect(previewResolver).toContain('Version ID:');
     expect(workflow).toContain('CLOUDFLARE_VERSION_ID');
     expect(workflow).toContain('npx wrangler versions deploy');
     expect(workflow).toContain('$CLOUDFLARE_VERSION_ID@100%');
