@@ -1,0 +1,10 @@
+name: local_humanize
+title: Local humanize
+description: Rewrites AI-sounding text so it reads like a specific human wrote it - Juss's north-star skill for making output that an actual person understands as his. Use whenever Juss says /humanize or /human, asks to strip the robotic tone, kill the AI tells, or make something sound like him - and by default on any customer-facing or published copy (posts, emails, captions, landing copy) before it ships. Takes either real writing samples or explicit register rules, strips the machine-generated giveaways (the vocabulary, the rule-of-three, the em-dash drama, the padding), varies the rhythm, and returns text that passes the read-aloud test. Not a general writing skill - it operates on existing text to change how it sounds, not to generate new ideas from scratch.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

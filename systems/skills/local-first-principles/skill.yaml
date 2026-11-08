@@ -1,0 +1,10 @@
+name: local_first_principles
+title: Local first principles
+description: Rebuilds a problem from fundamentals instead of inherited assumptions - for Juss. Use when Juss says /first-principles or asks to break something down to fundamental truths, question the defaults, or rethink an approach from the ground up rather than copying how it's usually done. Separates fact from assumption, reduces to fundamentals, reconstructs from there. Invoke alone, or stack it via the prompts skill.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

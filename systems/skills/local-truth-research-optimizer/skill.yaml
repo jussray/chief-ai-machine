@@ -1,0 +1,10 @@
+name: local_truth_research_optimizer
+title: Local truth research optimizer
+description: 'Optimize research accuracy through source discipline, contradiction detection, confidence labeling, and synthesis. Use when researching libraries, frameworks, APIs, technical approaches, or any factual claim that needs verification. Prevents hallucination and stale information. Triggers: research, verify, accuracy, sources, fact check, citation, hallucination prevention, synthesis, compare options.'
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true

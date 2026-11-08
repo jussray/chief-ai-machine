@@ -1,0 +1,10 @@
+name: local_80_20
+title: Local 80 20
+description: Leverage filter for Juss - surfaces the few moves that drive most of the result and cuts the rest. Use when Juss says /80-20 or asks what actually matters most, where the leverage is, or what to focus on first. Names the high-impact few, ignores low-value complexity, states tradeoffs plainly. Invoke alone for a focus pass, or stack it via the prompts skill.
+include_in_prompt: true
+availability:
+  confidential_vm: true
+  needs_speech: false
+skill_improvement:
+  managed: true
+  needs_review: true
