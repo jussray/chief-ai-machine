@@ -12,14 +12,6 @@ function list(values, maxItems = 30, maxLength = 500) {
   return [...new Set(values.map((value) => clean(value, maxLength)).filter(Boolean))].slice(0, maxItems);
 }
 
-/**
- * Chief AI cognition handoff for Founder OS.
- *
- * This envelope expresses founder intent, strategy, and success evaluation.
- * It deliberately does NOT compile a PromptOS protocol, resolve credentials,
- * grant authority, or execute provider actions. PromptOS and FCR own those
- * later stages of the Founder OS pipeline.
- */
 export function createFounderIntentEnvelope(input = {}) {
   const goalPlan = input.goalPlan;
   const validation = validateGoalPlan(goalPlan);
