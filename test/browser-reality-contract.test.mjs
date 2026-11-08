@@ -7,6 +7,8 @@ import {
   canonicalizeBrowserRealityEvidence,
   createBrowserRealityEvidenceReceipt,
 } from '../src/domain/browser-reality-evidence.js';
+import { canonicalFamilies } from '../src/promptos/catalog/families.js';
+
 const contract = JSON.parse(readFileSync(
   new URL('../config/browser-reality.contract.json', import.meta.url),
   'utf8',
@@ -384,7 +386,7 @@ describe('juss/browser-reality@v1', () => {
   });
 
   it('keeps browser-reality authority in its dedicated contract without widening the shared pair contract', () => {
-    expect(pairContract.contractVersion).toBe('2026-09-23.1');
+    expect(pairContract.contractVersion).toBe('2026-09-13.2');
     expect(pairContract.browserReality).toBeUndefined();
     expect(contract.contractId).toBe('juss/browser-reality@v1');
     expect(contract.capabilityName).toBe('browser-reality-inspector');
@@ -402,13 +404,24 @@ describe('juss/browser-reality@v1', () => {
     expect(contract.evidenceFingerprint.conformanceSha256).toBe(CONFORMANCE_DIGEST);
   });
 
-  it('keeps the repo skill bound to the same contract', () => {
+  it('keeps the repo skill and PromptOS family bound to the same contract', () => {
     expect(skill).toContain('name: browser-reality-inspector');
     expect(skill).toContain('contract: "juss/browser-reality@v1"');
     expect(skill).toContain('../../../config/browser-reality.contract.json');
     expect(skill).toContain('Stop and report the exact blocker');
     expect(agentsContract).toContain('.agents/skills/browser-reality-inspector/SKILL.md');
     expect(agentsContract).toContain('juss-browser-reality-canonical-json-v1');
+
+    const family = canonicalFamilies['browser.reality.inspector'];
+    expect(family).toBeDefined();
+    expect(family.pack).toBe('browser-evidence');
+    expect(family.baseClauseIds).toEqual(expect.arrayContaining([
+      'role.browser-reality-inspector',
+      'method.browser-reality-inspection',
+      'guardrail.browser-reality-privacy',
+      'evidence.browser-reality-fingerprint',
+      'output.browser-reality-report',
+    ]));
     expect(contract.outputSections).toEqual([
       'REALITY',
       'TARGET',
