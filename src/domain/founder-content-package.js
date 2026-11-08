@@ -1,34 +1,21 @@
-import { sha256Hex } from './capability-plan.js';
+import { createHash } from 'node:crypto';
 import { buildFounderContentProposal } from './founder-content-brain.js';
 import {
   bindStrategyLeaseToProposal,
   buildFounderContentStrategyLease,
 } from './founder-content-strategy-lease.js';
 import { attachV4AdvisoryLearningToStrategyInput } from './founder-content-v4-advisory.js';
-import { buildFounderContentVisualDirection } from './founder-content-visual-direction.js';
 
 const HASH = /^[0-9a-f]{64}$/i;
 
 function normalizedDraft(value) {
   return typeof value === 'string'
-    ? value
-      .normalize('NFKC')
-      .toLowerCase()
-      .replace(/\p{P}+/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    ? value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
     : '';
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const child of Object.values(value)) deepFreeze(child, seen);
-  return Object.freeze(value);
-}
-
 export function founderContentDraftFingerprint(value) {
-  return sha256Hex(normalizedDraft(value));
+  return createHash('sha256').update(normalizedDraft(value)).digest('hex');
 }
 
 function recentDraftFingerprints(strategyInput) {
@@ -50,8 +37,8 @@ function recentDraftFingerprints(strategyInput) {
  * Strategy may choose and shape the story, but this function deliberately
  * builds the canonical truth/sauce proposal first and derives the claim IDs
  * strategy is allowed to brag about from that validated proposal. The
- * Strategy Lease, visual direction, and binding remain advisory sidecars and
- * never enter FCR's canonical publication-authority hash.
+ * Strategy Lease and binding remain advisory sidecars and never enter FCR's
+ * canonical publication-authority hash.
  *
  * When an FCR V4 advisory handoff is supplied, only its validated learning
  * hash is added to strategy memory. Subject/observation hashes and any raw
@@ -71,7 +58,7 @@ export function buildStrategyAwareFounderContentPackage(input = {}) {
     ? input.use_context
     : {};
 
-  const proposal = deepFreeze(buildFounderContentProposal(proposalInput));
+  const proposal = buildFounderContentProposal(proposalInput);
   const draftFingerprint = founderContentDraftFingerprint(proposal.public_payload.draft_text);
   if (recentDraftFingerprints(strategyInput).includes(draftFingerprint)) {
     throw new Error(
@@ -88,27 +75,21 @@ export function buildStrategyAwareFounderContentPackage(input = {}) {
     verified_public_claim_ids: verifiedPublicClaimIds,
   });
   const strategyBinding = bindStrategyLeaseToProposal(strategyLease, proposal, useContext);
-  const visualDirection = buildFounderContentVisualDirection(input.visual_direction, {
-    thesis: proposal.public_payload.draft_text,
-  });
 
-  return deepFreeze({
+  return Object.freeze({
     version: 1,
     kind: 'chief-ai/founder-content-strategy-aware-package',
     proposal,
     strategy_lease: strategyLease,
-    visual_direction: visualDirection,
-    strategy_binding: {
+    strategy_binding: Object.freeze({
       ...strategyBinding,
       draft_fingerprint: draftFingerprint,
-    },
-    authority: {
+    }),
+    authority: Object.freeze({
       canonical_publication_authority_object: 'proposal',
       strategy_sidecars_advisory_only: true,
       strategy_can_authorize_publish: false,
       strategy_can_change_proposal_hash: false,
-      visual_direction_can_authorize_publish: false,
-      visual_direction_can_expand_claim_scope: false,
-    },
+    }),
   });
 }
