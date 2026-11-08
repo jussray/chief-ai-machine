@@ -30,20 +30,21 @@ function setCustomFormWritable(writable) {
   save.title = writable ? '' : 'Custom prompt storage must be readable before saving.';
 }
 
-export function initCustom(modal) {
+export function initCustom(PROMPTS, modal) {
   const titleEl = document.getElementById('cTitle');
   const subEl = document.getElementById('cSub');
   const catEl = document.getElementById('cCat');
   const platformsEl = document.getElementById('cPlatforms');
   const bodyEl = document.getElementById('cBody');
   const list = document.getElementById('customList');
+  const reservedPromptIds = (Array.isArray(PROMPTS) ? PROMPTS : []).map(p => p.id);
 
   function openPrompt(prompt) {
     modal.open(prompt);
   }
 
   function render() {
-    const read = readCustomPromptState();
+    const read = readCustomPromptState({ reservedIds: reservedPromptIds });
     const custom = read.prompts;
     list.replaceChildren();
     const navCustom = document.getElementById('navCustom');
@@ -99,7 +100,7 @@ export function initCustom(modal) {
 
       del.addEventListener('click', (event) => {
         event.stopPropagation();
-        const current = readCustomPromptState();
+        const current = readCustomPromptState({ reservedIds: reservedPromptIds });
         if (current.state !== 'ready') {
           showToast('Custom prompt state is UNKNOWN. Nothing was deleted.');
           render();
@@ -139,7 +140,7 @@ export function initCustom(modal) {
   }
 
   document.getElementById('saveCustom')?.addEventListener('click', () => {
-    const current = readCustomPromptState();
+    const current = readCustomPromptState({ reservedIds: reservedPromptIds });
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Repair or reset local state before saving.');
       render();
