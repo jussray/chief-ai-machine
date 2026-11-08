@@ -6,25 +6,17 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      authority_mode:
-        description: "Release authorization: PR review or direct founder-authenticated main commit"
-        required: true
-        default: pr-review
-        type: choice
-        options:
-          - pr-review
-          - founder-main
       expected_sha:
         description: "Exact candidate SHA authorized for production proof"
         required: true
         type: string
       authority_pr:
-        description: "PR number carrying the founder authority receipt; blank in founder-main mode"
+        description: "PR number carrying the founder authority review"
         required: false
         default: ""
         type: string
       authority_receipt:
-        description: "GitHub pull-request review ID; blank in founder-main mode"
+        description: "One-shot founder GitHub review ID (positive integer)"
         required: false
         default: ""
         type: string
@@ -43,12 +35,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: proofmode-production-authority-${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+  group: proofmode-production-authority-${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || github.sha }}
   cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  AUTHORITY_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_mode || 'pr-review' }}
   EXPECTED_HEAD_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
   AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
   AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
@@ -69,8 +60,6 @@ jobs:
       issues: read
       pull-requests: read
     env:
-      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
       AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
@@ -95,7 +84,6 @@ jobs:
         run: |
           set -euo pipefail
           test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
-          # Every proof must be backed by current provider-verified founder authority.
           node scripts/proofmode-production-authority.mjs validate
 
       - name: Install locked application dependencies
@@ -131,6 +119,9 @@ jobs:
           exit 1
 
       - name: Verify protected preview serves exact head
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -463,7 +454,6 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
-      statuses: write
     env:
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}

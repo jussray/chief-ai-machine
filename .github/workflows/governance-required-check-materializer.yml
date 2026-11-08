@@ -201,7 +201,7 @@ jobs:
             const expectedHost=new URL(baseUrl).host;
             const versionResponse=await page.goto(`${baseUrl}/version`,{waitUntil:'domcontentloaded'});
             expect(versionResponse).not.toBeNull();
-            console.log(`version-final-url=${page.url()}`);
+            console.log(`version-final-origin=${new URL(page.url()).origin}`);
             console.log(`version-status=${versionResponse.status()}`);
             expect(versionResponse.status()).toBe(200);
             assertExactRuntimeHost(page.url(), expectedHost);
@@ -224,7 +224,7 @@ jobs:
           EOF
           cat > playwright.chief-runtime-exact-head.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'retain-on-failure',screenshot:'only-on-failure'}});
+          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'off',screenshot:'only-on-failure'}});
           EOF
           npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs
       - name: Retain credential-free exact-runtime evidence
