@@ -1,6 +1,15 @@
 name: ProofMode Production Playwright
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/proofmode-production-playwright.yml"
+      - "e2e/proofmode-mcp.pw.mjs"
+      - "worker/proofmode-mcp.js"
+      - "worker/index.js"
+      - "wrangler.jsonc"
   push:
     branches:
       - main
@@ -25,25 +34,32 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out exact workflow source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Resolve expected production head
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
-          expected="$GITHUB_SHA"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            expected="$PR_BASE_SHA"
+          else
+            expected="$GITHUB_SHA"
+          fi
           test -n "$expected"
           printf 'EXPECTED_HEAD_SHA=%s\n' "$expected" >> "$GITHUB_ENV"
           printf 'Expected production head: %s\n' "$expected"
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
 
-      - name: Observe Cloudflare GitHub-App build signal
+      - name: Wait for exact-head Cloudflare production build
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,16 +94,16 @@ jobs:
             ')"
 
             if [ "$state" = "success" ]; then
-              printf 'Cloudflare GitHub-App build signal is green for %s\n' "$EXPECTED_HEAD_SHA"
+              printf 'Cloudflare production build is green for %s\n' "$EXPECTED_HEAD_SHA"
               break
             fi
             if [ "$state" = "failure" ]; then
-              printf '::warning title=Cloudflare GitHub-App signal is red::The external check reported failure for %s; exact runtime SHA and Playwright remain authoritative.\n' "$EXPECTED_HEAD_SHA"
-              break
+              printf 'Cloudflare production build failed for %s\n' "$EXPECTED_HEAD_SHA" >&2
+              exit 1
             fi
             if [ "$attempt" -eq 90 ]; then
-              printf '::warning title=Cloudflare GitHub-App signal did not settle::No terminal external check was observed for %s; continuing to exact runtime proof.\n' "$EXPECTED_HEAD_SHA"
-              break
+              printf 'Cloudflare production build did not complete for %s\n' "$EXPECTED_HEAD_SHA" >&2
+              exit 1
             fi
             sleep 2
           done
@@ -151,7 +167,7 @@ jobs:
 
       - name: Retain production Playwright report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: proofmode-production-playwright-${{ env.EXPECTED_HEAD_SHA }}
           path: |
