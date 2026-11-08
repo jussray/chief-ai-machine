@@ -18,23 +18,19 @@ const base = {
   public_claims: [
     {
       claim_id: 'current-intent-wins',
-      text: 'Current authenticated intent was made authoritative over stale content intent at this source version.',
+      text: 'Current authenticated intent now outranks stale content intent.',
       truth_state: 'verified',
       public_safe: true,
       evidence_ref: EVIDENCE_REF,
       evidence_scope: 'temporal-authority-contract',
-      temporal_class: 'historical_version',
-      temporal_version: SHA,
     },
     {
       claim_id: 'futureyou-advisory',
-      text: 'FutureYou was kept advisory for publishing decisions at this source version.',
+      text: 'FutureYou remains advisory for publishing decisions.',
       truth_state: 'verified',
       public_safe: true,
       evidence_ref: EVIDENCE_REF,
       evidence_scope: 'futureyou-advisory-boundary',
-      temporal_class: 'historical_version',
-      temporal_version: SHA,
     },
   ],
   internal_evidence: {
@@ -70,7 +66,7 @@ const base = {
 };
 
 describe('first-party founder content brain', () => {
-  it('matches the fixed Chief v1 receipt consumed by FCR with temporal identity bound', () => {
+  it('matches the fixed Chief v1 receipt consumed by FCR', () => {
     const sourceSha = 'b'.repeat(40);
     const evidenceRef = `github:chief-ai-machine@${sourceSha}#quality-gate`;
     const proposal = buildFounderContentProposal({
@@ -84,13 +80,11 @@ describe('first-party founder content brain', () => {
       public_claims: [
         {
           claim_id: 'proof-bound',
-          text: 'Public progress claims were bound to verified evidence at this source version.',
+          text: 'Public progress claims are now bound to verified evidence.',
           truth_state: 'verified',
           public_safe: true,
           evidence_ref: evidenceRef,
           evidence_scope: 'founder-content-contract',
-          temporal_class: 'historical_version',
-          temporal_version: sourceSha,
         },
       ],
       internal_evidence: {
@@ -125,9 +119,7 @@ describe('first-party founder content brain', () => {
       evaluated_at: '2026-08-17T07:44:00.000Z',
     });
 
-    expect(proposal.proposal_hash).toBe('d87abaad886428e70ca6d8f522680ceb1d405c360d0d55a9c01fb9ec3a4f9e83');
-    expect(proposal.public_payload.public_claims[0].temporal_class).toBe('historical_version');
-    expect(proposal.public_payload.public_claims[0].temporal_version).toBe(sourceSha);
+    expect(proposal.proposal_hash).toBe('5dac904c02b00e5b5d79c11d6fd819a431df38094363b25bfcda64e52a1d66ce');
   });
 
   it('keeps internal proof mandatory while public proof links remain editorially optional', () => {
@@ -177,68 +169,6 @@ describe('first-party founder content brain', () => {
       public_claims: [{ ...base.public_claims[0], truth_state: 'inferred' },
       ],
     })).toThrow(/truth_state must be verified/);
-  });
-
-  it('requires every public claim to carry canonical temporal semantics', () => {
-    const claimWithoutTime = { ...base.public_claims[0] };
-    delete claimWithoutTime.temporal_class;
-    delete claimWithoutTime.temporal_version;
-    expect(() => buildFounderContentProposal({
-      ...base,
-      public_claims: [claimWithoutTime],
-    })).toThrow(/temporal_class must be historical_version/);
-  });
-
-  it('binds historical and current repository claims to the exact source version', () => {
-    expect(() => buildFounderContentProposal({
-      ...base,
-      public_claims: [{ ...base.public_claims[0], temporal_version: 'b'.repeat(40) }],
-    })).toThrow(/temporal_version must match the exact source_commit_sha/);
-
-    const proposal = buildFounderContentProposal({
-      ...base,
-      public_claims: [{
-        ...base.public_claims[0],
-        claim_id: 'current-repo-proof',
-        text: 'The repository contract is green.',
-        temporal_class: 'current_repo_state',
-        temporal_version: SHA,
-      }],
-    });
-    expect(proposal.public_payload.public_claims[0].temporal_class).toBe('current_repo_state');
-  });
-
-  it('prevents historical labels from laundering present-tense state', () => {
-    expect(() => buildFounderContentProposal({
-      ...base,
-      public_claims: [{
-        ...base.public_claims[0],
-        text: 'The repository is currently green.',
-        temporal_class: 'historical_version',
-      }],
-    })).toThrow(/historical_version uses current-state language/);
-  });
-
-  it('keeps runtime and metric claims off repository version bindings', () => {
-    expect(() => buildFounderContentProposal({
-      ...base,
-      public_claims: [{
-        ...base.public_claims[0],
-        text: 'The runtime service is healthy.',
-        temporal_class: 'current_runtime',
-        temporal_version: SHA,
-      }],
-    })).toThrow(/temporal_version must be empty for current_runtime/);
-
-    expect(() => buildFounderContentProposal({
-      ...base,
-      public_claims: [{
-        ...base.public_claims[0],
-        text: 'The production service is live.',
-        temporal_class: 'current_repo_state',
-        temporal_version: SHA,
-      }],
-    })).toThrow(/requires current_runtime evidence/);
   });
 
   it('refuses stale, future-dated, or predicted intent as current publishing intent', () => {
@@ -300,7 +230,7 @@ describe('first-party founder content brain', () => {
     })).toThrow(/metadata\.internal_notes is forbidden/);
   });
 
-  it('binds proposal identity to exact copy, evidence, sauce receipt, Current You version, temporal semantics, and freshness', () => {
+  it('binds proposal identity to exact copy, evidence, sauce receipt, Current You version, and freshness', () => {
     const first = buildFounderContentProposal(base);
     const changedText = buildFounderContentProposal({ ...base, draft_text: `${base.draft_text} Updated.` });
     const changedIntent = buildFounderContentProposal({
@@ -314,19 +244,10 @@ describe('first-party founder content brain', () => {
         proves: [...base.internal_evidence.proves, 'content-claim-contract'],
       },
     });
-    const changedTemporalClass = buildFounderContentProposal({
-      ...base,
-      public_claims: [{
-        ...base.public_claims[0],
-        text: 'The repository contract is green.',
-        temporal_class: 'current_repo_state',
-      }, base.public_claims[1]],
-    });
 
     expect(first.proposal_hash).not.toBe(changedText.proposal_hash);
     expect(first.proposal_hash).not.toBe(changedIntent.proposal_hash);
     expect(first.proposal_hash).not.toBe(changedEvidence.proposal_hash);
-    expect(first.proposal_hash).not.toBe(changedTemporalClass.proposal_hash);
 
     const identity = founderContentProposalIdentity({
       source: first.source,
