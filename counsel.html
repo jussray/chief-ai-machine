@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en" data-counsel-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Truth Weaver COUNSEL is a jurisdiction-aware legal intelligence workspace where governing law is the authority." />
+  <title>Truth Weaver COUNSEL | Legal Intelligence Workspace</title>
+  <link rel="stylesheet" href="./styles/counsel.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="counsel-app">
+    <header class="counsel-header">
+      <a class="brand" href="./counsel.html" aria-label="Truth Weaver Counsel home">
+        <span class="brand-mark" aria-hidden="true">⚖</span>
+        <span><strong>TRUTH WEAVER</strong><small>COUNSEL</small></span>
+      </a>
+      <nav class="top-nav" aria-label="Counsel navigation">
+        <a href="#areas">Legal Areas</a>
+        <a href="#sources">Sources</a>
+        <a href="#library">Library</a>
+        <a href="#issues">Issues</a>
+        <a href="#authority">Authority</a>
+        <a href="#coverage">Coverage</a>
+      </nav>
+      <div class="header-actions">
+        <label class="global-search"><span>⌕</span><input id="globalSearch" type="search" placeholder="Search law, source families, issues…" aria-label="Search COUNSEL" /></label>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">TURN KNOWLEDGE INTO POWER</p>
+          <h1 id="hero-title">Understand the law.<br><span>Change what’s possible.</span></h1>
+          <p class="lede">Start with the issue. Resolve the jurisdiction. Verify governing law. Then map elements, evidence, remedies, defenses, procedure, deadlines, counterauthority, and options.</p>
+          <div class="trust-row" aria-label="COUNSEL research principles">
+            <span>◈ Official text first</span>
+            <span>◈ Books explain, law governs</span>
+            <span>◈ Unknowns fail closed</span>
+          </div>
+        </div>
+        <form class="research-command" id="quickIssueForm">
+          <div class="command-kicker">ISSUE → JURISDICTION → GOVERNING LAW → ACTION</div>
+          <label>What happened?
+            <textarea name="description" required placeholder="Describe the issue in plain language. Separate what you know from what someone only claims."></textarea>
+          </label>
+          <div class="field-grid">
+            <label>Place / jurisdiction
+              <input name="jurisdiction" required placeholder="Country, state/province, county, city, court…" />
+            </label>
+            <label>As-of date
+              <input name="asOfDate" type="date" />
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>Legal area
+              <select name="area" id="quickArea"></select>
+            </label>
+            <label>Title
+              <input name="title" required placeholder="Short issue name" />
+            </label>
+          </div>
+          <button class="button primary" type="submit">Create research issue</button>
+          <p class="command-note">Issue data in this prototype is stored locally in this browser. No jurisdiction is inferred from your device location.</p>
+        </form>
+      </section>
+
+      <section class="legal-areas section" id="areas" aria-labelledby="areas-title">
+        <div class="section-head"><div><p class="eyebrow">EXPLORE THE LAW</p><h2 id="areas-title">Legal areas</h2></div><p>Taxonomy helps route research. A category does not prove source coverage.</p></div>
+        <div class="area-grid" id="areaGrid"></div>
+      </section>
+
+      <section class="authority-strip" aria-label="Law-first invariant">
+        <div><span class="authority-icon">§</span><strong>GOVERNING LAW IS THE AUTHORITY.</strong></div>
+        <p>AI output, confidence, summaries, books, blogs, prior answers, and user preference never outrank controlling law.</p>
+      </section>
+
+      <section class="two-column section" id="sources">
+        <div>
+          <div class="section-head compact"><div><p class="eyebrow">PRIMARY AUTHORITY FIRST</p><h2>Source Registry</h2></div></div>
+          <div class="filter-row" role="group" aria-label="Filter legal sources">
+            <button class="chip active" data-source-filter="all">All</button>
+            <button class="chip" data-source-filter="primary">Primary</button>
+            <button class="chip" data-source-filter="secondary">Secondary</button>
+            <button class="chip" data-source-filter="discovery">Discovery</button>
+          </div>
+          <div class="source-list" id="sourceList"></div>
+        </div>
+        <aside class="library-panel" id="library">
+          <p class="eyebrow">BOOKS & COMMENTARY</p>
+          <h2>Legal Library</h2>
+          <p class="muted">Treatises, hornbooks, practice guides, restatements, encyclopedias, reviews, commentary, textbooks, and historical legal books are first-class research material but secondary by default.</p>
+          <div class="book-grid" id="bookGrid"></div>
+          <div class="library-rule"><strong>Library rule</strong><p>A book can explain doctrine and point to controlling law. It cannot silently promote a proposition to <code>VERIFIED LAW</code>.</p></div>
+        </aside>
+      </section>
+
+      <section class="section issue-section" id="issues" aria-labelledby="issues-title">
+        <div class="section-head"><div><p class="eyebrow">LOCAL-FIRST MATTER WORKSPACE</p><h2 id="issues-title">Issues</h2></div><button class="button ghost" id="exportIssues" type="button">Export local issues</button></div>
+        <div class="issue-layout">
+          <aside class="issue-list-panel">
+            <div class="issue-list" id="issueList"></div>
+            <div class="empty-state" id="issueEmpty">No issues yet. Create one from the command area above.</div>
+          </aside>
+          <article class="workspace" id="workspace" aria-live="polite">
+            <div class="workspace-empty">Select or create an issue to open the legal research workspace.</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="authority" aria-labelledby="authority-title">
+        <div class="section-head"><div><p class="eyebrow">JURISDICTION-SPECIFIC</p><h2 id="authority-title">Authority Map</h2></div><p>No single hierarchy fits every legal system. This map is a research scaffold, not a universal precedence rule.</p></div>
+        <div class="authority-map" id="authorityMap"></div>
+      </section>
+
+      <section class="section" id="coverage" aria-labelledby="coverage-title">
+        <div class="section-head"><div><p class="eyebrow">NO FAKE UNIVERSAL COVERAGE</p><h2 id="coverage-title">Coverage</h2></div><p>Architecture can be global while live source integrations remain evidence-based and incremental.</p></div>
+        <div class="coverage-legend"><span class="status implemented">Implemented source adapter</span><span class="status linked">Linked source family</span><span class="status missing">Not yet integrated</span></div>
+        <div class="coverage-grid" id="coverageGrid"></div>
+      </section>
+
+      <section class="closing-band">
+        <div><p class="eyebrow">REAL LAW. REAL SOURCES. REAL LIMITS.</p><h2>Truth Weaver does not manufacture authority.</h2></div>
+        <p>When jurisdiction, currentness, authenticity, citation, or controlling status cannot be verified, COUNSEL stays explicit about the gap.</p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Truth Weaver · COUNSEL</span>
+      <span>Local-first prototype · Canonical source: jussray/chief-ai-machine</span>
+      <a href="./index.html">Chief AI workspace</a>
+    </footer>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./src/counsel.js"></script>
+</body>
+</html>

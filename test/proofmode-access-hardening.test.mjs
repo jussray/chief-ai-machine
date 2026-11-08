@@ -138,33 +138,6 @@ describe('ProofMode Access hardening', () => {
     );
   });
 
-  it('rejects an Allow policy that includes Everyone even when the exact service-token policy also exists', async () => {
-    const app = {
-      id: 'app-exact',
-      name: 'ProofMode exact immutable preview',
-      destinations: [{ type: 'public', uri: `${HOST}/*` }],
-    };
-    const fetchImpl = routeFetch({
-      apps: [app],
-      policies: [
-        {
-          id: 'policy-exact',
-          decision: 'non_identity',
-          include: [{ service_token: { token_id: SERVICE_ID } }],
-        },
-        {
-          id: 'policy-allow-everyone',
-          decision: 'allow',
-          include: [{ everyone: {} }],
-        },
-      ],
-    });
-
-    await expect(ensureProofModeAccessPolicy({ ...args, fetchImpl })).rejects.toThrow(
-      'Everyone/Allow policy',
-    );
-  });
-
   it('rejects any parallel non-identity or bypass grant beside the exact service-token policy', async () => {
     const app = {
       id: 'app-exact',

@@ -46,7 +46,7 @@ test.beforeEach(async ({ context, page }) => {
 test('protected control-mode names do not steer Freestyle routing', async ({ page }) => {
   await openPage(page, 'freestyle');
 
-  const baseline = 'Red team this product launch and attack the hidden assumptions before I invest more.';
+  const baseline = 'Create a strategy for our launch and verify the approach before investing.';
   await page.locator('#fsAsk').fill(baseline);
   await page.locator('#fsGenerate').click();
   await expect(page.locator('#fsPreview')).toHaveClass(/\bon\b/);
