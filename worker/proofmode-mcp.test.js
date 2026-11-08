@@ -80,7 +80,8 @@ describe('ProofMode MCP transport', () => {
     );
 
     const payload = await json(response);
-    expect(payload.result.tools).toHaveLength(1);
+    expect(payload.result.tools).toHaveLength(2);
+    expect(payload.result.tools.map((tool) => tool.name)).toEqual(['audit_repository', 'customer_start']);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
     expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
@@ -145,13 +146,13 @@ describe('ProofMode MCP transport', () => {
     );
   });
 
-  it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
+  it('never forwards a privileged Worker GitHub credential to a public customer audit', async () => {
     const evidence = evidenceFixture();
     const deps = {
       loadPublicRepositoryEvidence: async ({ owner, repo, token }) => {
         expect(owner).toBe('acme');
         expect(repo).toBe('app');
-        expect(token).toBe('server-secret');
+        expect(token).toBeUndefined();
         return evidence;
       },
       classifyRepositoryEvidence: classifier,
@@ -171,6 +172,35 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent.repository).toBe('acme/app');
+  });
+
+  it('offers blank-slate customer 5W1H intake without reading any repository or founder context', async () => {
+    const deps = {
+      loadPublicRepositoryEvidence: () => { throw new Error('Must not read a repository'); },
+      classifyRepositoryEvidence: () => { throw new Error('Must not classify founder data'); },
+    };
+    const response = await handleProofModeMcp(
+      mcpRequest({ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'customer_start', arguments: {} } }),
+      { PROOFMODE_GITHUB_TOKEN: 'founder-private-token' },
+      deps,
+    );
+    expect(response.status).toBe(200);
+    const payload = await json(response);
+    expect(payload.result.isError).toBe(false);
+    expect(payload.result.structuredContent.questions.map((q) => q.key))
+      .toEqual(['who', 'what', 'when', 'where', 'why', 'how']);
+    expect(payload.result.structuredContent.inheritedContext).toBe(false);
+    expect(payload.result.structuredContent.serverStateWritten).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain('founder-private-token');
+  });
+
+  it('rejects unexpected customer_start arguments rather than accepting hidden context', async () => {
+    const response = await handleProofModeMcp(mcpRequest({
+      jsonrpc: '2.0', id: 7, method: 'tools/call',
+      params: { name: 'customer_start', arguments: { founderWorkspace: true } },
+    }));
+    expect(response.status).toBe(200);
+    expect((await json(response)).error.code).toBe(-32602);
   });
 
   it('rejects browser cross-origin requests', async () => {

@@ -3,10 +3,13 @@ import { loadPublicRepositoryEvidence } from '../plugins/proofmode/src/github.js
 import { createProofModeReceipt } from '../plugins/proofmode/src/proof-receipt.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
+export const PROOFMODE_SERVER_INFO = Object.freeze({ name: 'proofmode', title: 'ProofMode', version: '0.1.0' });
+export const PROOFMODE_INSTRUCTIONS =
+  'This is a customer-first, stateless public MCP. It never inherits founder or company context, scans accounts, reads private repositories, or uses privileged GitHub credentials. Repository audits require a caller-named public repository, produce juss-proof/v1 receipts, and never establish runtime verification.';
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26']);
 const DEFAULT_DEPS = { loadPublicRepositoryEvidence, classifyRepositoryEvidence };
 
-const TOOL = {
+export const PROOFMODE_TOOL = {
   name: 'audit_repository',
   title: 'Audit repository evidence',
   description:
@@ -32,6 +35,56 @@ const TOOL = {
     additionalProperties: false,
   },
 };
+
+export const CUSTOMER_START_TOOL = {
+  name: 'customer_start',
+  title: 'Start with your own goals (5W1H)',
+  description: 'Return six customer-focused intake questions without reading, importing, persisting, or inheriting any account, founder, company, or repository data.',
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+};
+
+const CUSTOMER_QUESTIONS = Object.freeze([
+  {
+    "key": "who",
+    "question": "Who are you helping, and who can access this workspace?"
+  },
+  {
+    "key": "what",
+    "question": "What is your goal or project?"
+  },
+  {
+    "key": "when",
+    "question": "When do you need the result?"
+  },
+  {
+    "key": "where",
+    "question": "Where will your work run or be used?"
+  },
+  {
+    "key": "why",
+    "question": "Why is this important to you?"
+  },
+  {
+    "key": "how",
+    "question": "How would you like to proceed, and what permissions are you granting?"
+  }
+]);
+
+function customerStartResult() {
+  const structuredContent = {
+    questions: CUSTOMER_QUESTIONS,
+    inheritedContext: false,
+    serverStateWritten: false,
+    externalSourcesQueried: false,
+    actionAuthorized: false,
+  };
+  return {
+    content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+    structuredContent,
+    isError: false,
+  };
+}
 
 function jsonRpc(id, result) {
   return { jsonrpc: '2.0', id, result };
@@ -102,7 +155,7 @@ function resolveContext(envOrDeps, maybeDeps) {
   return { env: envOrDeps || {}, deps: maybeDeps || DEFAULT_DEPS };
 }
 
-async function dispatch(message, deps, env) {
+async function dispatch(message, deps) {
   const { id, method, params } = message;
 
   if (method === 'initialize') {
@@ -111,20 +164,26 @@ async function dispatch(message, deps, env) {
     return jsonRpc(id, {
       protocolVersion: negotiated,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'proofmode', title: 'ProofMode', version: '0.1.0' },
-      instructions:
-        'ProofMode is read-only. It audits public GitHub repository evidence, emits juss-proof/v1 receipts that can acknowledge upstream provider receipts, and never promotes repository evidence into live runtime verification.',
+      serverInfo: PROOFMODE_SERVER_INFO,
+      instructions: PROOFMODE_INSTRUCTIONS,
     });
   }
 
   if (method === 'ping') return jsonRpc(id, {});
 
   if (method === 'tools/list') {
-    return jsonRpc(id, { tools: [TOOL] });
+    return jsonRpc(id, { tools: [PROOFMODE_TOOL, CUSTOMER_START_TOOL] });
   }
 
   if (method === 'tools/call') {
-    if (params?.name !== TOOL.name) {
+    if (params?.name === CUSTOMER_START_TOOL.name) {
+      const args = params?.arguments ?? {};
+      if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length !== 0) {
+        return jsonRpcError(id, -32602, 'customer_start accepts no arguments or inherited context.');
+      }
+      return jsonRpc(id, customerStartResult());
+    }
+    if (params?.name !== PROOFMODE_TOOL.name) {
       return jsonRpcError(id, -32602, `Unknown tool: ${params?.name || 'missing'}`);
     }
 
@@ -141,9 +200,7 @@ async function dispatch(message, deps, env) {
         owner: args.owner.trim(),
         repo: args.repo.trim(),
         ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
-        token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
-          ? env.PROOFMODE_GITHUB_TOKEN
-          : undefined,
+        // This public endpoint never forwards Worker credentials to GitHub.
       });
       const report = deps.classifyRepositoryEvidence(evidence);
       const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });
@@ -157,7 +214,7 @@ async function dispatch(message, deps, env) {
 }
 
 export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
-  const { env, deps } = resolveContext(envOrDeps, maybeDeps);
+  const { deps } = resolveContext(envOrDeps, maybeDeps);
 
   if (!validateOrigin(request)) {
     return jsonResponse(jsonRpcError(null, -32000, 'Origin not allowed.'), 403);
@@ -193,5 +250,22 @@ export async function handleProofModeMcp(request, envOrDeps = {}, maybeDeps) {
     return new Response(null, { status: 202 });
   }
 
-  return jsonResponse(await dispatch(message, deps, env));
+  return jsonResponse(await dispatch(message, deps));
+}
+
+// Discovery card for /.well-known/mcp/server-card.json (draft MCP server-card
+// shape). Built from the same constants the live server answers with, so the
+// card cannot advertise a tool or version the endpoint does not serve.
+export function buildProofModeServerCard(origin) {
+  return {
+    serverInfo: PROOFMODE_SERVER_INFO,
+    description: PROOFMODE_INSTRUCTIONS,
+    protocolVersion: PROTOCOL_VERSION,
+    transport: { type: 'streamable-http', url: `${origin}/mcp` },
+    authentication: { required: false },
+    capabilities: { tools: { listChanged: false } },
+    tools: [PROOFMODE_TOOL, CUSTOMER_START_TOOL].map(({ name, title, description, inputSchema }) => ({
+      name, title, description, inputSchema,
+    })),
+  };
 }
