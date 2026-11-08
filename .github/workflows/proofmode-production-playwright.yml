@@ -52,6 +52,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    environment:
+      name: proofmode-access-admin
     permissions:
       actions: read
       contents: read
