@@ -1,29 +1,41 @@
-import { WorkerEntrypoint } from 'cloudflare:workers';
-import {
-  createFounderControlRoomCapabilityPlan,
-  getFounderControlRoomServiceVersion,
-  ingestFounderControlRoomBipEvidence,
-} from './fcr-service.js';
-import httpWorker from './http-worker.js';
+import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { handleProofModeMcp } from './proofmode-mcp.js';
 
-export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
-  async version() {
-    return getFounderControlRoomServiceVersion(this.env);
-  }
-
-  async createCapabilityPlan(input) {
-    return createFounderControlRoomCapabilityPlan(this.env, input);
-  }
-
-  async ingestBipEvidence(input) {
-    return ingestFounderControlRoomBipEvidence(this.env, input);
-  }
+function getReleaseSha(env) {
+  const candidates = [
+    env?.RELEASE_SHA,
+    env?.GITHUB_SHA,
+    env?.WORKERS_CI_COMMIT_SHA,
+    BUILD_RELEASE_SHA,
+  ];
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
+  return value?.trim() || 'unknown';
 }
 
-// Chief AI Worker composition root.
+// Chief AI Worker entry point.
 //
-// HTTP routing lives in a runtime-neutral module so Node/Vitest can verify the
-// /version and request-routing contract without loading Cloudflare's RPC-only
-// virtual module. Named WorkerEntrypoint exports remain here for the FCR
-// Cloudflare Service Binding.
-export default httpWorker;
+// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
+// Runtime-first routes are declared in wrangler.jsonc so they cannot silently
+// fall through to SPA assets.
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/version') {
+      return Response.json(
+        { ok: true, sha: getReleaseSha(env) },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
+    if (url.pathname === '/mcp') {
+      return handleProofModeMcp(request);
+    }
+
+    if (url.pathname.startsWith('/api/')) {
+      return new Response('Not implemented', { status: 501 });
+    }
+
+    return env.ASSETS.fetch(request);
+  },
+};

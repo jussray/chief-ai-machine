@@ -12,8 +12,8 @@ export default [
       sourceType: 'module',
       globals: {
         document: 'readonly', window: 'readonly', navigator: 'readonly', localStorage: 'readonly',
-        fetch: 'readonly', console: 'readonly', URL: 'readonly', Blob: 'readonly', FileReader: 'readonly', CustomEvent: 'readonly',
-        TextEncoder: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', confirm: 'readonly', location: 'readonly',
+        fetch: 'readonly', console: 'readonly', URL: 'readonly', Blob: 'readonly', FileReader: 'readonly',
+        setTimeout: 'readonly', clearTimeout: 'readonly', confirm: 'readonly', location: 'readonly',
       },
     },
   },
@@ -32,7 +32,7 @@ export default [
     files: [
       'scripts/**/*.js', 'scripts/**/*.mjs', 'scripts/**/*.cjs',
       'tools/**/scripts/**/*.js', 'tools/**/scripts/**/*.mjs', 'tools/**/scripts/**/*.cjs',
-      'e2e/**/*.pw.mjs',
+      'e2e/proofmode-mcp.pw.mjs',
     ],
     ignores: ['scripts/verify-mcp-config.mjs'],
     languageOptions: {
