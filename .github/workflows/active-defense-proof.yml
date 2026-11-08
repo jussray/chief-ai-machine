@@ -1,0 +1,44 @@
+name: Active Defense Proof
+
+on:
+  push:
+    branches:
+      - feat/active-defense-hallway-48000
+    paths:
+      - 'worker/active-defense-assessment.js'
+      - 'worker/active-defense-assessment.test.js'
+      - 'worker/index.js'
+      - '.github/workflows/active-defense-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPECTED_HEAD_SHA: ${{ github.sha }}
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Verify exact head
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Focused unit proof
+        run: npx vitest run worker/active-defense-assessment.test.js
+      - name: Type proof
+        run: npm run typecheck
+      - name: Lint proof
+        run: npm run lint
