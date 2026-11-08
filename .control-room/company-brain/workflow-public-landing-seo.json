@@ -1,0 +1,68 @@
+{
+  "kind": "workflow",
+  "title": "Public Landing Page with Max SEO/Geo/AEO",
+  "project": "general",
+  "status": "approved",
+  "provider": "provider-neutral",
+  "tags": ["seo", "aeo", "geo", "landing-page", "deployment", "cloudflare-workers"],
+  "summary": "Transform internal SPA into public-facing product with maximum SEO, geographic targeting, and answer engine optimization. Proven on Chief AI. Reusable for any founder tool.",
+  "steps": [
+    {
+      "step": 1,
+      "action": "Audit current state",
+      "command": "grep -E 'og:|twitter:|schema' index.html | wc -l",
+      "expected": "0 (no SEO infrastructure)"
+    },
+    {
+      "step": 2,
+      "action": "Create landing page",
+      "files": ["index.html (new landing)", "app.html (moved from index.html)"],
+      "includes": ["Meta tags (og:, twitter:)", "JSON-LD structured data", "Responsive design", "CTA sections"]
+    },
+    {
+      "step": 3,
+      "action": "Update worker routing",
+      "files": ["worker/index.js"],
+      "changes": "Add /app route, apply security headers to all responses"
+    },
+    {
+      "step": 4,
+      "action": "Create SEO assets",
+      "files": ["robots.txt", "sitemap.xml"],
+      "includes": ["Answer engine bot allowlists", "All canonical URLs"]
+    },
+    {
+      "step": 5,
+      "action": "Commit and deploy",
+      "command": "git push origin main (triggers deployment workflow)"
+    }
+  ],
+  "success_criteria": [
+    "Public landing page live at /",
+    "App accessible at /app",
+    "Zero SEO errors",
+    "Security headers on all responses",
+    "robots.txt allows answer engines",
+    "sitemap.xml discoverable",
+    "ProofMode verification green"
+  ],
+  "rollback": "git revert <commit-sha> && git push origin main",
+  "evidence": {
+    "commit": "5ce432a",
+    "project": "chief-ai-machine",
+    "date_established": "2026-11-08",
+    "deployed": true
+  },
+  "reuse_for": [
+    "Any founder tool/SPA transitioning from internal to public",
+    "Products needing SEO + AEO optimization",
+    "Cloudflare Workers deployments with GitHub Actions"
+  ],
+  "time_to_execute": "~30 minutes (manual) + ~5-10 minutes (deployment verification)",
+  "dependencies": [
+    "Existing internal app/SPA",
+    "Cloudflare Workers setup",
+    "GitHub Actions CI/CD",
+    "CLOUDFLARE_API_TOKEN in secrets"
+  ]
+}
