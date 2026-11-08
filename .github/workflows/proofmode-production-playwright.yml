@@ -463,6 +463,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+      statuses: write
     env:
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
