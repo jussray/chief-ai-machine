@@ -127,3 +127,39 @@ jobs:
           test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
           cd "$TRUSTED_BROWSER_RUNNER"
           npx playwright test --config=playwright.config.mjs
+
+  publish-trusted-preview-receipt:
+    name: Publish authenticated Chief preview receipt (non-required)
+    needs: [admission, protected-preview-proof]
+    if: ${{ needs['protected-preview-proof'].result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: read
+    steps:
+      - name: Check out current trusted main only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up trusted Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+      - name: Recheck current main, PR head and Cloudflare proof before publishing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          AUTHORITY_PR: ${{ inputs.authority_pr }}
+          AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          PROOF_RESULT: ${{ needs['protected-preview-proof'].result }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/chief-trusted-preview-publish.mjs
+
