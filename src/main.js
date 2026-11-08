@@ -10,7 +10,6 @@ import { initCustom } from './modules/custom.js';
 import { initModal } from './modules/modal.js';
 import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
-import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
@@ -29,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initFriendMode();
   initNav();
   const modal = initModal(PUBLIC_PROMPTS);
-  initGoals();
   initLibrary(PUBLIC_PROMPTS, modal);
   initBuilder(PUBLIC_PROMPTS);
   initFreestyle(PUBLIC_PROMPTS);
@@ -51,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
       customPrompts: readArray('chief-custom'),
       stars: readArray('chief-stars'),
     });
-    snapshot.goals = readArray(GOAL_STORAGE_KEY);
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -68,12 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const raw = JSON.parse(ev.target.result);
-        const imported = parsePortableSnapshot(raw);
+        const imported = parsePortableSnapshot(JSON.parse(ev.target.result));
         localStorage.setItem(INTELLIGENCE_STORAGE_KEY, JSON.stringify(imported.assets));
         localStorage.setItem('chief-custom', JSON.stringify(imported.customPrompts));
         localStorage.setItem('chief-stars', JSON.stringify(imported.stars));
-        if (Array.isArray(raw.goals)) localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(raw.goals));
         showToast('Company brain imported. Refreshing…');
         setTimeout(() => location.reload(), 300);
       } catch {
@@ -84,8 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('resetBtn')?.addEventListener('click', () => {
-    if (confirm('Reset all saved goals, intelligence, prompts, stars, and theme?')) {
-      [GOAL_STORAGE_KEY, INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
+    if (confirm('Reset all saved intelligence, prompts, stars, and theme?')) {
+      [INTELLIGENCE_STORAGE_KEY, 'chief-custom', 'chief-stars', 'chief-ai-theme'].forEach(k => localStorage.removeItem(k));
       location.reload();
     }
   });

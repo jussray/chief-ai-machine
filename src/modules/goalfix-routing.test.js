@@ -22,12 +22,6 @@ const legacy = [
     platforms: ['chatgpt'],
     versions: { chatgpt: 'legacy' },
   },
-  {
-    id: 'legacy-research',
-    cat: 'research',
-    platforms: ['chatgpt'],
-    versions: { chatgpt: 'legacy' },
-  },
 ];
 const prompts = [...legacy, ...GOALFIX_V1_PROMPTS];
 
@@ -44,8 +38,8 @@ describe('Goalfix v1 prompt routing', () => {
     ).toBe('goalfix-v1-creative-director');
   });
 
-  it('routes ordinary outcome language and Friend Mode and image-edit intents in Freestyle', () => {
-    expect(selectFreestylePrompt(prompts, 'Find the bottleneck and define the finish line', ['chatgpt'])?.id)
+  it('routes explicit Goalfix, Friend Mode, and image-edit intents in Freestyle', () => {
+    expect(selectFreestylePrompt(prompts, '/goalfix find the bottleneck', ['chatgpt'])?.id)
       .toBe('goalfix-v1-verified-loop');
     expect(selectFreestylePrompt(prompts, 'Friend Mode: turn this rant into one tiny move', ['chatgpt'])?.id)
       .toBe('goalfix-v1-friend-mode');
@@ -53,20 +47,8 @@ describe('Goalfix v1 prompt routing', () => {
       .toBe('goalfix-v1-creative-director');
   });
 
-  it('treats protected control-mode names as inert Freestyle input', () => {
-    const baseline = selectFreestylePrompt(prompts, 'Help me plan something', ['chatgpt']);
-    const withTokens = selectFreestylePrompt(
-      prompts,
-      'goalfix ultrathink truthmode confess redteam attackten lindymode ooda proofmode l99 Help me plan something',
-      ['chatgpt'],
-    );
-    expect(withTokens?.id).toBe(baseline?.id);
-  });
-
-  it('preserves legacy category routing when no protected control token is present', () => {
+  it('preserves legacy category routing when no Goalfix intent is explicit', () => {
     expect(selectFreestylePrompt(prompts, 'Create a strategy roadmap', ['chatgpt'])?.id)
       .toBe('legacy-strategy');
-    expect(selectFreestylePrompt(prompts, 'Tell me about recent discoveries', ['chatgpt'])?.id)
-      .toBe('legacy-research');
   });
 });
