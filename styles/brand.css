@@ -1,0 +1,65 @@
+/* Juss & Co. approved Chief color treatment, 2026-10-14.
+ * Scope: /brand and /color only. Preserve all navigation, behavior, and layout.
+ * FCR family foundation: midnight navy + electric blue/purple cosmic lighting.
+ * Chief-specific accent: champagne -> amber -> antique gold ombre.
+ * Reference: approved Chief/PromptOS image, NOT a source of runtime metrics.
+ */
+html[data-theme="dark"] {
+  --bg:#060b1e;--surface:#0a1025;--surface-2:#111a35;--surface-3:#192447;
+  --border:rgba(104,148,248,.18);--border-2:rgba(172,133,241,.35);
+  --text:#f4f6ff;--text-muted:#b3c1da;--text-faint:#8395bd;
+  --primary:#f6cb71;--primary-dim:rgba(224,163,60,.13);--primary-glow:rgba(249,185,65,.34);
+  --accent-blue:#65a8ff;--accent-purple:#ae80ff;--accent-yellow:#eeb74e;
+  --code-bg:#080e21;--scrim:rgba(4,8,24,.88);
+}
+html[data-theme="light"] {
+  --primary:#935b14;--primary-dim:rgba(190,134,42,.12);--primary-glow:rgba(190,134,42,.3);
+  --accent-blue:#3668b1;--accent-purple:#6f4ba9;
+}
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse at 90% 10%,rgba(119,73,202,.22),transparent 40%),
+    radial-gradient(ellipse at 12% 74%,rgba(32,103,221,.2),transparent 45%),
+    #060b1e;
+}
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .sidebar {background:rgba(6,11,30,.96);backdrop-filter:blur(16px)}
+html[data-theme="dark"] .topbar {border-bottom-color:rgba(251,193,82,.24)}
+html[data-theme="dark"] .sidebar {border-right-color:rgba(105,158,255,.2)}
+.logo {letter-spacing:.02em}
+html[data-theme="dark"] .logo,
+html[data-theme="dark"] .logo svg {
+  color:#f6cd80;
+  filter:drop-shadow(0 0 10px rgba(247,179,59,.23));
+}
+html[data-theme="dark"] .logo b {color:#f7ebcb}
+html[data-theme="dark"] .nav-item.active {
+  background:linear-gradient(100deg,rgba(232,174,58,.23),rgba(120,67,184,.11));
+  box-shadow:inset 3px 0 0 #f2c267;
+}
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .stat,
+html[data-theme="dark"] .pcard {
+  border-color:rgba(92,148,254,.24);
+  background:linear-gradient(145deg,rgba(15,24,55,.96),rgba(7,13,33,.96));
+}
+html[data-theme="dark"] .panel:hover,
+html[data-theme="dark"] .pcard:hover {border-color:rgba(244,184,72,.55)}
+html[data-theme="dark"] .page-head h2 {
+  background:linear-gradient(110deg,#fff0c8 10%,#f4bd55 52%,#a97832 100%);
+  color:transparent;-webkit-background-clip:text;background-clip:text;
+}
+html[data-theme="dark"] .mini-btn.solid {
+  background:linear-gradient(112deg,#fff0a8,#efb743 60%,#ae762c);
+  border-color:#e8b45a;color:#151322;
+  box-shadow:0 0 16px rgba(235,166,46,.16);
+}
+html[data-theme="dark"] .mini-btn.solid:hover {color:#151322}
+html[data-theme="dark"] .count-pill {border-color:rgba(244,190,84,.46)}
+html[data-theme="dark"] .stat:nth-child(1) .n {color:#f6cb71}
+html[data-theme="dark"] .stat:nth-child(2) .n {color:#7bbaff}
+html[data-theme="dark"] .stat:nth-child(3) .n {color:#ad85ff}
+html[data-theme="dark"] .stat:nth-child(4) .n {color:#f1c86d}
+@media(prefers-reduced-transparency:reduce){
+  html[data-theme="dark"] .topbar,html[data-theme="dark"] .sidebar{backdrop-filter:none}
+}
