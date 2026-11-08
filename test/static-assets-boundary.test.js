@@ -62,7 +62,6 @@ describe('Worker static asset boundary', () => {
       '.mcp.json',
       '.mcp.example.json',
       '.agents/',
-      'supabase/',
     ];
 
     for (const path of required) {

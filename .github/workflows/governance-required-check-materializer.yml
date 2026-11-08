@@ -63,16 +63,10 @@ jobs:
               });
             '
           }
-          # Cloudflare's trusted build check can finish after pull_request_target starts.
-          # Wait for the exact SHA first; never accept an unverified check or weaker identity.
-          # Keep the existing predecessor-tree fallback for unchanged provider surfaces.
-          for attempt in {1..90}; do
-            if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
-              echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
-              exit 0
-            fi
-            if [ "$attempt" -lt 90 ]; then sleep 2; fi
-          done
+          if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
+            echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
+            exit 0
+          fi
           inherited_sha=""
           while IFS= read -r candidate; do
             [ -n "$candidate" ] || continue
@@ -123,10 +117,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          # Test-only files never ship: .assetsignore excludes **/*.test.{js,mjs,ts}
-          # from the deployed bundle, so they cannot change the exact Chief runtime.
-          runtime_candidates="$(printf '%s\n' "$changed" | grep -Ev '(^|/)[^/]+\.test\.(js|mjs|ts)$' || true)"
-          if printf '%s\n' "$runtime_candidates" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
@@ -201,7 +192,7 @@ jobs:
             const expectedHost=new URL(baseUrl).host;
             const versionResponse=await page.goto(`${baseUrl}/version`,{waitUntil:'domcontentloaded'});
             expect(versionResponse).not.toBeNull();
-            console.log(`version-final-origin=${new URL(page.url()).origin}`);
+            console.log(`version-final-url=${page.url()}`);
             console.log(`version-status=${versionResponse.status()}`);
             expect(versionResponse.status()).toBe(200);
             assertExactRuntimeHost(page.url(), expectedHost);
@@ -224,7 +215,7 @@ jobs:
           EOF
           cat > playwright.chief-runtime-exact-head.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'off',screenshot:'only-on-failure'}});
+          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'retain-on-failure',screenshot:'only-on-failure'}});
           EOF
           npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs
       - name: Retain credential-free exact-runtime evidence
@@ -242,10 +233,10 @@ jobs:
     name: Production ProofMode phase receipt
     runs-on: ubuntu-22.04
     steps:
-      - name: Preserve post-merge production boundary
+      - name: Record dispatch-initiated production proof
         run: |
-          echo 'Production ProofMode is post-merge/current-main evidence.'
-          echo 'This PR workflow does not impersonate that production receipt.'
+          echo 'Production ProofMode is dispatch-initiated with candidate head SHA from founder authority.'
+          echo 'This PR workflow does not impersonate that production receipt; the bridge dispatches it separately.'
 
   publish-candidate-required-checks:
     name: Publish candidate-bound materializer checks

@@ -145,11 +145,7 @@ describe('federated relay v3.1 FCR key bootstrap', () => {
     const fetchImpl = async (input) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.includes('/rest/v1/federated_relay_v31_public_keys?')) return Response.json([]);
-      try {
-        if (new URL(url).origin === 'https://evil.example') untrustedFetches += 1;
-      } catch {
-        // URL parsing failed, continue
-      }
+      if (url.startsWith('https://evil.example')) untrustedFetches += 1;
       throw new Error(`unexpected fetch: ${url}`);
     };
 

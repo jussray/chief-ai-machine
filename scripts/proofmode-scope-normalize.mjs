@@ -114,7 +114,7 @@ async function handleRuntimeProof(request, env) {
   let normalized = raw;
 
   if (normalized.includes(boundedProviderProofHelpers)) {
-    normalized = normalized.replace(boundedProviderProofHelpers, '');
+    normalized = normalized.replace(boundedProviderProofHelpers, '\n');
   }
 
   if (normalized.includes(boundedProviderProofRoutes)) {

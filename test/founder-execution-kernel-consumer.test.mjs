@@ -172,4 +172,3 @@ describe('Founder Execution Kernel consumer contract', () => {
     ]);
   });
 });
-

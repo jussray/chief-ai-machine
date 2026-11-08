@@ -24,10 +24,10 @@ const server = http.createServer(async (req, res) => {
     res.statusCode = response.status;
     for (const [key, value] of response.headers) res.setHeader(key, value);
     res.end(Buffer.from(await response.arrayBuffer()));
-  } catch {
+  } catch (error) {
     res.statusCode = 500;
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ error: 'server_failure' }));
+    res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'server failure' }));
   }
 });
 

@@ -1,10 +1,23 @@
 import { writeFile } from 'node:fs/promises';
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
+const explicitReleaseSha = process.env.RELEASE_SHA?.trim();
+const githubRef = process.env.GITHUB_REF?.trim() || '';
+const githubEventName = process.env.GITHUB_EVENT_NAME?.trim() || '';
+const syntheticPullRequestMergeSha =
+  githubEventName === 'pull_request'
+  && /^refs\/pull\/\d+\/merge$/.test(githubRef)
+  && Boolean(explicitReleaseSha);
+
+// On GitHub pull_request runners, GITHUB_SHA identifies the synthetic merge
+// wrapper, not the checked-out candidate commit. When the proof workflow
+// explicitly binds RELEASE_SHA to the candidate, exclude only that wrapper.
+// WORKERS_CI_COMMIT_SHA remains authoritative and any real disagreement still
+// fails closed below.
 const candidates = [
-  ['GITHUB_SHA', process.env.GITHUB_SHA],
+  ...(syntheticPullRequestMergeSha ? [] : [['GITHUB_SHA', process.env.GITHUB_SHA]]),
   ['WORKERS_CI_COMMIT_SHA', process.env.WORKERS_CI_COMMIT_SHA],
-  ['RELEASE_SHA', process.env.RELEASE_SHA],
+  ['RELEASE_SHA', explicitReleaseSha],
 ]
   .map(([name, value]) => [name, value?.trim()])
   .filter(([, value]) => Boolean(value));
@@ -24,17 +37,9 @@ if (distinctShas.length > 1) {
 // Production/CI builds are expected to provide exactly one unambiguous SHA.
 const releaseSha = distinctShas[0] || 'unknown';
 
-const releaseBranch = [
-  process.env.RELEASE_BRANCH,
-  process.env.WORKERS_CI_BRANCH,
-  process.env.GITHUB_REF_NAME,
-]
-  .map((value) => value?.trim())
-  .find(Boolean) || 'unknown';
-
 const target = new URL('../worker/release-sha.js', import.meta.url);
 await writeFile(
   target,
-  `export const BUILD_RELEASE_SHA = ${JSON.stringify(releaseSha)};\nexport const BUILD_RELEASE_BRANCH = ${JSON.stringify(releaseBranch)};\n`,
+  `export const BUILD_RELEASE_SHA = ${JSON.stringify(releaseSha)};\n`,
   'utf8',
 );

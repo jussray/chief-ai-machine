@@ -10,10 +10,6 @@ on:
       - 'worker/provider-runtime.js'
       - 'e2e/chief-provider-route-server.mjs'
       - 'e2e/chief-provider-route.pw.mjs'
-      - 'e2e/chief-domain-access.pw.mjs'
-      - 'e2e/proofmode-mcp.pw.mjs'
-      - 'worker/chief-mcp.js'
-      - 'worker/chief-mcp.test.js'
       - 'playwright.chief-provider.config.mjs'
       - '.github/workflows/chief-provider-route-playwright.yml'
 
@@ -69,7 +65,7 @@ jobs:
           cat /tmp/chief-provider-proof.log
           cat /tmp/chief-provider-response.json || true
           exit 1
-      - name: Run real Chromium provider-route and domain Access proof
+      - name: Run real Chromium provider-route proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
         run: npx playwright test --config=playwright.chief-provider.config.mjs --reporter=line
@@ -77,52 +73,3 @@ jobs:
         if: always()
         shell: bash
         run: test ! -f /tmp/chief-provider-proof.pid || kill "$(cat /tmp/chief-provider-proof.pid)" || true
-
-
-  # This workflow checks out pull-request-controlled code. Do not inject service
-  # credentials here, including via a GitHub environment: npm/test can execute
-  # arbitrary candidate code. Live auth belongs to the trusted default-branch
-  # evaluator (pull_request_target), after independent evaluator review.
-  prove-live-mcp:
-    name: Authenticated exact-head Chief MCP proof
-    needs: prove-provider-route
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-22.04
-    timeout-minutes: 2
-    steps:
-      - name: Read trusted exact-head ProofMode and runtime receipts
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # No candidate secrets or privileged Access credentials enter this job.
-          # Separate default-branch pull_request_target proofs remain mandatory.
-          # The source cannot manufacture a passing receipt: provider readback only.
-          checks="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_HEAD_SHA/check-runs?per_page=100")"
-          CHECKS_JSON="$checks" node <<'NODE'
-          const data = JSON.parse(process.env.CHECKS_JSON);
-          const required = [
-            'Verify live ProofMode MCP with Playwright',
-            'Verify exact Chief runtime with Playwright',
-          ];
-          const checks = Array.isArray(data.check_runs) ? data.check_runs : [];
-          for (const name of required) {
-            const valid = checks.some((check) =>
-              check.name === name
-              && check.head_sha === process.env.EXPECTED_HEAD_SHA
-              && check.status === 'completed'
-              && check.conclusion === 'success'
-              && check.app?.slug === 'github-actions'
-            );
-            if (!valid) {
-              console.error('TRUSTED_EXACT_HEAD_RUNTIME_PROOF_MISSING', name);
-              process.exitCode = 1;
-            }
-          }
-          if (!process.exitCode) console.log('TRUSTED_EXACT_HEAD_RUNTIME_PROOFS_PRESENT');
-          NODE

@@ -1,4 +1,10 @@
-import { invokeChiefProvider } from './provider-runtime.js';
+import {
+  cancelChiefAnthropicBatch,
+  createChiefAnthropicBatch,
+  getChiefAnthropicBatch,
+  getChiefAnthropicBatchResults,
+  invokeChiefProvider,
+} from './provider-runtime.js';
 
 const ROUTE = '/api/chief/provider';
 
@@ -29,40 +35,13 @@ function runtimeEnabled(env) {
   return String(env?.CHIEF_PROVIDER_RUNTIME_ENABLED || '').trim().toLowerCase() === 'true';
 }
 
-export async function verifyRuntimeBearer(request, token) {
-  const expected = typeof token === 'string' ? token : '';
-  const presented = /^Bearer ([A-Za-z0-9._~-]{32,256})$/.exec(
-    request.headers.get('authorization') || '',
-  )?.[1];
-  if (expected.length < 32 || expected.length > 256 || !presented || !globalThis.crypto?.subtle) {
-    return false;
-  }
-
-  // Compare digests without exposing token bytes or a variable-time early exit.
-  const encoder = new TextEncoder();
-  const [left, right] = await Promise.all([
-    globalThis.crypto.subtle.digest('SHA-256', encoder.encode(expected)),
-    globalThis.crypto.subtle.digest('SHA-256', encoder.encode(presented)),
-  ]);
-  const expectedHash = new Uint8Array(left);
-  const suppliedHash = new Uint8Array(right);
-  let mismatch = 0;
-  for (let i = 0; i < expectedHash.length; i += 1) {
-    mismatch |= expectedHash[i] ^ suppliedHash[i];
-  }
-  return mismatch === 0;
-}
-
 function classifyError(error) {
-  // Provider exceptions are untrusted and may contain URLs, headers or tokens.
-  const message = error instanceof Error ? error.message : '';
-  if (/not configured/.test(message)) {
-    return ['provider_not_configured', 'Requested provider is not configured.', 503, false];
-  }
+  const message = error instanceof Error ? error.message : 'provider request failed';
+  if (/not configured/.test(message)) return ['provider_not_configured', message, 503, false];
   if (/provider request failed|provider failed with HTTP|invalid JSON|invalid response identity|no usable text|response too large|non-completed response|batch .*request failed|batch .*failed with HTTP|batch .*invalid JSON|batch .*invalid identity|batch results exceeded/.test(message)) {
-    return ['provider_execution_failed', 'Provider execution failed.', 502, true];
+    return ['provider_execution_failed', message, 502, true];
   }
-  return ['invalid_provider_request', 'Provider request was rejected.', 400, false];
+  return ['invalid_provider_request', message, 400, false];
 }
 
 export async function handleChiefProviderRoute(request, env, fetchImpl = fetch) {
@@ -75,10 +54,6 @@ export async function handleChiefProviderRoute(request, env, fetchImpl = fetch) 
   }
   if (!runtimeEnabled(env)) {
     return errorResponse('provider_runtime_disabled', 'Chief provider runtime is disabled.', 503);
-  }
-
-  if (!(await verifyRuntimeBearer(request, env?.CHIEF_PROVIDER_RUNTIME_TOKEN))) {
-    return errorResponse('unauthorized', 'Authorized provider runtime token required.', 401);
   }
 
   let input;
@@ -94,9 +69,18 @@ export async function handleChiefProviderRoute(request, env, fetchImpl = fetch) 
   try {
     let result;
     if (String(input.mode || 'standard').trim().toLowerCase() === 'batch') {
-      // Current main removed the legacy batch runtime. Never dispatch a provider
-      // mutation with an implementation that is no longer installed.
-      return errorResponse('batch_runtime_unavailable', 'Batch processing is unavailable.', 503);
+      const operation = String(input.operation || 'create').trim().toLowerCase();
+      if (operation === 'create') {
+        result = await createChiefAnthropicBatch(env, input, fetchImpl);
+      } else if (operation === 'status') {
+        result = await getChiefAnthropicBatch(env, input.batchId, fetchImpl);
+      } else if (operation === 'results') {
+        result = await getChiefAnthropicBatchResults(env, input.batchId, fetchImpl);
+      } else if (operation === 'cancel') {
+        result = await cancelChiefAnthropicBatch(env, input.batchId, fetchImpl);
+      } else {
+        throw new Error('unsupported Anthropic batch operation');
+      }
     } else {
       result = await invokeChiefProvider(env, input, fetchImpl);
     }

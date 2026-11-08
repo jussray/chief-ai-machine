@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
@@ -12,7 +11,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-/* eslint-enable no-unused-vars */
 import {
   ASSET_KINDS,
   createIntelligenceAsset,
@@ -205,7 +203,6 @@ export default function ChiefMobile() {
   );
 }
 
-/* eslint-disable-next-line no-unused-vars */
 function Metric({ label, value }) {
   return (
     <View style={styles.metric}>

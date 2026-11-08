@@ -1,4 +1,3 @@
-/* eslint-disable-next-line no-unused-vars */
 import { Stack } from 'expo-router';
 
 export default function RootLayout() {

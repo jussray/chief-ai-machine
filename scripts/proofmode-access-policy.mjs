@@ -3,8 +3,6 @@ const POLICY_NAME = 'ProofMode CI service auth';
 const DEFAULT_APP_NAME = 'chief-ai - Cloudflare Workers';
 const IMMUTABLE_CHIEF_HOST = /^[0-9a-f]{8}-(chief-ai)\.mcgill-raylene\.workers\.dev$/i;
 const REQUIRED_PATHS = ['/version', '/mcp'];
-const CHIEF_PREVIEW_TAG_KEY = 'purpose';
-const CHIEF_PREVIEW_TAG_VALUE = 'chief-ai-immutable-preview-proof-v1';
 
 function required(value, name) {
   const normalized = typeof value === 'string' ? value.trim() : '';
@@ -77,43 +75,6 @@ function hasSpecificServiceToken(policy, serviceTokenId) {
     && !Array.isArray(rule)
     && Object.keys(rule).length === 1
     && rule?.service_token?.token_id === serviceTokenId;
-}
-
-
-function hasPinnedChiefPreviewTokenTag(policy, serviceTokenId, serviceTokens, scope) {
-  // Only the unique Chief preview_worker scope may use a tagged Service Auth
-  // rule. This does not approve tag grants on production or account-wide apps.
-  if (scope !== 'preview_worker') return false;
-  if (policy?.decision !== 'non_identity'
-    || !Array.isArray(policy.include)
-    || policy.include.length !== 1
-    || (policy.require !== undefined
-      && (!Array.isArray(policy.require) || policy.require.length !== 0))
-    || (policy.exclude !== undefined
-      && (!Array.isArray(policy.exclude) || policy.exclude.length !== 0))) {
-    return false;
-  }
-
-  const rule = policy.include[0];
-  const tag = rule?.service_token_tag;
-  if (!rule || typeof rule !== 'object' || Array.isArray(rule)
-    || Object.keys(rule).length !== 1 || !tag
-    || typeof tag !== 'object' || Array.isArray(tag)
-    || Object.keys(tag).length !== 2
-    || tag.key !== CHIEF_PREVIEW_TAG_KEY
-    || tag.value !== CHIEF_PREVIEW_TAG_VALUE) {
-    return false;
-  }
-
-  // Tag rules can grant multiple tokens. Certify the single-token boundary
-  // only if the chosen valid token is the sole token with this exact tag.
-  const matches = serviceTokens.filter((token) => (
-    token?.tags
-    && typeof token.tags === 'object'
-    && !Array.isArray(token.tags)
-    && token.tags[CHIEF_PREVIEW_TAG_KEY] === CHIEF_PREVIEW_TAG_VALUE
-  ));
-  return matches.length === 1 && matches[0].id === serviceTokenId;
 }
 
 function hasEveryoneBypass(policy) {
@@ -479,10 +440,7 @@ export async function ensureProofModeAccessPolicy({
     throw new Error('Effective Access application contains an Everyone/Bypass policy; refusing to certify or repair Service Auth while public bypass remains possible.');
   }
 
-  const exact = policies.find((policy) => (
-    hasSpecificServiceToken(policy, serviceId)
-    || hasPinnedChiefPreviewTokenTag(policy, serviceId, serviceTokens, effective.scope)
-  ));
+  const exact = policies.find((policy) => hasSpecificServiceToken(policy, serviceId));
   const parallelGrant = policies.find((policy) => policy !== exact && isIndependentGrantPolicy(policy));
   if (parallelGrant) {
     throw new Error(
