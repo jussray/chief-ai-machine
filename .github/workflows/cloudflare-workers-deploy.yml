@@ -1,0 +1,129 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'worker/**'
+      - 'src/**'
+      - 'styles/**'
+      - 'index.html'
+      - '.assetsignore'
+      - 'wrangler.jsonc'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/cloudflare-workers-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-workers-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy to Cloudflare Workers
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build worker with release SHA
+        run: npm run build
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy
+
+      - name: Log deployment success
+        run: |
+          echo "✓ Deployment to Cloudflare Workers completed"
+          echo "Production URL: https://chief-ai.mcgill-raylene.workers.dev"
+
+  verify-production:
+    name: Verify Production Deployment
+    needs: build-and-deploy
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    if: success()
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+
+      - name: Run ProofMode production verification
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+          CLOUDFLARE_RUNTIME_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+          EXPECTED_HEAD_SHA: ${{ github.sha }}
+          EXPECTED_HEAD_BRANCH: main
+          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: '90'
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          cat > playwright.deployment-verify.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+
+          export default defineConfig({
+            testDir: './e2e',
+            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            fullyParallel: false,
+            retries: 0,
+            workers: 1,
+            outputDir: './test-results/deployment-verify',
+            reporter: [
+              ['line'],
+              ['html', { outputFolder: './playwright-report/deployment-verify', open: 'never' }],
+            ],
+            use: { trace: 'retain-on-failure' },
+          });
+          EOF
+          npx playwright test --config=playwright.deployment-verify.config.mjs
+
+      - name: Upload verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-verification-${{ github.sha }}
+          path: |
+            playwright-report/deployment-verify
+            test-results/deployment-verify
+          retention-days: 14
+
+      - name: Report deployment verified
+        if: success()
+        run: |
+          echo "✓ Production deployment verified with ProofMode tests"
+          echo "Deployment ready for production use"
