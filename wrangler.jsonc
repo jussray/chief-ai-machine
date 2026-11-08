@@ -1,10 +1,9 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
-  "main": "security/chief-edge-entry.js",
-  "vars": {
-    "CHIEF_MUSE_MODEL": "muse-spark-1.3"
-  },
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "worker/index.js",
+  "preview_urls": true,
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
@@ -12,6 +11,6 @@
     "directory": "./",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": true
+    "run_worker_first": ["/api/*", "/version", "/mcp"]
   }
 }
