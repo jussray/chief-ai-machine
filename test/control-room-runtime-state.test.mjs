@@ -26,19 +26,6 @@ test('tracked configuration movement changes the receipt fingerprint', () => {
   assert.deepEqual(before.files, ['.github/workflows/ci.yml', 'package.json']);
 });
 
-test('persists a parseable runtime-state receipt for the exact-head observer', () => {
-  const root = fixture();
-  const output = path.join(root, 'runtime-state.json');
-  const receipt = writeRuntimeStateReceipt(env({ CONTROL_ROOM_RUNTIME_STATE_PATH: output }), root);
-  const contents = fs.readFileSync(output, 'utf8');
-  assert.ok(contents.endsWith('\n'));
-  assert.ok(!contents.endsWith('\\n'));
-  const parsed = JSON.parse(contents);
-  assert.equal(parsed.sourceSha, SHA);
-  assert.equal(parsed.repository, receipt.repository);
-  assert.deepEqual(parsed.trackedConfig, receipt.trackedConfig);
-});
-
 test('ordinary source events stay source-bound and do not pretend to prove provider state', () => {
   const receipt = buildRuntimeStateReceipt(env(), fixture(), new Date('2026-10-12T22:00:00Z'));
   assert.equal(receipt.externalState.mode, 'source-bound'); assert.equal(receipt.externalState.epoch, null);
@@ -86,11 +73,11 @@ test('the authoritative policy ledger binds the runtime-state receipt into its p
   assert.deepEqual(bound.runtimeState, runtimeState);
 });
 
-test('writeRuntimeStateReceipt writes a real trailing newline, not a literal backslash-n', () => {
+test('persisted runtime-state receipt is valid JSON for the ledger consumer', () => {
   const root = fixture();
-  const outputPath = path.join(root, 'artifacts', 'control-room-runtime-state.json');
-  writeRuntimeStateReceipt({ ...env(), CONTROL_ROOM_RUNTIME_STATE_PATH: outputPath }, root);
-  const bytes = fs.readFileSync(outputPath, 'utf8');
-  assert.equal(bytes.endsWith('}\n'), true, 'receipt must end with a real newline');
-  assert.equal(bytes.endsWith('}\\n'), false, 'receipt must not end with a literal backslash-n');
+  const output = path.join(root, 'artifacts', 'receipt.json');
+  const receipt = writeRuntimeStateReceipt(env({ CONTROL_ROOM_RUNTIME_STATE_PATH: output }), root);
+  const stored = fs.readFileSync(output, 'utf8');
+  assert.deepEqual(JSON.parse(stored), receipt);
+  assert.ok(stored.endsWith('\n'));
 });
