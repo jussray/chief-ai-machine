@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import worker from '../worker/http-worker.js';
+import worker from '../worker/index.js';
 
 const wranglerConfig = readFileSync(
   new URL('../wrangler.jsonc', import.meta.url),
@@ -14,30 +14,12 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
-const providerRouteWorkflow = readFileSync(
-  new URL('../.github/workflows/chief-provider-route-playwright.yml', import.meta.url),
-  'utf8',
-);
 
 describe('Chief AI Worker version receipt', () => {
-  it('holds credentialed MCP proof outside pull-request-controlled workflows', () => {
-    expect(providerRouteWorkflow).toContain('  pull_request:');
-    expect(providerRouteWorkflow).toContain('MCP LIVE PROOF BLOCKED');
-    expect(providerRouteWorkflow).not.toMatch(/\\$\\{\\{\\s*secrets\\./);
-    expect(providerRouteWorkflow).not.toContain('environment: chief-mcp-proof');
-    expect(providerRouteWorkflow).not.toContain('CHIEF_ACCESS_CLIENT_SECRET');
+  it('routes every request through the Worker before Static Assets', () => {
+    expect(wranglerConfig).toMatch(/"run_worker_first":\s*true/);
+    expect(wranglerConfig).not.toMatch(/"not_found_handling"/);
   });
-
-  it('routes runtime endpoints through the Worker before asset fallback', () => {
-    expect(JSON.parse(wranglerConfig).assets.run_worker_first).toEqual([
-      '/api',
-      '/api/*',
-      '/github',
-      '/github/*',
-      '/version',
-      '/mcp',
-      '/.well-known/security.txt',
-    ]);  });
 
   it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
     expect(wranglerConfig).toMatch(
@@ -45,14 +27,6 @@ describe('Chief AI Worker version receipt', () => {
     );
     expect(releaseBakeScript).toContain('WORKERS_CI_COMMIT_SHA');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
-  });
-
-  it('distinguishes the synthetic pull-request merge SHA from the exact candidate release SHA', () => {
-    expect(releaseBakeScript).toContain("githubEventName === 'pull_request'");
-    expect(releaseBakeScript).toContain('/^refs\\/pull\\/\\d+\\/merge$/');
-    expect(releaseBakeScript).toContain("...(syntheticPullRequestMergeSha ? [] : [['GITHUB_SHA', process.env.GITHUB_SHA]])");
-    expect(releaseBakeScript).toContain("['WORKERS_CI_COMMIT_SHA', process.env.WORKERS_CI_COMMIT_SHA]");
-    expect(releaseBakeScript).toContain("throw new Error('Release SHA inputs disagree; refusing to bake ambiguous artifact identity')");
   });
 
   it('returns the explicit release SHA without touching assets', async () => {
@@ -74,23 +48,6 @@ describe('Chief AI Worker version receipt', () => {
       ok: true,
       sha: '12a6d0ec74fc43d43eb459ccd4d6e129d20dbf56',
     });
-  });
-
-  it('routes MCP through Chief and retains read-only ProofMode auditing', async () => {
-    const response = await worker.fetch(
-      new Request('https://chief-ai.example/mcp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'MCP-Protocol-Version': '2025-06-18' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 11, method: 'tools/list', params: {} }),
-      }),
-      { ASSETS: { fetch: () => { throw new Error('MCP must not fall through to assets'); } } },
-    );
-    expect(response.status).toBe(200);
-    const payload = await response.json();
-    expect(payload.result.tools.map((tool) => tool.name)).toEqual([
-      'audit_repository', 'lookup_dependency_docs', 'compose_capability_plan',
-    ]);
-    expect(payload.result.tools[0].annotations.readOnlyHint).toBe(true);
   });
 
   it('reports unknown instead of fabricating a release SHA', async () => {

@@ -1,4 +1,3 @@
-/* global process */
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
@@ -25,6 +24,7 @@ test('Chief production target is one committed custom domain', () => {
   expect(wrangler.name).toBe('chief-ai');
   expect(wrangler.workers_dev).toBe(false);
   expect(wrangler.preview_urls).toBe(true);
+  expect(wrangler.assets?.run_worker_first).toBe(true);
 
   const customRoutes = (wrangler.routes || []).filter((route) => route?.custom_domain === true);
   expect(customRoutes).toEqual([
@@ -42,8 +42,8 @@ test('Chief production target is one committed custom domain', () => {
   });
 });
 
-test('explicit canonical Chief origin serves UI and exact Worker identity', async ({ page, request }) => {
-  test.skip(!explicitOrigin, 'Remote proof runs only when CHIEF_PUBLIC_ORIGIN is explicitly supplied.');
+const remoteTest = explicitOrigin ? test : test.skip;
+remoteTest('explicit canonical Chief origin serves UI and exact Worker identity', async ({ page, request }) => {
   expect(explicitOrigin).toBe(canonicalOrigin);
 
   const navigation = await page.goto(explicitOrigin, { waitUntil: 'domcontentloaded' });
