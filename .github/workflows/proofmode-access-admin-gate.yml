@@ -1,0 +1,40 @@
+name: ProofMode Access Admin Candidate Membrane
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proofmode-access-admin-candidate-membrane-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-membrane:
+    name: Verify proofmode-access-admin candidate membrane
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CANONICAL_PROVIDER_ADMIN_CARRIER: "PR #147 / proofmode-access-service-auth.yml"
+    steps:
+      - name: Treat candidate identity as data only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            printf 'Candidate SHA is not a canonical 40-character lowercase Git SHA.\n' >&2
+            exit 1
+          fi
+          printf 'Candidate SHA observed as non-executable data: %s\n' "$CANDIDATE_SHA"
+
+      - name: Preserve the protected provider boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'Candidate PRs are source-only for proofmode-access-admin.' \
+            'This workflow intentionally has no protected environment, no Cloudflare Access secrets, no candidate checkout, and no provider mutation path.' \
+            "Canonical provider-admin ownership remains with ${CANONICAL_PROVIDER_ADMIN_CARRIER}."

@@ -21,7 +21,9 @@ test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
     expect(response.status()).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
+    const body = await response.json();
+    expect(body).toEqual(expect.objectContaining({ ok: true, sha: expectedHead }));
+    expect(body.version_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
   test('initializes the MCP transport and advertises tools', async ({ request }) => {

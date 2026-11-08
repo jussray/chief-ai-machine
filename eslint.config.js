@@ -24,8 +24,14 @@ export default [
       sourceType: 'module',
       globals: {
         Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
-        atob: 'readonly', TextDecoder: 'readonly',
+        atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly',
       },
+    },
+  },
+  {
+    files: ['worker/federated-relay-v3-core.js'],
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
     },
   },
   {
@@ -39,7 +45,7 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
-        console: 'readonly', process: 'readonly', fetch: 'readonly', Buffer: 'readonly', URL: 'readonly', setTimeout: 'readonly',
+        console: 'readonly', process: 'readonly', fetch: 'readonly', Buffer: 'readonly', URL: 'readonly', setTimeout: 'readonly', crypto: 'readonly',
       },
     },
   },
