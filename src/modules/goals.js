@@ -1,3 +1,4 @@
+/* global Event, FormData */
 import { createGoalPlan, summarizeGoalPlan, validateGoalPlan } from '../domain/goal-plan.js';
 import { showToast } from './ui.js';
 

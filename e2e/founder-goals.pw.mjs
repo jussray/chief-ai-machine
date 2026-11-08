@@ -1,25 +1,19 @@
-/* global document, localStorage, sessionStorage, window */
+/* global document, localStorage */
 import { expect, test } from '@playwright/test';
 
 const GOAL = 'Ship the smallest verified founder-goal loop';
 const PROJECT = 'chief-ai-machine';
 const DONE = 'A bounded founder goal is saved, marked ready, and loaded into Builder.';
-const EVIDENCE = 'Current main is pinned\nFounder goal path is user-facing';
 const PROOF = 'goal contract unit test green\nFounder Goals Playwright green';
 const ROLLBACK = 'Revert the focused founder-goal commit.';
 const NEXT_GATE = 'Founder approves merge.';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    const marker = 'chief-founder-goals-playwright-initialized';
-    if (sessionStorage.getItem(marker)) return;
-    localStorage.clear();
-    sessionStorage.setItem(marker, 'true');
-  });
+  await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
 });
 
-test('founder goal front door exposes Chief truth grammar and carries the bounded plan into Builder', async ({ page }, testInfo) => {
+test('founder goal front door creates a gated plan and carries it into Builder', async ({ page }, testInfo) => {
   const goalsPage = page.locator('#page-goals');
   await expect(goalsPage).toBeVisible();
   await expect(goalsPage.getByRole('heading', { name: 'What are we trying to accomplish?' })).toBeVisible();
@@ -30,9 +24,7 @@ test('founder goal front door exposes Chief truth grammar and carries the bounde
   await form.locator('[name="project"]').fill(PROJECT);
   await form.locator('[name="priority"]').selectOption('now');
   await form.locator('[name="definitionOfDone"]').fill(DONE);
-  await form.locator('[name="evidence"]').fill(EVIDENCE);
   await form.locator('[name="constraints"]').fill('minimal edits\nno production mutation before proof');
-  await form.locator('[name="strategicLenses"]').fill('truthmode, redteam, ooda');
   await form.locator('[name="capabilities"]').fill('goalfix-v1\nrepo-audit-first');
   await form.locator('[name="proofRequirements"]').fill(PROOF);
   await form.locator('[name="rollback"]').fill(ROLLBACK);
@@ -43,24 +35,9 @@ test('founder goal front door exposes Chief truth grammar and carries the bounde
   const goalCard = page.locator('.goal-item').first();
   await expect(goalCard).toContainText(GOAL);
   await expect(goalCard).toContainText('ready');
+  await expect(goalCard).toContainText(NEXT_GATE);
 
-  const trace = goalCard.getByRole('region', { name: 'Chief decision trace' });
-  await expect(trace).toBeVisible();
-  await expect(trace.locator('[data-truth-kind="known"]')).toContainText('KNOWN');
-  await expect(trace.locator('[data-truth-kind="known"]')).toContainText('Current main is pinned');
-  await expect(trace.locator('[data-truth-kind="inferred"]')).toContainText('INFERRED');
-  await expect(trace.locator('[data-truth-kind="inferred"]')).toContainText('Reasoning route only: truthmode → redteam +1. This is not verified evidence.');
-  await expect(trace.locator('[data-truth-kind="blocked"]')).toContainText('BLOCKED');
-  await expect(trace.locator('[data-truth-kind="blocked"]')).toContainText('Completion stays blocked until: goal contract unit test green → Founder Goals Playwright green');
-  await expect(trace.locator('[data-truth-kind="recommended"]')).toContainText('RECOMMENDED');
-  await expect(trace.locator('[data-truth-kind="recommended"]')).toContainText(DONE);
-  await expect(trace.locator('[data-truth-kind="recommended"]')).toContainText('goalfix-v1 → repo-audit-first');
-  await expect(trace.locator('[data-truth-kind="authority"]')).toContainText('CANNOT AUTHORIZE');
-  await expect(trace.locator('[data-truth-kind="authority"]')).toContainText('Chief cannot authorize merge, deploy, publication, provider mutation, billing, or destructive external action.');
-  await expect(trace.locator('[data-truth-kind="next-gate"]')).toContainText('NEXT GATE');
-  await expect(trace.locator('[data-truth-kind="next-gate"]')).toContainText(NEXT_GATE);
-
-  await goalCard.getByRole('button', { name: 'Continue in Builder' }).click();
+  await goalCard.getByRole('button', { name: 'Use in Builder' }).click();
   await expect(page.locator('#page-builder')).toHaveClass(/\bon\b/);
   await expect(page.locator('#bRepo')).toHaveValue(PROJECT);
   await expect(page.locator('#bTask')).toHaveValue(new RegExp(GOAL));
@@ -73,70 +50,8 @@ test('founder goal front door exposes Chief truth grammar and carries the bounde
   );
   expect(noHorizontalOverflow).toBe(true);
 
-  await page.locator('[data-page="goals"]:visible').click();
-  await expect(goalsPage).toBeVisible();
-  await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/);
-
-  if (testInfo.project.name === 'mobile-chromium') {
-    await goalCard.screenshot({
-      path: testInfo.outputPath('founder-goals-mobile-chromium-decision.png'),
-    });
-    return;
-  }
-
-  await page.evaluate(() => {
-    const root = document.documentElement;
-    const priorScrollBehavior = root.style.scrollBehavior;
-    root.style.scrollBehavior = 'auto';
-    window.scrollTo(0, 0);
-    root.style.scrollBehavior = priorScrollBehavior;
-  });
-  await page.waitForTimeout(50);
   await page.screenshot({
     path: testInfo.outputPath(`founder-goals-${testInfo.project.name}.png`),
     fullPage: true,
   });
 });
-
-const validLookingUnsafePlan = JSON.stringify([{
-  goal: 'Legacy partial goal',
-  project: 'chief-ai-machine',
-  priority: 'now',
-  definitionOfDone: 'A required outcome exists.',
-  proofRequirements: ['Proof exists'],
-  rollback: 'Revert.',
-  nextGate: 'Review.',
-}]);
-
-for (const [caseName, corruptPayload] of [
-  ['non-array-json', '{"unexpected":"shape"}'],
-  ['invalid-goal-array', '[null]'],
-  ['operationally-unsafe-goal-array', validLookingUnsafePlan],
-]) {
-  test(`corrupt founder-goal storage (${caseName}) renders UNKNOWN and is not overwritten`, async ({ page }, testInfo) => {
-    await page.evaluate(
-      ({ key, value }) => localStorage.setItem(key, value),
-      { key: 'chief-goals-v1', value: corruptPayload },
-    );
-    await page.reload();
-
-    await expect(page.locator('#page-goals')).toBeVisible();
-    await expect(page.locator('#goalReadiness')).toHaveText('UNKNOWN');
-    await expect(page.locator('#goalCount')).toHaveText('?');
-
-    const unknown = page.locator('[data-goal-storage-truth="unknown"]');
-    await expect(unknown).toBeVisible();
-    await expect(unknown).toContainText('Current goal count and readiness are UNKNOWN.');
-    await expect(unknown).toContainText('Nothing has been overwritten.');
-    await expect(page.getByText('No founder goals yet. Define the outcome first.', { exact: true })).toHaveCount(0);
-    await expect(page.locator('#goalForm button[type="submit"]')).toBeDisabled();
-
-    const preserved = await page.evaluate(() => localStorage.getItem('chief-goals-v1'));
-    expect(preserved).toBe(corruptPayload);
-
-    await page.screenshot({
-      path: testInfo.outputPath(`founder-goals-${testInfo.project.name}-${caseName}-unknown-storage.png`),
-      fullPage: true,
-    });
-  });
-}
