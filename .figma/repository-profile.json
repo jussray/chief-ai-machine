@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": "jussray/chief-ai-machine",
+  "role": "provider-neutral prompt builder and AI operations prototype",
+  "figmaMode": "web_prototype_and_design_governance",
+  "runtime": ["vanilla JavaScript SPA", "HTML", "CSS", "browser local storage"],
+  "designTargets": ["prompt library", "structured builder", "freestyle builder", "benchmarks", "provider-neutral status", "planned private control surfaces"],
+  "implementationTargets": ["current HTML", "current CSS", "current JavaScript modules", "current browser lifecycle"],
+  "requiredSkills": ["figma-use", "figma-generate-library"],
+  "conditionalSkills": ["figma-generate-design", "figma-code-connect", "product-design-design-qa"],
+  "prohibitedData": ["proprietary prompt libraries", "private founder prompts", "model keys", "credentials", "privileged provider responses", "customer or project private data"],
+  "codeConnectPolicy": "only_after_stable_published_components_exist",
+  "verification": ["type or static checks", "lint", "unit tests", "browser verification", "Playwright when applicable"],
+  "truthBoundary": "Designs for auth, private storage, server model execution, multi-user isolation, or billing remain planned until backend proof exists."
+}
