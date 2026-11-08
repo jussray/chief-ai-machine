@@ -29,7 +29,7 @@ export default {
     }
 
     if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request);
+      return handleProofModeMcp(request, env);
     }
 
     if (url.pathname.startsWith('/api/')) {

@@ -17,6 +17,35 @@ async function json(response) {
   return response.json();
 }
 
+function evidenceFixture() {
+  return {
+    owner: 'acme',
+    repo: 'app',
+    repositoryUrl: 'https://github.com/acme/app',
+    defaultBranch: 'main',
+    ref: 'main',
+    headSha: '0123456789abcdef0123456789abcdef01234567',
+    readme: '# App',
+    paths: ['package.json', 'src/index.js', 'src/api.js', 'src/ui.js', 'test/app.test.js'],
+    treeTruncated: false,
+    workflows: [{ name: 'CI tests', conclusion: 'success', url: 'https://github.com/acme/app/actions/runs/1' }],
+    deployments: [],
+  };
+}
+
+function classifier(input) {
+  return {
+    repository: `${input.owner}/${input.repo}`,
+    repositoryUrl: input.repositoryUrl,
+    ref: input.ref,
+    headSha: input.headSha,
+    readiness: 'repository_supported_runtime_unverified',
+    layers: [],
+    nextChecks: [],
+    limitations: [],
+  };
+}
+
 describe('ProofMode MCP transport', () => {
   it('initializes with the tools capability', async () => {
     const response = await handleProofModeMcp(
@@ -38,7 +67,7 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
   });
 
-  it('lists only the read-only repository audit tool', async () => {
+  it('lists only the read-only repository audit tool without credential inputs', async () => {
     const response = await handleProofModeMcp(
       mcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     );
@@ -47,40 +76,20 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.tools).toHaveLength(1);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
   });
 
   it('calls the audit tool without mutation capability', async () => {
-    const evidence = {
-      owner: 'acme',
-      repo: 'app',
-      repositoryUrl: 'https://github.com/acme/app',
-      defaultBranch: 'main',
-      ref: 'main',
-      headSha: '0123456789abcdef0123456789abcdef01234567',
-      readme: '# App',
-      paths: ['package.json', 'src/index.js', 'src/api.js', 'src/ui.js', 'test/app.test.js'],
-      treeTruncated: false,
-      workflows: [{ name: 'CI tests', conclusion: 'success', url: 'https://github.com/acme/app/actions/runs/1' }],
-      deployments: [],
-    };
-
+    const evidence = evidenceFixture();
     const deps = {
-      loadPublicRepositoryEvidence: async ({ owner, repo, ref }) => {
+      loadPublicRepositoryEvidence: async ({ owner, repo, ref, token }) => {
         expect(owner).toBe('acme');
         expect(repo).toBe('app');
         expect(ref).toBeUndefined();
+        expect(token).toBeUndefined();
         return evidence;
       },
-      classifyRepositoryEvidence: (input) => ({
-        repository: `${input.owner}/${input.repo}`,
-        repositoryUrl: input.repositoryUrl,
-        ref: input.ref,
-        headSha: input.headSha,
-        readiness: 'repository_supported_runtime_unverified',
-        layers: [],
-        nextChecks: [],
-        limitations: [],
-      }),
+      classifyRepositoryEvidence: classifier,
     };
 
     const response = await handleProofModeMcp(
@@ -98,10 +107,38 @@ describe('ProofMode MCP transport', () => {
     expect(payload.result.structuredContent.repository).toBe('acme/app');
   });
 
+  it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
+    const evidence = evidenceFixture();
+    const deps = {
+      loadPublicRepositoryEvidence: async ({ owner, repo, token }) => {
+        expect(owner).toBe('acme');
+        expect(repo).toBe('app');
+        expect(token).toBe('server-secret');
+        return evidence;
+      },
+      classifyRepositoryEvidence: classifier,
+    };
+
+    const response = await handleProofModeMcp(
+      mcpRequest({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: { name: 'audit_repository', arguments: { owner: 'acme', repo: 'app' } },
+      }),
+      { PROOFMODE_GITHUB_TOKEN: 'server-secret' },
+      deps,
+    );
+
+    const payload = await json(response);
+    expect(payload.result.isError).toBe(false);
+    expect(payload.result.structuredContent.repository).toBe('acme/app');
+  });
+
   it('rejects browser cross-origin requests', async () => {
     const response = await handleProofModeMcp(
       mcpRequest(
-        { jsonrpc: '2.0', id: 4, method: 'tools/list' },
+        { jsonrpc: '2.0', id: 5, method: 'tools/list' },
         { Origin: 'https://attacker.example' },
       ),
     );
