@@ -3,7 +3,10 @@ import {
   resolveCapabilities,
 } from '../src/domain/capability-registry.js';
 import { createCapabilityPlan } from '../src/domain/capability-plan.js';
+import { createConnectionHandoff } from '../src/domain/connection-requests.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
+import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
+import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
 
 const ROUTE = '/api/chief/capability-plan';
 
@@ -34,7 +37,7 @@ function errorResponse(code, message, status = 400) {
   }, status);
 }
 
-function createSubmittedRegistryProposal(input) {
+function createSubmittedRegistryProposal(input, outcomeFeedback) {
   const goalPlan = input.goalPlan;
   const registrySnapshot = input.registrySnapshot;
   const goalValidation = validateGoalPlan(goalPlan);
@@ -43,8 +46,12 @@ function createSubmittedRegistryProposal(input) {
   }
 
   const capabilities = resolveCapabilities(registrySnapshot, goalPlan.capabilities);
+  const feedbackReason = outcomeFeedback.observed
+    ? `Submitted prior outcome recommends ${outcomeFeedback.recommendation}; next-plan authority is ${outcomeFeedback.effectiveAuthority}. Source trust remains ${outcomeFeedback.sourceTrust}.`
+    : 'No prior outcome observation was supplied; existing proposal authority rules apply.';
   const routingReason = [
     `Founder goal composed against submitted registry snapshot ${registrySnapshot.registryId}@${registrySnapshot.version}.`,
+    feedbackReason,
     'Founder Control Room trust resolution is still required.',
     `Next gate: ${goalPlan.nextGate}`,
   ].join(' ');
@@ -54,7 +61,7 @@ function createSubmittedRegistryProposal(input) {
     projectSlug: goalPlan.project,
     expectedHeadSha: input.expectedHeadSha,
     registryHash: registrySnapshot.registryHash,
-    requestedAuthority: input.requestedAuthority || 'reason',
+    requestedAuthority: outcomeFeedback.effectiveAuthority,
     strategicLenses: goalPlan.strategicLenses,
     routingReason,
     capabilities,
@@ -90,21 +97,38 @@ export async function handleChiefCapabilityPlan(request) {
   }
 
   try {
-    const capabilityPlan = createSubmittedRegistryProposal(input);
+    const outcomeFeedback = applyCapabilityOutcomeFeedback(
+      input.requestedAuthority || 'reason',
+      input.latestOutcomeObservation,
+    );
+    const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
+    const connectionHandoff = createConnectionHandoff(input.connectionRequests);
+    // Chief describes the remote founder-control handoff; it never resolves approval itself.
+    const founderControl = founderControlHandoff(capabilityPlan);
 
     return json({
       data: {
         capabilityPlan,
         handoffReceipt,
+        connectionHandoff,
+        outcomeFeedback,
+        founderControl,
         governanceBoundary: {
           proposalOnly: true,
           executionAuthorized: false,
           registrySnapshotResolvedByFcr: false,
           exactHeadVerifiedByFcr: false,
           founderApprovalRequired: true,
+          outcomeCanIncreaseAuthority: false,
+          submittedOutcomeAuthenticated: false,
+          remoteFounderSurfacesMaySelfAuthorize: false,
+          connectionResolutionAuthority: 'founder-control-room',
+          rawCredentialsAccepted: false,
+          rawCredentialsReturned: false,
+          connectionResolver: '/mcp/vault/resolve',
           nextGate:
-            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, and bind explicit founder approval before any execution lane may act.',
+            'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, and bind an explicit founder decision relayed from FCR, ChatGPT, Claude, or Perplexity before n8n or Zapier may execute the exact approved proposal.',
         },
       },
       meta: meta(),
