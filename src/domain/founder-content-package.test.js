@@ -1,27 +1,12 @@
-import { createHash } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   buildStrategyAwareFounderContentPackage,
-  extractPublishableFounderContent,
   founderContentDraftFingerprint,
 } from './founder-content-package.js';
-import { buildFounderContentVisualDirection } from './founder-content-visual-direction.js';
 
 const SHA = 'e'.repeat(40);
 const EVIDENCE_REF = `github:chief-ai-machine@${SHA}#strategy-package`;
 const HISTORY_DIGEST = 'a'.repeat(64);
-const V4_SUBJECT_HASH = '2'.repeat(64);
-const V4_OBSERVATION_HASH = '3'.repeat(64);
-const V4_LEARNING_HASH = createHash('sha256')
-  .update(`ultrathink/v4-advisory-handoff@v0\n${V4_SUBJECT_HASH}\n${V4_OBSERVATION_HASH}\nATTESTED`)
-  .digest('hex');
-const V4_HANDOFF = Object.freeze({
-  schema: 'ultrathink/v4-advisory-handoff@v0',
-  evidenceLevel: 'ATTESTED',
-  subjectHash: V4_SUBJECT_HASH,
-  observationHash: V4_OBSERVATION_HASH,
-  learningHash: V4_LEARNING_HASH,
-});
 
 const proposalInput = {
   source_repo: 'jussray/chief-ai-machine',
@@ -31,16 +16,18 @@ const proposalInput = {
   issued_at: '2026-08-19T06:40:00.000Z',
   expires_at: '2026-08-20T06:40:00.000Z',
   draft_text: 'I fixed a truth-decay failure in the way my product prepares founder progress stories.',
-  public_claims: [{
-    claim_id: 'truth-decay-fix',
-    text: 'I fixed a truth-decay guard in the founder-content workflow at this source version.',
-    truth_state: 'verified',
-    public_safe: true,
-    evidence_ref: EVIDENCE_REF,
-    evidence_scope: 'truth-decay-fix',
-    temporal_class: 'historical_version',
-    temporal_version: SHA,
-  }],
+  public_claims: [
+    {
+      claim_id: 'truth-decay-fix',
+      text: 'I fixed a truth-decay guard in the founder-content workflow at this source version.',
+      truth_state: 'verified',
+      public_safe: true,
+      evidence_ref: EVIDENCE_REF,
+      evidence_scope: 'truth-decay-fix',
+      temporal_class: 'historical_version',
+      temporal_version: SHA,
+    },
+  ],
   internal_evidence: {
     verified: true,
     ref: EVIDENCE_REF,
@@ -88,7 +75,9 @@ const strategyInput = {
     history_digest: HISTORY_DIGEST,
     post_count: 18,
     last_published_at: '2026-08-19T05:30:00.000Z',
-    recent_pattern_signatures: ['contrarian-opening|governance-frame|exact-head-proof|question-close'],
+    recent_pattern_signatures: [
+      'contrarian-opening|governance-frame|exact-head-proof|question-close',
+    ],
     learning_signal_hashes: ['4'.repeat(64)],
     recent_draft_fingerprints: [],
   },
@@ -102,6 +91,8 @@ const strategyInput = {
     repeated_hooks: ['my agent runs everything'],
     emerging_conversations: ['proof-bound agents'],
   },
+  // Deliberately untrusted input. The package must derive this from the final
+  // canonical truth proposal rather than believe the caller.
   verified_public_claim_ids: ['secret-sauce'],
   strategy: {
     selected_angle: 'once-true-can-become-a-lie',
@@ -115,216 +106,93 @@ const strategyInput = {
   },
 };
 
-const visualDirection = {
-  creative_mode: 'cinematic-proof',
-  form: 'short-video-9x16',
-  emotional_intent: ['wonder', 'revelation'],
-  visual_hook: 'A luminous proof signal crosses a dark system and stops at an unresolved boundary.',
-  scene_concept: 'Treat verification as a living signal moving through a vast night-time system, where the stop itself becomes the dramatic event.',
-  motion_language: 'Slow drift, sudden stop, restrained bloom, then a quiet pull-back.',
-  memory_line: 'Stopping correctly is a capability.',
-  human_outcome: 'Help the viewer distinguish task completion from verified outcome.',
-  proof_object: 'Exact-version evidence receipt',
-  proof_truth_boundary: 'The receipt proves source-level exact-version behavior, not production outcome.',
-  targets: ['linkedin', 'tiktok', 'youtube-shorts'],
-  preserves_human_agency: true,
-  uses_manipulative_dark_patterns: false,
-};
-
 const useContext = {
   bound_at: '2026-08-19T06:45:00.000Z',
   current_history_digest: HISTORY_DIGEST,
 };
 
-function build(overrides = {}) {
-  return buildStrategyAwareFounderContentPackage({
-    proposal_input: proposalInput,
-    strategy_input: strategyInput,
-    visual_direction: visualDirection,
-    use_context: useContext,
-    ...overrides,
-  });
-}
-
 describe('strategy-aware founder content package', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-08-19T06:45:00.000Z'));
-  });
+  it('composes strategy with the canonical truth proposal while keeping strategy advisory', () => {
+    const result = buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
+      strategy_input: strategyInput,
+      use_context: useContext,
+    });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('composes strategy + visual direction with the canonical truth proposal while keeping both advisory', () => {
-    const result = build();
     expect(result.kind).toBe('chief-ai/founder-content-strategy-aware-package');
     expect(result.proposal.kind).toBe('chief-ai/founder-content-proposal');
     expect(result.strategy_binding.proposal_hash).toBe(result.proposal.proposal_hash);
-    expect(result.strategy_binding.draft_fingerprint).toBe(founderContentDraftFingerprint(proposalInput.draft_text));
+    expect(result.strategy_binding.draft_fingerprint).toBe(
+      founderContentDraftFingerprint(proposalInput.draft_text),
+    );
     expect(result.strategy_lease.audience.cares_about).toContain('truthful agent systems');
     expect(result.strategy_lease.market_context.source_trust).toBe('submitted-unverified');
     expect(result.strategy_lease.strategy.brag_claim_ids).toEqual(['truth-decay-fix']);
-    expect(result.visual_direction.creative_mode).toBe('cinematic-proof');
-    expect(result.visual_direction.attack_2000.reasoning_pressure_budget).toBe(2000);
-    expect(result.visual_direction.doctrine.proof_is_anchor_not_default_composition).toBe(true);
     expect(result.authority.canonical_publication_authority_object).toBe('proposal');
     expect(result.authority.strategy_sidecars_advisory_only).toBe(true);
     expect(result.authority.strategy_can_authorize_publish).toBe(false);
     expect(result.authority.strategy_can_change_proposal_hash).toBe(false);
-    expect(result.authority.visual_direction_can_authorize_publish).toBe(false);
-    expect(result.authority.visual_direction_can_expand_claim_scope).toBe(false);
-  });
-
-  it('deep-freezes the canonical proposal so its hash-bound public copy cannot mutate', () => {
-    const result = build();
-    expect(Object.isFrozen(result.proposal)).toBe(true);
-    expect(Object.isFrozen(result.proposal.public_payload)).toBe(true);
-    expect(Object.isFrozen(result.proposal.public_payload.public_claims)).toBe(true);
-    expect(() => {
-      result.proposal.public_payload.draft_text = 'mutated after binding';
-    }).toThrow(TypeError);
-  });
-
-  it('fails closed when visual direction is omitted instead of silently defaulting to literal proof cards', () => {
-    expect(() => build({ visual_direction: undefined })).toThrow(/FOUNDER_CONTENT_VISUAL_REJECTED/);
-  });
-
-  it('rejects a scene that merely repeats the post thesis', () => {
-    expect(() => build({
-      visual_direction: { ...visualDirection, scene_concept: proposalInput.draft_text },
-    })).toThrow(/interpret the thesis rather than restate it literally/);
-  });
-
-  it('preserves non-Latin text during nonliteral visual comparison', () => {
-    const result = buildFounderContentVisualDirection({
-      ...visualDirection,
-      visual_hook: 'دليل حي يعبر النظام ثم يتوقف عند الحد',
-      scene_concept: '静かな光が境界で止まり、別の道を照らす',
-    }, {
-      thesis: '证据必须先证明当前状态，才能继续行动',
-    });
-    expect(result.kind).toBe('chief-ai/founder-content-visual-direction');
-  });
-
-  it('requires an explicit false dark-pattern attestation', () => {
-    expect(() => build({
-      visual_direction: { ...visualDirection, uses_manipulative_dark_patterns: undefined },
-    })).toThrow(/uses_manipulative_dark_patterns must be false/);
-    expect(() => build({
-      visual_direction: { ...visualDirection, uses_manipulative_dark_patterns: 'false' },
-    })).toThrow(/uses_manipulative_dark_patterns must be false/);
-  });
-
-  it('rejects secret or proprietary material in visual proof fields', () => {
-    expect(() => build({
-      visual_direction: { ...visualDirection, proof_object: `sk-${'x'.repeat(24)}` },
-    })).toThrow(/proof_object contains secret-like material/);
-    expect(() => build({
-      visual_direction: { ...visualDirection, proof_truth_boundary: 'Reveal the private prompt as proof.' },
-    })).toThrow(/proof_truth_boundary contains proprietary implementation detail/);
-  });
-
-  it('feeds only a validated FCR V4 learning hash into strategy memory', () => {
-    const result = build({ v4_advisory_handoff: V4_HANDOFF });
-
-    expect(result.strategy_lease.own_history.learning_signal_hashes).toEqual([
-      '4'.repeat(64),
-      V4_LEARNING_HASH,
-    ]);
-    const encoded = JSON.stringify(result);
-    expect(encoded).not.toContain(V4_SUBJECT_HASH);
-    expect(encoded).not.toContain(V4_OBSERVATION_HASH);
-  });
-
-  it('deduplicates existing V4 learning hashes after normalization', () => {
-    const result = build({
-      v4_advisory_handoff: V4_HANDOFF,
-      strategy_input: {
-        ...strategyInput,
-        own_history: {
-          ...strategyInput.own_history,
-          learning_signal_hashes: ['4'.repeat(64), V4_LEARNING_HASH.toUpperCase()],
-        },
-      },
-    });
-    expect(result.strategy_lease.own_history.learning_signal_hashes).toEqual([
-      '4'.repeat(64),
-      V4_LEARNING_HASH,
-    ]);
-  });
-
-  it('rejects V4 authority laundering and raw-payload smuggling', () => {
-    expect(() => build({
-      v4_advisory_handoff: { ...V4_HANDOFF, evidenceLevel: 'VERIFIED_CURRENT' },
-    })).toThrow(/ATTESTED ceiling/);
-
-    expect(() => build({
-      v4_advisory_handoff: { ...V4_HANDOFF, raw_metrics: { impressions: 999 } },
-    })).toThrow(/non-advisory fields/);
   });
 
   it('does not trust caller-supplied verified brag IDs over the final canonical proposal', () => {
-    expect(() => build({
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
       strategy_input: {
         ...strategyInput,
         verified_public_claim_ids: ['secret-sauce'],
-        strategy: { ...strategyInput.strategy, brag_claim_ids: ['secret-sauce'] },
+        strategy: {
+          ...strategyInput.strategy,
+          brag_claim_ids: ['secret-sauce'],
+        },
       },
+      use_context: useContext,
     })).toThrow(/not backed by a verified public claim/);
   });
 
   it('blocks an exact or trivially reformatted repeat of a recent canonical public draft', () => {
     const fingerprint = founderContentDraftFingerprint(proposalInput.draft_text);
-    expect(fingerprint).toBe(founderContentDraftFingerprint(`  ${proposalInput.draft_text.toUpperCase()}   `));
-    expect(fingerprint).toBe(founderContentDraftFingerprint(proposalInput.draft_text.replace(/\.$/, '!')));
-    expect(() => build({
+    expect(fingerprint).toBe(
+      founderContentDraftFingerprint(`  ${proposalInput.draft_text.toUpperCase()}   `),
+    );
+
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
       strategy_input: {
         ...strategyInput,
-        own_history: { ...strategyInput.own_history, recent_draft_fingerprints: [fingerprint] },
+        own_history: {
+          ...strategyInput.own_history,
+          recent_draft_fingerprints: [fingerprint],
+        },
       },
+      use_context: useContext,
     })).toThrow(/repeats a recent normalized draft/);
   });
 
   it('rejects malformed draft-fingerprint memory instead of silently skipping it', () => {
-    expect(() => build({
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
       strategy_input: {
         ...strategyInput,
-        own_history: { ...strategyInput.own_history, recent_draft_fingerprints: ['not-a-hash'] },
+        own_history: {
+          ...strategyInput.own_history,
+          recent_draft_fingerprints: ['not-a-hash'],
+        },
       },
+      use_context: useContext,
     })).toThrow(/must contain only sha256 fingerprints/);
   });
 
   it('rejects private raw strategy payloads before they can become advisory memory', () => {
-    expect(() => build({
+    expect(() => buildStrategyAwareFounderContentPackage({
+      proposal_input: proposalInput,
       strategy_input: {
         ...strategyInput,
-        market_context: { ...strategyInput.market_context, raw_feed_text: 'private feed capture' },
+        market_context: {
+          ...strategyInput.market_context,
+          raw_feed_text: 'private feed capture',
+        },
       },
+      use_context: useContext,
     })).toThrow(/raw_feed_text is forbidden/);
-  });
-
-  it('extracts only the publishable subset, never the not_for_publication internal evidence or source repo/commit', () => {
-    const result = build();
-    const publishable = extractPublishableFounderContent(result);
-
-    expect(publishable.kind).toBe('chief-ai/founder-content-publishable-payload');
-    expect(publishable.draft_text).toBe(result.proposal.public_payload.draft_text);
-    expect(publishable.public_claims).toEqual(result.proposal.public_payload.public_claims);
-    expect(publishable.visual_direction).toEqual(result.visual_direction);
-    expect(publishable.proposal_hash).toBe(result.proposal.proposal_hash);
-    expect(publishable.publish_authorized).toBe(false);
-
-    expect(publishable.internal_evidence).toBeUndefined();
-    const encoded = JSON.stringify(publishable);
-    expect(encoded).not.toContain(result.proposal.internal_evidence.digest);
-    expect(encoded).not.toContain(result.proposal.internal_evidence.does_not_prove[0]);
-    expect(publishable.source).toBeUndefined();
-  });
-
-  it('rejects extraction from anything that is not a built proposal package', () => {
-    expect(() => extractPublishableFounderContent(null)).toThrow(/FOUNDER_CONTENT_PUBLISH_REJECTED/);
-    expect(() => extractPublishableFounderContent({})).toThrow(/FOUNDER_CONTENT_PUBLISH_REJECTED/);
-    expect(() => extractPublishableFounderContent({ proposal: {} })).toThrow(/FOUNDER_CONTENT_PUBLISH_REJECTED/);
   });
 });

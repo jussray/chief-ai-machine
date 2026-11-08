@@ -1,34 +1,20 @@
-import { sha256Hex } from './capability-plan.js';
+import { createHash } from 'node:crypto';
 import { buildFounderContentProposal } from './founder-content-brain.js';
 import {
   bindStrategyLeaseToProposal,
   buildFounderContentStrategyLease,
-} from './founder-content-strategy-lease.js';
-import { attachV4AdvisoryLearningToStrategyInput } from './founder-content-v4-advisory.js';
-import { buildFounderContentVisualDirection } from './founder-content-visual-direction.js';
+} from './founder-content-strategy.js';
 
 const HASH = /^[0-9a-f]{64}$/i;
 
 function normalizedDraft(value) {
   return typeof value === 'string'
-    ? value
-      .normalize('NFKC')
-      .toLowerCase()
-      .replace(/\p{P}+/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    ? value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
     : '';
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const child of Object.values(value)) deepFreeze(child, seen);
-  return Object.freeze(value);
-}
-
 export function founderContentDraftFingerprint(value) {
-  return sha256Hex(normalizedDraft(value));
+  return createHash('sha256').update(normalizedDraft(value)).digest('hex');
 }
 
 function recentDraftFingerprints(strategyInput) {
@@ -50,28 +36,21 @@ function recentDraftFingerprints(strategyInput) {
  * Strategy may choose and shape the story, but this function deliberately
  * builds the canonical truth/sauce proposal first and derives the claim IDs
  * strategy is allowed to brag about from that validated proposal. The
- * Strategy Lease, visual direction, and binding remain advisory sidecars and
- * never enter FCR's canonical publication-authority hash.
- *
- * When an FCR V4 advisory handoff is supplied, only its validated learning
- * hash is added to strategy memory. Subject/observation hashes and any raw
- * evidence remain outside the strategy package.
+ * Strategy Lease and binding remain advisory sidecars and never enter FCR's
+ * canonical publication-authority hash.
  */
 export function buildStrategyAwareFounderContentPackage(input = {}) {
   const proposalInput = input.proposal_input && typeof input.proposal_input === 'object'
     ? input.proposal_input
     : {};
-  const submittedStrategyInput = input.strategy_input && typeof input.strategy_input === 'object'
+  const strategyInput = input.strategy_input && typeof input.strategy_input === 'object'
     ? input.strategy_input
     : {};
-  const strategyInput = input.v4_advisory_handoff === undefined
-    ? submittedStrategyInput
-    : attachV4AdvisoryLearningToStrategyInput(submittedStrategyInput, input.v4_advisory_handoff);
   const useContext = input.use_context && typeof input.use_context === 'object'
     ? input.use_context
     : {};
 
-  const proposal = deepFreeze(buildFounderContentProposal(proposalInput));
+  const proposal = buildFounderContentProposal(proposalInput);
   const draftFingerprint = founderContentDraftFingerprint(proposal.public_payload.draft_text);
   if (recentDraftFingerprints(strategyInput).includes(draftFingerprint)) {
     throw new Error(
@@ -88,61 +67,21 @@ export function buildStrategyAwareFounderContentPackage(input = {}) {
     verified_public_claim_ids: verifiedPublicClaimIds,
   });
   const strategyBinding = bindStrategyLeaseToProposal(strategyLease, proposal, useContext);
-  const visualDirection = buildFounderContentVisualDirection(input.visual_direction, {
-    thesis: proposal.public_payload.draft_text,
-  });
 
-  return deepFreeze({
+  return Object.freeze({
     version: 1,
     kind: 'chief-ai/founder-content-strategy-aware-package',
     proposal,
     strategy_lease: strategyLease,
-    visual_direction: visualDirection,
-    strategy_binding: {
+    strategy_binding: Object.freeze({
       ...strategyBinding,
       draft_fingerprint: draftFingerprint,
-    },
-    authority: {
+    }),
+    authority: Object.freeze({
       canonical_publication_authority_object: 'proposal',
       strategy_sidecars_advisory_only: true,
       strategy_can_authorize_publish: false,
       strategy_can_change_proposal_hash: false,
-      visual_direction_can_authorize_publish: false,
-      visual_direction_can_expand_claim_scope: false,
-    },
-  });
-}
-
-/**
- * The package bundles proposal.internal_evidence (explicitly
- * not_for_publication) alongside proposal.public_payload in one object.
- * No current caller sends this package to an external destination, but the
- * package itself has no boundary stopping a future publish integration from
- * serializing the whole thing. This is the one function that integration
- * should call: it returns only fields safe to leave this process, and never
- * copies proposal.internal_evidence or proposal.source (private repo/commit
- * reference) into its output.
- */
-export function extractPublishableFounderContent(pkg) {
-  if (!pkg || typeof pkg !== 'object' || !pkg.proposal || typeof pkg.proposal !== 'object') {
-    throw new Error('FOUNDER_CONTENT_PUBLISH_REJECTED: a founder content package with a proposal is required');
-  }
-  const { public_payload: publicPayload, authority } = pkg.proposal;
-  if (!publicPayload || typeof publicPayload !== 'object') {
-    throw new Error('FOUNDER_CONTENT_PUBLISH_REJECTED: proposal.public_payload is required');
-  }
-
-  return deepFreeze({
-    version: pkg.version,
-    kind: 'chief-ai/founder-content-publishable-payload',
-    platform: publicPayload.platform,
-    story_type: publicPayload.story_type,
-    draft_text: publicPayload.draft_text,
-    public_claims: publicPayload.public_claims,
-    proof_link: publicPayload.proof_link,
-    proof_link_policy: publicPayload.proof_link_policy,
-    visual_direction: pkg.visual_direction ?? null,
-    publish_authorized: authority?.publish_authorized === true,
-    proposal_hash: pkg.proposal.proposal_hash,
+    }),
   });
 }
