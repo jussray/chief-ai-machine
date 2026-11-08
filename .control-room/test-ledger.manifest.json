@@ -24,15 +24,9 @@
     "pending": "block",
     "unknown": "block",
     "skippedOrNeutral": "warning",
-    "requiredCheckAuthority": "repository-policy",
-    "requiredChecks": [
-      "Typecheck",
-      "Lint",
-      "Unit Tests",
-      "Verify Chief AI control room contracts",
-      "Verify operational authority",
-      "Verify test-ledger contract"
-    ],
+    "requiredCheckAuthority": "canonical-repository-manifest",
+    "requiredCheckAuthorityPath": ".control-room/repository.manifest.json",
+    "requiredCheckApplicability": "verification.requiredSignals[].ledger",
     "unlistedDiscoveredChecks": "advisory-visible-non-authoritative",
     "productionMutation": false,
     "secretMaterialAllowed": false,
