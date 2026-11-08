@@ -2,7 +2,7 @@ import js from '@eslint/js';
 
 export default [
   {
-    ignores: ['docs/**', 'global/**', '.wrangler/**', 'mobile/**'],
+    ignores: ['docs/**', 'global/**', '.wrangler/**'],
   },
   js.configs.recommended,
   {
@@ -33,17 +33,6 @@ export default [
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
       'no-control-regex': 'off',
-    },
-  },
-  {
-    files: ['security/**/*.js', 'security/**/*.mjs', 'test/reciprocal-ingress.test.mjs'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      globals: {
-        Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
-        crypto: 'readonly', TextEncoder: 'readonly', console: 'readonly',
-      },
     },
   },
   {
