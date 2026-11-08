@@ -8,96 +8,172 @@
   },
   "verification": {
     "requiredSignals": [
-      {"id": "typecheck", "name": "Typecheck", "required": true},
-      {"id": "lint", "name": "Lint", "required": true},
-      {"id": "unit-tests", "name": "Unit Tests", "required": true},
-      {"id": "control-room-contracts", "name": "Verify Chief AI control room contracts", "required": true},
-      {"id": "test-ledger-contract", "name": "Verify test-ledger contract", "required": true},
-      {"id": "test-ledger-publish", "name": "Publish exact-head test ledger", "required": true},
-      {"id": "freestyle-save-playwright", "name": "Verify Freestyle saved drafts in Chromium", "required": true}
-    ],
-    "testCatalog": [
-      {"id": "typecheck", "name": "Chief AI TypeScript", "kind": "typecheck", "signalId": "typecheck", "required": true, "command": "npm run typecheck", "workflow": ".github/workflows/quality-gate.yml"},
-      {"id": "lint", "name": "Chief AI lint", "kind": "lint", "signalId": "lint", "required": true, "command": "npm run lint", "workflow": ".github/workflows/quality-gate.yml"},
-      {"id": "unit-tests", "name": "Chief AI unit tests", "kind": "unit", "signalId": "unit-tests", "required": true, "command": "npm test", "workflow": ".github/workflows/quality-gate.yml", "artifactPaths": ["test-results.json"]},
-      {"id": "mcp-contract", "name": "Chief AI MCP contract", "kind": "contract", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:mcp", "workflow": ".github/workflows/control-room-contracts.yml"},
-      {"id": "cookie-contract", "name": "Chief AI cookie contract", "kind": "security", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:cookies", "workflow": ".github/workflows/control-room-contracts.yml"},
-      {"id": "founder-chief-pair", "name": "Founder–Chief pairing contract", "kind": "contract", "signalId": "control-room-contracts", "required": true, "command": "npm run verify:founder-chief-pair", "workflow": ".github/workflows/control-room-contracts.yml"},
-      {"id": "control-room-test-ledger-contract", "name": "Control Room test-ledger policy contract", "kind": "contract", "signalId": "test-ledger-contract", "required": true, "command": "npx vitest run test/control-room-test-ledger.test.mjs", "workflow": ".github/workflows/control-room-test-ledger.yml"},
-      {"id": "control-room-test-ledger-publish", "name": "Control Room exact-head ledger observer", "kind": "contract", "signalId": "test-ledger-publish", "required": true, "command": "node scripts/control-room-test-ledger.mjs", "workflow": ".github/workflows/control-room-test-ledger.yml", "artifactPaths": ["artifacts/control-room-test-ledger.json"]},
-      {"id": "freestyle-save-playwright", "name": "Freestyle save and persistence Chromium proof", "kind": "e2e", "signalId": "freestyle-save-playwright", "required": true, "command": "npx playwright test --config=e2e/playwright.freestyle.config.mjs", "workflow": ".github/workflows/freestyle-save-playwright.yml", "artifactPaths": ["playwright-report/freestyle-save", "test-results/freestyle-save"]}
+      {
+        "id": "typecheck",
+        "name": "Typecheck",
+        "required": true
+      },
+      {
+        "id": "lint",
+        "name": "Lint",
+        "required": true
+      },
+      {
+        "id": "unit-tests",
+        "name": "Unit Tests",
+        "required": true
+      }
     ]
   },
   "capabilities": [
     {
-      "id": "governed-prompt-rendering",
-      "description": "Routes reusable prompt output through the evidence-first renderer and verifies provider variants through unit and rendered-browser proof.",
+      "id": "prompt-library-prototype",
+      "description": "Serves the browser prompt library and benchmark data from versioned repository files.",
       "status": "active",
       "evidencePaths": [
-        "src/domain/evidence-first-prompt.js",
-        "src/domain/evidence-first-prompt.test.js",
+        "src/main.js",
+        "src/data/prompts.js",
+        "src/data/benchmarks.js",
+        "src/modules/library.js",
+        "index.html"
+      ],
+      "requiredSignals": [
+        "typecheck",
+        "lint",
+        "unit-tests"
+      ],
+      "usageAssertions": [
+        {
+          "id": "entrypoint-imports-prompts",
+          "path": "src/main.js",
+          "marker": "./data/prompts.js",
+          "description": "The browser entrypoint imports the versioned prompt library."
+        },
+        {
+          "id": "entrypoint-initializes-library",
+          "path": "src/main.js",
+          "marker": "initLibrary(PROMPTS, modal)",
+          "description": "The prompt library module is initialized after DOM readiness."
+        },
+        {
+          "id": "entrypoint-renders-benchmarks",
+          "path": "src/main.js",
+          "marker": "BENCHMARKS.forEach",
+          "description": "Versioned benchmark rows are rendered into the current prototype."
+        }
+      ]
+    },
+    {
+      "id": "prompt-builder-prototype",
+      "description": "Builds repository- and platform-specific prompts in the current client-side prototype.",
+      "status": "active",
+      "evidencePaths": [
+        "src/main.js",
+        "src/modules/builder.js",
         "src/modules/freestyle.js",
-        "src/modules/freestyle-save-evidence-floor.test.js",
-        "e2e/freestyle-save.pw.mjs",
-        ".github/workflows/freestyle-save-playwright.yml"
+        "src/modules/custom.js"
       ],
-      "requiredSignals": ["unit-tests", "freestyle-save-playwright"],
+      "requiredSignals": [
+        "typecheck",
+        "lint"
+      ],
       "usageAssertions": [
-        {"id": "freestyle-uses-shared-renderer", "path": "src/modules/freestyle.js", "marker": "renderPromptVariant", "description": "Saved Freestyle variants use the shared governed renderer."},
-        {"id": "browser-proof-exercises-persistence", "path": "e2e/freestyle-save.pw.mjs", "marker": "savedAfterReload", "description": "Chromium proof verifies saved prompt persistence after reload."}
+        {
+          "id": "entrypoint-initializes-builder",
+          "path": "src/main.js",
+          "marker": "initBuilder(PROMPTS)",
+          "description": "The browser entrypoint initializes the structured prompt builder."
+        },
+        {
+          "id": "entrypoint-initializes-freestyle",
+          "path": "src/main.js",
+          "marker": "initFreestyle(PROMPTS)",
+          "description": "The freestyle builder is part of the active page lifecycle."
+        },
+        {
+          "id": "entrypoint-initializes-custom-prompts",
+          "path": "src/main.js",
+          "marker": "initCustom(PROMPTS, modal)",
+          "description": "Custom prompt state is wired into the browser prototype."
+        }
       ]
     },
     {
-      "id": "repo-local-chief-ai-test-control-room",
-      "description": "Catalogs all current Chief AI tests locally and exports only sanitized exact-head provider-check summaries to Founder Control Room.",
+      "id": "provider-neutral-operating-contracts",
+      "description": "Documents portable provider roles and founder operating modes without making one AI vendor authoritative.",
       "status": "active",
       "evidencePaths": [
-        "control-room.manifest.json",
-        ".control-room/repository.manifest.json",
-        ".control-room/test-ledger.manifest.json",
-        "scripts/verify-control-room-tests.mjs",
-        "scripts/control-room-test-ledger.mjs",
-        "test/control-room-test-ledger.test.mjs",
-        ".github/workflows/control-room-contracts.yml",
-        ".github/workflows/control-room-test-ledger.yml",
-        ".github/workflows/quality-gate.yml",
-        ".github/workflows/freestyle-save-playwright.yml"
+        "README.md",
+        "CLAUDE.md",
+        "AGENTS.md",
+        "docs/OPERATING_MODES.md",
+        "docs/PLATFORM_ROUTING.md"
       ],
-      "requiredSignals": ["typecheck", "lint", "unit-tests", "control-room-contracts", "test-ledger-contract", "test-ledger-publish", "freestyle-save-playwright"],
+      "requiredSignals": [
+        "lint"
+      ],
       "usageAssertions": [
-        {"id": "local-control-room-denies-private-content", "path": "control-room.manifest.json", "marker": "\"privateContentAllowed\": false", "description": "The local control room denies prompt and user content in portfolio evidence."},
-        {"id": "contract-workflow-runs-founder-pair", "path": ".github/workflows/control-room-contracts.yml", "marker": "npm run verify:founder-chief-pair", "description": "The Founder–Chief contract is a named exact-head signal."},
-        {"id": "ledger-policy-fails-closed", "path": "scripts/control-room-test-ledger.mjs", "marker": "enforceTestLedgerPolicy", "description": "Failed, pending, unknown, unstable, or absent evidence blocks the ledger lane."},
-        {"id": "ledger-workflow-retains-sanitized-artifact", "path": ".github/workflows/control-room-test-ledger.yml", "marker": "artifacts/control-room-test-ledger.json", "description": "The ledger workflow retains the sanitized exact-head evidence artifact."}
+        {
+          "id": "readme-links-global-agent-contracts",
+          "path": "README.md",
+          "marker": "docs/OPERATING_MODES.md",
+          "description": "The repository entry documentation routes builders to the portable operating contracts."
+        },
+        {
+          "id": "readme-states-provider-portability",
+          "path": "README.md",
+          "marker": "Use them. Do not depend on them.",
+          "description": "The visible project directive explicitly rejects provider lock-in."
+        }
       ]
     },
     {
-      "id": "founder-os-intent-envelope",
-      "description": "Turns a ready founder goal plan into a cognition-only Founder OS handoff that delegates protocol compilation to PromptOS and leaves live execution authority to Founder Control Room.",
-      "status": "active",
-      "evidencePaths": [
-        "src/domain/founder-intent-envelope.js",
-        "src/domain/founder-intent-envelope.test.js"
-      ],
-      "requiredSignals": ["unit-tests"],
-      "usageAssertions": [
-        {"id": "chief-delegates-prompt-compilation", "path": "src/domain/founder-intent-envelope.js", "marker": "PROMPTOS_MISSION_CONTRACT", "description": "Chief AI names the PromptOS mission contract instead of compiling PromptOS instructions itself."},
-        {"id": "chief-does-not-own-execution-authority", "path": "src/domain/founder-intent-envelope.js", "marker": "unresolved-by-chief-ai", "description": "Provider credentials and execution authority remain unresolved until FCR handles the mission."},
-        {"id": "chief-evaluates-goal-state", "path": "src/domain/founder-intent-envelope.js", "marker": "verified goal-state movement, not task-count completed", "description": "Chief AI evaluates outcomes instead of counting actions as success."}
-      ]
+      "id": "private-server-prompt-operations",
+      "description": "Private access control, durable server-side prompt storage, and real model execution.",
+      "status": "planned",
+      "evidencePaths": [],
+      "requiredSignals": [],
+      "usageAssertions": []
     }
   ],
-  "buildAssist": {"enabled": true, "preferredBuilder": "codex", "riskLevel": "medium"},
+  "buildAssist": {
+    "enabled": true,
+    "preferredBuilder": "codex",
+    "riskLevel": "medium"
+  },
   "privacy": {
     "allowlistedPacketFields": [
-      "projectId", "repository.provider", "repository.identifier", "commitSha", "branch", "manifestHash", "generatedAt",
-      "runner.provider", "runner.runId", "runner.detailsUrl", "checks.id", "checks.name", "checks.required", "checks.status",
-      "checks.detailsUrl", "capabilities.id", "capabilities.claimedStatus", "capabilities.observedStatus", "capabilities.evidencePaths",
-      "capabilities.usageAssertionIds", "capabilities.failedUsageAssertionIds", "capabilities.reason"
+      "projectId",
+      "repository.provider",
+      "repository.identifier",
+      "commitSha",
+      "branch",
+      "manifestHash",
+      "generatedAt",
+      "runner.provider",
+      "runner.runId",
+      "runner.detailsUrl",
+      "checks.id",
+      "checks.name",
+      "checks.required",
+      "checks.status",
+      "checks.detailsUrl",
+      "capabilities.id",
+      "capabilities.claimedStatus",
+      "capabilities.observedStatus",
+      "capabilities.evidencePaths",
+      "capabilities.usageAssertionIds",
+      "capabilities.failedUsageAssertionIds",
+      "capabilities.reason"
     ],
     "forbiddenData": [
-      "raw prompts", "saved prompt drafts", "clipboard contents", "provider responses", "user identities", "API keys or secrets",
-      "raw logs containing private content", "usage assertion marker text in runner packets"
+      "private prompt contents not already versioned in the repository",
+      "usage assertion marker text in runner packets",
+      "provider API keys",
+      "founder account credentials",
+      "customer or user data",
+      "raw model conversations",
+      "unredacted runner logs"
     ]
   }
 }
