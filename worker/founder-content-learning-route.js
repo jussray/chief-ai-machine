@@ -1,4 +1,3 @@
-/* global TextEncoder, crypto */
 import { buildFounderContentLearningSignal } from '../src/domain/founder-content-learning.js';
 import { getReleaseSha } from './fcr-service.js';
 

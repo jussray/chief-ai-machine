@@ -1,3 +1,4 @@
+/* global console */
 // Stripe webhook signature verification (RFC 3104 HMAC-SHA256)
 // Prevents webhook replay attacks by validating the signature
 
