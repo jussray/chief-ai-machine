@@ -13,7 +13,7 @@ Treat `$ARGUMENTS` as the candidate goal. Merge follows evidence, never momentum
 4. Red-team how it could pass tests yet fail in production.
 5. Run cheapest valid checks, then focused tests. Invoke `/playwright-proof` for any UI/runtime path.
 6. Confirm every required check belongs to the exact head. Separate application, test, skipped-proof, and runner failures.
-7. Merge only when requested, mergeable, browser evidence exists when required, and no unresolved material risk remains. Exact-head gates must be green unless checked-in repository policy explicitly permits a classified runner-startup or no-job infrastructure-outage exception, sufficient alternative evidence satisfies that policy, and the merge remains permitted without bypassing protection.
+7. Merge only when the user requested it or checked-in repository policy grants standing merge authority, the PR is mergeable, browser evidence exists when required, and no unresolved material risk remains. Exact-head gates must be green unless checked-in repository policy explicitly permits a classified runner-startup or no-job infrastructure-outage exception, sufficient alternative evidence satisfies that policy, and the merge remains permitted without bypassing protection.
 8. Verify the target branch contains the result. Verify deployment separately if production state is part of the goal.
 
 Never bypass protection, dismiss valid findings, rewrite history, or claim production success from merge alone. Return `REALITY`, `FIX`, `PROOF`, `RISK`, `ROLLBACK`, and `NEXT GATE` with exact identifiers.
