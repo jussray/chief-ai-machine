@@ -184,19 +184,27 @@ export function classifyRepositoryEvidence(input) {
     nextChecks.push("Repeat the audit with a bounded source inventory because GitHub reported a truncated recursive tree.");
   }
 
+  const limitations = [
+    "Public GitHub repository evidence only in v0.1.",
+    "No live runtime probing is performed in v0.1.",
+    "A supported layer means the stated evidence threshold was met; it is not a universal production-readiness certification.",
+  ];
+  if (input.sourceMode === "exact_sha_archive_fallback") {
+    limitations.unshift(
+      "GitHub REST was rate-limited, so ProofMode used a bounded exact-SHA archive. Workflow and deployment API state were not observed and are not inferred."
+    );
+  }
+
   return {
     repository: `${input.owner}/${input.repo}`,
     repositoryUrl: input.repositoryUrl,
     ref: input.ref,
     headSha: input.headSha,
+    sourceMode: input.sourceMode || "github_api",
     readiness,
     layers,
     nextChecks,
-    limitations: [
-      "Public GitHub repository evidence only in v0.1.",
-      "No live runtime probing is performed in v0.1.",
-      "A supported layer means the stated evidence threshold was met; it is not a universal production-readiness certification.",
-    ],
+    limitations,
   };
 }
 
