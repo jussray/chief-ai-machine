@@ -42,23 +42,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-      - name: Diagnostic only - regenerate candidate lockfile for authorized repair
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node --input-type=commonjs <<'NODE'
-          const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const content = fs.readFileSync('package-lock.json', 'utf8');
-          console.log('LOCKFILE_SHA256:' + crypto.createHash('sha256').update(content).digest('hex'));
-          console.log('LOCKFILE_CHUNKS_START');
-          for (const line of content.split(String.fromCharCode(10))) {
-            console.log('LOCKFILE_LINE:' + line);
-          }
-          console.log('LOCKFILE_CHUNKS_END');
-          NODE
-          exit 1
+      - run: npm ci
       - run: npx tsc --noEmit
 
   lint:
