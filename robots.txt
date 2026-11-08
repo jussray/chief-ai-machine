@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Allow: /app
+Disallow: /api/
+Disallow: /mcp
+
+Sitemap: https://chief.foundercontrolroom.org/sitemap.xml
+
+# Answer Engine Optimization
+User-agent: GPTBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Perplexity
+Allow: /
+
+User-agent: CCBot
+Allow: /

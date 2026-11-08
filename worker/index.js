@@ -54,12 +54,22 @@ function getProviderVersionMetadata(env) {
 // Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
 // Runtime-first routes are declared in wrangler.jsonc so they cannot silently
 // fall through to SPA assets.
+
+function addSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'SAMEORIGIN');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  return new Response(response.body, { ...response, headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
     if (url.pathname === '/version') {
-      return Response.json(
+      return addSecurityHeaders(Response.json(
         {
           ok: true,
           sha: getReleaseSha(env),
@@ -67,32 +77,36 @@ export default {
           ...getProviderVersionMetadata(env),
         },
         { headers: { 'Cache-Control': 'no-store' } },
-      );
+      ));
     }
 
     if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request, env);
+      const response = await handleProofModeMcp(request, env);
+      return addSecurityHeaders(response);
     }
 
     if (url.pathname === '/api/chief/capability-plan') {
-      return handleChiefCapabilityPlan(request);
+      const response = await handleChiefCapabilityPlan(request);
+      return addSecurityHeaders(response);
     }
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
-      return handleChiefFounderContentProposal(request);
+      const response = await handleChiefFounderContentProposal(request);
+      return addSecurityHeaders(response);
     }
 
     if (url.pathname === '/api/federated-relay/v3') {
-      return handleFederatedRelayV3BoundToRuntime(
+      const response = await handleFederatedRelayV3BoundToRuntime(
         request,
         env,
         getReleaseSha(env),
         getReleaseBranch(env),
       );
+      return addSecurityHeaders(response);
     }
 
     if (url.pathname === '/api/federated-relay') {
-      return Response.json(
+      return addSecurityHeaders(Response.json(
         {
           error: 'relay_v1_retired',
           successor: '/api/federated-relay/v3',
@@ -101,13 +115,21 @@ export default {
           approvalCarriedForward: false,
         },
         { status: 410, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } },
-      );
+      ));
     }
 
     if (url.pathname.startsWith('/api/')) {
-      return new Response('Not implemented', { status: 501 });
+      return addSecurityHeaders(new Response('Not implemented', { status: 501 }));
     }
 
-    return env.ASSETS.fetch(request);
+    // Route /app to the app.html (authenticated founder application)
+    if (url.pathname === '/app' || url.pathname === '/app/') {
+      const appRequest = new Request(new URL('/app.html', url), request);
+      const response = await env.ASSETS.fetch(appRequest);
+      return addSecurityHeaders(response);
+    }
+
+    const response = await env.ASSETS.fetch(request);
+    return addSecurityHeaders(response);
   },
 };
