@@ -135,7 +135,11 @@ function windowDuration(receipt) {
   return Date.parse(receipt.window.end) - Date.parse(receipt.window.start);
 }
 
-export function buildSocialAnalyticsDecisionInput({ control, challenger, primary_metric } = {}) {
+/**
+ * @param {{ control?: unknown, challenger?: unknown, primary_metric?: unknown }} [input]
+ */
+export function buildSocialAnalyticsDecisionInput(input = {}) {
+  const { control, challenger, primary_metric } = input;
   const a = validateFcrSocialAnalyticsReceipt(control);
   const b = validateFcrSocialAnalyticsReceipt(challenger);
   const metric = text(primary_metric, 80);

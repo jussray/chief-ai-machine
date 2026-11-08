@@ -1,10 +1,6 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
+import { readStarStorage, writeStarStorage } from './star-storage.js';
 import { showToast, copyText } from './ui.js';
-import {
-  STARRED_PROMPTS_UPDATED_EVENT,
-  readStoredArray,
-  writeStars,
-} from './prompt-state.js';
 
 export function initModal() {
   const wrap = document.getElementById('modalWrap');
@@ -21,105 +17,89 @@ export function initModal() {
 
   let currentPrompt = null;
   let currentTab = null;
-  let stars = readStoredArray('chief-stars');
-  let returnFocus = null;
+  let starRead = readStarStorage();
+  let stars = starRead.stars;
 
-  function sameId(a, b) {
-    return String(a) === String(b);
-  }
-
-  function isStarred(id) {
-    return stars.some(starId => sameId(starId, id));
-  }
-
-  function syncStar() {
-    if (!currentPrompt || !mStar) return;
-    const on = isStarred(currentPrompt.id);
-    mStar.textContent = on ? '★' : '☆';
-    mStar.classList.toggle('on', on);
-    mStar.setAttribute('aria-label', `${on ? 'Unstar' : 'Star'} ${currentPrompt.title || 'prompt'}`);
+  function renderStarState(prompt) {
+    if (!mStar) return;
+    const writable = starRead.state === 'ready';
+    mStar.disabled = !writable;
+    mStar.setAttribute('aria-disabled', writable ? 'false' : 'true');
+    mStar.title = writable ? '' : 'Saved star state is UNKNOWN. Repair or reset local state before changing stars.';
+    if (!writable) {
+      mStar.textContent = '?';
+      mStar.classList.remove('on');
+      return;
+    }
+    const starred = stars.includes(prompt.id);
+    mStar.textContent = starred ? '★' : '☆';
+    mStar.classList.toggle('on', starred);
   }
 
   function open(prompt) {
-    returnFocus = document.activeElement;
-    stars = readStoredArray('chief-stars');
     currentPrompt = prompt;
-    mTitle.textContent = (prompt.emoji || '') + '  ' + (prompt.title || 'Untitled');
+    starRead = readStarStorage();
+    stars = starRead.stars;
+    mTitle.textContent = (prompt.emoji || '') + '  ' + prompt.title;
     mSub.textContent = prompt.sub || '';
-    if (prompt.notes) {
-      mNote.hidden = false;
-      mNoteText.textContent = ' ' + prompt.notes;
-    } else {
-      mNote.hidden = true;
-    }
-
+    if (prompt.notes) { mNote.hidden = false; mNoteText.textContent = ' ' + prompt.notes; }
+    else mNote.hidden = true;
     const platforms = Object.keys(prompt.versions || {});
-    mTabs.replaceChildren();
-    platforms.forEach((platform, index) => {
+    mTabs.innerHTML = '';
+    platforms.forEach((p, i) => {
       const btn = document.createElement('button');
-      btn.className = 'ptab' + (index === 0 ? ' active' : '');
-      btn.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
+      btn.className = 'ptab' + (i === 0 ? ' active' : '');
+      btn.textContent = p.charAt(0).toUpperCase() + p.slice(1);
       btn.addEventListener('click', () => {
         mTabs.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentTab = platform;
-        mBody.textContent = renderPromptVariant(prompt, platform);
+        btn.classList.add('active'); currentTab = p; mBody.textContent = renderPromptVariant(prompt, p);
       });
       mTabs.appendChild(btn);
     });
-
-    currentTab = platforms[0] || null;
-    if (currentTab) {
-      mBody.textContent = renderPromptVariant(prompt, currentTab);
-      mCopy.disabled = false;
-    } else {
-      mBody.textContent = 'No prompt versions are available.';
-      mCopy.disabled = true;
-    }
-
-    syncStar();
+    currentTab = platforms[0];
+    mBody.textContent = renderPromptVariant(prompt, currentTab);
+    renderStarState(prompt);
     wrap.classList.add('open');
     document.body.style.overflow = 'hidden';
-    mClose?.focus();
   }
 
   function close() {
-    if (!wrap.classList.contains('open')) return;
     wrap.classList.remove('open');
     document.body.style.overflow = '';
-    currentPrompt = null;
-    currentTab = null;
-    if (returnFocus?.focus) returnFocus.focus();
-    returnFocus = null;
   }
 
   mStar?.addEventListener('click', () => {
     if (!currentPrompt) return;
-    stars = isStarred(currentPrompt.id)
-      ? stars.filter(id => !sameId(id, currentPrompt.id))
-      : [...stars, currentPrompt.id];
-    writeStars(stars);
-    syncStar();
+    starRead = readStarStorage();
+    stars = starRead.stars;
+    if (starRead.state !== 'ready') {
+      showToast('Star state is UNKNOWN. Nothing was changed.');
+      renderStarState(currentPrompt);
+      return;
+    }
+
+    const idx = stars.indexOf(currentPrompt.id);
+    if (idx === -1) stars.push(currentPrompt.id); else stars.splice(idx, 1);
+    try {
+      writeStarStorage(stars);
+    } catch {
+      starRead = { state: 'unavailable', stars: [] };
+      stars = [];
+      showToast('Star storage is unavailable. Nothing else was changed.');
+      renderStarState(currentPrompt);
+      return;
+    }
+    renderStarState(currentPrompt);
   });
 
-  mCopy?.addEventListener('click', async () => {
-    if (!currentPrompt || !currentTab) return;
-    const copied = await copyText(renderPromptVariant(currentPrompt, currentTab));
-    showToast(copied ? 'Copied!' : 'Copy failed. Select the prompt manually.');
+  mCopy?.addEventListener('click', () => {
+    if (currentPrompt && currentTab) { copyText(renderPromptVariant(currentPrompt, currentTab)); showToast('Copied!'); }
   });
 
   mClose?.addEventListener('click', close);
   mClose2?.addEventListener('click', close);
-  wrap?.addEventListener('click', (event) => {
-    if (event.target === wrap) close();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') close();
-  });
-  window.addEventListener(STARRED_PROMPTS_UPDATED_EVENT, () => {
-    stars = readStoredArray('chief-stars');
-    syncStar();
-  });
+  wrap?.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
-  return { open, stars: () => stars };
+  return { open, stars: () => (starRead.state === 'ready' ? [...stars] : null) };
 }

@@ -101,4 +101,3 @@ export function validateAuthorityEnvelope(envelope, context) {
   if (SHA256.test(envelope.envelopeHash || '') && authorityEnvelopeHash(envelope) !== envelope.envelopeHash.toLowerCase()) errors.push('Authority envelope hash does not match content');
   return { valid: errors.length === 0, errors };
 }
-

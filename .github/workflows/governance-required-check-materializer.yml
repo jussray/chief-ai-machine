@@ -11,7 +11,7 @@ permissions:
 
 env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-  BASE_SHA: ${{ github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
   TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
   CLOUDFLARE_CHECK_APP_ID: '85455'
 
@@ -117,10 +117,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          # Test-only files never ship: .assetsignore excludes **/*.test.{js,mjs,ts}
-          # from the deployed bundle, so they cannot change the exact Chief runtime.
-          runtime_candidates="$(printf '%s\n' "$changed" | grep -Ev '(^|/)[^/]+\.test\.(js|mjs|ts)$' || true)"
-          if printf '%s\n' "$runtime_candidates" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"

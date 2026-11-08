@@ -24,15 +24,8 @@ export default [
       sourceType: 'module',
       globals: {
         Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
-        atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly',
+        atob: 'readonly', TextDecoder: 'readonly',
       },
-    },
-  },
-  {
-    files: ['worker/federated-relay-v31.js'],
-    rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
-      'no-control-regex': 'off',
     },
   },
   {

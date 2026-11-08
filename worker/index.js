@@ -1,39 +1,29 @@
-import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { WorkerEntrypoint } from 'cloudflare:workers';
+import {
+  createFounderControlRoomCapabilityPlan,
+  getFounderControlRoomServiceVersion,
+  ingestFounderControlRoomBipEvidence,
+} from './fcr-service.js';
+import httpWorker from './http-worker.js';
 
-function getReleaseSha(env) {
-  const candidates = [
-    env?.RELEASE_SHA,
-    env?.GITHUB_SHA,
-    env?.WORKERS_CI_COMMIT_SHA,
-    BUILD_RELEASE_SHA,
-  ];
-  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
-  return value?.trim() || 'unknown';
+export class FounderControlRoomEntrypoint extends WorkerEntrypoint {
+  async version() {
+    return getFounderControlRoomServiceVersion(this.env);
+  }
+
+  async createCapabilityPlan(input) {
+    return createFounderControlRoomCapabilityPlan(this.env, input);
+  }
+
+  async ingestBipEvidence(input) {
+    return ingestFounderControlRoomBipEvidence(this.env, input);
+  }
 }
 
-// Chief AI Worker entry point.
+// Chief AI Worker composition root.
 //
-// Serves the static SPA (index.html, styles/, src/) via the ASSETS binding.
-// /api/* is routed here first (see wrangler.jsonc run_worker_first) so
-// authenticated API routes and private prompt storage have somewhere to
-// live without a routing/config change. No API routes exist yet — this
-// intentionally returns 501 instead of silently 404ing through to assets,
-// so it's obvious the route is reserved, not missing.
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-
-    if (url.pathname === '/version') {
-      return Response.json(
-        { ok: true, sha: getReleaseSha(env) },
-        { headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
-
-    if (url.pathname.startsWith('/api/')) {
-      return new Response('Not implemented', { status: 501 });
-    }
-
-    return env.ASSETS.fetch(request);
-  },
-};
+// HTTP routing lives in a runtime-neutral module so Node/Vitest can verify the
+// /version and request-routing contract without loading Cloudflare's RPC-only
+// virtual module. Named WorkerEntrypoint exports remain here for the FCR
+// Cloudflare Service Binding.
+export default httpWorker;
