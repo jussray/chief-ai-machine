@@ -3,393 +3,225 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Core SEO -->
-  <title>Chief AI — Founder Intelligence OS | Build Durable Systems</title>
-  <meta name="description" content="Chief AI turns founder decisions into durable systems without hiding uncertainty. Exact-head proof, portable data, reversible changes. Start with founder intent. Ship with evidence." />
-  <meta name="keywords" content="founder intelligence, founder OS, decision framework, product strategy, system design, founder tools, business automation" />
-
-  <!-- Geo/Localization -->
+  <title>Chief AI — Founder Goals, Company Brain, Prompt Library</title>
+  <meta name="description" content="Chief AI: Define founder goals with complete gates. Build a portable company brain. Manage prompt library across Claude, ChatGPT, Perplexity. Evidence-first decision framework." />
+  <meta name="keywords" content="founder goals, company brain, prompt management, prompt library, decision framework, claude, chatgpt, perplexity" />
   <meta name="language" content="en-us" />
-  <meta name="geo.placename" content="Global" />
-  <link rel="alternate" hreflang="en-us" href="https://chief.foundercontrolroom.org/" />
-  <link rel="canonical" href="https://chief.foundercontrolroom.org/" />
-
-  <!-- Open Graph / Social -->
-  <meta property="og:title" content="Chief AI — Founder Intelligence OS" />
-  <meta property="og:description" content="Turn founder intent into verified systems. Evidence-first approach. Portable prompts. Exact-head proof." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://chief.foundercontrolroom.org/" />
-  <meta property="og:image" content="https://chief.foundercontrolroom.org/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-
-  <!-- Twitter/X -->
+  <meta property="og:title" content="Chief AI — Founder Goals & Company Brain" />
+  <meta property="og:description" content="Define goals with gates. Build company brain. Manage prompts. Multi-model support. Evidence-first." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Chief AI — Founder Intelligence OS" />
-  <meta name="twitter:description" content="Build durable systems without hiding uncertainty. Evidence-first operations." />
-  <meta name="twitter:image" content="https://chief.foundercontrolroom.org/og-image.png" />
-
-  <!-- Answer Engine Optimization (AEO) -->
-  <meta name="ai-search" content="Chief AI is a founder intelligence operating system that combines decision frameworks, evidence verification, and system design into one platform for founders." />
-
-  <!-- Performance & Security -->
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="referrer" content="strict-origin-when-cross-origin" />
-  <meta name="format-detection" content="telephone=no" />
-
-  <!-- Fonts -->
+  <meta name="ai-search" content="Chief AI is a founder workspace for defining goals with gates, building a portable company brain, managing prompts across Claude, ChatGPT, and Perplexity, and making evidence-based decisions." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Styles -->
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #f0f0f0; background: #0a0a0a; }
     a { color: inherit; text-decoration: none; }
 
-    .header { border-bottom: 1px solid rgba(255,255,255,0.1); padding: 24px 0; position: sticky; top: 0; background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); z-index: 100; }
+    .header { border-bottom: 1px solid rgba(255,255,255,0.1); padding: 20px 0; position: sticky; top: 0; background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); z-index: 100; }
     .header-wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
-    .logo { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
-    .logo svg { width: 28px; height: 28px; }
-    .nav-header { display: flex; gap: 32px; }
-    .nav-header a { font-size: 14px; opacity: 0.7; transition: opacity 0.2s; }
+    .logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+    .logo svg { width: 24px; height: 24px; }
+    .nav-header { display: flex; gap: 24px; font-size: 14px; }
+    .nav-header a { opacity: 0.7; transition: opacity 0.2s; }
     .nav-header a:hover { opacity: 1; }
-    .cta { background: linear-gradient(135deg, #8b5cf6, #6366f1); padding: 10px 20px; border-radius: 6px; font-size: 14px; border: none; cursor: pointer; transition: transform 0.2s; }
+    .cta { background: linear-gradient(135deg, #8b5cf6, #6366f1); padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .cta:hover { transform: translateY(-2px); }
 
-    .hero { max-width: 1280px; margin: 0 auto; padding: 120px 24px 80px; text-align: center; }
-    .hero h1 { font-size: clamp(32px, 8vw, 64px); font-weight: 800; margin-bottom: 24px; line-height: 1.1; background: linear-gradient(135deg, #ffffff, #d0d0d0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hero .subheading { font-size: 20px; color: #a0a0a0; margin-bottom: 32px; max-width: 600px; margin-left: auto; margin-right: auto; }
-    .hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 64px; }
-    .btn-primary { background: linear-gradient(135deg, #8b5cf6, #6366f1); padding: 14px 32px; border-radius: 8px; font-size: 16px; border: none; cursor: pointer; font-weight: 600; transition: all 0.3s; }
-    .btn-primary:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3); }
-    .btn-secondary { background: rgba(255,255,255,0.1); padding: 14px 32px; border-radius: 8px; font-size: 16px; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; font-weight: 600; transition: all 0.3s; }
-    .btn-secondary:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.4); }
+    .hero { max-width: 1280px; margin: 0 auto; padding: 80px 24px 60px; }
+    .hero h1 { font-size: 48px; font-weight: 800; margin-bottom: 16px; line-height: 1.2; }
+    .hero .subheading { font-size: 18px; color: #a0a0a0; margin-bottom: 32px; max-width: 700px; line-height: 1.6; }
+    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
+    .btn-primary { background: linear-gradient(135deg, #8b5cf6, #6366f1); padding: 12px 28px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(139, 92, 246, 0.3); }
+    .btn-secondary { background: rgba(255,255,255,0.08); padding: 12px 28px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; font-weight: 600; transition: all 0.3s; }
+    .btn-secondary:hover { background: rgba(255,255,255,0.12); }
 
-    .value-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; margin: 80px 0; }
-    .value-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 32px; transition: all 0.3s; }
-    .value-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(139, 92, 246, 0.5); transform: translateY(-4px); }
-    .value-card h3 { font-size: 20px; margin-bottom: 16px; color: #8b5cf6; }
-    .value-card p { font-size: 15px; color: #b0b0b0; line-height: 1.7; }
+    .features { max-width: 1280px; margin: 0 auto; padding: 60px 24px; }
+    .section-title { font-size: 28px; font-weight: 700; margin-bottom: 40px; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 60px; }
+    .feature-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 28px; transition: all 0.3s; }
+    .feature-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(139, 92, 246, 0.4); transform: translateY(-2px); }
+    .feature-icon { font-size: 40px; margin-bottom: 16px; }
+    .feature-card h3 { font-size: 18px; margin-bottom: 12px; font-weight: 700; }
+    .feature-card p { font-size: 14px; color: #b0b0b0; line-height: 1.6; }
 
-    .features { max-width: 1280px; margin: 0 auto; padding: 80px 24px; }
-    .section-title { font-size: 40px; font-weight: 700; margin-bottom: 48px; text-align: center; }
-    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
-    .feature-item { }
-    .feature-icon { font-size: 48px; margin-bottom: 16px; }
-    .feature-item h4 { font-size: 18px; margin-bottom: 12px; }
-    .feature-item p { color: #a0a0a0; font-size: 15px; line-height: 1.6; }
+    .workflow-section { background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(99, 102, 241, 0.08)); padding: 60px 24px; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.15); margin: 60px 0; }
+    .workflow-wrap { max-width: 1280px; margin: 0 auto; }
+    .workflow-title { font-size: 28px; font-weight: 700; margin-bottom: 40px; }
+    .workflow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .workflow-item { background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border-left: 3px solid #8b5cf6; }
+    .workflow-item .num { font-weight: 700; font-size: 24px; color: #8b5cf6; margin-bottom: 8px; }
+    .workflow-item h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .workflow-item p { font-size: 13px; color: #a0a0a0; }
 
-    .proof-section { background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1)); margin: 80px 0; padding: 60px 24px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.2); }
-    .proof-wrap { max-width: 900px; margin: 0 auto; }
-    .proof-title { font-size: 28px; font-weight: 700; margin-bottom: 24px; text-align: center; }
-    .proof-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 32px; }
-    @media (max-width: 768px) { .proof-grid { grid-template-columns: 1fr; } }
-    .proof-item { background: rgba(0,0,0,0.3); padding: 24px; border-radius: 8px; border-left: 3px solid #8b5cf6; }
-    .proof-item strong { color: #8b5cf6; display: block; margin-bottom: 8px; font-size: 14px; }
-    .proof-item p { font-size: 15px; color: #b0b0b0; }
+    .models-section { max-width: 1280px; margin: 60px auto; padding: 0 24px; }
+    .models-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-top: 30px; }
+    .model-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; text-align: center; }
+    .model-icon { font-size: 32px; margin-bottom: 12px; }
+    .model-name { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+    .model-use { font-size: 12px; color: #909090; }
 
-    .cta-section { max-width: 800px; margin: 80px auto; padding: 60px 24px; text-align: center; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; }
-    .cta-section h2 { font-size: 32px; margin-bottom: 24px; }
-    .cta-section p { color: #a0a0a0; margin-bottom: 32px; font-size: 16px; }
+    .cta-section { max-width: 800px; margin: 60px auto; padding: 40px 24px; text-align: center; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 10px; }
+    .cta-section h2 { font-size: 28px; margin-bottom: 16px; }
+    .cta-section p { color: #a0a0a0; margin-bottom: 24px; }
 
-    .footer { max-width: 1280px; margin: 0 auto; padding: 60px 24px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 120px; }
-    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 32px; margin-bottom: 40px; }
-    .footer-col h4 { font-size: 14px; margin-bottom: 16px; color: #8b5cf6; text-transform: uppercase; font-weight: 600; }
-    .footer-col a { display: block; font-size: 14px; color: #a0a0a0; margin-bottom: 12px; transition: color 0.2s; }
-    .footer-col a:hover { color: #ffffff; }
-    .footer-bottom { text-align: center; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); color: #606060; font-size: 14px; }
+    .footer { max-width: 1280px; margin: 0 auto; padding: 40px 24px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 80px; text-align: center; color: #707070; font-size: 13px; }
 
     @media (max-width: 768px) {
-      .hero { padding: 60px 24px 40px; }
-      .hero h1 { font-size: 36px; }
+      .hero { padding: 40px 24px; }
+      .hero h1 { font-size: 32px; }
       .nav-header { display: none; }
-      .section-title { font-size: 28px; }
     }
   </style>
 </head>
 <body>
-
-<!-- Structured Data (JSON-LD) for Search Engines & Answer Engines -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Chief AI",
-  "description": "Founder Intelligence Operating System for durable business systems",
-  "url": "https://chief.foundercontrolroom.org",
-  "logo": "https://chief.foundercontrolroom.org/logo.png",
-  "sameAs": [
-    "https://twitter.com/jussray"
-  ],
-  "founder": {
-    "@type": "Person",
-    "name": "Jussray"
-  },
-  "contactPoint": {
-    "@type": "ContactPoint",
-    "contactType": "Customer Service",
-    "url": "https://chief.foundercontrolroom.org/contact"
-  }
-}
-</script>
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Chief AI",
-  "description": "Founder intelligence operating system that combines decision frameworks, evidence verification, system design, and prompt management into one platform",
+  "description": "Founder workspace: Define goals with gates. Build company brain. Manage prompts across Claude, ChatGPT, Perplexity.",
   "url": "https://chief.foundercontrolroom.org",
-  "applicationCategory": "BusinessApplication",
-  "offers": {
-    "@type": "Offer",
-    "price": "Contact for pricing",
-    "priceCurrency": "USD"
-  },
-  "featureList": [
-    "Founder Goals & Decision Frameworks",
-    "Evidence-Based Planning",
-    "Company Brain Intelligence Storage",
-    "Portable Prompt Library",
-    "Multi-Provider Support (Claude, ChatGPT, Perplexity)",
-    "System Design & Architecture",
-    "Proof & Verification",
-    "Rollback Planning"
-  ],
-  "operatingSystem": "Web",
-  "provider": {
-    "@type": "Organization",
-    "name": "Founder Control Room"
-  }
+  "applicationCategory": "Productivity",
+  "featureList": ["Founder Goals", "Company Brain", "Prompt Library", "Prompt Builder", "Freestyle Mode", "Model Routing"]
 }
 </script>
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "What is Chief AI?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Chief AI is a founder intelligence operating system that turns founder intent into durable systems. It combines decision frameworks, evidence verification, system design, and portable prompts into one platform. Start with founder outcome. Ship with evidence."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How does Chief AI help founders?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Chief AI helps founders: Define exact outcomes, verify decisions with evidence, design durable systems, manage portable prompts across providers, track proof of completion, and plan reversible rollbacks. Never hide uncertainty. Always prove progress."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What makes Chief AI different?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Chief AI prioritizes portable data, reversible changes, exact-head proof, founder authority, and evidence-first decision-making. It's provider-neutral, works across Claude, ChatGPT, and Perplexity, and preserves your intellectual property."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I use Chief AI with multiple AI providers?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Chief AI is provider-neutral and works with Claude, ChatGPT, Perplexity, Figma, Canva, and Shopify. Your prompts and company brain are portable—never lock into one provider."
-      }
-    }
-  ]
-}
-</script>
-
-<!-- Header -->
 <header class="header">
   <div class="header-wrap">
     <div class="logo">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="24" rx="6" fill="currentColor" opacity="0.12"/><path d="M8 14h12M14 8v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="currentColor"/></svg>
+      <svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="24" rx="6" fill="currentColor" opacity="0.12"/><path d="M8 14h12M14 8v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="currentColor"/></svg>
       <span>ChiefAI</span>
     </div>
     <nav class="nav-header">
       <a href="#features">Features</a>
-      <a href="#how-it-works">How It Works</a>
-      <a href="#proof">Proof</a>
-      <a href="mailto:contact@chief.ai">Contact</a>
+      <a href="#models">Models</a>
+      <a href="#workflow">Workflow</a>
     </nav>
-    <button class="cta" onclick="window.location.href='/app'">Launch App →</button>
+    <button class="cta" onclick="window.location.href='/app'">Launch →</button>
   </div>
 </header>
 
-<!-- Hero Section -->
 <section class="hero">
-  <h1>Founder Intelligence OS</h1>
-  <p class="subheading">Turn founder intent into durable systems without hiding uncertainty. Evidence-first. Portable data. Exact-head proof.</p>
+  <h1>Founder Goals. Company Brain. Prompt Library.</h1>
+  <p class="subheading">Define what you're trying to accomplish with complete gates. Build a portable company brain. Manage prompts across Claude, ChatGPT, Perplexity.</p>
   <div class="hero-ctas">
-    <button class="btn-primary" onclick="window.location.href='/app'">Start Building →</button>
-    <button class="btn-secondary" onclick="alert('Demo coming soon')">Watch Demo</button>
+    <button class="btn-primary" onclick="window.location.href='/app'">Start Now →</button>
+    <button class="btn-secondary" onclick="alert('Docs coming soon')">Learn More</button>
   </div>
 </section>
 
-<!-- Value Props -->
-<div style="max-width: 1280px; margin: 0 auto; padding: 0 24px;">
-  <div class="value-grid">
-    <div class="value-card">
-      <h3>🎯 Founder Goals</h3>
-      <p>Define exact outcomes with complete gates. Evidence before action. One decision per gate. Authority bound to capability.</p>
-    </div>
-    <div class="value-card">
-      <h3>🧠 Company Brain</h3>
-      <p>Save prompts, decisions, playbooks, brand voice as portable assets that survive provider changes. Version everything.</p>
-    </div>
-    <div class="value-card">
-      <h3>📚 Prompt Library</h3>
-      <p>Starter systems for ChatGPT, Claude, Perplexity, Figma, Canva, Shopify. Reuse across projects. Never rewrite.</p>
-    </div>
-    <div class="value-card">
-      <h3>✓ Proof First</h3>
-      <p>Exact-head verification. Production receipt matches expected SHA. ProofMode tests before shipping. Rollback planned.</p>
-    </div>
-    <div class="value-card">
-      <h3>🔄 Provider Neutral</h3>
-      <p>Your data stays yours. Switch providers without losing context. Portable prompts. Documented recovery paths.</p>
-    </div>
-    <div class="value-card">
-      <h3>🛠 System Design</h3>
-      <p>Architecture frameworks. Decision continuity. Authority gates. Evidence cascades. Reversible changes only.</p>
-    </div>
-  </div>
-</div>
-
-<!-- Features Section -->
 <section class="features" id="features">
-  <h2 class="section-title">Built for Founders Who Ship</h2>
+  <h2 class="section-title">What You Get</h2>
   <div class="feature-grid">
-    <div class="feature-item">
-      <div class="feature-icon">📋</div>
-      <h4>Bounded Planning</h4>
-      <p>Define goals with complete gates. Know exactly what success looks like before you build.</p>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3>Founder Goals</h3>
+      <p>Define exact outcomes with complete gates. What are we trying to accomplish? Evidence. Proof. Rollback. Next gate before execution.</p>
     </div>
-    <div class="feature-item">
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <h3>Company Brain</h3>
+      <p>Build a portable knowledge base. Save prompts, decisions, playbooks, brand voice. Export as JSON. Never vendor lock.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <h3>Prompt Library</h3>
+      <p>Starter prompt systems for coding, research, strategy, growth. Multi-platform support. Reuse across projects.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛠</div>
+      <h3>Prompt Builder</h3>
+      <p>Build prompts by choosing pack, platform (ChatGPT, Claude, Perplexity, Figma, Canva, Shopify), and output format.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✨</div>
+      <h3>Freestyle Mode</h3>
+      <p>Describe what you need. Chief AI generates prompt variations for your chosen platforms. Copy or save.</p>
+    </div>
+    <div class="feature-card">
       <div class="feature-icon">📊</div>
-      <h4>Evidence Dashboard</h4>
-      <p>Track readiness, proof, authority, and rollback capability. See the real state, not the story.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🧬</div>
-      <h4>System Anatomy</h4>
-      <p>Learn how to structure prompts: role, objective, context, constraints, instructions, format, evidence.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🔀</div>
-      <h4>Model Routing</h4>
-      <p>Know which model fits each task. ChatGPT for speed. Claude for depth. Perplexity for research.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">💾</div>
-      <h4>Portable Company Brain</h4>
-      <p>Save everything: prompts, decisions, playbooks, metrics. Export as JSON. Never vendor lock.</p>
-    </div>
-    <div class="feature-item">
-      <div class="feature-icon">🚀</div>
-      <h4>Ship with Authority</h4>
-      <p>Every change has a decision. Every decision has evidence. Every ship has proof.</p>
+      <h3>Model Routing</h3>
+      <p>See which model fits which task. ChatGPT for speed. Claude for depth. Perplexity for research.</p>
     </div>
   </div>
 </section>
 
-<!-- How It Works -->
-<section class="proof-section" id="how-it-works">
-  <div class="proof-wrap">
-    <h2 class="proof-title">How Chief AI Works</h2>
-    <div class="proof-grid">
-      <div class="proof-item">
-        <strong>1. OBSERVE</strong>
-        <p>State your goal. Provide evidence. Name constraints. Define proof requirements.</p>
+<section class="workflow-section" id="workflow">
+  <div class="workflow-wrap">
+    <h2 class="workflow-title">Your Workflow</h2>
+    <div class="workflow-grid">
+      <div class="workflow-item">
+        <div class="num">1</div>
+        <h4>Define Goal</h4>
+        <p>What are you trying to accomplish? What's your proof?</p>
       </div>
-      <div class="proof-item">
-        <strong>2. ORIENT</strong>
-        <p>Map architecture. Identify risks. Choose reversible path. Plan rollback.</p>
+      <div class="workflow-item">
+        <div class="num">2</div>
+        <h4>Build Prompts</h4>
+        <p>Use Builder or Freestyle. Pick model. Generate variations.</p>
       </div>
-      <div class="proof-item">
-        <strong>3. DECIDE</strong>
-        <p>Pick one focused fix. Bound capability to authority. Set next gate.</p>
+      <div class="workflow-item">
+        <div class="num">3</div>
+        <h4>Execute</h4>
+        <p>Run on Claude, ChatGPT, Perplexity. Capture results.</p>
       </div>
-      <div class="proof-item">
-        <strong>4. ACT & PROVE</strong>
-        <p>Build. Test. Verify. Ship. Capture proof. Feed evidence back in.</p>
+      <div class="workflow-item">
+        <div class="num">4</div>
+        <h4>Save to Brain</h4>
+        <p>Promote to Company Brain. Reuse across projects.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Proof Section -->
-<section class="proof-section" id="proof">
-  <div class="proof-wrap">
-    <h2 class="proof-title">Evidence Matters</h2>
-    <div class="proof-grid">
-      <div class="proof-item">
-        <strong>✓ Real-time verification</strong>
-        <p>Every deployment tied to exact commit SHA. Production receipt matches expected head.</p>
-      </div>
-      <div class="proof-item">
-        <strong>✓ Authority gates</strong>
-        <p>Founder approval required before merge/deploy. No silent changes. No hidden configs.</p>
-      </div>
-      <div class="proof-item">
-        <strong>✓ Reversible by design</strong>
-        <p>Every change has a documented rollback. Break glass procedures in place.</p>
-      </div>
-      <div class="proof-item">
-        <strong>✓ Portable data</strong>
-        <p>Export everything. No vendor lock. Your prompts, your decisions, your IP.</p>
-      </div>
+<section class="models-section" id="models">
+  <h2 class="section-title">Multi-Model Support</h2>
+  <div class="models-grid">
+    <div class="model-card">
+      <div class="model-icon">🤖</div>
+      <div class="model-name">Claude</div>
+      <div class="model-use">Depth & nuance</div>
+    </div>
+    <div class="model-card">
+      <div class="model-icon">💬</div>
+      <div class="model-name">ChatGPT</div>
+      <div class="model-use">Speed & breadth</div>
+    </div>
+    <div class="model-card">
+      <div class="model-icon">🔍</div>
+      <div class="model-name">Perplexity</div>
+      <div class="model-use">Research & citations</div>
+    </div>
+    <div class="model-card">
+      <div class="model-icon">🎨</div>
+      <div class="model-name">Figma</div>
+      <div class="model-use">Design & prototyping</div>
+    </div>
+    <div class="model-card">
+      <div class="model-icon">🖼</div>
+      <div class="model-name">Canva</div>
+      <div class="model-use">Visual content</div>
+    </div>
+    <div class="model-card">
+      <div class="model-icon">🏪</div>
+      <div class="model-name">Shopify</div>
+      <div class="model-use">Commerce & products</div>
     </div>
   </div>
 </section>
 
-<!-- CTA Section -->
 <section class="cta-section">
-  <h2>Ready to Build Durable Systems?</h2>
-  <p>Start with founder outcome. Ship with evidence. Never hide uncertainty.</p>
+  <h2>Ready to Build Your Company Brain?</h2>
+  <p>Define your goals. Manage your prompts. Build institutional knowledge.</p>
   <button class="btn-primary" onclick="window.location.href='/app'">Launch Chief AI →</button>
 </section>
 
-<!-- Footer -->
 <footer class="footer">
-  <div class="footer-grid">
-    <div class="footer-col">
-      <h4>Product</h4>
-      <a href="/app">Launch App</a>
-      <a href="#features">Features</a>
-      <a href="#proof">Proof</a>
-    </div>
-    <div class="footer-col">
-      <h4>Company</h4>
-      <a href="mailto:contact@chief.ai">Contact</a>
-      <a href="https://twitter.com/jussray">Twitter</a>
-      <a href="https://github.com/jussray/chief-ai-machine">GitHub</a>
-    </div>
-    <div class="footer-col">
-      <h4>Resources</h4>
-      <a href="#anatomy">System Anatomy</a>
-      <a href="#benchmarks">Model Routing</a>
-      <a href="/docs">Documentation</a>
-    </div>
-    <div class="footer-col">
-      <h4>Legal</h4>
-      <a href="/privacy">Privacy Policy</a>
-      <a href="/terms">Terms of Service</a>
-      <a href="/security">Security</a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>Chief AI © 2026 Founder Control Room. Built with exact-head proof. Provider neutral. Founder first.</p>
-  </div>
+  <p>Chief AI © 2026 Founder Control Room. Portable data. Provider neutral. Built for founders.</p>
 </footer>
 
 </body>
