@@ -1,0 +1,11 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+# Project-scoped Codex defaults. Keep credentials, provider and account settings local.
+# Never replace AGENTS.md or override repository-specific release authorization.
+model_reasoning_effort = "high"
+model_reasoning_summary = "auto"
+
+[features]
+multi_agent = true
+
+[agents]
+max_concurrent_threads_per_session = 4
