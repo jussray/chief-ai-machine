@@ -1,0 +1,16 @@
+{
+  "name": "chief-public-front-door",
+  "main": "front-door/worker.mjs",
+  "compatibility_date": "2026-10-16",
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "chief.foundercontrolroom.org/",
+      "zone_name": "foundercontrolroom.org"
+    },
+    {
+      "pattern": "chief.foundercontrolroom.org/__frontdoor_home*",
+      "zone_name": "foundercontrolroom.org"
+    }
+  ]
+}
