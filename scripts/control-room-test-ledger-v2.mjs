@@ -3,142 +3,53 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   aggregateTestLedger,
+  mapCheckState,
   selectLatestChecks,
 } from './control-room-test-ledger.mjs';
 
-const CANONICAL_MANIFEST_PATH = '.control-room/repository.manifest.json';
-const ALLOWED_REQUIREMENTS = new Set(['always', 'when-present', 'observer', 'not-observed']);
-const ALLOWED_EVENTS = new Set(['push', 'pull_request']);
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeSha = (value) => clean(value).toLowerCase();
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-function signalKey(signal) {
-  return `${clean(signal?.ledger?.app)}\u0000${clean(signal?.name)}`;
-}
-
-function checkKey(check) {
-  return `${clean(check?.app)}\u0000${clean(check?.name)}`;
-}
-
-export function loadCanonicalLedgerPolicy(policyPath = CANONICAL_MANIFEST_PATH) {
+export function loadLedgerPolicy(policyPath = '.control-room/test-ledger.manifest.json') {
   const manifest = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
-  const signals = Array.isArray(manifest?.verification?.requiredSignals)
-    ? manifest.verification.requiredSignals
+  const requiredChecks = Array.isArray(manifest?.policy?.requiredChecks)
+    ? manifest.policy.requiredChecks.map(clean).filter(Boolean)
     : [];
-  const errors = [];
-
-  if (manifest?.repository?.identifier !== 'jussray/chief-ai-machine') {
-    errors.push('canonical repository manifest identifier is unexpected');
+  if (requiredChecks.length === 0) {
+    throw new Error(`Test-ledger policy has no requiredChecks: ${policyPath}`);
   }
-  if (signals.length === 0) errors.push('canonical repository manifest has no requiredSignals');
-
-  const ids = new Set();
-  const keys = new Set();
-  const normalizedSignals = signals.map((signal, index) => {
-    const id = clean(signal?.id);
-    const name = clean(signal?.name);
-    const app = clean(signal?.ledger?.app);
-    const requirement = clean(signal?.ledger?.requirement);
-    const events = Array.isArray(signal?.ledger?.events)
-      ? [...new Set(signal.ledger.events.map(clean).filter(Boolean))]
-      : [];
-
-    if (!id) errors.push(`requiredSignals[${index}].id is required`);
-    if (ids.has(id)) errors.push(`duplicate canonical signal id: ${id}`);
-    ids.add(id);
-    if (!name) errors.push(`canonical signal name missing: ${id || index}`);
-    if (signal?.required !== true) errors.push(`canonical signal must remain required: ${id || index}`);
-    if (!app) errors.push(`canonical ledger app missing: ${id || index}`);
-    if (!ALLOWED_REQUIREMENTS.has(requirement)) {
-      errors.push(`canonical ledger requirement invalid: ${id || index}`);
-    }
-    if (events.some((event) => !ALLOWED_EVENTS.has(event))) {
-      errors.push(`canonical ledger event invalid: ${id || index}`);
-    }
-    if (requirement === 'not-observed' && events.length !== 0) {
-      errors.push(`not-observed signal may not declare ledger events: ${id || index}`);
-    }
-    if (requirement !== 'not-observed' && events.length === 0) {
-      errors.push(`observed signal must declare at least one ledger event: ${id || index}`);
-    }
-
-    const normalized = { id, name, required: true, ledger: { app, requirement, events } };
-    if (requirement !== 'not-observed') {
-      const key = signalKey(normalized);
-      if (keys.has(key)) errors.push(`duplicate canonical ledger app/name authority: ${app}/${name}`);
-      keys.add(key);
-    }
-    return normalized;
-  });
-
-  if (errors.length > 0) {
-    throw new Error(`Canonical ledger policy invalid: ${errors.join('; ')}`);
-  }
-  return { policyPath, signals: normalizedSignals };
+  return { policyPath, requiredChecks };
 }
 
-export function signalsForEvent(signals, eventName) {
-  const event = clean(eventName);
-  if (!ALLOWED_EVENTS.has(event)) throw new Error(`Unsupported ledger policy event: ${event || 'missing'}`);
-  return (Array.isArray(signals) ? signals : []).filter(
-    (signal) => signal.ledger.requirement !== 'not-observed' && signal.ledger.events.includes(event),
-  );
+export function classifyChecks(checks, requiredNames) {
+  const required = new Set(requiredNames);
+  return (Array.isArray(checks) ? checks : []).map((check) => ({
+    ...check,
+    authority: required.has(check.name) ? 'required' : 'advisory',
+  }));
 }
 
-export function classifyChecks(checks, signals, eventName) {
-  const applicable = signalsForEvent(signals, eventName);
-  const byKey = new Map(applicable.map((signal) => [signalKey(signal), signal]));
-  return (Array.isArray(checks) ? checks : []).map((check) => {
-    const signal = byKey.get(checkKey(check));
-    const requirement = signal?.ledger?.requirement ?? 'advisory';
-    return {
-      ...check,
-      authority: requirement === 'always' || requirement === 'when-present' ? 'required' : 'advisory',
-      authoritySignalId: signal?.id ?? null,
-      authorityRequirement: signal?.ledger?.requirement ?? null,
-    };
-  });
-}
-
-export function buildPolicyLedger({
-  repository,
-  sha,
-  branch,
-  runId,
-  checks,
-  signals,
-  policyEvent,
-  observerState,
-  observedAt = new Date(),
-  policyPath = CANONICAL_MANIFEST_PATH,
-}) {
-  const applicable = signalsForEvent(signals, policyEvent);
-  const observerSignals = applicable.filter((signal) => signal.ledger.requirement === 'observer');
-  const classified = classifyChecks(checks, signals, policyEvent);
+export function buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames, observerState, observedAt = new Date(), policyPath, runtimeState = null }) {
+  const classified = classifyChecks(checks, requiredNames);
   const authoritativeChecks = classified.filter((check) => check.authority === 'required');
-  const discoveredKeys = new Set(classified.map(checkKey));
-  const missingAlwaysSignals = applicable
-    .filter((signal) => signal.ledger.requirement === 'always')
-    .filter((signal) => !discoveredKeys.has(signalKey(signal)))
-    .map((signal) => ({ id: signal.id, name: signal.name, app: signal.ledger.app }));
-
+  const discoveredRequiredNames = new Set(authoritativeChecks.map((check) => check.name));
+  const missingRequiredChecks = requiredNames.filter((name) => !discoveredRequiredNames.has(name));
   return {
     schemaVersion: 2,
     repository,
     commitSha: normalizeSha(sha),
     branch: clean(branch) || null,
     generatedAt: observedAt.toISOString(),
+    ...(runtimeState ? { runtimeState } : {}),
     source: {
       provider: 'github-check-runs',
       exactRef: 'commit-sha',
       dedupe: 'latest-by-app-and-name',
       includesAllDiscoveredChecks: true,
       excludesObserverCheck: true,
-      requiredCheckAuthority: 'canonical-repository-manifest',
+      requiredCheckAuthority: 'repository-policy',
       policyPath,
-      policyEvent,
-      authorityTuple: 'event+requirement+app+exact-check-name',
     },
     runner: {
       provider: 'github-actions',
@@ -148,11 +59,8 @@ export function buildPolicyLedger({
     },
     aggregate: aggregateTestLedger(authoritativeChecks),
     discoveryAggregate: aggregateTestLedger(classified),
-    requiredSignalIds: applicable
-      .filter((signal) => signal.ledger.requirement === 'always' || signal.ledger.requirement === 'when-present')
-      .map((signal) => signal.id),
-    observerSignalIds: observerSignals.map((signal) => signal.id),
-    missingAlwaysSignals,
+    requiredCheckNames: requiredNames,
+    missingRequiredChecks,
     checks: classified,
   };
 }
@@ -160,12 +68,12 @@ export function buildPolicyLedger({
 export function enforcePolicyLedger(ledger, outputPath = 'artifacts/control-room-test-ledger.json') {
   const blockers = [];
   const counts = ledger?.aggregate?.counts || {};
-  const missing = Array.isArray(ledger?.missingAlwaysSignals) ? ledger.missingAlwaysSignals : [];
+  const missing = Array.isArray(ledger?.missingRequiredChecks) ? ledger.missingRequiredChecks : [];
   const failed = Number(counts.failed || 0);
   const pending = Number(counts.queued || 0) + Number(counts.running || 0);
   const unknown = Number(counts.unknown || 0);
 
-  if (missing.length > 0) blockers.push(`missing always-required signals: ${missing.map((signal) => signal.name).join(', ')}`);
+  if (missing.length > 0) blockers.push(`missing required checks: ${missing.join(', ')}`);
   if (ledger?.runner?.observerState !== 'stable') {
     blockers.push(`observer did not reach a stable terminal state (${ledger?.runner?.observerState || 'unknown'})`);
   }
@@ -184,13 +92,11 @@ async function githubJson(url, token) {
     headers: {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
-      'User-Agent': 'control-room-canonical-policy-ledger',
+      'User-Agent': 'control-room-policy-ledger',
       'X-GitHub-Api-Version': '2022-11-28',
     },
   });
-  if (!response.ok) {
-    throw new Error(`GitHub check lookup failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
-  }
+  if (!response.ok) throw new Error(`GitHub check lookup failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
   return response.json();
 }
 
@@ -211,6 +117,52 @@ async function fetchAllCheckRuns({ repository, sha, token }) {
   return runs;
 }
 
+// GitHub's commit check-run view can temporarily lag behind its Actions job
+// endpoint. Resolve ONLY still-pending repository-required GitHub Actions jobs,
+// and only on exact job ID, name, commit, and terminal provider result.
+// No absence, mismatch, skipped status, or API error can ever imply success.
+export async function corroboratePendingRequiredJobs({
+  checks, requiredNames, repository, sha, token, getJob = githubJson,
+}) {
+  const [owner, repo] = clean(repository).split('/');
+  const required = new Set(requiredNames);
+  const expectedSha = normalizeSha(sha);
+  return Promise.all((Array.isArray(checks) ? checks : []).map(async (check) => {
+    if (!required.has(check.name)
+      || check.app !== 'github-actions'
+      || !['queued', 'running'].includes(check.state)
+      || !/^[1-9][0-9]*$/.test(check.id)
+      || !owner || !repo) return check;
+    let job;
+    try {
+      job = await getJob(
+        new URL('https://api.github.com/repos/' + owner + '/' + repo + '/actions/jobs/' + check.id),
+        token,
+      );
+    } catch {
+      // Fail closed: the original pending state remains authoritative.
+      return check;
+    }
+    if (String(job?.id) !== check.id
+      || normalizeSha(job?.head_sha) !== expectedSha
+      || clean(job?.name) !== check.name
+      || job?.status !== 'completed'
+      || !clean(job?.completed_at)) return check;
+    return {
+      ...check,
+      state: mapCheckState(job),
+      status: job.status,
+      conclusion: clean(job.conclusion) || null,
+      completedAt: job.completed_at,
+      corroboration: {
+        provider: 'github-actions-job',
+        exactHead: expectedSha,
+        jobId: check.id,
+      },
+    };
+  }));
+}
+
 function writeLedger(outputPath, ledger) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8');
@@ -222,26 +174,23 @@ export async function observePolicyChecks(env = process.env) {
   const branch = clean(env.GITHUB_HEAD_REF || env.GITHUB_REF_NAME);
   const token = clean(env.GITHUB_TOKEN);
   const runId = clean(env.GITHUB_RUN_ID);
-  const policyEvent = clean(env.CONTROL_ROOM_LEDGER_POLICY_EVENT || env.GITHUB_EVENT_NAME || 'push');
+  const observerCheckName = clean(env.CONTROL_ROOM_LEDGER_SELF_CHECK || 'Publish exact-head test ledger');
   const outputPath = clean(env.CONTROL_ROOM_TEST_LEDGER_PATH) || 'artifacts/control-room-test-ledger.json';
+  const runtimeStatePath = clean(env.CONTROL_ROOM_RUNTIME_STATE_PATH);
+  const runtimeState = runtimeStatePath ? JSON.parse(fs.readFileSync(runtimeStatePath, 'utf8')) : null;
+  if (runtimeState) {
+    if (clean(runtimeState.repository) !== repository) throw new Error('Runtime-state receipt repository does not match the ledger repository.');
+    if (normalizeSha(runtimeState.sourceSha) !== sha) throw new Error('Runtime-state receipt sourceSha does not match the exact ledger head.');
+    if (!/^sha256:[0-9a-f]{64}$/u.test(clean(runtimeState?.trackedConfig?.sha256))) throw new Error('Runtime-state receipt is missing a valid tracked-config fingerprint.');
+  }
   const timeoutMs = Number(env.CONTROL_ROOM_LEDGER_TIMEOUT_MS || 20 * 60 * 1000);
   const pollMs = Number(env.CONTROL_ROOM_LEDGER_POLL_MS || 10_000);
   const minimumObservationMs = Number(env.CONTROL_ROOM_LEDGER_MINIMUM_MS || 30_000);
-  const policyPath = clean(env.CONTROL_ROOM_LEDGER_POLICY_PATH) || CANONICAL_MANIFEST_PATH;
-  const { signals } = loadCanonicalLedgerPolicy(policyPath);
-  const applicable = signalsForEvent(signals, policyEvent);
-  const observers = applicable.filter((signal) => signal.ledger.requirement === 'observer');
+  const policyPath = clean(env.CONTROL_ROOM_LEDGER_POLICY_PATH) || '.control-room/test-ledger.manifest.json';
+  const { requiredChecks } = loadLedgerPolicy(policyPath);
 
   if (!repository || !sha || !token) {
     throw new Error('GITHUB_REPOSITORY, EXPECTED_HEAD_SHA/GITHUB_SHA, and GITHUB_TOKEN are required.');
-  }
-  if (observers.length !== 1) {
-    throw new Error(`Canonical ledger policy must define exactly one observer for ${policyEvent}; found ${observers.length}`);
-  }
-  const observerCheckName = observers[0].name;
-  const configuredObserver = clean(env.CONTROL_ROOM_LEDGER_SELF_CHECK);
-  if (configuredObserver && configuredObserver !== observerCheckName) {
-    throw new Error(`Configured observer check does not match canonical authority: ${configuredObserver} != ${observerCheckName}`);
   }
 
   const startedAt = Date.now();
@@ -251,31 +200,15 @@ export async function observePolicyChecks(env = process.env) {
   let reachedStableTerminal = false;
 
   while (Date.now() - startedAt < timeoutMs) {
-    checks = selectLatestChecks(
-      await fetchAllCheckRuns({ repository, sha, token }),
-      sha,
-      observerCheckName,
-    );
-    const snapshot = buildPolicyLedger({
-      repository,
-      sha,
-      branch,
-      runId,
-      checks,
-      signals,
-      policyEvent,
-      observerState: 'observing',
-      policyPath,
-    });
+    checks = selectLatestChecks(await fetchAllCheckRuns({ repository, sha, token }), sha, observerCheckName);
+    checks = await corroboratePendingRequiredJobs({ checks, requiredNames: requiredChecks, repository, sha, token });
+    const snapshot = buildPolicyLedger({ repository, sha, branch, runId, checks, requiredNames: requiredChecks, observerState: 'observing', policyPath, runtimeState });
     writeLedger(outputPath, snapshot);
     const authoritative = snapshot.checks.filter((check) => check.authority === 'required');
     const fingerprint = JSON.stringify(authoritative.map((check) => [check.app, check.name, check.state]));
-    const terminal = snapshot.missingAlwaysSignals.length === 0
-      && !authoritative.some((check) => check.state === 'queued' || check.state === 'running');
+    const terminal = snapshot.missingRequiredChecks.length === 0 && !authoritative.some((check) => check.state === 'queued' || check.state === 'running');
     const oldEnough = Date.now() - startedAt >= minimumObservationMs;
-    stableTerminalPolls = terminal && oldEnough && fingerprint === previousFingerprint
-      ? stableTerminalPolls + 1
-      : 0;
+    stableTerminalPolls = terminal && oldEnough && fingerprint === previousFingerprint ? stableTerminalPolls + 1 : 0;
     previousFingerprint = fingerprint;
     if (stableTerminalPolls >= 1) {
       reachedStableTerminal = true;
@@ -290,18 +223,17 @@ export async function observePolicyChecks(env = process.env) {
     branch,
     runId,
     checks,
-    signals,
-    policyEvent,
+    requiredNames: requiredChecks,
     observerState: reachedStableTerminal ? 'stable' : 'window-expired',
     policyPath,
+    runtimeState,
   });
   writeLedger(outputPath, ledger);
   console.log(JSON.stringify(ledger, null, 2));
   return enforcePolicyLedger(ledger, outputPath);
 }
 
-const isDirectExecution = process.argv[1]
-  && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+const isDirectExecution = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (isDirectExecution) {
   observePolicyChecks().catch((error) => {
     console.error(error instanceof Error ? error.stack ?? error.message : String(error));

@@ -1,18 +1,22 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "worker/index.js",
-  "preview_urls": true,
+  "main": "security/chief-edge-entry.js",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "chief.foundercontrolroom.org", "custom_domain": true },
+    { "pattern": "app.chief.foundercontrolroom.org", "custom_domain": true },
+    { "pattern": "api.chief.foundercontrolroom.org", "custom_domain": true }
+  ],
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
   "ratelimits": [
     {
-      "name": "MCP_TOOLS_CALL_RATE_LIMITER",
-      "namespace_id": "739184251",
+      "name": "CHIEF_RATE_LIMITER",
+      "namespace_id": "1002",
       "simple": {
-        "limit": 8,
+        "limit": 120,
         "period": 60
       }
     }
@@ -21,6 +25,6 @@
     "directory": "./",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/version", "/mcp"]
+    "run_worker_first": ["/api", "/api/*", "/github", "/github/*", "/version", "/mcp", "/.well-known/security.txt"]
   }
 }
