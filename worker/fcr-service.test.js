@@ -1,22 +1,20 @@
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createCapabilityRegistry } from '../src/domain/capability-registry.js';
 import { sha256Hex } from '../src/domain/capability-plan.js';
 import { createGoalPlan } from '../src/domain/goal-plan.js';
-import { BIP_FCR_EVIDENCE_CONTRACT } from '../src/domain/bip-fcr-evidence.js';
+import { AnthropicProviderError } from './anthropic-provider.js';
 import {
   CHIEF_CAPABILITY_PLAN_CONTRACT,
   CHIEF_FCR_RPC_CONTRACT,
+  CHIEF_PROVIDER_RUN_CONTRACT,
   createFounderControlRoomCapabilityPlan,
   getArtifactReleaseSha,
   getFounderControlRoomServiceVersion,
-  ingestFounderControlRoomBipEvidence,
-  acceptFounderControlRoomPromptOSCommandIntent,
+  runFounderControlRoomProviderMessage,
 } from './fcr-service.js';
 
 const releaseSha = '73c36e61dae96bf1bb94990d3b5e5a6a0bb70b24';
 const spoofedRuntimeSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const bipSha = '579342699fc7fb394cf9684643756cdc8c9342a8';
 
 function requestInput() {
   const registrySnapshot = createCapabilityRegistry({
@@ -50,58 +48,50 @@ function requestInput() {
   };
 }
 
-function bipEvidence() {
+function providerRequest(overrides = {}) {
   return {
-    schemaVersion: 1,
-    id: 'bip-fcr-123e4567-e89b-42d3-a456-426614174000',
-    workspaceId: 'juss',
-    projectId: 'sekret-bip',
-    sourceSystem: 'founder-control-room',
-    sourceRecordId: '123e4567-e89b-42d3-a456-426614174000',
-    sourceRevision: bipSha,
-    kind: 'workflow',
-    subjectType: 'sekret-bip-control-room-proof',
-    subjectId: bipSha,
-    subjectRef: `github:jussray/Sekret-Bip@${bipSha}`,
-    state: 'verified',
-    statement: `Se’kret Bip Control Room exact-head test ledger is verified for ${bipSha}.`,
-    sourceRefs: [
-      'juss-proof:123e4567-e89b-42d3-a456-426614174000',
-      `github:jussray/Sekret-Bip@${bipSha}`,
-    ],
-    status: 'active',
-    supersedesReceiptId: '',
-    observedAt: '2026-09-23T04:10:00.000Z',
-    recordedAt: '2026-09-23T04:10:01.000Z',
-    authority: {
-      scope: 'evidence-only',
-      instructionPolicy: 'data-only',
-      permitsRepositoryWrite: false,
-      permitsExecution: false,
-      permitsDeployment: false,
-      permitsPublishing: false,
-      permitsBilling: false,
-      permitsApproval: false,
-      permitsSecretMutation: false,
-      permitsDestructiveAction: false,
+    contract: CHIEF_PROVIDER_RUN_CONTRACT,
+    workspace_id: 'founder-control-room',
+    project_id: 'chief-ai-machine',
+    asset_id: 'friend-mode-session-001',
+    asset_version: 'v1',
+    context_fingerprint: 'b'.repeat(64),
+    audience_segment: 'founder',
+    provider: 'anthropic',
+    model: 'claude-sonnet-5',
+    max_tokens: 256,
+    timeout_ms: 5000,
+    messages: [{ role: 'user', content: 'Choose the next bounded step.' }],
+    approval: {
+      source_system: 'founder-control-room',
+      founder_approved: true,
+      execution_authorized: true,
+      consequence: 'provider-billing',
+      receipt_id: 'fcr-provider-approval-1',
+      approved_at: '2026-09-15T22:00:00.000Z',
     },
+    ...overrides,
   };
 }
 
-describe('Chief Cloudflare FCR RPC entrypoint wiring', () => {
-  it('exports the FCR RPC binding independently of Node HTTP', () => {
-    const root = readFileSync(new URL('./index.js', import.meta.url), 'utf8');
-    const rpc = readFileSync(new URL('./fcr-rpc-entry.js', import.meta.url), 'utf8');
-    const edge = readFileSync(new URL('../security/chief-edge-entry.js', import.meta.url), 'utf8');
-
-    expect(root).not.toContain("from 'cloudflare:workers'");
-    expect(rpc).toContain("export class FounderControlRoomEntrypoint extends WorkerEntrypoint");
-    expect(rpc).toContain('ingestBipEvidence(input)');
-    expect(rpc).toContain('acceptPromptOSCommandIntent(input)');
-    expect(edge).toContain("export { FounderControlRoomEntrypoint } from '../worker/fcr-rpc-entry.js';");
-    expect(edge).toContain("export * from '../worker/index.js';");
-  });
-});
+function providerResult() {
+  return {
+    provider: 'anthropic',
+    api: 'messages',
+    api_version: '2023-06-01',
+    request_id: 'req_1',
+    provider_message_id: 'msg_1',
+    requested_model: 'claude-sonnet-5',
+    resolved_model: 'claude-sonnet-5',
+    output_text: 'Use the existing learning carrier.',
+    content_types: ['text'],
+    stop_reason: 'end_turn',
+    usage: { input_tokens: 20, output_tokens: 7 },
+    latency_ms: 500,
+    observed_at: '2026-09-15T22:00:01.000Z',
+    provenance_locked: true,
+  };
+}
 
 describe('Founder Control Room RPC service contract', () => {
   it('binds service identity and contracts to the baked artifact SHA', () => {
@@ -113,9 +103,7 @@ describe('Founder Control Room RPC service contract', () => {
       service: 'chief-ai',
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
-      bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
-      promptOSCommandIntentContract: 'promptos/public-command-intent@v1',
-      promptOSCommandHandoffContract: 'juss/promptos-chief-fcr-command-handoff@v1',
+      providerRunContract: CHIEF_PROVIDER_RUN_CONTRACT,
       releaseSha,
     });
   });
@@ -146,96 +134,83 @@ describe('Founder Control Room RPC service contract', () => {
     });
   });
 
-  it('accepts a PromptOS public command over the private FCR RPC without minting authority', () => {
-    const response = acceptFounderControlRoomPromptOSCommandIntent(
-      { RELEASE_SHA: spoofedRuntimeSha },
-      {
-        intent: {
-          schema: 'promptos/public-command-intent@v1',
-          command: { id: 'contract', token: '/contract', category: 'Legal', label: 'Contract' },
-          arguments: 'vendor NDA',
-          project: 'truth-weaver',
-          capabilityId: 'legal-navigation',
-          route: {
-            owner: 'promptos',
-            reasoningPlane: 'chief-ai-machine',
-            specialistProduct: 'truth-weaver',
-            authorityPlane: 'founder-control-room',
-          },
-          authorityCeiling: 'advisory-only',
-          execution: { status: 'not-executed', mutationAuthorized: false },
-          evidence: { contract: 'current-authority', staleOnStateChange: true },
-          catalogQuery: 'contract',
-        },
+  it('rejects an unapproved billed provider call before contacting Anthropic', async () => {
+    const runAnthropicMessage = vi.fn();
+    const input = providerRequest({
+      approval: {
+        ...providerRequest().approval,
+        founder_approved: false,
       },
-      releaseSha,
-    );
-
-    expect(response.ok).toBe(true);
-    expect(response.status).toBe(200);
-    expect(response.releaseSha).toBe(releaseSha);
-    expect(response.promptOSCommandIntentContract).toBe('promptos/public-command-intent@v1');
-    expect(response.promptOSCommandHandoffContract).toBe('juss/promptos-chief-fcr-command-handoff@v1');
-    expect(response.result).toMatchObject({
-      acceptedBy: 'chief-ai-machine',
-      project: 'truth-weaver',
-      capabilityId: 'legal-navigation',
-      specialistProduct: 'truth-weaver',
-      authorityPlane: 'founder-control-room',
-      authorityResolution: 'unresolved',
-      actionAuthority: false,
-      executionAuthorized: false,
-      nextRequiredContract: 'juss-v10/capability-plan@v1',
     });
-  });
 
-  it('accepts FCR-issued Bip evidence through the private RPC without gaining authority', () => {
-    const response = ingestFounderControlRoomBipEvidence(
-      { RELEASE_SHA: spoofedRuntimeSha },
-      bipEvidence(),
+    const response = await runFounderControlRoomProviderMessage(
+      { ANTHROPIC_API_KEY: 'server-only-fixture' },
+      input,
       releaseSha,
-    );
-
-    expect(response.ok).toBe(true);
-    expect(response.status).toBe(200);
-    expect(response.releaseSha).toBe(releaseSha);
-    expect(response.bipEvidenceContract).toBe(BIP_FCR_EVIDENCE_CONTRACT);
-    expect(response.result.accepted).toBe(true);
-    expect(response.result.authority.permitsExecution).toBe(false);
-    expect(response.result.authority.permitsApproval).toBe(false);
-  });
-
-  it('returns stable failure codes without serializing rejected RPC inputs', () => {
-    const bipResult = ingestFounderControlRoomBipEvidence(
-      {},
-      { ...bipEvidence(), sourceSystem: 'untrusted-user-LEAKMARKER' },
-      releaseSha,
-    );
-    expect(bipResult.ok).toBe(false);
-    expect(bipResult.status).toBe(422);
-    expect(bipResult.error).toBe('invalid_fcr_bip_evidence');
-    expect(JSON.stringify(bipResult)).not.toContain('LEAKMARKER');
-
-    const commandResult = acceptFounderControlRoomPromptOSCommandIntent(
-      {},
-      { intent: { schema: 'untrusted-user-LEAKMARKER' } },
-      releaseSha,
-    );
-    expect(commandResult.ok).toBe(false);
-    expect(commandResult.status).toBe(422);
-    expect(commandResult.error).toBe('invalid_promptos_command_intent');
-    expect(JSON.stringify(commandResult)).not.toContain('LEAKMARKER');
-  });
-
-  it('fails closed when a non-FCR source tries to inject Bip evidence', () => {
-    const response = ingestFounderControlRoomBipEvidence(
-      {},
-      { ...bipEvidence(), sourceSystem: 'sekret-bip-audit-mirror' },
-      releaseSha,
+      { runAnthropicMessage },
     );
 
     expect(response.ok).toBe(false);
-    expect(response.status).toBe(422);
-    expect(response.error).toMatch(/invalid|Founder Control Room/i);
+    expect(response.status).toBe(400);
+    expect(response.releaseSha).toBe(releaseSha);
+    expect(response.error.code).toBe('provider_run_rejected');
+    expect(runAnthropicMessage).not.toHaveBeenCalled();
+  });
+
+  it('executes an approved provider call and returns only quarantined learning authority', async () => {
+    const runAnthropicMessage = vi.fn(async () => providerResult());
+    const response = await runFounderControlRoomProviderMessage(
+      { ANTHROPIC_API_KEY: 'server-only-fixture', RELEASE_SHA: spoofedRuntimeSha },
+      providerRequest(),
+      releaseSha,
+      { runAnthropicMessage },
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.status).toBe(200);
+    expect(response.releaseSha).toBe(releaseSha);
+    expect(runAnthropicMessage).toHaveBeenCalledTimes(1);
+    expect(response.result.output).toMatchObject({
+      provider: 'anthropic',
+      requestId: 'req_1',
+      messageId: 'msg_1',
+      text: 'Use the existing learning carrier.',
+    });
+    expect(response.result.learningReceipt).toMatchObject({
+      state: 'QUARANTINED',
+      provider: 'anthropic',
+      authority: {
+        provider_output_approved: false,
+        promotion_allowed: false,
+        learning_authority: 'advisory_only',
+        may_increase_authority: false,
+        may_execute_external_action: false,
+        founder_review_required_for_promotion: true,
+      },
+    });
+  });
+
+  it('does not leak provider credentials when a provider error crosses the RPC boundary', async () => {
+    const runAnthropicMessage = vi.fn(async () => {
+      throw new AnthropicProviderError('provider_timeout', 'Anthropic request timed out.', 504, 'req_timeout');
+    });
+    const response = await runFounderControlRoomProviderMessage(
+      { ANTHROPIC_API_KEY: 'never-return-this-fixture' },
+      providerRequest(),
+      releaseSha,
+      { runAnthropicMessage },
+    );
+
+    expect(response).toMatchObject({
+      ok: false,
+      status: 504,
+      releaseSha,
+      error: {
+        code: 'provider_timeout',
+        message: 'Anthropic request timed out.',
+        requestId: 'req_timeout',
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('never-return-this-fixture');
   });
 });

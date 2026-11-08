@@ -7,6 +7,16 @@
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
+  "ratelimits": [
+    {
+      "name": "MCP_TOOLS_CALL_RATE_LIMITER",
+      "namespace_id": "739184251",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    }
+  ],
   "assets": {
     "directory": "./",
     "binding": "ASSETS",

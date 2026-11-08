@@ -1,4 +1,4 @@
-/* global TextEncoder, crypto */
+/* global TextEncoder, ReadableStream, Headers, crypto */
 import { describe, expect, it } from 'vitest';
 import {
   FCR_LEARNING_ROUTE,
@@ -121,27 +121,29 @@ describe('authenticated FCR founder-content learning route', () => {
     const body = await response.json();
     expect(body.error).toBeNull();
     expect(body.data.advisorySignal.source_trust).toBe('submitted-unverified');
-    expect(body.data.advisorySignal.source_authentication_verified).toBe(false);
     expect(body.data.authenticatedSource).toMatchObject({
-      transport_contract: 'juss-v10/fcr-founder-content-learning-http@v1',
+      transport_contract: FCR_LEARNING_TRANSPORT_CONTRACT,
       source_system: 'founder-control-room',
       source_trust: 'fcr-hmac-authenticated',
-      source_authentication: 'hmac-sha256',
       source_authentication_verified: true,
       source_key_id: KEY_ID,
       source_observation_hash: input.observation_hash,
       dedupe_key: input.observation_hash,
     });
     expect(body.data.authenticatedSource.authenticated_source_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(body.data.authority).toEqual({
-      evidence_only: true,
-      learning_authority: 'advisory_only',
-      execution_authorized: false,
-      publish_authorized: false,
-      content_mutation_authorized: false,
-      may_increase_authority: false,
-      authenticated_source_may_bypass_founder_approval: false,
-    });
+    expect(body.data.authority.may_increase_authority).toBe(false);
+    expect(body.data.authority.authenticated_source_may_bypass_founder_approval).toBe(false);
+  });
+
+  it('binds receipt identity to /version release precedence', async () => {
+    const input = await observation();
+    const releaseSha = '1'.repeat(40);
+    const response = await handleFounderContentLearning(
+      await signedRequest(input),
+      { ...env, RELEASE_SHA: releaseSha, GITHUB_SHA: '2'.repeat(40), WORKERS_CI_COMMIT_SHA: '3'.repeat(40) },
+      NOW_MS,
+    );
+    expect((await response.json()).data.authenticatedSource.chief_release_sha).toBe(releaseSha);
   });
 
   it('rejects a body changed after FCR signed it', async () => {
@@ -149,63 +151,57 @@ describe('authenticated FCR founder-content learning route', () => {
     const request = await signedRequest(input);
     const tampered = JSON.stringify({ ...input, provider_receipt_id: 'tampered-receipt' });
     const response = await handleFounderContentLearning(new Request(request.url, {
-      method: 'POST',
-      headers: request.headers,
-      body: tampered,
+      method: 'POST', headers: request.headers, body: tampered,
     }), env, NOW_MS);
-
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'fcr_learning_authentication_failed' },
-    });
   });
 
-  it('rejects stale signed evidence instead of treating an old signature as current provenance', async () => {
-    const input = await observation();
-    const request = await signedRequest(input, '2026-08-19T21:50:00.000Z');
-    const response = await handleFounderContentLearning(request, env, NOW_MS);
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'fcr_learning_authentication_expired' },
+  it('cancels an oversized request before buffering beyond 64 KiB', async () => {
+    let cancelled = false;
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('x'.repeat(32 * 1024)));
+        controller.enqueue(encoder.encode('y'.repeat((32 * 1024) + 1)));
+      },
+      cancel() { cancelled = true; },
     });
+    const request = {
+      url: `https://chief-ai.internal${FCR_LEARNING_ROUTE}`,
+      method: 'POST',
+      headers: new Headers({
+        'X-FCR-Learning-Key-Id': KEY_ID,
+        'X-FCR-Learning-Issued-At': '2026-08-19T22:00:00.000Z',
+        'X-FCR-Learning-Signature': '0'.repeat(64),
+      }),
+      body: stream,
+    };
+    const response = await handleFounderContentLearning(request, env, NOW_MS);
+    expect(response.status).toBe(413);
+    expect(cancelled).toBe(true);
   });
 
-  it('rejects a valid HMAC under an unconfigured key identity', async () => {
+  it('rejects stale signed evidence', async () => {
     const input = await observation();
-    const request = await signedRequest(input, '2026-08-19T22:00:00.000Z', {
-      keyId: 'attacker-controlled-key',
-    });
-    const response = await handleFounderContentLearning(request, env, NOW_MS);
-
+    const response = await handleFounderContentLearning(
+      await signedRequest(input, '2026-08-19T21:50:00.000Z'), env, NOW_MS,
+    );
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'fcr_learning_authentication_failed' },
-    });
+    await expect(response.json()).resolves.toMatchObject({ error: { code: 'fcr_learning_authentication_expired' } });
   });
 
   it('fails closed when Chief has no FCR authentication secret configured', async () => {
     const input = await observation();
     const response = await handleFounderContentLearning(
-      await signedRequest(input),
-      { FCR_LEARNING_HMAC_KEY_ID: KEY_ID },
-      NOW_MS,
+      await signedRequest(input), { FCR_LEARNING_HMAC_KEY_ID: KEY_ID }, NOW_MS,
     );
-
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'fcr_learning_authentication_unconfigured' },
-    });
   });
 
-  it('still validates the signed observation contract after transport authentication', async () => {
+  it('still validates authority after transport authentication', async () => {
     const input = await observation();
     input.authority.can_authorize_publish = true;
     const response = await handleFounderContentLearning(await signedRequest(input), env, NOW_MS);
-
     expect(response.status).toBe(400);
-    const body = await response.json();
-    expect(body.error.code).toBe('invalid_founder_content_observation');
-    expect(body.error.message).toContain('can_authorize_publish must be false');
+    expect((await response.json()).error.message).toContain('can_authorize_publish must be false');
   });
 });

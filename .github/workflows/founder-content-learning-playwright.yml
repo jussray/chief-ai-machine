@@ -1,3 +1,4 @@
+# Exact-head proof only; historical receipts never transfer across candidate fingerprints.
 name: Founder Content Learning Playwright
 
 on:
@@ -7,6 +8,7 @@ on:
     paths:
       - "worker/founder-content-learning-route.js"
       - "worker/founder-content-learning-route.test.js"
+      - "worker/http-worker.js"
       - "worker/index.js"
       - "src/domain/founder-content-learning.js"
       - "src/domain/founder-content-learning.test.js"

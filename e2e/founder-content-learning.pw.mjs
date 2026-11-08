@@ -119,6 +119,7 @@ test.describe('authenticated FCR learning exact-head runtime', () => {
       source_key_id: keyId,
       source_observation_hash: input.observation_hash,
       dedupe_key: input.observation_hash,
+      chief_release_sha: expectedHead,
     });
     expect(body.data.authority).toEqual({
       evidence_only: true,

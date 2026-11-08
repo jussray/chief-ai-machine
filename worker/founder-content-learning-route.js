@@ -1,6 +1,6 @@
 /* global TextEncoder, crypto */
 import { buildFounderContentLearningSignal } from '../src/domain/founder-content-learning.js';
-import { BUILD_RELEASE_SHA } from './release-sha.js';
+import { getReleaseSha } from './fcr-service.js';
 
 export const FCR_LEARNING_ROUTE = '/api/chief/founder-content-learning';
 export const FCR_LEARNING_TRANSPORT_CONTRACT = 'juss-v10/fcr-founder-content-learning-http@v1';
@@ -12,6 +12,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_AGE_MS = 5 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 60 * 1000;
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 function text(value, max = 1000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -28,10 +29,7 @@ function json(payload, status = 200) {
 }
 
 function errorResponse(code, message, status) {
-  return json({
-    data: null,
-    error: { code, message },
-  }, status);
+  return json({ data: null, error: { code, message } }, status);
 }
 
 function bytesToHex(value) {
@@ -48,7 +46,8 @@ function hexToBytes(value) {
 }
 
 async function sha256Hex(value) {
-  return bytesToHex(await crypto.subtle.digest('SHA-256', encoder.encode(value)));
+  const bytes = typeof value === 'string' ? encoder.encode(value) : value;
+  return bytesToHex(await crypto.subtle.digest('SHA-256', bytes));
 }
 
 function signingInput(keyId, issuedAt, bodyHash) {
@@ -68,6 +67,42 @@ async function verifyHmac(secret, input, signatureHex) {
   return crypto.subtle.verify('HMAC', key, signature, encoder.encode(input));
 }
 
+async function readBodyWithLimit(request) {
+  const declaredLength = Number.parseInt(request.headers.get('content-length') || '', 10);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return { error: errorResponse('founder_content_learning_payload_too_large', 'Learning payload exceeds 64 KiB.', 413) };
+  }
+
+  if (!request.body) return { bodyBytes: new Uint8Array(0), rawBody: '' };
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return { error: errorResponse('founder_content_learning_payload_too_large', 'Learning payload exceeds 64 KiB.', 413) };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bodyBytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { bodyBytes, rawBody: decoder.decode(bodyBytes) };
+}
+
 function parseAuthentication(request, env, nowMs) {
   const secret = text(env?.FCR_LEARNING_HMAC_SECRET, 4096);
   const configuredKeyId = text(env?.FCR_LEARNING_HMAC_KEY_ID, 160);
@@ -82,27 +117,10 @@ function parseAuthentication(request, env, nowMs) {
   const keyId = text(request.headers.get('x-fcr-learning-key-id'), 160);
   const issuedAt = text(request.headers.get('x-fcr-learning-issued-at'), 64);
   const signature = text(request.headers.get('x-fcr-learning-signature'), 128).toLowerCase();
-  if (!keyId || !issuedAt || !signature) {
-    return { error: errorResponse(
-      'fcr_learning_authentication_required',
-      'FCR learning authentication headers are required.',
-      401,
-    ) };
+  if (!keyId || !issuedAt || !signature || keyId !== configuredKeyId || !HEX_SHA256.test(signature) || !ISO_DATE.test(issuedAt)) {
+    return { error: errorResponse('fcr_learning_authentication_failed', 'FCR learning authentication failed.', 401) };
   }
-  if (keyId !== configuredKeyId || !HEX_SHA256.test(signature)) {
-    return { error: errorResponse(
-      'fcr_learning_authentication_failed',
-      'FCR learning authentication failed.',
-      401,
-    ) };
-  }
-  if (!ISO_DATE.test(issuedAt)) {
-    return { error: errorResponse(
-      'fcr_learning_authentication_failed',
-      'FCR learning authentication failed.',
-      401,
-    ) };
-  }
+
   const issuedAtMs = Date.parse(issuedAt);
   if (!Number.isFinite(issuedAtMs)
       || issuedAtMs < nowMs - MAX_AGE_MS
@@ -130,23 +148,17 @@ export async function handleFounderContentLearning(request, env, nowMs = Date.no
   const authentication = parseAuthentication(request, env, effectiveNowMs);
   if (authentication.error) return authentication.error;
 
-  const rawBody = await request.text();
-  if (encoder.encode(rawBody).byteLength > MAX_BODY_BYTES) {
-    return errorResponse('founder_content_learning_payload_too_large', 'Learning payload exceeds 64 KiB.', 413);
-  }
-
-  const bodyHash = await sha256Hex(rawBody);
+  const requestBody = await readBodyWithLimit(request);
+  if (requestBody.error) return requestBody.error;
+  const { bodyBytes, rawBody } = requestBody;
+  const bodyHash = await sha256Hex(bodyBytes);
   const validSignature = await verifyHmac(
     authentication.secret,
     signingInput(authentication.keyId, authentication.issuedAt, bodyHash),
     authentication.signature,
   );
   if (!validSignature) {
-    return errorResponse(
-      'fcr_learning_authentication_failed',
-      'FCR learning authentication failed.',
-      401,
-    );
+    return errorResponse('fcr_learning_authentication_failed', 'FCR learning authentication failed.', 401);
   }
 
   let observation;
@@ -183,7 +195,7 @@ export async function handleFounderContentLearning(request, env, nowMs = Date.no
     source_observation_hash: advisorySignal.source_observation_hash,
     advisory_learning_hash: advisorySignal.learning_hash,
     dedupe_key: advisorySignal.source_observation_hash,
-    chief_release_sha: BUILD_RELEASE_SHA,
+    chief_release_sha: getReleaseSha(env),
   };
 
   return json({
