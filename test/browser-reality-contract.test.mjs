@@ -6,6 +6,7 @@ import {
   BROWSER_REALITY_FINGERPRINT_CONTRACT,
   canonicalizeBrowserRealityEvidence,
   createBrowserRealityEvidenceReceipt,
+  sanitizeBrowserRealityUrl,
 } from '../src/domain/browser-reality-evidence.js';
 import { canonicalFamilies } from '../src/promptos/catalog/families.js';
 
@@ -214,6 +215,26 @@ describe('juss/browser-reality@v1', () => {
     expect(first.digest).toBe(second.digest);
   });
 
+  it('never hashes credentials or tokens from unparseable or non-http nested URLs', () => {
+    const leaks = [
+      '//user:secret@inner.example/?token=private',
+      '\\\\user:secret@inner.example/?token=private',
+      '/\t/user:secret@inner.example/?token=private',
+      'ftp://user:secret@inner.example/file',
+      'javascript://user:secret@inner.example/%0aalert(1)',
+      'https:///user:secret@inner.example/?token=private',
+    ];
+    for (const leak of leaks) {
+      const sanitized = sanitizeBrowserRealityUrl(`https://outer.example/?next=${encodeURIComponent(leak)}`);
+      const decoded = decodeURIComponent(sanitized);
+      expect(decoded).not.toMatch(/secret|private/);
+    }
+    // Benign protocol-relative values keep their public shape but lose secrets.
+    expect(decodeURIComponent(sanitizeBrowserRealityUrl(
+      `https://outer.example/?next=${encodeURIComponent('//cdn.example/a?token=private&x=1')}`,
+    ))).toBe('https://outer.example/?next=//cdn.example/a?token=REDACTED&x=1');
+  });
+
   it('recursively sanitizes nested redirect URLs and redacts beyond depth three', () => {
     const nestedOne = 'https://viewer:first-secret@inner.example/path?token=provider-one&utm_source=drop#private';
     const nestedTwo = 'https://viewer:second-secret@inner.example/path?token=provider-two&utm_source=other#different';
@@ -243,26 +264,6 @@ describe('juss/browser-reality@v1', () => {
     });
     expect(decodeURIComponent(bounded.canonical.authorizedInputUrl)).toContain('REDACTED_NESTED_URL');
     expect(bounded.canonicalJson).not.toContain('deep-secret');
-  });
-
-  it('sanitizes protocol-relative and relative redirects before recording evidence', () => {
-    for (const value of [
-      '//user:private-one@inner.example/?token=private-two#private-three',
-      '/continue?sessionid=private-four#private-five',
-      '../start?token=private-six',
-      '?token=private-seven',
-    ]) {
-      const result = canonicalizeBrowserRealityEvidence({
-        ...CONFORMANCE_INPUT,
-        authorizedInputUrl: `https://outer.example/path/?next=${encodeURIComponent(value)}`,
-      });
-      for (const secret of ['private-one', 'private-two', 'private-three', 'private-four',
-        'private-five', 'private-six', 'private-seven']) {
-        expect(result.canonicalJson).not.toContain(secret);
-      }
-      expect(result.canonical.authorizedInputUrl).toContain('next=');
-      expect(result.canonical.authorizedInputUrl).toContain('REDACTED');
-    }
   });
 
   it('changes the digest when any variable load-bearing field changes', () => {

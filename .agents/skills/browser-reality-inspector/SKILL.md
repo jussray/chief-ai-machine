@@ -15,7 +15,7 @@ Use the canonical [`juss/browser-reality@v1`](../../../config/browser-reality.co
 
 1. Admit the exact supplied URL through the deterministic public-network guard before opening it. Only public HTTP(S) destinations on ports 80/443 are eligible.
 2. Open only an admitted URL in an approved live browser. Do not substitute search-engine snippets, cached summaries, or a guessed canonical URL.
-3. Before accepting a navigation, bind the browser transport to the admitted public DNS address set, or obtain the actual connected socket peer from the browser transport and validate it with `assertBrowserRealityConnectedPeer()` against the admitted set. Pre-navigation DNS lookup alone cannot prevent rebinding. If a browser cannot prove the connected peer or pin the connection, stop as `BLOCKED`. Re-run public-network admission for every redirect target and repeat the same connection binding before continuing; enforce the redirect budget and record the final URL.
+3. Follow normal redirects only while the redirect budget remains valid. Re-run public-network admission for every redirect target before navigation continues and record the final browser URL.
 4. Inspect only content the page actually renders. Classify every material observation as `VERIFIED`, `INFERRED`, `UNKNOWN`, or `BLOCKED`; hidden or expected content is never verified.
 5. Identify the rendered target type, visible account/Page/profile name, main text in concise summary, visible media, date/time, Marketplace price/location, engagement counts, and external links when present.
 6. Capture a safe screenshot when the browser supports it, plus the rendered page state and decisive page text. Redact or omit credentials, session values, private messages, or unrelated personal data.
@@ -23,7 +23,7 @@ Use the canonical [`juss/browser-reality@v1`](../../../config/browser-reality.co
 
 ## Network admission
 
-Use `src/domain/browser-reality-network.js` as the repo-native admission primitive. DNS hostnames must resolve before navigation, every returned address must classify as public, and the same admission must run again for every redirect target. Reject localhost, private/link-local/carrier-grade-NAT/reserved/documentation/metadata destinations, credential-bearing URLs, non-HTTP(S) schemes, unexpected service ports, mixed public/private DNS answers, unresolved hostnames, and redirect chains beyond the contract budget.
+Use `src/domain/browser-reality-network.js` as the repo-native admission primitive. DNS hostnames must resolve before navigation, every returned address must classify as public, and the same admission must run again for every redirect target. Reject localhost, private/link-local/carrier-grade-NAT/reserved/documentation/metadata destinations, credential-bearing URLs, non-HTTP(S) schemes, unexpected service ports, mixed public/private DNS answers, unresolved hostnames, and redirect chains beyond the contract budget. Admission returns a frozen address set; enforce it at connection time by passing the browser's actual server address to `assertBrowserRealityConnectedAddress()` and abort on mismatch (DNS-rebinding pin).
 
 Evidence URL sanitization and evidence fingerprints happen after observation and are not network admission. Never treat `sanitizeBrowserRealityUrl()` or a valid evidence digest as permission to navigate.
 
