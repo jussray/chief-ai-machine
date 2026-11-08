@@ -1,15 +1,10 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
-  "main": "worker/index.js",
-  "workers_dev": false,
-  "preview_urls": true,
-  "routes": [
-    {
-      "pattern": "chief.foundercontrolroom.org",
-      "custom_domain": true
-    }
-  ],
+  "main": "security/chief-edge-entry.js",
+  "vars": {
+    "CHIEF_MUSE_MODEL": "muse-spark-1.3"
+  },
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
@@ -17,6 +12,6 @@
     "directory": "./",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/version", "/mcp"]
+    "run_worker_first": ["/api", "/api/*", "/github", "/github/*", "/version", "/mcp", "/.well-known/security.txt", "/auth.md"]
   }
 }

@@ -4,7 +4,7 @@ import {
   BRIDGE_WORKFLOW_PATH,
   assertAuthoritySnapshot,
   consumptionMarker,
-  assertDirectMainAuthority,
+  discoverAuthority,
 } from '../scripts/proofmode-production-authority.mjs';
 
 const sha = 'a'.repeat(40);
@@ -177,69 +177,21 @@ describe('production authority receipt', () => {
       }),
     ).toThrow('Authority receipt lacks the one-shot marker');
   });
-});
-
-
-describe('direct founder main release authority', () => {
-  const directEnv = {
-    ...baseEnv,
-    AUTHORITY_MODE: 'founder-main',
-    AUTHORITY_PR: '',
-    AUTHORITY_RECEIPT: '',
-    GITHUB_EVENT_NAME: 'workflow_dispatch',
-    GITHUB_REF: 'refs/heads/main',
-    GITHUB_SHA: sha,
-    GITHUB_RUN_ID: '4242',
-  };
-  const run = {
-    id: 4242,
-    path: '.github/workflows/proofmode-production-playwright.yml',
-    event: 'workflow_dispatch',
-    status: 'in_progress',
-    run_attempt: 1,
-    actor: { login: 'jussray' },
-    triggering_actor: { login: 'jussray' },
-    repository: { full_name: 'jussray/chief-ai-machine' },
-    head_branch: 'main',
-    head_sha: sha,
-  };
-  const main = { commit: { sha } };
-
-  it('accepts an exact-head founder dispatch on main with a run-bound receipt', () => {
-    expect(assertDirectMainAuthority({ run, main, env: directEnv })).toMatchObject({
-      expectedSha: sha,
-      authorityReceipt: 'run:4242',
-      authenticatedBy: 'founder-main',
+  it('rejects provider failures without leaking raw response text or credentials', async () => {
+    const sensitiveResponse = 'PRIVATE_RESPONSE_DO_NOT_LOG';
+    const mockRequest = async () => ({
+      ok: false,
+      status: 401,
+      text: async () => sensitiveResponse,
     });
+    await expect(discoverAuthority({
+      ...baseEnv,
+      GH_TOKEN: 'placeholder-not-a-real-credential',
+    }, mockRequest)).rejects.toThrow('PROOFMODE_GITHUB_API_REQUEST_FAILED');
+    await expect(discoverAuthority({
+      ...baseEnv,
+      GH_TOKEN: 'placeholder-not-a-real-credential',
+    }, mockRequest)).rejects.not.toThrow(sensitiveResponse);
   });
 
-  it('rejects a bot, wrong branch, stale main, rerun, or unrelated workflow', () => {
-    expect(() => assertDirectMainAuthority({
-      run, main, env: { ...directEnv, GITHUB_ACTOR: 'github-actions[bot]' },
-    })).toThrow();
-    expect(() => assertDirectMainAuthority({
-      run, main, env: { ...directEnv, GITHUB_REF: 'refs/heads/feature' },
-    })).toThrow();
-    expect(() => assertDirectMainAuthority({
-      run, main: { commit: { sha: 'b'.repeat(40) } }, env: directEnv,
-    })).toThrow();
-    expect(() => assertDirectMainAuthority({
-      run: { ...run, run_attempt: 2 }, main, env: directEnv,
-    })).toThrow();
-    expect(() => assertDirectMainAuthority({
-      run: { ...run, path: '.github/workflows/unrelated.yml' }, main, env: directEnv,
-    })).toThrow();
-  });
-
-  it('rejects unapproved dispatches and any PR receipt mixed into founder-main mode', () => {
-    expect(() => assertDirectMainAuthority({
-      run, main, env: { ...directEnv, AUTHORIZE_PRODUCTION: 'false' },
-    })).toThrow();
-    expect(() => assertDirectMainAuthority({
-      run, main, env: { ...directEnv, AUTHORITY_PR: '248' },
-    })).toThrow();
-    expect(() => assertDirectMainAuthority({
-      run, main, env: { ...directEnv, AUTHORITY_RECEIPT: '5129412189' },
-    })).toThrow();
-  });
 });

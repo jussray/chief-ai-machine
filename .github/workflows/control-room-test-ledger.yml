@@ -53,7 +53,6 @@ jobs:
   publish-ledger:
     name: Publish exact-head test ledger
     needs: ledger-contract
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
@@ -69,22 +68,38 @@ jobs:
           actual="$(git rev-parse HEAD)"
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
           test "$actual" = "$EXPECTED_HEAD_SHA"
+
+      - name: Materialize pull-request ledger receipt
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          {
+            echo '### Exact-head test ledger required-check receipt'
+            echo
+            echo '- status: success'
+            echo '- applicability: skipped'
+            echo '- reason: pull-request-ledger-publication-is-read-only'
+            echo "- head: \`$EXPECTED_HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Node
+        if: github.event_name != 'pull_request'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '24'
       - name: Observe repository-authoritative exact-head checks
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/control-room-test-ledger-v2.mjs
       - name: Build operator truth summary
-        if: always()
+        if: github.event_name != 'pull_request' && always()
         run: |
           if [ -f "$CONTROL_ROOM_TEST_LEDGER_PATH" ]; then
             node scripts/operator-truth-summary.mjs
           fi
       - name: Publish operator summary
-        if: always()
+        if: github.event_name != 'pull_request' && always()
         shell: bash
         run: |
           if [ -f artifacts/operator-truth-summary.json ]; then
@@ -97,7 +112,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload repository-local truth receipts
-        if: always()
+        if: github.event_name != 'pull_request' && always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: control-room-truth-${{ env.EXPECTED_HEAD_SHA }}

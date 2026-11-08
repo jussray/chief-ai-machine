@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   BROWSER_REALITY_MAX_REDIRECTS,
   assertBrowserRealityPublicTarget,
+  assertBrowserRealityConnectedPeer,
   assertBrowserRealityRedirectBudget,
   isPublicBrowserRealityAddress,
 } from '../src/domain/browser-reality-network.js';
@@ -118,6 +119,23 @@ describe('Browser Reality public-network admission', () => {
     expect(isPublicBrowserRealityAddress('::1')).toBe(false);
     expect(isPublicBrowserRealityAddress('fd00::1')).toBe(false);
     expect(isPublicBrowserRealityAddress('2001:db8::1')).toBe(false);
+  });
+
+  it('rejects DNS rebinding unless the actual transport peer belongs to the admitted set', async () => {
+    const admission = await assertBrowserRealityPublicTarget(
+      'https://public.example/resource',
+      async () => ['8.8.8.8', '2606:4700:4700::1111'],
+    );
+    expect(assertBrowserRealityConnectedPeer(admission, '8.8.8.8')).toBe(admission.url);
+    expect(assertBrowserRealityConnectedPeer(admission, '2606:4700:4700::1111')).toBe(admission.url);
+    expect(() => assertBrowserRealityConnectedPeer(admission, '10.0.0.8'))
+      .toThrow(/connected peer differs/);
+    expect(() => assertBrowserRealityConnectedPeer(admission, '1.1.1.1'))
+      .toThrow(/connected peer differs/);
+    expect(() => assertBrowserRealityConnectedPeer(admission, '169.254.169.254'))
+      .toThrow(/connected peer differs/);
+    expect(() => assertBrowserRealityConnectedPeer(admission, undefined))
+      .toThrow(/verified browser peer evidence/);
   });
 
   it('enforces a bounded redirect chain', () => {

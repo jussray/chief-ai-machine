@@ -1,5 +1,41 @@
 import { renderPromptVariant } from '../domain/evidence-first-prompt.js';
 import { showToast, copyText } from './ui.js';
+import {
+  createLocalPromptId,
+  readCustomPromptState,
+  writeCustomPrompts,
+} from './prompt-state.js';
+
+const PROMPT_PACK_PREFIX = 'prompt:';
+const GOALFIX_BUILDER_OPTIONS = [
+  ['goalfix-v1-verified-loop', 'Goalfix v1'],
+  ['goalfix-v1-friend-mode', 'Friend Mode v1'],
+  ['goalfix-v1-creative-director', 'Creative Director v1'],
+];
+
+function installGoalfixBuilderOptions(select) {
+  if (!select || select.querySelector('optgroup[data-goalfix-v1]')) return;
+  const group = document.createElement('optgroup');
+  group.label = 'Goalfix v1';
+  group.dataset.goalfixV1 = 'true';
+  for (const [id, label] of GOALFIX_BUILDER_OPTIONS) {
+    const option = document.createElement('option');
+    option.value = `${PROMPT_PACK_PREFIX}${id}`;
+    option.textContent = label;
+    group.appendChild(option);
+  }
+  select.appendChild(group);
+}
+
+export function selectBuilderPrompt(PROMPTS, pack, platform) {
+  const promptId = String(pack || '').startsWith(PROMPT_PACK_PREFIX)
+    ? String(pack).slice(PROMPT_PACK_PREFIX.length)
+    : '';
+  if (promptId) {
+    return PROMPTS.find(prompt => prompt.id === promptId && prompt.platforms?.includes(platform)) || null;
+  }
+  return PROMPTS.find(prompt => prompt.cat === pack && prompt.platforms?.includes(platform)) || null;
+}
 
 export function initBuilder(PROMPTS) {
   const packEl = document.getElementById('bPack');
@@ -8,6 +44,9 @@ export function initBuilder(PROMPTS) {
   const taskEl = document.getElementById('bTask');
   const constraintsEl = document.getElementById('bConstraints');
   const out = document.getElementById('builderOut');
+  const reservedPromptIds = (Array.isArray(PROMPTS) ? PROMPTS : []).map(p => p.id);
+
+  installGoalfixBuilderOptions(packEl);
 
   function build() {
     const pack = packEl?.value || 'coding';
@@ -15,9 +54,12 @@ export function initBuilder(PROMPTS) {
     const repo = repoEl?.value || '[REPO]';
     const task = taskEl?.value || '[TASK]';
     const constraints = constraintsEl?.value || '[CONSTRAINTS]';
-    const matches = PROMPTS.filter(p => p.cat === pack && p.platforms?.includes(platform));
-    if (!matches.length) { out.textContent = `No prompts for pack "${pack}" on ${platform}. Try a different combo.`; return; }
-    out.textContent = renderPromptVariant(matches[0], platform, {
+    const selected = selectBuilderPrompt(PROMPTS, pack, platform);
+    if (!selected) {
+      out.textContent = `No prompt for pack "${pack}" on ${platform}. Try a different combo.`;
+      return;
+    }
+    out.textContent = renderPromptVariant(selected, platform, {
       REPO: repo,
       'OWNER/REPO': repo,
       TASK: task,
@@ -27,15 +69,36 @@ export function initBuilder(PROMPTS) {
 
   [packEl, platformEl, repoEl, taskEl, constraintsEl].forEach(el => el?.addEventListener('input', build));
 
-  document.getElementById('copyBuilder')?.addEventListener('click', () => {
-    const text = out.textContent; if (text) { copyText(text); showToast('Copied!'); }
+  document.getElementById('copyBuilder')?.addEventListener('click', async () => {
+    const text = out.textContent;
+    if (!text) return;
+    const copied = await copyText(text);
+    showToast(copied ? 'Copied!' : 'Copy failed. Select the prompt manually.');
   });
+
   document.getElementById('saveBuilder')?.addEventListener('click', () => {
-    const text = out.textContent; if (!text) return;
-    const custom = JSON.parse(localStorage.getItem('chief-custom') || '[]');
-    custom.push({ id: 'b-' + Date.now(), title: 'Builder: ' + (packEl?.value || 'prompt'), sub: 'Saved from Builder', cat: packEl?.value || 'custom', platforms: [platformEl?.value || 'chatgpt'], versions: { [platformEl?.value || 'chatgpt']: text } });
-    localStorage.setItem('chief-custom', JSON.stringify(custom));
-    showToast('Saved to My Prompts!');
+    const text = out.textContent;
+    if (!text) return;
+    const current = readCustomPromptState({ reservedIds: reservedPromptIds });
+    if (current.state !== 'ready') {
+      showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
+      return;
+    }
+    const next = {
+      id: createLocalPromptId('builder'),
+      title: 'Builder: ' + (packEl?.selectedOptions?.[0]?.textContent || packEl?.value || 'prompt'),
+      sub: 'Saved from Builder',
+      cat: 'custom',
+      platforms: [platformEl?.value || 'chatgpt'],
+      versions: { [platformEl?.value || 'chatgpt']: text },
+      repos: [],
+    };
+    try {
+      writeCustomPrompts([...current.prompts, next]);
+      showToast('Saved to My Prompts!');
+    } catch {
+      showToast('Save failed. Custom prompt state is unchanged.');
+    }
   });
 
   build();

@@ -1,6 +1,6 @@
 declare module 'node:crypto' {
   interface Hash {
-    update(data: string | Uint8Array): Hash;
+    update(data: string): Hash;
     digest(encoding: 'hex'): string;
   }
 
