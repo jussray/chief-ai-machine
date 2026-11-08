@@ -1,71 +1,57 @@
-const DEFAULT_TOLERANCE_SECONDS = 300;
+// Stripe webhook signature verification (RFC 3104 HMAC-SHA256)
+// Prevents webhook replay attacks by validating the signature
 
-function parseStripeSignatureHeader(signature) {
-  const fields = signature.split(',').map((part) => part.trim());
-  const timestamp = fields.find((part) => part.startsWith('t='))?.slice(2);
-  const signatures = fields
-    .filter((part) => part.startsWith('v1='))
-    .map((part) => part.slice(3))
-    .filter(Boolean);
-  return { timestamp, signatures };
-}
-
-function hexToBytes(hex) {
-  if (!/^[a-f0-9]{64}$/i.test(hex)) {
-    return null;
-  }
-
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let index = 0; index < hex.length; index += 2) {
-    bytes[index / 2] = Number.parseInt(hex.slice(index, index + 2), 16);
-  }
-  return bytes;
-}
-
-export async function verifyStripeWebhookSignature(body, signature, secret, options = {}) {
-  if (typeof body !== 'string' || !signature || !secret) {
+export async function verifyStripeWebhookSignature(body, signature, secret) {
+  if (!signature || !secret) {
     return false;
   }
 
   try {
-    const { timestamp, signatures } = parseStripeSignatureHeader(signature);
-    const timestampSeconds = Number(timestamp);
-    if (!Number.isSafeInteger(timestampSeconds) || timestampSeconds <= 0 || signatures.length === 0) {
+    // Stripe format: t=timestamp,v1=signature
+    const [timestamp, ...signatureParts] = signature.split(',');
+    const computedSignature = signatureParts.find(part => part.startsWith('v1='))?.slice(3);
+
+    if (!timestamp || !computedSignature) {
       return false;
     }
 
-    const toleranceSeconds = options.toleranceSeconds ?? DEFAULT_TOLERANCE_SECONDS;
-    const nowSeconds = options.nowSeconds ?? Math.floor(Date.now() / 1000);
-    if (!Number.isFinite(toleranceSeconds) || toleranceSeconds < 0) {
-      return false;
-    }
-    if (Math.abs(nowSeconds - timestampSeconds) > toleranceSeconds) {
-      return false;
-    }
+    // Reconstruct the signed content: timestamp.payload
+    const signedContent = `${timestamp}.${body}`;
 
-    const encoder = new TextEncoder();
+    // Compute HMAC-SHA256 using WebCrypto API (timing-safe)
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(secret),
+      new TextEncoder().encode(secret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['verify'],
+      ['sign']
     );
-    const signedContent = encoder.encode(timestamp + '.' + body);
 
-    for (const candidate of signatures) {
-      const signatureBytes = hexToBytes(candidate);
-      if (!signatureBytes) {
-        continue;
-      }
-      if (await crypto.subtle.verify('HMAC', key, signatureBytes, signedContent)) {
-        return true;
-      }
-    }
+    const signature_computed = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signedContent));
 
-    return false;
+    // Convert computed signature to hex
+    const computedHex = Array.from(new Uint8Array(signature_computed))
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Use constant-time comparison to prevent timing attacks
+    return timingSafeEqual(computedHex, computedSignature);
   } catch (error) {
     console.error('Stripe webhook verification error:', error);
     return false;
   }
+}
+
+// Timing-safe string comparison (prevents timing attacks)
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+
+  return result === 0;
 }
