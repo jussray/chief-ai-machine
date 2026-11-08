@@ -90,7 +90,6 @@ jobs:
     name: Verify exact Chief runtime with Playwright
     runs-on: ubuntu-22.04
     timeout-minutes: 18
-    environment: proofmode-access-admin
     steps:
       - name: Verify trusted event boundary
         env:
@@ -175,13 +174,8 @@ jobs:
       - name: Run trusted exact-runtime browser proof
         if: steps.scope.outputs.changed == 'true'
         shell: bash
-        env:
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
           set -euo pipefail
-          test -n "$CLOUDFLARE_ACCESS_CLIENT_ID"
-          test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
           cd "$PLAYWRIGHT_RUNNER_DIR"
           mkdir -p e2e
           cat > e2e/chief-runtime-exact-head.generated.pw.mjs <<'EOF'
@@ -199,29 +193,6 @@ jobs:
             const expectedSha=process.env.EXPECTED_HEAD_SHA;
             expect(baseUrl).toBeTruthy();
             const expectedHost=new URL(baseUrl).host;
-            const accessClientId=process.env.CLOUDFLARE_ACCESS_CLIENT_ID;
-            const accessClientSecret=process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET;
-            expect(accessClientId).toBeTruthy();
-            expect(accessClientSecret).toBeTruthy();
-            // Use Playwright's non-following request fetch to prevent service
-            // credentials from crossing a redirect or unrelated host.
-            await page.route('**/*', async (route) => {
-              const request=route.request();
-              const target=new URL(request.url());
-              if (target.protocol !== 'https:' || target.host !== expectedHost) {
-                await route.continue();
-                return;
-              }
-              const response=await route.fetch({
-                headers: {
-                  ...request.headers(),
-                  'CF-Access-Client-Id': accessClientId,
-                  'CF-Access-Client-Secret': accessClientSecret,
-                },
-                maxRedirects: 0,
-              });
-              await route.fulfill({ response });
-            });
             const versionResponse=await page.goto(`${baseUrl}/version`,{waitUntil:'domcontentloaded'});
             expect(versionResponse).not.toBeNull();
             console.log(`version-final-origin=${new URL(page.url()).origin}`);
