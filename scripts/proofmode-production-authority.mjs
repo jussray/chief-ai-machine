@@ -22,6 +22,16 @@ function requirePositiveInteger(value, label) {
   return String(value);
 }
 
+function requireAuthorityReceipt(value, label) {
+  const strValue = String(value).trim();
+  if (!strValue) throw new Error(`${label} is required`);
+  // Accept either a GitHub review ID (positive integer) or founder-verbal-authorization
+  if (!/^([1-9]\d*|founder-verbal-authorization)$/.test(strValue)) {
+    throw new Error(`${label} must be a positive integer or 'founder-verbal-authorization'`);
+  }
+  return strValue;
+}
+
 export function consumptionMarker(receipt, sha) {
   return `<!-- ${CONSUMPTION_PREFIX} receipt=${receipt} sha=${sha} -->`;
 }
@@ -68,7 +78,7 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
   const runAttempt = requireValue(env, 'GITHUB_RUN_ATTEMPT');
   const authorizeProduction = requireValue(env, 'AUTHORIZE_PRODUCTION');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
-  const authorityReceipt = requireValue(env, 'AUTHORITY_RECEIPT');  // Accept any non-empty value
+  const authorityReceipt = requireAuthorityReceipt(requireValue(env, 'AUTHORITY_RECEIPT'), 'AUTHORITY_RECEIPT');
 
   if (authorizeProduction !== 'true') throw new Error('Production authorization flag is not true');
   if (runAttempt !== '1') throw new Error('Workflow reruns cannot reuse production authority');

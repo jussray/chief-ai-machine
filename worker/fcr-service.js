@@ -5,6 +5,11 @@ import {
   invokeChiefProvider,
 } from './provider-runtime.js';
 import {
+  PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
+  PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
+  createPromptOSChiefCommandHandoff,
+} from '../src/domain/promptos-command-handoff.js';
+import {
   BIP_FCR_EVIDENCE_CONTRACT,
   ingestBipFounderControlRoomEvidence,
 } from '../src/domain/bip-fcr-evidence.js';
@@ -47,6 +52,8 @@ export function getFounderControlRoomServiceVersion(_env, artifactReleaseSha = B
     rpcContract: CHIEF_FCR_RPC_CONTRACT,
     capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
     bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
+    promptOSCommandIntentContract: PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
+    promptOSCommandHandoffContract: PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
     releaseSha: getArtifactReleaseSha(artifactReleaseSha),
   };
 }
@@ -79,14 +86,14 @@ export async function invokeFounderControlRoomProvider(
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
       result,
     };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 503,
       service: CHIEF_SERVICE_IDENTITY,
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
-      error: error instanceof Error ? error.message : 'provider invocation failed',
+      error: 'provider_invocation_failed',
     };
   }
 }
@@ -130,7 +137,7 @@ export function ingestFounderControlRoomBipEvidence(
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
       result,
     };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: 422,
@@ -138,7 +145,44 @@ export function ingestFounderControlRoomBipEvidence(
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
       releaseSha: getArtifactReleaseSha(artifactReleaseSha),
-      error: error instanceof Error ? error.message : String(error),
+      error: 'invalid_fcr_bip_evidence',
+    };
+  }
+}
+
+export function acceptFounderControlRoomPromptOSCommandIntent(
+  _env,
+  input,
+  artifactReleaseSha = BUILD_RELEASE_SHA,
+) {
+  try {
+    const envelope = input && typeof input === 'object' && !Array.isArray(input)
+      ? input
+      : {};
+    const handoff = createPromptOSChiefCommandHandoff(
+      envelope.intent,
+      { resolvedProject: envelope.resolvedProject },
+    );
+    return {
+      ok: true,
+      status: 200,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      promptOSCommandIntentContract: PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
+      promptOSCommandHandoffContract: PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
+      releaseSha: getArtifactReleaseSha(artifactReleaseSha),
+      result: handoff,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 422,
+      service: CHIEF_SERVICE_IDENTITY,
+      rpcContract: CHIEF_FCR_RPC_CONTRACT,
+      promptOSCommandIntentContract: PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
+      promptOSCommandHandoffContract: PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
+      releaseSha: getArtifactReleaseSha(artifactReleaseSha),
+      error: 'invalid_promptos_command_intent',
     };
   }
 }
