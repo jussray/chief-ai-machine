@@ -231,7 +231,7 @@ jobs:
           local_url="http://127.0.0.1:8789"
           log="$RUNNER_TEMP/chief-exact-runtime-wrangler.log"
           printf 'CHIEF_RUNTIME_BASE_URL=%s\n' "$local_url" >> "$GITHUB_ENV"
-          RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev --ip 127.0.0.1 --port 8789 > "$log" 2>&1 &
+          GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup ./node_modules/.bin/wrangler dev --ip 127.0.0.1 --port 8789 > "$log" 2>&1 &
           pid=$!
           printf '%s\n' "$pid" > "$RUNNER_TEMP/chief-exact-runtime-wrangler.pid"
           for attempt in {1..45}; do

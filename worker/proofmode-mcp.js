@@ -84,7 +84,29 @@ const DOCUMENTATION_TOOL = {
   },
 };
 
-const TOOLS = [AUDIT_TOOL, DOCUMENTATION_TOOL];
+const CUSTOMER_START_TOOL = {
+  name: 'customer_start',
+  title: 'Start with your own goals (5W1H)',
+  description: 'Provide a blank-slate customer intake. Does not inherit or read any founder, company, account, project, or provider context, and performs no external action.',
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+};
+
+const CUSTOMER_QUESTIONS = Object.freeze([
+  { key: 'who', question: 'Who are you helping, and who can access this workspace?' },
+  { key: 'what', question: 'What is your goal or project?' },
+  { key: 'when', question: 'When do you need the result?' },
+  { key: 'where', question: 'Where will your work run or be used?' },
+  { key: 'why', question: 'Why is this important to you?' },
+  { key: 'how', question: 'How would you like to proceed, and what permissions are you granting?' },
+]);
+
+const TOOLS = [AUDIT_TOOL, DOCUMENTATION_TOOL, CUSTOMER_START_TOOL];
 
 export function buildProofModeServerCard(origin) {
   return {
@@ -477,7 +499,7 @@ async function dispatch(message, deps, env, protocol) {
       supportedVersions: SUPPORTED_PROTOCOL_LIST,
       capabilities: { tools: {} },
       instructions:
-        'ProofMode exposes read-only repository evidence plus Context7 public documentation evidence. Neither tool grants repository, runtime, provider, review, merge, deploy, or execution authority.',
+        'ProofMode offers customer-first 5W1H without inherited context, plus explicitly requested public repository and Context7 documentation evidence. No tool grants repository, runtime, provider, review, merge, deploy, or execution authority.',
     }, { ttlMs: 300_000, cacheScope: 'public' }));
   }
 
@@ -490,7 +512,7 @@ async function dispatch(message, deps, env, protocol) {
       capabilities: { tools: { listChanged: false } },
       serverInfo: SERVER_INFO,
       instructions:
-        'ProofMode is read-only. Repository audit evidence and Context7 documentation evidence remain non-authorizing inputs and never promote source evidence into live runtime verification.',
+        'ProofMode is read-only. Customer 5W1H starts with no inherited founder/company context. Repository audit evidence and Context7 documentation evidence remain optional, explicitly requested, non-authorizing inputs and never prove live runtime verification.',
     });
   }
 
@@ -507,6 +529,25 @@ async function dispatch(message, deps, env, protocol) {
     const toolName = params?.name;
     const args = params?.arguments || {};
 
+    if (toolName === CUSTOMER_START_TOOL.name) {
+      if (!isRecord(args) || Object.keys(args).length !== 0) {
+        return jsonRpcError(id, -32602, 'customer_start accepts no arguments or inherited context.');
+      }
+      const structuredContent = {
+        questions: CUSTOMER_QUESTIONS,
+        inheritedContext: false,
+        serverStateWritten: false,
+        externalSourcesQueried: false,
+        actionAuthorized: false,
+      };
+      const result = {
+        content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+        structuredContent,
+        isError: false,
+      };
+      return jsonRpc(id, modern ? modernResult(result) : result);
+    }
+
     if (toolName === AUDIT_TOOL.name) {
       const validationError = validateAuditArguments(args);
       if (validationError) return { ...validationError, id };
@@ -516,9 +557,7 @@ async function dispatch(message, deps, env, protocol) {
           owner: args.owner.trim(),
           repo: args.repo.trim(),
           ref: typeof args.ref === 'string' ? args.ref.trim() : undefined,
-          token: typeof env?.PROOFMODE_GITHUB_TOKEN === 'string'
-            ? env.PROOFMODE_GITHUB_TOKEN
-            : undefined,
+          // Public MCP audits never receive the Worker's privileged GitHub token.
         });
         const report = deps.classifyRepositoryEvidence(evidence);
         const proofReceipt = createProofModeReceipt(report, { acknowledges: args.acknowledges });

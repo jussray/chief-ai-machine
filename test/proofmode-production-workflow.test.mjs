@@ -15,6 +15,11 @@ const authorityScript = readFileSync(
   'utf8',
 );
 
+const previewResolver = readFileSync(
+  new URL('../scripts/validate-chief-preview.mjs', import.meta.url),
+  'utf8',
+);
+
 describe('ProofMode production governance workflow', () => {
   it('keeps production mutation founder-dispatched and exact-head bound', () => {
     expect(workflow).toContain('workflow_dispatch:');
@@ -110,7 +115,9 @@ describe('ProofMode production governance workflow', () => {
 
   it('promotes the exact prebuilt Cloudflare version instead of rebuilding or weakening governance', () => {
     expect(workflow).toContain('Workers Builds: chief-ai');
-    expect(workflow).toContain('Version ID:');
+    expect(workflow).toContain('node scripts/validate-chief-preview.mjs version');
+    expect(workflow).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
+    expect(previewResolver).toContain('Version ID:');
     expect(workflow).toContain('CLOUDFLARE_VERSION_ID');
     expect(workflow).toContain('npx wrangler versions deploy');
     expect(workflow).toContain('$CLOUDFLARE_VERSION_ID@100%');
@@ -161,5 +168,15 @@ describe('founder-main workflow dispatch contract', () => {
     expect(workflow).toContain('statuses: write');
     expect(authorityScript).toContain('chief/production-authority/run-');
     expect(workflow).toContain('name: Cloudflare Production');
+  });
+});
+
+describe('main-sourced proof safety survives the founder-main integration', () => {
+  it('never grants a production release from an unverified verbal token', () => {
+    expect(workflow).not.toContain('founder-verbal-authorization');
+    expect(authorityScript).not.toContain("authorityReceipt === 'founder-verbal-authorization'");
+    expect(workflow).toContain('proofmode-safe-reporter.mjs');
+    expect(workflow).toContain("trace: 'off'");
+    expect(workflow).toContain("needs.protected-access.result == 'success'");
   });
 });

@@ -27,7 +27,7 @@ describe('Chief provider runtime', () => {
       expect(String(url)).toBe('https://api.openai.com/v1/responses');
       expect(init.headers.authorization).toBe('Bearer openai-key');
       expect(String(init.body)).not.toContain('openai-key');
-      return jsonResponse({ id: 'resp_openai_1', output_text: 'OpenAI result' });
+      return jsonResponse({ id: 'resp_openai_1', status: 'completed', output_text: 'OpenAI result' });
     });
     const result = await invokeChiefProvider({ OPENAI_API_KEY: 'openai-key' }, {
       provider: 'openai',
@@ -40,6 +40,19 @@ describe('Chief provider runtime', () => {
       authority: 'none',
       text: 'OpenAI result',
     });
+  });
+
+  it('refuses to label an incomplete OpenAI response as a successful provider result', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({
+      id: 'resp_openai_incomplete',
+      status: 'incomplete',
+      output_text: 'unverified partial answer',
+    }));
+    await expect(invokeChiefProvider({ OPENAI_API_KEY: 'test-key' }, {
+      provider: 'openai',
+      prompt: 'Check the evidence.',
+    }, fetchMock)).rejects.toThrow('non-completed response');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('invokes Anthropic without serializing its key', async () => {

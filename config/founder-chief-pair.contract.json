@@ -51,7 +51,7 @@
     "chiefTechnicalIndependence": true,
     "chiefCommercialIndependence": true,
     "chiefDefaultCommercialRole": "standalone-product",
-    "chiefDefaultCommercialPackaging": "inside-founder-control-room",
+    "chiefDefaultCommercialPackaging": "chief-owned-offer",
     "bundleRule": "Chief may be bundled with Founder Control Room or another first-party product only as an explicit go-to-market choice. Bundling does not collapse product identity, runtime, authority, receipts, pricing truth, or evidence.",
     "customerAcquisitionRule": "Chief may have its own customer-acquisition path, pricing, licensing, deployment, or service layer and may also participate in explicit multi-product bundles.",
     "separateOfferGate": "Chief does not require Founder Control Room demand proof to exist as a separate offer. Pricing, product-market-fit, revenue, retention, and scaling claims still require their own economic evidence.",

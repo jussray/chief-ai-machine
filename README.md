@@ -4,7 +4,7 @@
 
 Chief AI is the **governed cognition and portable company-intelligence layer paired with Founder Control Room**. It turns founder judgment, company context, prompts, workflows, decisions, research, benchmarks, and brand voice into portable, versioned company intelligence owned by the founder, not any model provider, platform, or Git host.
 
-Chief remains technically independent and can deliver standalone reasoning and portable-intelligence value. **Technical independence does not automatically make Chief a separate commercial founder OS.** The default customer-facing founder-software identity is Founder Control Room, with Chief packaged as a monetizable intelligence module inside that product unless separate paid-demand evidence justifies another offer.
+**Chief AI is a standalone product.** It owns its customer-facing identity, runtime, permissions, accounts, data, operating evidence, and proposed commercial path. Founder Control Room is a separately owned peer, not a required shell or runtime. Integration or bundling requires explicit permission; customer demand and realized revenue remain unverified until measured.
 
 ---
 
@@ -39,28 +39,28 @@ Chief AI solves the **portable intelligence problem** for founders running multi
    └───────────────────────┘   └──────────────────────────┘
 ```
 
-Chief AI can deliver standalone reasoning and portable-intelligence value. When an action crosses into execution, provider mutation, repository write, deployment, publication, credentials, billing, or another consequential boundary, Chief remains proposal-only: Founder Control Room is the enforcement/evidence plane and the human founder remains the final authority. L99 remains an optional integration.
+Chief AI provides its own standalone reasoning and portable-intelligence value. Consequential actions remain bounded by Chief's authenticated, product-owned permission and evidence gates. An integration with Founder Control Room must be explicit and scoped; neither peer inherits authority over the other. Founder approval remains necessary where Chief's governance requires it. L99 is optional.
 
 ### Commercial packaging
 
+Chief owns its product offer and can serve customers directly, independently of FCR. A Chief subscription, license, or other paid offering is a **proposed** path until real checkout, entitlement, delivery, safety, and retention are verified.
+
 ```text
-Founder / team
-→ Founder Control Room workspace
-→ Chief intelligence, council, synthesis, and company-brain value
-→ important decisions and reusable intelligence
-→ retained / upgraded FCR workspace
+Chief customer
+→ Chief-owned account and consent
+→ intelligence, council, synthesis, and company-brain value
+→ verified customer outcome
+→ optional Chief-owned plan and renewal
 ```
 
-Default commercial truth:
+- **customer hypothesis:** founders and teams needing portable, provider-neutral business intelligence;
+- **payer hypothesis:** Chief account or workspace owner;
+- **revenue hypothesis:** Chief-owned plan or license; an FCR bundle is a separate, permissioned option;
+- **repeat engine:** updated approved assets, decisions, and evidence;
+- **North Star:** retained Chief customers with verified outcomes;
+- **next money test:** Chief activation, willingness to pay, paid conversion, retention, and cost per outcome.
 
-- **customer:** FCR founder or team needing portable company intelligence and structured executive reasoning;
-- **payer:** FCR workspace owner by default;
-- **revenue mechanism:** included in higher-value FCR plans or premium intelligence capability;
-- **repeat engine:** intelligence compounds as approved assets, decisions, evidence, outcomes, and provider comparisons accumulate;
-- **North Star:** retained FCR workspaces using Chief for important decisions;
-- **next money test:** prove Chief improves FCR activation, retention, paid conversion, or willingness to upgrade.
-
-A separate Chief commercial offer requires independent customer, payer, distinct value, revenue mechanism, repeat-payment evidence, and proof that separate packaging improves paid demand rather than fragmenting the FCR story. Internal use, repository separation, successful tests, or portable export do not prove that gate.
+Internal use, repository separation, a green CI run, or an untested checkout are not proof of sales or revenue.
 
 ---
 
@@ -189,7 +189,7 @@ Production security requires: private workspace authorization · encrypted persi
 
 | Repo | What it is |
 |---|---|
-| [`Founder Control Room`](https://github.com/jussray/founder-control-room) | Default customer-facing founder-software shell; governance, execution, evidence, outcomes, and commercial packaging |
+| [`Founder Control Room`](https://github.com/jussray/founder-control-room) | Standalone peer with its own identity, authorizations, workflows, deployments, and commercial path; integration with Chief is optional and permissioned |
 | [`Sekret-Bip`](https://github.com/jussray/Sekret-Bip) | Privacy-first emotional growth and self-expression product for teens and trusted family relationships |
 | [`StoryEngine`](https://github.com/jussray/StoryEngine) | Creator-facing product; L99 provides provenance, isolation, recovery, and promotion runtime underneath it |
 

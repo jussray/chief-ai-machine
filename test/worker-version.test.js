@@ -12,6 +12,14 @@ const releaseBakeScript = readFileSync(
   new URL('../scripts/bake-worker-release-sha.mjs', import.meta.url),
   'utf8',
 );
+const governanceWorkflow = readFileSync(
+  new URL('../.github/workflows/governance-boundary-required-receipts.yml', import.meta.url),
+  'utf8',
+);
+const securityWorkflow = readFileSync(
+  new URL('../.github/workflows/security-gates-playwright.yml', import.meta.url),
+  'utf8',
+);
 const assetsIgnore = readFileSync(
   new URL('../.assetsignore', import.meta.url),
   'utf8',
@@ -63,6 +71,33 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('WORKERS_CI_BRANCH');
     expect(releaseBakeScript).toContain('BUILD_RELEASE_BRANCH');
     expect(releaseBakeScript).toContain('worker/release-sha.js');
+  });
+
+  it('sets every PR runtime release-SHA source to the exact checked-out head', () => {
+    expect(governanceWorkflow).toContain(
+      'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
+    );
+    expect(securityWorkflow).toContain(
+      'GITHUB_SHA="$EXPECTED_HEAD_SHA" WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" nohup',
+    );
+    expect(releaseBakeScript).toContain('Release SHA inputs disagree; refusing to bake ambiguous artifact identity');
+  });
+
+  it('routes provider execution through the gated HTTP worker with mainline security headers', async () => {
+    const response = await worker.fetch(
+      new Request('https://chief-ai.example/api/chief/provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'openai', prompt: 'must not execute' }),
+      }),
+      {
+        ASSETS: { fetch() { throw new Error('provider route must never fall through to SPA'); } },
+      },
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get('x-frame-options')).toBe('DENY');
+    const body = await response.json();
+    expect(body.error.code).toBe('provider_runtime_disabled');
   });
 
   it('returns the explicit release SHA without touching assets', async () => {
