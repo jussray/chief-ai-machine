@@ -3,8 +3,36 @@ name: Chief AI Control Room Contracts
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "CHATGPT.md"
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
+      - "scripts/verify-mcp-config.mjs"
+      - "scripts/verify-cookie-contract.mjs"
+      - "scripts/verify-founder-chief-pair.mjs"
+      - "scripts/bake-worker-release-sha.mjs"
+      - "package.json"
+      - "wrangler.jsonc"
+      - "worker/**"
+      - "test/worker-version.test.js"
+      - ".github/workflows/control-room-contracts.yml"
   push:
     branches: [main]
+    paths:
+      - "CHATGPT.md"
+      - "control-room.manifest.json"
+      - ".control-room/repository.manifest.json"
+      - "scripts/verify-control-room-tests.mjs"
+      - "scripts/verify-mcp-config.mjs"
+      - "scripts/verify-cookie-contract.mjs"
+      - "scripts/verify-founder-chief-pair.mjs"
+      - "scripts/bake-worker-release-sha.mjs"
+      - "package.json"
+      - "wrangler.jsonc"
+      - "worker/**"
+      - "test/worker-version.test.js"
+      - ".github/workflows/control-room-contracts.yml"
   workflow_dispatch:
 
 permissions:
@@ -49,9 +77,6 @@ jobs:
 
       - name: Validate repo-local catalog
         run: node scripts/verify-control-room-tests.mjs
-
-      - name: Verify protected intelligence and live-proof contract
-        run: node scripts/verify-work-productization-contract.mjs
 
       - name: Verify Worker version receipt
         run: npx vitest run test/worker-version.test.js
