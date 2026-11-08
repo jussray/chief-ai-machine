@@ -1,0 +1,165 @@
+name: Chief Immutable Preview Authenticated Proof (Trusted Main)
+
+# Never execute candidate PR source with provider credentials. This is a
+# separate, founder-initiated trusted-main proof and does not waive PR checks.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_head_sha:
+        description: "Exact open PR head SHA to prove"
+        type: string
+        required: true
+      authority_pr:
+        description: "Open pull request number"
+        type: string
+        required: true
+      authorize_proof:
+        description: "Founder authorizes read-only, protected preview proof"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+
+concurrency:
+  group: chief-immutable-preview-auth-proof
+  cancel-in-progress: false
+
+jobs:
+  admission:
+    name: Founder and immutable Cloudflare preview admission
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      preview_origin: ${{ steps.admission.outputs.preview_origin }}
+    steps:
+      - name: Check out current trusted main only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up trusted Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+      - name: Bind founder authority to exact open PR, provider build, and current main
+        id: admission
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          AUTHORITY_PR: ${{ inputs.authority_pr }}
+          AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/chief-trusted-preview-admission.mjs >> "$GITHUB_OUTPUT"
+
+  protected-preview-proof:
+    name: Authenticated immutable Chief runtime (trusted founder dispatch)
+    needs: admission
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    environment: proofmode-access-admin
+    steps:
+      - name: Check out exact trusted main, never candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up trusted Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+      - name: Revalidate founder, current main and exact provider receipt before secrets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          AUTHORITY_PR: ${{ inputs.authority_pr }}
+          AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          ADMITTED_PREVIEW_ORIGIN: ${{ needs.admission.outputs.preview_origin }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          origin="$(node scripts/chief-trusted-preview-admission.mjs | sed -n 's/^preview_origin=//p')"
+          test -n "$origin"
+          test "$origin" = "$ADMITTED_PREVIEW_ORIGIN"
+      - name: Install isolated trusted browser runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          proof_dir="$RUNNER_TEMP/chief-trusted-preview-proof"
+          mkdir -p "$proof_dir"
+          cd "$proof_dir"
+          npm init -y >/dev/null
+          npm install --save-exact --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+          cp "$GITHUB_WORKSPACE/scripts/chief-trusted-preview-browser.pw.mjs" ./chief-trusted-preview-browser.pw.mjs
+          cat > playwright.config.mjs <<'EOF'
+          import { defineConfig } from '@playwright/test';
+          export default defineConfig({
+            testDir: './',
+            testMatch: /chief-trusted-preview-browser\.pw\.mjs$/,
+            fullyParallel: false, retries: 0, workers: 1,
+            reporter: [['line']],
+            use: { trace: 'off', screenshot: 'off', video: 'off' },
+          });
+          EOF
+          echo "TRUSTED_BROWSER_RUNNER=$proof_dir" >> "$GITHUB_ENV"
+      - name: Prove exact SHA, rendered app and stylesheet with bounded service auth
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          CHIEF_PREVIEW_ORIGIN: ${{ needs.admission.outputs.preview_origin }}
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_ID"
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
+          cd "$TRUSTED_BROWSER_RUNNER"
+          npx playwright test --config=playwright.config.mjs
+
+  publish-trusted-preview-receipt:
+    name: Publish authenticated Chief preview receipt (non-required)
+    needs: [admission, protected-preview-proof]
+    if: ${{ needs['protected-preview-proof'].result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: read
+    steps:
+      - name: Check out current trusted main only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up trusted Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+      - name: Recheck current main, PR head and Cloudflare proof before publishing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          AUTHORITY_PR: ${{ inputs.authority_pr }}
+          AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          PROOF_RESULT: ${{ needs['protected-preview-proof'].result }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/chief-trusted-preview-publish.mjs
+
