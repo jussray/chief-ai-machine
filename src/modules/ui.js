@@ -15,10 +15,16 @@ export function initNav() {
   const allBtns = document.querySelectorAll('[data-page]');
   const allPages = document.querySelectorAll('.page');
   function goTo(page) {
+    document.querySelectorAll('.brand-more[open]').forEach((d) => { d.open = false; });
     allBtns.forEach(b => b.classList.toggle('active', b.dataset.page === page));
     allPages.forEach(p => p.classList.toggle('on', p.id === 'page-' + page));
   }
   allBtns.forEach(btn => btn.addEventListener('click', () => goTo(btn.dataset.page)));
+
+  // Menus in the top bar (More, Data) close on outside tap or Escape, so they never sit over the page.
+  const closeMenus = (keep) => document.querySelectorAll('.brand-more[open]').forEach((d) => { if (!d.contains(keep)) d.open = false; });
+  document.addEventListener('click', (e) => closeMenus(e.target));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(null); });
 }
 
 export function showToast(msg) {
