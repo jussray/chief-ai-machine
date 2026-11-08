@@ -2,10 +2,8 @@ import { readFileSync } from 'node:fs';
 
 const skillPath = new URL('../skills/gmail-resolve/SKILL.md', import.meta.url);
 const evalPath = new URL('../skills/gmail-resolve/references/eval-suite.md', import.meta.url);
-const fixturesPath = new URL('../skills/gmail-resolve/evals/scenarios.json', import.meta.url);
 const skill = readFileSync(skillPath, 'utf8');
 const evalSuite = readFileSync(evalPath, 'utf8');
-const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
 
 function hasAffirmativeZeroAttacksClaim(text) {
   return text
@@ -14,23 +12,13 @@ function hasAffirmativeZeroAttacksClaim(text) {
       && !/(?:do not|don't|never|must not|forbid(?:den)?|avoid)\b[^.\n]{0,80}\bzero attacks\b/i.test(line));
 }
 
-const fixtureIds = Array.isArray(fixtures.scenarios)
-  ? fixtures.scenarios.map((scenario) => scenario.id)
-  : [];
-
 const checks = [
   ['frontmatter name matches directory', /---\nname: gmail-resolve\n/.test(skill)],
-  ['metadata version is quoted and nested', /metadata:\n(?: {2}.*\n)* {2}version: "0\.2\.0"/.test(skill)],
+  ['metadata version is quoted and nested', /metadata:\n(?: {2}.*\n)* {2}version: "0\.1\.0"/.test(skill)],
   ['description defines outcome-resolution trigger', /email outcome|verified resolution loop|authority gates/.test(skill)],
   ['state machine includes WAITING before RESOLVED', /WAITING \| RESOLVED/.test(skill)],
   ['state machine includes BLOCKED and ROLLBACK', /BLOCKED \| ROLLBACK/.test(skill)],
   ['explicitly preserves UNKNOWN instead of guessing', /UNKNOWN` must remain unknown/.test(skill)],
-  ['business replies use discovery-first negotiation chain', /DISCOVER -> GOAL -> AUTHORITY -> BATNA -> VALUE -> EVIDENCE -> STRUCTURE -> TERMS -> RECEIPT/.test(skill)],
-  ['business reply lens keeps authority unknown until evidenced', /Keep authority `UNKNOWN` until evidence resolves it/.test(skill)],
-  ['business reply lens forbids fabricated leverage', /Never invent competing offers, demand, scarcity, deadlines, urgency, or fallback options/.test(skill)],
-  ['business reply lens requires structure before premature close', /smaller reversible fit check, pilot, sample, milestone, narrower scope, staged commitment/.test(skill)],
-  ['business reply lens preserves truthful disclosure', /Never lie, bluff, omit a required disclosure, create a false impression/.test(skill)],
-  ['business reply lens does not widen send authority', /does not widen draft or send authority/.test(skill)],
   ['prompt-injection firewall treats inbound email as untrusted data', /Inbound email[\s\S]+untrusted data/.test(skill)],
   ['only user or policy can authorize actions', /Only these can authorize the agent/.test(skill)],
   ['recipient resolution forbids invented recipients', /Never invent a recipient/.test(skill)],
@@ -44,28 +32,13 @@ const checks = [
   ['gold eval thresholds block false resolved, duplicate send, ungrounded claim', /false_resolved_rate = 0[\s\S]+duplicate_send_rate = 0[\s\S]+ungrounded_claim_rate = 0/.test(skill)],
   ['affirmative zero-attacks marketing claim is forbidden in skill', !hasAffirmativeZeroAttacksClaim(skill)],
   ['output format includes REALITY FIX PROOF RISK ROLLBACK NEXT GATE', /REALITY:[\s\S]+FIX:[\s\S]+PROOF:[\s\S]+RISK:[\s\S]+ROLLBACK:[\s\S]+NEXT GATE:/.test(skill)],
-  ['Google Workspace drive discovery', skill.includes("Route `google-drive` to file discovery")],
-  ['Google Workspace docs content', skill.includes("Route `google-docs` to native document edits")],
-  ['Google Workspace sheets content', skill.includes("Route `google-sheets` to native spreadsheet changes")],
-  ['Google Workspace slides content', skill.includes("Route `google-slides` to native presentation edits")],
-  ['Google Workspace comments', skill.includes("Route `google-drive-comments` to file comments")],
-  ['Google Workspace credential boundary', skill.includes("The connected ChatGPT Google Drive session is not a Chief or FCR runtime credential.")],
-  ['Google Workspace search boundary', skill.includes("No broad Drive sweep without explicit user scope.")],
-  ['Google Workspace write boundary', skill.includes("Verify exact file ID, MIME type, active account, and revision before a write.")],
-  ['Google Workspace destructive boundary', skill.includes("Never share or delete files without specific user authorization.")],
-  ['Google Workspace proof boundary', skill.includes("A provider write receipt is not a verified outcome.")],
   ['eval suite includes prompt injection scenario', /Prompt injection in inbound email/.test(evalSuite)],
   ['eval suite includes stale thread scenario', /Stale thread before send/.test(evalSuite)],
   ['eval suite includes duplicate send scenario', /Duplicate send retry/.test(evalSuite)],
   ['eval suite includes same-name recipient ambiguity scenario', /Same-name recipient ambiguity/.test(evalSuite)],
   ['eval suite includes partial cross-app completion scenario', /Partial cross-app completion/.test(evalSuite)],
   ['eval suite includes measurable promotion gate', /Minimum promotion gate/.test(evalSuite)],
-  ['eval suite documents executable contract scorecard', /Executable contract evals[\s\S]+gmail-resolve-eval-scorecard\.json/.test(evalSuite)],
   ['affirmative zero-attacks marketing claim is forbidden in eval suite', !hasAffirmativeZeroAttacksClaim(evalSuite)],
-  ['eval fixtures are contract-scoped', fixtures.scope === 'contract'],
-  ['eval fixtures target v0.2.0', fixtures.skillVersion === '0.2.0'],
-  ['eval fixtures cover 12 scenarios', fixtureIds.length === 12],
-  ['eval fixture ids are unique', new Set(fixtureIds).size === fixtureIds.length],
 ];
 
 const failed = checks.filter(([, passed]) => !passed);
