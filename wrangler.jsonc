@@ -1,21 +1,14 @@
 {
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
-  "main": "worker/index.js",
-  "workers_dev": false,
-  "preview_urls": true,
-  "routes": [
-    {
-      "pattern": "chief.foundercontrolroom.org",
-      "custom_domain": true
-    }
-  ],
+  "main": "security/chief-edge-entry.js",
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
-    "run_worker_first": true
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/github/*", "/version", "/mcp"]
   }
 }

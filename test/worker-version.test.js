@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import worker from '../worker/index.js';
+import worker from '../worker/http-worker.js';
 
 const wranglerConfig = readFileSync(
   new URL('../wrangler.jsonc', import.meta.url),
@@ -16,9 +16,10 @@ const releaseBakeScript = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes every request through the Worker before Static Assets', () => {
-    expect(wranglerConfig).toMatch(/"run_worker_first":\s*true/);
-    expect(wranglerConfig).not.toMatch(/"not_found_handling"/);
+  it('routes runtime endpoints through the Worker before asset fallback', () => {
+    expect(wranglerConfig).toMatch(
+      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/github\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
+    );
   });
 
   it('bakes the Workers Builds commit SHA before Wrangler bundles the Worker', () => {
@@ -65,6 +66,27 @@ describe('Chief AI Worker version receipt', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       sha: 'unknown',
+    });
+  });
+
+  it('routes GitHub App status through the Worker without touching assets', async () => {
+    const response = await worker.fetch(
+      new Request('https://chief-ai.example/github/status'),
+      {
+        ASSETS: {
+          fetch: () => {
+            throw new Error('GitHub routes should not fall through to assets');
+          },
+        },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      configured: false,
+      authority: 'read-only',
+      webhookPath: '/github/webhook',
     });
   });
 });

@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "founder-control-room": {
+      "type": "http",
+      "url": "https://api.foundercontrolroom.org/mcp"
+    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
@@ -8,13 +12,13 @@
         "X-MCP-Lockdown": "true"
       }
     },
-    "microsoft-learn": {
+    "supabase": {
       "type": "http",
-      "url": "https://learn.microsoft.com/api/mcp"
+      "url": "https://mcp.supabase.com/mcp?project_ref=lghpwoktsytutssjiwgy&read_only=true&features=database,docs"
     },
-    "figma": {
+    "context7": {
       "type": "http",
-      "url": "https://mcp.figma.com/mcp"
+      "url": "https://mcp.context7.com/mcp"
     },
     "playwright": {
       "command": "npx",
