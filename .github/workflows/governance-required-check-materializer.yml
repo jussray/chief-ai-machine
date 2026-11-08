@@ -63,10 +63,16 @@ jobs:
               });
             '
           }
-          if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
-            echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
-            exit 0
-          fi
+          # Cloudflare's trusted build check can finish after pull_request_target starts.
+          # Wait for the exact SHA first; never accept an unverified check or weaker identity.
+          # Keep the existing predecessor-tree fallback for unchanged provider surfaces.
+          for attempt in {1..90}; do
+            if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
+              echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
+              exit 0
+            fi
+            if [ "$attempt" -lt 90 ]; then sleep 2; fi
+          done
           inherited_sha=""
           while IFS= read -r candidate; do
             [ -n "$candidate" ] || continue

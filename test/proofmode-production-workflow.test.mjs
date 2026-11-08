@@ -14,6 +14,7 @@ const authorityScript = readFileSync(
   new URL('../scripts/proofmode-production-authority.mjs', import.meta.url),
   'utf8',
 );
+
 const previewResolver = readFileSync(
   new URL('../scripts/validate-chief-preview.mjs', import.meta.url),
   'utf8',
@@ -148,5 +149,34 @@ describe('ProofMode production governance workflow', () => {
     expect(bridge).toContain('/actions/workflows/proofmode-production-playwright.yml/dispatches');
     expect(bridge).toContain('authorize_production: true');
     expect(bridge).toContain('cancel-in-progress: true');
+  });
+});
+
+describe('founder-main workflow dispatch contract', () => {
+  it('offers a separate founder-main release mode without manufacturing PR review IDs', () => {
+    expect(workflow).toContain('authority_mode:');
+    expect(workflow).toContain('- founder-main');
+    expect(workflow).toContain('AUTHORITY_MODE:');
+    expect(workflow).toContain('authority_pr:\n        description:');
+    expect(workflow).toContain('required: false');
+    expect(authorityScript).toContain("assertDirectMainAuthority");
+    expect(authorityScript).toContain("main?.commit?.sha !== expectedSha");
+  });
+
+  it('serializes attempts on the exact SHA and persists run-scoped release status', () => {
+    expect(workflow).toContain("inputs.expected_sha || github.sha");
+    expect(workflow).toContain('statuses: write');
+    expect(authorityScript).toContain('chief/production-authority/run-');
+    expect(workflow).toContain('name: Cloudflare Production');
+  });
+});
+
+describe('main-sourced proof safety survives the founder-main integration', () => {
+  it('never grants a production release from an unverified verbal token', () => {
+    expect(workflow).not.toContain('founder-verbal-authorization');
+    expect(authorityScript).not.toContain("authorityReceipt === 'founder-verbal-authorization'");
+    expect(workflow).toContain('proofmode-safe-reporter.mjs');
+    expect(workflow).toContain("trace: 'off'");
+    expect(workflow).toContain("needs.protected-access.result == 'success'");
   });
 });

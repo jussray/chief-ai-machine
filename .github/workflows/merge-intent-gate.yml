@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   merge-intent:
@@ -72,3 +73,55 @@ jobs:
             process.exit(1);
           }
           NODE
+
+  live-main-audit:
+    name: Live main and exact candidate ancestry
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify live main, current PR head, and ancestry (read-only)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD_SHA: ${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          sha_pattern='^[0-9a-f]{40}$'
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')"
+          [[ "$current_main" =~ $sha_pattern ]] || { echo "::error::Cannot resolve live main SHA"; exit 1; }
+          [[ "$EVENT_HEAD_SHA" =~ $sha_pattern ]] || { echo "::error::Invalid candidate SHA"; exit 1; }
+          candidate="$EVENT_HEAD_SHA"
+          if [[ -n "$PR_NUMBER" ]]; then
+            live_pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+            live_head="$(jq -r '.head.sha // empty' <<<"$live_pr")"
+            live_base="$(jq -r '.base.sha // empty' <<<"$live_pr")"
+            live_base_ref="$(jq -r '.base.ref // empty' <<<"$live_pr")"
+            [[ "$live_base_ref" == "main" ]] || { echo "::error::PR targets ${live_base_ref}, not main"; exit 1; }
+            [[ "$live_head" == "$EVENT_HEAD_SHA" ]] || { echo "::error::PR head advanced; event proof is stale"; exit 1; }
+            echo "PR base snapshot: ${live_base}; authoritative comparison uses live main ${current_main}"
+            candidate="$live_head"
+          fi
+          merge_base="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${current_main}...${candidate}" --jq '.merge_base_commit.sha')"
+          [[ "$merge_base" == "$current_main" ]] || {
+            echo "::error::Candidate is not based on live main ${current_main}. Update the branch and rerun exact-head checks."
+            exit 1
+          }
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" && "$candidate" != "$current_main" ]]; then
+            echo "::error::This main run is superseded by ${current_main}"
+            exit 1
+          fi
+          final_main="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')"
+          [[ "$final_main" == "$current_main" ]] || { echo "::error::Main advanced during audit; evidence expired"; exit 1; }
+          if [[ -n "$PR_NUMBER" ]]; then
+            final_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+            [[ "$final_head" == "$candidate" ]] || { echo "::error::PR head advanced during audit"; exit 1; }
+          fi
+          {
+            echo "### Live main candidate audit"
+            echo "- Repository: ${GITHUB_REPOSITORY}"
+            echo "- Live main: ${current_main}"
+            echo "- Candidate: ${candidate}"
+            echo "- Merge base: ${merge_base}"
+            echo "- Scope: Git ancestry and exact SHA only; tests, merge authorization, deployment and runtime remain separate."
+          } >> "$GITHUB_STEP_SUMMARY"
