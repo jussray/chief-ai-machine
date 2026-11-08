@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  packages: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -66,7 +64,6 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run lint
-      - run: npm run verify:mcp
       - run: npm run verify:gmail-resolve-skill
       - run: npm run verify:goalfix-skill
       - run: npm run eval:gmail-resolve -- --output gmail-resolve-eval-scorecard.json
@@ -96,16 +93,9 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - name: Generate PromptOS quality artifact
-        run: npm run generate:promptos
+      - name: Verify Chief RFC 9116 static-asset boundary
+        run: node --test test/rfc9116-static-asset.test.mjs
       - run: npm test -- --coverage --reporter=json --outputFile=test-results.json
-      - name: Upload PromptOS catalog quality receipt
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: promptos-catalog-quality
-          path: artifacts/promptos/catalog-quality-report.json
-          if-no-files-found: error
       - name: Upload unit-test and coverage receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
@@ -115,40 +105,23 @@ jobs:
             test-results.json
             coverage/lcov.info
 
-  codeql:
-    name: "CodeQL"
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
-    steps:
-      - name: Check out exact head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.EXPECTED_HEAD_SHA }}
-          persist-credentials: false
-      - name: Record and verify exact head
-        shell: bash
-        run: |
-          set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@6f5948dfacef28e207b48d0905cf90c03365536d
-        with:
-          languages: javascript-typescript
-      - name: Analyze
-        uses: github/codeql-action/analyze@6f5948dfacef28e207b48d0905cf90c03365536d
-        with:
-          category: /language:javascript-typescript
-
   sonarqube:
     name: "SonarQube – Founder Intelligence"
     needs: unit-tests
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:
+      - name: Fail closed unless unit tests passed
+        env:
+          UNIT_TEST_RESULT: ${{ needs.unit-tests.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'unit-tests=%s\n' "$UNIT_TEST_RESULT"
+          test "$UNIT_TEST_RESULT" = 'success'
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

@@ -3,7 +3,7 @@ import { handleChiefControlRoomRecommendation } from './chief-control-room-recom
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { handleChiefProviderRoute } from './chief-provider-route.js';
 import { getReleaseSha } from './fcr-service.js';
-import { handleProofModeMcp } from './proofmode-mcp.js';
+import { handleChiefMcp } from './chief-mcp.js';
 import { chiefProviderStates, invokeChiefProvider } from './provider-runtime.js';
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
@@ -134,7 +134,7 @@ const httpWorker = {
     }
 
     if (url.pathname === '/mcp') {
-      return handleProofModeMcp(request, env);
+      return handleChiefMcp(request, env);
     }
 
     if (url.pathname === '/api/chief/capability-plan') {

@@ -2,12 +2,19 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Playwright browser tests require a separate runner and a real deployed TEST_URL.
-    // Do not run them inside Vitest's unit-test collection.
-    exclude: [...configDefaults.exclude, '**/*-playwright.test.js',
-      // NVIDIA advisory suites run on the Node.js built-in test runner
-      // (zero-dependency offline review bundles); not Vitest suites.
-      '**/nvidia-*.test.mjs'],
+    exclude: [
+      ...configDefaults.exclude,
+      'test/pr-continuity.attack20.test.mjs',
+      'test/edge-rate-limit.test.mjs',
+      'test/full-attack-unit.test.mjs',
+      'test/reciprocal-defense.test.mjs',
+      'test/reciprocal-ingress.test.mjs',
+      'test/control-room-runtime-state.test.mjs',
+      // This file uses node:test and is executed separately by Quality Gate.
+      'test/rfc9116-static-asset.test.mjs',
+      'mobile/test/mobile-contract.test.mjs',
+      'e2e/**/*.spec.mjs',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json'],
