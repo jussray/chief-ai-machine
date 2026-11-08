@@ -1,0 +1,57 @@
+{
+  "kind": "workflow",
+  "title": "Portfolio Execution Gates (1-3)",
+  "project": "general",
+  "status": "approved",
+  "provider": "provider-neutral",
+  "tags": ["portfolio", "execution", "gates", "seo", "maintenance", "feature-tracking"],
+  "summary": "Execute three concurrent portfolio gates: (1) Apply SEO/Geo/AEO to launch product, (2) Verify maintenance product stability, (3) Track feature development completion. Proven on Think Tank, JBH, Sekret-Bip.",
+  "gates": [
+    {
+      "number": 1,
+      "name": "Product Launch — Apply SEO/Geo/AEO",
+      "example_project": "Think Tank (Increment 3)",
+      "time_estimate": "~30 min",
+      "deliverable": "Product ready for public launch with max SEO/Geo/AEO"
+    },
+    {
+      "number": 2,
+      "name": "Product Maintenance — Verify Stability",
+      "example_project": "JBH (Commerce Platform)",
+      "time_estimate": "~10 min",
+      "deliverable": "Stability audit + continuation of maintenance cycle"
+    },
+    {
+      "number": 3,
+      "name": "Feature Development — Track Completion",
+      "example_project": "Sekret-Bip (Parent Linking)",
+      "time_estimate": "~10 min",
+      "deliverable": "Progress confirmation + blockers identified"
+    }
+  ],
+  "execution_model": "parallel or sequential",
+  "total_time": "30-35 minutes",
+  "success_criteria": [
+    "Product 1 enhanced and deployed (SEO/Geo/AEO)",
+    "Product 2 verified stable (security, CI/CD, no blockers)",
+    "Product 3 progressing toward completion (tests, commits, focus)"
+  ],
+  "rollback": "Each gate independent; git revert for Gate 1 if needed",
+  "reuse_for": [
+    "Any portfolio with product at launch, maintenance, and feature-dev phases",
+    "Monthly or per-launch-cycle portfolio review",
+    "Scaling founder-level oversight across multiple projects"
+  ],
+  "evidence": {
+    "think_tank_commit": "47080d7",
+    "jbh_status": "stable",
+    "sekret_bip_status": "in_progress",
+    "date_executed": "2026-11-08",
+    "time_utc": "22:35"
+  },
+  "next_gate": [
+    "Monitor product 1 launch metrics (traffic, search, answer engines)",
+    "Continue product 2 maintenance (deps, security)",
+    "Drive product 3 to feature completion (tests, blockers)"
+  ]
+}
