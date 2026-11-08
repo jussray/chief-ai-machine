@@ -83,6 +83,23 @@ describe('Chief AI Worker version receipt', () => {
     expect(releaseBakeScript).toContain('Release SHA inputs disagree; refusing to bake ambiguous artifact identity');
   });
 
+  it('routes provider execution through the gated HTTP worker with mainline security headers', async () => {
+    const response = await worker.fetch(
+      new Request('https://chief-ai.example/api/chief/provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'openai', prompt: 'must not execute' }),
+      }),
+      {
+        ASSETS: { fetch() { throw new Error('provider route must never fall through to SPA'); } },
+      },
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get('x-frame-options')).toBe('DENY');
+    const body = await response.json();
+    expect(body.error.code).toBe('provider_runtime_disabled');
+  });
+
   it('returns the explicit release SHA without touching assets', async () => {
     const response = await worker.fetch(
       new Request('https://chief-ai.example/version'),

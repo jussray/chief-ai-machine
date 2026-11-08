@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createCapabilityRegistry } from '../src/domain/capability-registry.js';
 import { sha256Hex } from '../src/domain/capability-plan.js';
@@ -10,6 +11,7 @@ import {
   getArtifactReleaseSha,
   getFounderControlRoomServiceVersion,
   ingestFounderControlRoomBipEvidence,
+  acceptFounderControlRoomPromptOSCommandIntent,
 } from './fcr-service.js';
 
 const releaseSha = '73c36e61dae96bf1bb94990d3b5e5a6a0bb70b24';
@@ -86,6 +88,21 @@ function bipEvidence() {
   };
 }
 
+describe('Chief Cloudflare FCR RPC entrypoint wiring', () => {
+  it('exports the FCR RPC binding independently of Node HTTP', () => {
+    const root = readFileSync(new URL('./index.js', import.meta.url), 'utf8');
+    const rpc = readFileSync(new URL('./fcr-rpc-entry.js', import.meta.url), 'utf8');
+    const edge = readFileSync(new URL('../security/chief-edge-entry.js', import.meta.url), 'utf8');
+
+    expect(root).not.toContain("from 'cloudflare:workers'");
+    expect(rpc).toContain("export class FounderControlRoomEntrypoint extends WorkerEntrypoint");
+    expect(rpc).toContain('ingestBipEvidence(input)');
+    expect(rpc).toContain('acceptPromptOSCommandIntent(input)');
+    expect(edge).toContain("export { FounderControlRoomEntrypoint } from '../worker/fcr-rpc-entry.js';");
+    expect(edge).toContain("export * from '../worker/index.js';");
+  });
+});
+
 describe('Founder Control Room RPC service contract', () => {
   it('binds service identity and contracts to the baked artifact SHA', () => {
     expect(getFounderControlRoomServiceVersion(
@@ -97,6 +114,8 @@ describe('Founder Control Room RPC service contract', () => {
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
       bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
+      promptOSCommandIntentContract: 'promptos/public-command-intent@v1',
+      promptOSCommandHandoffContract: 'juss/promptos-chief-fcr-command-handoff@v1',
       releaseSha,
     });
   });
@@ -127,6 +146,49 @@ describe('Founder Control Room RPC service contract', () => {
     });
   });
 
+  it('accepts a PromptOS public command over the private FCR RPC without minting authority', () => {
+    const response = acceptFounderControlRoomPromptOSCommandIntent(
+      { RELEASE_SHA: spoofedRuntimeSha },
+      {
+        intent: {
+          schema: 'promptos/public-command-intent@v1',
+          command: { id: 'contract', token: '/contract', category: 'Legal', label: 'Contract' },
+          arguments: 'vendor NDA',
+          project: 'truth-weaver',
+          capabilityId: 'legal-navigation',
+          route: {
+            owner: 'promptos',
+            reasoningPlane: 'chief-ai-machine',
+            specialistProduct: 'truth-weaver',
+            authorityPlane: 'founder-control-room',
+          },
+          authorityCeiling: 'advisory-only',
+          execution: { status: 'not-executed', mutationAuthorized: false },
+          evidence: { contract: 'current-authority', staleOnStateChange: true },
+          catalogQuery: 'contract',
+        },
+      },
+      releaseSha,
+    );
+
+    expect(response.ok).toBe(true);
+    expect(response.status).toBe(200);
+    expect(response.releaseSha).toBe(releaseSha);
+    expect(response.promptOSCommandIntentContract).toBe('promptos/public-command-intent@v1');
+    expect(response.promptOSCommandHandoffContract).toBe('juss/promptos-chief-fcr-command-handoff@v1');
+    expect(response.result).toMatchObject({
+      acceptedBy: 'chief-ai-machine',
+      project: 'truth-weaver',
+      capabilityId: 'legal-navigation',
+      specialistProduct: 'truth-weaver',
+      authorityPlane: 'founder-control-room',
+      authorityResolution: 'unresolved',
+      actionAuthority: false,
+      executionAuthorized: false,
+      nextRequiredContract: 'juss-v10/capability-plan@v1',
+    });
+  });
+
   it('accepts FCR-issued Bip evidence through the private RPC without gaining authority', () => {
     const response = ingestFounderControlRoomBipEvidence(
       { RELEASE_SHA: spoofedRuntimeSha },
@@ -141,6 +203,28 @@ describe('Founder Control Room RPC service contract', () => {
     expect(response.result.accepted).toBe(true);
     expect(response.result.authority.permitsExecution).toBe(false);
     expect(response.result.authority.permitsApproval).toBe(false);
+  });
+
+  it('returns stable failure codes without serializing rejected RPC inputs', () => {
+    const bipResult = ingestFounderControlRoomBipEvidence(
+      {},
+      { ...bipEvidence(), sourceSystem: 'untrusted-user-LEAKMARKER' },
+      releaseSha,
+    );
+    expect(bipResult.ok).toBe(false);
+    expect(bipResult.status).toBe(422);
+    expect(bipResult.error).toBe('invalid_fcr_bip_evidence');
+    expect(JSON.stringify(bipResult)).not.toContain('LEAKMARKER');
+
+    const commandResult = acceptFounderControlRoomPromptOSCommandIntent(
+      {},
+      { intent: { schema: 'untrusted-user-LEAKMARKER' } },
+      releaseSha,
+    );
+    expect(commandResult.ok).toBe(false);
+    expect(commandResult.status).toBe(422);
+    expect(commandResult.error).toBe('invalid_promptos_command_intent');
+    expect(JSON.stringify(commandResult)).not.toContain('LEAKMARKER');
   });
 
   it('fails closed when a non-FCR source tries to inject Bip evidence', () => {

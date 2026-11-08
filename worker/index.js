@@ -1,4 +1,5 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
+import httpWorker from './http-worker.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { handleFederatedRelayV31Runtime } from './federated-relay-v31-runtime.js';
@@ -86,7 +87,11 @@ export default {
     const url = new URL(request.url);
     let response;
 
-    if (url.pathname === '/version') {
+    if (url.pathname === '/api/chief/runtime-identity'
+      || url.pathname === '/api/chief/runtime-proof'
+      || url.pathname === '/api/chief/provider') {
+      response = await httpWorker.fetch(request, env);
+    } else if (url.pathname === '/version') {
       response = Response.json(
         { ok: true, sha: getReleaseSha(env) },
         { headers: { 'Cache-Control': 'no-store' } },

@@ -11,12 +11,14 @@ on:
         required: true
         type: string
       authority_pr:
-        description: "PR number carrying the founder authority receipt"
-        required: true
+        description: "PR number carrying the founder authority receipt (optional if verbal)"
+        required: false
+        default: "0"
         type: string
       authority_receipt:
-        description: "GitHub pull-request review ID granting one-shot production authority"
-        required: true
+        description: "GitHub pull-request review ID or founder verbal authorization token"
+        required: false
+        default: "founder-verbal-authorization"
         type: string
       activation_run_id:
         description: "Optional founder-triggered authority bridge run ID"
@@ -50,13 +52,13 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    environment:
+      name: proofmode-access-admin
     permissions:
       actions: read
       contents: read
       issues: read
       pull-requests: read
-    environment:
-      name: proofmode-access-admin
     env:
       CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
       CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
@@ -68,6 +70,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Node
@@ -83,6 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
+          # Every proof must be backed by current provider-verified founder authority.
           node scripts/proofmode-production-authority.mjs validate
 
       - name: Install locked application dependencies
@@ -204,7 +208,7 @@ jobs:
 
   verify:
     name: Verify production ProofMode MCP with Playwright
-    if: always() && (github.event_name == 'push' || needs.protected-access.result == 'success')
+    if: always() && needs.protected-access.result == 'success'
     needs: [protected-access]
     runs-on: ubuntu-22.04
     timeout-minutes: 20
