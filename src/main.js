@@ -12,27 +12,16 @@ import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { mountPromptOS } from './modules/promptos-ui.js';
-import { readCustomPromptState, readStarState } from './modules/prompt-state.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
-function readArrayState(key) {
-  let raw;
+function readArray(key) {
   try {
-    raw = localStorage.getItem(key);
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
   } catch {
-    return { state: 'unavailable', values: [] };
-  }
-  if (raw === null) return { state: 'ready', values: [] };
-
-  try {
-    const value = JSON.parse(raw);
-    return Array.isArray(value)
-      ? { state: 'ready', values: value }
-      : { state: 'corrupt', values: [] };
-  } catch {
-    return { state: 'corrupt', values: [] };
+    return [];
   }
 }
 
@@ -46,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLibrary(PUBLIC_PROMPTS, modal);
   initBuilder(PUBLIC_PROMPTS);
   initFreestyle(PUBLIC_PROMPTS);
-  initCustom(modal);
+  initCustom(PUBLIC_PROMPTS, modal);
   initBrain();
 
   const tbody = document.getElementById('benchBody');
@@ -59,28 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('exportBtn')?.addEventListener('click', () => {
-    const intelligence = readArrayState(INTELLIGENCE_STORAGE_KEY);
-    const custom = readCustomPromptState();
-    const stars = readStarState();
-    const goals = readArrayState(GOAL_STORAGE_KEY);
-    const unreadable = [
-      ['intelligence', intelligence.state],
-      ['custom prompts', custom.state],
-      ['stars', stars.state],
-      ['goals', goals.state],
-    ].filter(([, state]) => state !== 'ready').map(([label]) => label);
-
-    if (unreadable.length) {
-      showToast(`Export blocked — ${unreadable.join(', ')} state is UNKNOWN.`);
-      return;
-    }
-
     const snapshot = createPortableSnapshot({
-      assets: intelligence.values,
-      customPrompts: custom.prompts,
-      stars: stars.stars,
+      assets: readArray(INTELLIGENCE_STORAGE_KEY),
+      customPrompts: readArray('chief-custom'),
+      stars: readArray('chief-stars'),
     });
-    snapshot.goals = goals.values;
+    snapshot.goals = readArray(GOAL_STORAGE_KEY);
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
