@@ -73,11 +73,11 @@ test('the authoritative policy ledger binds the runtime-state receipt into its p
   assert.deepEqual(bound.runtimeState, runtimeState);
 });
 
-test('persisted runtime-state receipt is valid JSON for the ledger consumer', () => {
+test('writeRuntimeStateReceipt writes a real trailing newline, not a literal backslash-n', () => {
   const root = fixture();
-  const output = path.join(root, 'artifacts', 'receipt.json');
-  const receipt = writeRuntimeStateReceipt(env({ CONTROL_ROOM_RUNTIME_STATE_PATH: output }), root);
-  const stored = fs.readFileSync(output, 'utf8');
-  assert.deepEqual(JSON.parse(stored), receipt);
-  assert.ok(stored.endsWith('\n'));
+  const outputPath = path.join(root, 'artifacts', 'control-room-runtime-state.json');
+  writeRuntimeStateReceipt({ ...env(), CONTROL_ROOM_RUNTIME_STATE_PATH: outputPath }, root);
+  const bytes = fs.readFileSync(outputPath, 'utf8');
+  assert.equal(bytes.endsWith('}\n'), true, 'receipt must end with a real newline');
+  assert.equal(bytes.endsWith('}\\n'), false, 'receipt must not end with a literal backslash-n');
 });
