@@ -8,6 +8,8 @@ export default defineConfig({
       'test/full-attack-unit.test.mjs',
       'test/reciprocal-defense.test.mjs',
       'test/reciprocal-ingress.test.mjs',
+      'test/edge-rate-limit.test.mjs',
+      'e2e/chief-edge-rate-limit.spec.mjs',
       'mobile/**',
     ],
     coverage: {

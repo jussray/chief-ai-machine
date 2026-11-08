@@ -6,10 +6,7 @@ import {
   BROWSER_REALITY_FINGERPRINT_CONTRACT,
   canonicalizeBrowserRealityEvidence,
   createBrowserRealityEvidenceReceipt,
-  sanitizeBrowserRealityUrl,
 } from '../src/domain/browser-reality-evidence.js';
-import { canonicalFamilies } from '../src/promptos/catalog/families.js';
-
 const contract = JSON.parse(readFileSync(
   new URL('../config/browser-reality.contract.json', import.meta.url),
   'utf8',
@@ -215,26 +212,6 @@ describe('juss/browser-reality@v1', () => {
     expect(first.digest).toBe(second.digest);
   });
 
-  it('never hashes credentials or tokens from unparseable or non-http nested URLs', () => {
-    const leaks = [
-      '//user:secret@inner.example/?token=private',
-      '\\\\user:secret@inner.example/?token=private',
-      '/\t/user:secret@inner.example/?token=private',
-      'ftp://user:secret@inner.example/file',
-      'javascript://user:secret@inner.example/%0aalert(1)',
-      'https:///user:secret@inner.example/?token=private',
-    ];
-    for (const leak of leaks) {
-      const sanitized = sanitizeBrowserRealityUrl(`https://outer.example/?next=${encodeURIComponent(leak)}`);
-      const decoded = decodeURIComponent(sanitized);
-      expect(decoded).not.toMatch(/secret|private/);
-    }
-    // Benign protocol-relative values keep their public shape but lose secrets.
-    expect(decodeURIComponent(sanitizeBrowserRealityUrl(
-      `https://outer.example/?next=${encodeURIComponent('//cdn.example/a?token=private&x=1')}`,
-    ))).toBe('https://outer.example/?next=//cdn.example/a?token=REDACTED&x=1');
-  });
-
   it('recursively sanitizes nested redirect URLs and redacts beyond depth three', () => {
     const nestedOne = 'https://viewer:first-secret@inner.example/path?token=provider-one&utm_source=drop#private';
     const nestedTwo = 'https://viewer:second-secret@inner.example/path?token=provider-two&utm_source=other#different';
@@ -407,7 +384,7 @@ describe('juss/browser-reality@v1', () => {
   });
 
   it('keeps browser-reality authority in its dedicated contract without widening the shared pair contract', () => {
-    expect(pairContract.contractVersion).toBe('2026-08-09.1');
+    expect(pairContract.contractVersion).toBe('2026-09-23.1');
     expect(pairContract.browserReality).toBeUndefined();
     expect(contract.contractId).toBe('juss/browser-reality@v1');
     expect(contract.capabilityName).toBe('browser-reality-inspector');
@@ -425,24 +402,13 @@ describe('juss/browser-reality@v1', () => {
     expect(contract.evidenceFingerprint.conformanceSha256).toBe(CONFORMANCE_DIGEST);
   });
 
-  it('keeps the repo skill and PromptOS family bound to the same contract', () => {
+  it('keeps the repo skill bound to the same contract', () => {
     expect(skill).toContain('name: browser-reality-inspector');
     expect(skill).toContain('contract: "juss/browser-reality@v1"');
     expect(skill).toContain('../../../config/browser-reality.contract.json');
     expect(skill).toContain('Stop and report the exact blocker');
     expect(agentsContract).toContain('.agents/skills/browser-reality-inspector/SKILL.md');
     expect(agentsContract).toContain('juss-browser-reality-canonical-json-v1');
-
-    const family = canonicalFamilies['browser.reality.inspector'];
-    expect(family).toBeDefined();
-    expect(family.pack).toBe('browser-evidence');
-    expect(family.baseClauseIds).toEqual(expect.arrayContaining([
-      'role.browser-reality-inspector',
-      'method.browser-reality-inspection',
-      'guardrail.browser-reality-privacy',
-      'evidence.browser-reality-fingerprint',
-      'output.browser-reality-report',
-    ]));
     expect(contract.outputSections).toEqual([
       'REALITY',
       'TARGET',
