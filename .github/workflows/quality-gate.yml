@@ -49,14 +49,12 @@ jobs:
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           node --input-type=commonjs <<'NODE'
           const fs = require('node:fs');
-          const zlib = require('node:zlib');
           const crypto = require('node:crypto');
-          const content = fs.readFileSync('package-lock.json');
-          const base64 = zlib.gzipSync(content).toString('base64');
+          const content = fs.readFileSync('package-lock.json', 'utf8');
           console.log('LOCKFILE_SHA256:' + crypto.createHash('sha256').update(content).digest('hex'));
           console.log('LOCKFILE_CHUNKS_START');
-          for (let i = 0; i < base64.length; i += 200) {
-            console.log('LOCKFILE_CHUNK:' + base64.slice(i, i + 200));
+          for (const line of content.split('\\n')) {
+            console.log('LOCKFILE_LINE:' + line);
           }
           console.log('LOCKFILE_CHUNKS_END');
           NODE
