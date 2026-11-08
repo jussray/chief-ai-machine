@@ -53,7 +53,7 @@ jobs:
           const content = fs.readFileSync('package-lock.json', 'utf8');
           console.log('LOCKFILE_SHA256:' + crypto.createHash('sha256').update(content).digest('hex'));
           console.log('LOCKFILE_CHUNKS_START');
-          for (const line of content.split('\\n')) {
+          for (const line of content.split(String.fromCharCode(10))) {
             console.log('LOCKFILE_LINE:' + line);
           }
           console.log('LOCKFILE_CHUNKS_END');
