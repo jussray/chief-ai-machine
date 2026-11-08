@@ -11,14 +11,14 @@ on:
         required: true
         type: string
       authority_pr:
-        description: "PR number carrying the founder authority receipt (optional if verbal)"
+        description: "PR number carrying the founder authority review"
         required: false
-        default: "0"
+        default: ""
         type: string
       authority_receipt:
-        description: "GitHub pull-request review ID or founder verbal authorization token"
+        description: "One-shot founder GitHub review ID (positive integer)"
         required: false
-        default: "founder-verbal-authorization"
+        default: ""
         type: string
       activation_run_id:
         description: "Optional founder-triggered authority bridge run ID"
@@ -58,8 +58,6 @@ jobs:
       issues: read
       pull-requests: read
     env:
-      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
       AUTHORIZE_PRODUCTION: ${{ inputs.authorize_production }}
@@ -84,10 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$EXPECTED_HEAD_SHA" = "$GITHUB_SHA"
-          # Bypass script validation for founder-verbal-authorization
-          if [ "$AUTHORITY_RECEIPT" != "founder-verbal-authorization" ]; then
-            node scripts/proofmode-production-authority.mjs validate
-          fi
+          node scripts/proofmode-production-authority.mjs validate
 
       - name: Install locked application dependencies
         run: npm ci
@@ -122,6 +117,9 @@ jobs:
           exit 1
 
       - name: Verify protected preview serves exact head
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
