@@ -68,7 +68,7 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
   const runAttempt = requireValue(env, 'GITHUB_RUN_ATTEMPT');
   const authorizeProduction = requireValue(env, 'AUTHORIZE_PRODUCTION');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
-  const authorityReceipt = requireValue(env, 'AUTHORITY_RECEIPT');  // Accept any non-empty value
+  const authorityReceipt = requireValue(env, 'AUTHORITY_RECEIPT');
 
   if (authorizeProduction !== 'true') throw new Error('Production authorization flag is not true');
   if (runAttempt !== '1') throw new Error('Workflow reruns cannot reuse production authority');
@@ -90,11 +90,9 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
   }
   if (pr.head?.sha !== expectedSha) throw new Error('Authority PR head moved');
 
-  // Handle verbal authorization bypass: founder-verbal-authorization skips review requirement
-  if (authorityReceipt === 'founder-verbal-authorization') {
-    if (!directFounder) throw new Error('Verbal authorization requires direct founder execution');
-    return true;
-  }
+  // A verbal sentinel cannot serve as a durable, one-shot receipt.
+  // Require a GitHub review ID until a replay-safe verbal authority protocol exists.
+  requirePositiveInteger(authorityReceipt, 'AUTHORITY_RECEIPT');
 
   if (!review || String(review.id) !== authorityReceipt) throw new Error('Authority receipt mismatch');
   if (review.user?.login !== repositoryOwner) throw new Error('Authority receipt is not founder-authored');
