@@ -290,3 +290,13 @@ Work is done only when:
 - rollback or recovery is understood;
 - the founder can tell what happened without decoding machine theater; and
 - repeated proven work is either deliberately kept one-off or handed toward FCR productization with its authority/proof boundaries intact.
+
+## Mandatory portfolio visual rule — One Cohesive Cinematic Composition (founder directive 2026-11-04)
+
+All coding, design, QA, research-to-design, and delegated agents working on **any authorized app, website, page, or screen** must produce **one cohesive cinematic composition** per experience, not a collage of unrelated UI sections. Use a clear focal hierarchy, intentional atmospheric depth, consistent typography/lighting/spacing/assets, continuous navigation and transitions, and a primary user action. Carry the same art direction across the product's real auth, onboarding, dashboard, settings, empty/error/loading, mobile, and commerce states as applicable.
+
+**Preserve each product's own brand, audience, characters, palette, privacy, and business functionality.** This is a universal craft/continuity rule, **not** a mandate to make all Juss & Co. projects look identical. Inspect the actual route/component/token source before editing; reuse existing design systems. Preserve keyboard/focus behavior, readable contrast, semantic structure, responsive and reduced-motion states, optimized media, and safe fallbacks. Never sacrifice real usability or truth for atmosphere.
+
+A proposed scene or agent document is not a shipped screen. Every changed route needs actual rendered desktop/mobile visual review and relevant behavior/accessibility checks on the exact candidate head before claiming implementation verified. Record source, screenshots, tests, gaps, rollback and next gate. Never infer merge, production deployment, publication, permissions or customer outcomes from this rule. Stronger local founder authorization/security/privacy rules always take precedence.
+
+Canonical long-form source: `jussray/founder-control-room/skills/cinematic-composition/SKILL.md` (initially staged on a separate branch; do not assume it has been merged into main). The summary here remains self-contained until the canonical source becomes authorized and available.
