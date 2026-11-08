@@ -91,10 +91,10 @@ describe('Chief trusted-only authenticated preview admission', () => {
     expect(workflow).not.toContain('pull_request_target:');
     expect(workflow).not.toContain('  pull_request:');
     expect(workflow).toContain('environment: proofmode-access-admin');
-    expect(workflow).toContain('ref: \${{ github.sha }}');
+    expect(workflow).toContain('ref: ${{ github.sha }}');
     expect(workflow).toContain('node scripts/chief-trusted-preview-admission.mjs');
-    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: \${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
-    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: \${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
+    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
+    expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
     const proofStep = workflow.split('      - name: Prove exact SHA, rendered app and stylesheet with bounded service auth')[1];
     expect(proofStep).toContain('secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(workflow.split('      - name: Prove exact SHA, rendered app and stylesheet with bounded service auth')[0])
@@ -104,6 +104,6 @@ describe('Chief trusted-only authenticated preview admission', () => {
     expect(browser).toContain('maxRedirects: 0');
     expect(browser).toContain("expect(payload?.sha).toBe(expectedSha)");
     expect(workflow).toContain("trace: 'off', screenshot: 'off', video: 'off'");
-    expect(workflow).not.toContain('ref: \${{ inputs.expected_head_sha }}');
+    expect(workflow).not.toContain('ref: ${{ inputs.expected_head_sha }}');
   });
 });
