@@ -9,151 +9,129 @@ Treat `$ARGUMENTS` as the event or story. Publish only what evidence earns, and 
 
 ## Operating sequence
 
-Use this order before drafting:
-
 ```text
 authoritative product/repo truth
 → recent own-post memory
-→ current relevant feed when context matters
+→ current relevant discourse when it matters
 → specific target audience
+→ cares / skepticisms / credibility signals
 → crowded-pattern detection
 → distinct angle / counter-position
 → proof-backed strategic brag
 → one deliberate improvement experiment
-→ Strategy Lease
-→ Truth + Sauce proposal
+→ canonical Truth + Sauce proposal
+→ Strategy Lease from final verified claim set
 → revalidate Strategy Lease at use boundary
-→ bind Strategy Lease to final proposal claims
 → Current You approval
 → provider execution
 → provider artifact/readback
 → outcome learning
-→ refresh own-post pattern memory
+→ refresh own-post memory
 ```
 
 ### 1. Start from the product, not marketing imagination
 
-Establish project, event, date, exact commit/PR or other authoritative version, test/deployment/runtime state, audience, platform, and desired action. Prefer the product's own verified receipts and current provider evidence over remembered summaries.
+Establish project, event, date, exact commit/PR or other authoritative version, test/deployment/runtime state, platform, and desired action. Prefer current product/provider receipts over remembered summaries.
 
-The intended founder experience is:
+Never turn committed code into deployed truth, deployment into runtime truth, or attention into traction without the appropriate evidence layer.
 
-```text
-my product observes verified progress about my products
-→ Chief selects a public-safe story
-→ Chief protects the sauce
-→ FCR / Current You controls executable publication
-→ the provider proves what actually happened
-→ the result teaches the next post
-```
+### 2. Inspect recent founder posting memory
 
-Do not claim this loop is complete unless the actual connected product path has produced the relevant receipts.
+Compare against recent/past founder posts or sanitized strategy fingerprints. Identify hooks, frames, proof styles, metaphors, brag patterns, CTAs, and closing structures already used.
 
-### 2. Inspect the founder's recent posting memory
+The latest published artifact must be inside the observation. If the history snapshot predates it, strategy memory is stale.
 
-Before drafting, compare against recent/past founder posts or their sanitized strategy fingerprints. Identify hooks, frames, proof styles, metaphors, brag patterns, CTAs, and closing structures that have already been used.
+Use hashes, digests, pattern signatures, and normalized-draft fingerprints when sufficient. Do not retain raw old post text merely to support repetition detection.
 
-The newest published artifact must be included in the observation. If the history snapshot predates the latest published post, classify strategy memory as stale and refresh it before drafting.
+Learning signals may be referenced by hash. A hash proves reference integrity, not source authentication, and cannot authorize publication or renew truth.
 
-Do not preserve raw private post history merely to make this work when a digest + pattern memory is sufficient.
+### 3. Inspect current discourse when context matters
 
-### 3. Inspect what relevant people are posting now when current context matters
+When the story depends on the current conversation, inspect relevant founders, builders, AI/agent developers, product/design voices, investors, customers, or adjacent creators. Identify crowded angles, repeated hooks, formats, claims, metaphors, and emerging conversations.
 
-When the story depends on current conversation, inspect relevant founders, builders, AI/agent developers, product/design voices, investors, customers, or adjacent creators. Identify repeated hooks, buzzwords, formats, claims, metaphors, and crowded angles.
+Explicitly record the source class. Current discourse used for strategy is advisory. `external-research` or `founder-observation` may be fresh enough to guide differentiation while remaining `submitted-unverified` for authority.
 
-Do not fabricate a live-feed comparison when a current source is unavailable. Mark market context UNKNOWN or set it as not required when the story is genuinely version-historical and does not depend on the current feed.
-
-A current-feed observation is strategy evidence only. It is never publication authority and never proof that a product claim is true.
+Do not fabricate a live comparison when a source is unavailable. If current discourse genuinely does not matter for a historical/version-bound story, mark it `not-required` rather than pretending research happened.
 
 ### 4. Target a specific audience
 
-Name one primary audience segment before drafting. State:
+Name one primary audience segment and state:
 
-- who should be attracted;
 - what they already care about;
 - what makes them skeptical;
+- which credibility signals matter to them;
 - the impression the post should create; and
 - the action or relationship the post should invite.
 
-Tune hook, vocabulary, technical depth, proof, CTA, and omission decisions to that audience. Do not write to "everyone."
+Tune hook, vocabulary, technical depth, proof, CTA, and omission decisions to that audience. Do not write to everyone.
 
-### 5. Brag strategically, without giving away the sauce
+### 5. Brag strategically without giving away the sauce
 
-Choose one or two genuinely impressive product/code signals that are already backed by verified public claims. Examples include authority boundaries, exact-head proof, runtime witnesses, rollback design, product behaviors, unusual architecture, failure detection, or hard-won engineering decisions.
-
-Rule:
+Choose one or two genuinely impressive product/code signals only from the final canonical verified public claim set. Examples include authority boundaries, exact-head proof, runtime witnesses, rollback design, product behavior, failure detection, or hard-won engineering decisions.
 
 > Show the capability. Hide the recipe.
 
-A strategic brag must point to a verified public claim. Never invent a brag from internal implementation detail, private metrics, unreleased roadmap, raw diff, private prompt, credential, provider payload, or security-sensitive mechanism.
+Never invent a brag from an evidence hash, raw implementation detail, private metric, unreleased roadmap, raw diff, private prompt, credential, provider payload, customer data, or security-sensitive mechanism.
 
 ### 6. Make every post upgrade the next one
 
-Every post must contain at least one deliberate strategy experiment or improvement. Examples: a new hook family, a different proof rhythm, a narrower target audience, a stronger counter-position, a new CTA, a more human failure-first opening, or a different technical-depth level.
+Every post carries at least one deliberate strategy experiment: new hook family, proof rhythm, narrower audience, counter-position, CTA, failure-first opening, or technical-depth change.
 
 Retire tired patterns explicitly. Preserve what worked without copying it.
 
-Exact reuse of the recent hook/frame/proof/closing signature is a strategy failure even when every factual claim remains true.
+Block exact recent hook/frame/proof/closing signatures. Also fingerprint the final canonical public draft after normalization and block exact/trivially reformatted recent copy without retaining raw old text.
 
-### 7. Require the Strategy Lease before strategy-aware founder-progress drafting
+### 7. Strategy Lease
 
-Use `src/domain/founder-content-strategy.js` to produce the advisory `chief-ai/founder-content-strategy-lease` receipt when the structured strategy path is available.
+Use `src/domain/founder-content-strategy-lease.js` and `src/domain/founder-content-package.js` for the structured path.
 
-The lease must prove, without retaining raw feed/post text:
+The normal composition rule is:
 
-- recent own-post memory includes the latest published artifact;
-- current market/feed observation is fresh when required;
-- one primary audience, intended impression, and desired action exist;
-- the selected angle is not an accidental crowded-feed echo;
-- the current hook/frame/proof/closing signature does not exactly repeat a recent signature;
-- every brag claim points to a verified public claim candidate; and
-- one improvement experiment exists.
+1. Build the canonical Truth + Sauce proposal first.
+2. Derive the verified public claim IDs from that validated proposal.
+3. Build the advisory Strategy Lease using only those brag-eligible claims.
+4. Revalidate the lease at use time using a fresh `bound_at` and current own-history digest.
+5. Fail if a newer post changed history, required market context expired, or a brag disappeared from the final verified claim set.
 
-After the canonical Chief truth proposal is built, call `bindStrategyLeaseToProposal(strategyLease, proposal, useContext)` with a fresh `bound_at` and the **current own-history digest**. Binding must fail if a newer post changed the history digest, if required market context expired, or if a brag claim was removed/downgraded from the final verified public claim set. Rebuild the strategy/proposal instead of reusing an expired lease.
-
-The Strategy Lease and binding are **advisory only**. They may select the story. They may not renew truth, relax Sauce Guard, approve publication, authorize provider execution, or overrule Current You.
+The Strategy Lease may select a story. It may not renew truth, relax Sauce Guard, approve publication, authorize provider execution, or overrule Current You.
 
 ## Mandatory truth gate
 
-After strategy selection and before any direct publish, scheduling action, send, announcement, promotion, pitch, or provider request:
+Before any direct publish, schedule, send, announcement, promotion, pitch, or provider request:
 
-1. Load `docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md` from the authoritative repository. For paired Chief AI/Founder Control Room work, also honor `config/founder-chief-pair.contract.json`.
-2. Run: `/futureyou → /truthmode → /confess → Audience and harm check → Evidence check → Accounting-control check → Authorization check → Temporal reuse check → Draft → Review or approved automation → Publish or hold → Capture the published artifact → Record outcome evidence → Reconcile and correct`.
+1. Load `docs/PUBLIC_COMMUNICATION_TRUTH_CONTRACT.md`. For paired Chief/FCR work, also honor `config/founder-chief-pair.contract.json`.
+2. Run `/futureyou → /truthmode → /confess → Audience and harm check → Evidence check → Accounting-control check → Authorization check → Temporal reuse check → Draft → Review or approved automation → Publish or hold → Capture artifact → Record outcome evidence → Reconcile and correct`.
 3. Require completeness, accuracy, consistency, cut-off, evidence/traceability, authorization, separation of record and promotion, conservatism, reconciliation, and correction/audit trail.
-4. Standing founder authorization is valid only when repository policy explicitly permits the compliant automated publishing class. Never infer approval for high-consequence or out-of-class communication.
-5. Hold when a material claim lacks proof, temporal classification is wrong, authorization/review is missing, strategy evidence is falsely presented as truth authority, or private/security-sensitive material could be exposed.
+4. Standing founder authorization never weakens a stricter executable route.
+5. Hold when a material claim lacks proof, temporal classification is wrong, authorization/review is missing, strategy evidence is being laundered into truth authority, or private/security-sensitive material could be exposed.
 6. A draft, scheduler acceptance, API response, workflow trigger, or model response is not publication.
 
-Use `PUBLISHING STATUS: HELD` only when dispatch was prevented.
+Statuses:
 
-Use `PUBLISHING STATUS: DISPATCHED_UNRECONCILED` when the provider may have accepted the request but artifact capture/reconciliation is unresolved. Stop blind retries.
+- `PUBLISHING STATUS: HELD` only when dispatch was prevented.
+- `PUBLISHING STATUS: DISPATCHED_UNRECONCILED` when provider acceptance may have occurred but artifact reconciliation is unresolved. Do not blind-retry.
+- `PUBLISHING STATUS: PUBLISHED_RECONCILED` only after the live platform artifact/URL/message ID is captured and reconciled.
+- `PUBLISHING STATUS: FAILED_BEFORE_DISPATCH` when the provider definitively rejected before dispatch.
 
-Use `PUBLISHING STATUS: PUBLISHED_RECONCILED` only after the live platform artifact, URL, message ID, or equivalent receipt is captured and reconciled.
+## Truth and traction
 
-Use `PUBLISHING STATUS: FAILED_BEFORE_DISPATCH` when the provider definitively rejected before dispatch.
+Open public proof links and confirm they are public, relevant, clickable, and attached to the claim. Never expose private logs, internal artifacts, secrets, or personal data.
 
-## Truth and traction rules
+Merges, tests, CI, and deployments are execution evidence. Call them traction only when they prove adoption, usage, revenue, conversion, audience growth, or another actual outcome.
 
-Open each public proof link and confirm it is public, relevant, clickable, and attached to the claim. Never expose private logs, internal artifacts, secrets, or personal data.
-
-Separate traction from activity. Merges, tests, CI, and deployments are execution evidence. Call them traction only when they prove adoption, usage, revenue, conversion, audience growth, or another real outcome.
-
-Identify governance advantage when it is genuinely relevant: exact-head proof, auditability, rollback, safety gates, or operational discipline.
-
-Soften or hold claims such as launched, live, secure, compliant, production-ready, growing, customers, users, revenue, or traction when the correct authority layer is missing.
+Soften or hold `launched`, `live`, `secure`, `compliant`, `production-ready`, `growing`, `customers`, `users`, `revenue`, or `traction` when the correct authority layer is absent.
 
 ## Draft shape
 
-Write a founder hook, concrete change or failure, why it matters, one or two proof-backed brags, an honest next gate, and one action. Preserve candid founder voice. Prefer nouns, numbers with proper metric authority, and precise evidence over hype.
+Write a founder hook, concrete change or failure, why it matters, one or two proof-backed brags, an honest next gate, and one action. Preserve candid founder voice. Prefer precise nouns and properly sourced numbers over hype.
 
-Adapt per platform without factual drift. Keep LinkedIn comfortably below its limit. For automation, produce a canonical fact packet plus platform variants.
+Adapt per platform without factual drift. Drafting never authorizes publishing.
 
-Drafting does not authorize publishing. Confirm destination and approval unless clearly authorized.
+## After publication
 
-## After publication: self-upgrade the system
+Record final text, destination, timestamp, live artifact, intended audience, strategy signature, draft fingerprint, experiment, and sanitized outcome observations.
 
-Record the final text, destination, timestamp, live URL/artifact, intended audience, strategy pattern signature, experiment, and sanitized outcome observations.
-
-Use outcome data only as learning signal. Analytics may update pattern memory, retire overused approaches, or influence which story Chief proposes next. Analytics may never authorize publication, renew a stale truth claim, or turn engagement into product traction.
+Analytics may update pattern memory or influence the next story. It may never authorize publication, renew stale truth, authenticate an otherwise unverified source, or convert engagement into product traction.
 
 Return ready copy plus:
 
