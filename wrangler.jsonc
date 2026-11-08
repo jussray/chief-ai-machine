@@ -2,6 +2,14 @@
   "name": "chief-ai",
   "compatibility_date": "2026-07-11",
   "main": "worker/index.js",
+  "workers_dev": false,
+  "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "chief.foundercontrolroom.org",
+      "custom_domain": true
+    }
+  ],
   "build": {
     "command": "node scripts/bake-worker-release-sha.mjs"
   },
