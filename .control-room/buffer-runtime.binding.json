@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "contract": "juss/buffer-runtime-binding@v1",
+  "project": "chief-ai-machine",
+  "repository": "jussray/chief-ai-machine",
+  "authorityOwner": "jussray/founder-control-room",
+  "capabilityId": "buffer-publishing-runtime-v1",
+  "canonicalPlugin": {
+    "repository": "jussray/founder-control-room",
+    "path": "plugins/buffer-control",
+    "preferredRuntime": "https://mcp.buffer.com/mcp",
+    "authentication": "oauth",
+    "credentialsStoredInRepository": false
+  },
+  "role": "route_and_compose",
+  "invocation": {
+    "path": "fcr_shared_capability_runtime",
+    "runtimeDiscoveryRequired": true,
+    "freshAuthorityCheckBeforeMutation": true,
+    "proposalBindingRequiredForMutation": true,
+    "providerReceiptRequired": true,
+    "providerAcceptanceIsPublished": false
+  },
+  "allowed": [
+    "discover",
+    "compose",
+    "route",
+    "request_draft",
+    "request_queue",
+    "request_schedule",
+    "request_share_now_with_current_founder_authorization",
+    "readback"
+  ],
+  "forbidden": [
+    "store_buffer_credentials",
+    "self_grant_publish_authority",
+    "mark_provider_acceptance_as_published"
+  ],
+  "rollback": "Disable or ignore this binding; no Buffer credential or provider state is stored here."
+}
