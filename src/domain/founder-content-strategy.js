@@ -410,3 +410,7 @@ export function bindStrategyLeaseToProposal(strategyLease = {}, proposal = {}, u
     },
   });
 }
+
+// Preserve the tested advisory v1 contract used by the Chief Worker while
+// keeping the distinct fail-closed strategy lease contract unchanged.
+export { buildFounderContentStrategy } from './founder-content-strategy-v1.js';
