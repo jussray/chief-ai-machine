@@ -3,6 +3,7 @@ import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
+import { generateNonce, buildCspHeader } from './csp-policy.js';
 
 function getReleaseSha(env) {
   const bakedReleaseSha = typeof BUILD_RELEASE_SHA === 'string'
@@ -57,10 +58,14 @@ function getProviderVersionMetadata(env) {
 
 function addSecurityHeaders(response) {
   const headers = new Headers(response.headers);
+  const nonce = generateNonce();
+  const csp = buildCspHeader(nonce, true);
   headers.set('X-Content-Type-Options', 'nosniff');
-  headers.set('X-Frame-Options', 'SAMEORIGIN');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  headers.set(csp.headerName, csp.value);
   return new Response(response.body, { ...response, headers });
 }
 

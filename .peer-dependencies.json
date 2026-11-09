@@ -1,0 +1,11 @@
+{
+  "storyEngine": {
+    "required": true,
+    "minVersion": "1.0.0",
+    "routing": true
+  },
+  "l99Runtime": {
+    "required": true,
+    "minVersion": "1.0.0"
+  }
+}
