@@ -25,6 +25,7 @@ export default [
       globals: {
         Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
         atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly',
+        Headers: 'readonly', Uint8Array: 'readonly',
       },
     },
   },
@@ -62,12 +63,13 @@ export default [
     },
   },
   {
-    files: ['**/*.test.js'],
+    files: ['**/*.test.js', '**/*.spec.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
         describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
+        window: 'readonly', document: 'readonly', URL: 'readonly', fetch: 'readonly', console: 'readonly',
       },
     },
   },
