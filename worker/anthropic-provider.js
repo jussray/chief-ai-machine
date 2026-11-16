@@ -98,7 +98,7 @@ export class AnthropicProviderError extends Error {
 
 async function providerError(response, apiKey) {
   const raw = (await response.text()).slice(0, MAX_ERROR_BODY_CHARS);
-  let payload = null;
+  let payload;
   try {
     payload = JSON.parse(raw);
   } catch {

@@ -17,7 +17,6 @@ const PROBE_PATHS = Object.freeze([
   '/.env','/.git','/.aws','/.ssh','/wp-admin','/wp-login.php','/phpmyadmin','/server-status','/etc/passwd','/vendor/phpunit','/actuator','/.well-known/security.txt~',
 ]);
 
-// eslint-disable-next-line no-control-regex -- intentional: strips control chars from untrusted input before logging
 function clean(value, max = 256) {
   return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 }

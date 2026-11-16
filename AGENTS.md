@@ -196,6 +196,10 @@ For material changes, report exact files changed, behavior changed, tests and ch
 
 Use founder-readable language. The job is to reduce uncertainty, not decorate it.
 
+## GitHub agent inheritance: founder security frameworks
+
+Founder security frameworks and named reasoning flows are inherited by GitHub agents as **instructions and evaluation lenses only, never standing permissions**. A framework name in repository instructions does not prove provider, Council, model, or external-agent execution; execution claims require an actual tool/provider receipt and current exact-head evidence.
+
 ## Reds rule — implant on sight (standing law, installed 2026-10-26)
 
 Any error or red that surfaces in this repository — CI/Actions failure,

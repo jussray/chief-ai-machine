@@ -18,13 +18,13 @@ export default [
     },
   },
   {
-    files: ['worker/**/*.js', 'plugins/proofmode/src/**/*.js'],
+    files: ['worker/**/*.js', 'plugins/proofmode/src/**/*.js', 'plugins/proofmode/worker.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
         Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
-        atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly',
+        atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly', Blob: 'readonly', DecompressionStream: 'readonly',
         Headers: 'readonly', Uint8Array: 'readonly',
       },
     },
@@ -51,7 +51,7 @@ export default [
     files: [
       'scripts/**/*.js', 'scripts/**/*.mjs', 'scripts/**/*.cjs',
       'tools/**/scripts/**/*.js', 'tools/**/scripts/**/*.mjs', 'tools/**/scripts/**/*.cjs',
-      'e2e/**/*.pw.mjs',
+      'e2e/**/*.pw.mjs', 'playwright.config.js', 'playwright.*.config.mjs',
     ],
     ignores: ['scripts/verify-mcp-config.mjs'],
     languageOptions: {
@@ -63,14 +63,26 @@ export default [
     },
   },
   {
-    files: ['**/*.test.js', '**/*.spec.js'],
+    files: ['**/*.test.js', '**/*.spec.js', 'test/**/*.mjs', 'tests/**/*.mjs', '.github/skills/**/tests/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
         describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
-        window: 'readonly', document: 'readonly', URL: 'readonly', fetch: 'readonly', console: 'readonly',
+        window: 'readonly', document: 'readonly', navigator: 'readonly',
+        URL: 'readonly', Request: 'readonly', Response: 'readonly', Headers: 'readonly',
+        fetch: 'readonly', console: 'readonly', Buffer: 'readonly', process: 'readonly',
+        crypto: 'readonly', TextEncoder: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
       },
+    },
+    rules: {
+      'no-redeclare': 'off',
+    },
+  },
+  {
+    files: ['security/reciprocal-ingress.mjs', 'src/config/visionGuardrails.js'],
+    rules: {
+      'no-control-regex': 'off',
     },
   },
 ];

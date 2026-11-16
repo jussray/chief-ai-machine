@@ -4,22 +4,16 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'worker/**'
-      - 'e2e/worker-security-gates-3-4.pw.mjs'
-      - '.github/workflows/security-gates-playwright.yml'
-  push:
-    branches:
-      - main
-      - fix/security-gates-against-main
-  pull_request:
-    branches: [main]
-    paths:
+      - "worker/**"
       - "wrangler.jsonc"
-      - "worker/index.js"
       - "security/**"
       - "e2e/worker-security-gates-3-4.pw.mjs"
       - "test/worker-version.test.js"
       - ".github/workflows/security-gates-playwright.yml"
+  push:
+    branches:
+      - main
+      - fix/security-gates-against-main
   workflow_dispatch:
 
 permissions:

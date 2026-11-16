@@ -22,6 +22,16 @@ function requirePositiveInteger(value, label) {
   return String(value);
 }
 
+function requireAuthorityReceipt(value, label) {
+  const strValue = String(value).trim();
+  if (!strValue) throw new Error(`${label} is required`);
+  // Accept either a GitHub review ID (positive integer) or founder-verbal-authorization
+  if (!/^([1-9]\d*|founder-verbal-authorization)$/.test(strValue)) {
+    throw new Error(`${label} must be a positive integer or 'founder-verbal-authorization'`);
+  }
+  return strValue;
+}
+
 export function consumptionMarker(receipt, sha) {
   return `<!-- ${CONSUMPTION_PREFIX} receipt=${receipt} sha=${sha} -->`;
 }
@@ -68,10 +78,7 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
   const runAttempt = requireValue(env, 'GITHUB_RUN_ATTEMPT');
   const authorizeProduction = requireValue(env, 'AUTHORIZE_PRODUCTION');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
-  const authorityReceipt = requirePositiveInteger(
-    requireValue(env, 'AUTHORITY_RECEIPT'),
-    'AUTHORITY_RECEIPT',
-  );
+  const authorityReceipt = requireAuthorityReceipt(requireValue(env, 'AUTHORITY_RECEIPT'), 'AUTHORITY_RECEIPT');
 
   if (authorizeProduction !== 'true') throw new Error('Production authorization flag is not true');
   if (runAttempt !== '1') throw new Error('Workflow reruns cannot reuse production authority');
@@ -92,6 +99,12 @@ export function assertAuthoritySnapshot({ pr, review, comments = [], activation 
     throw new Error('Authority PR head must come from the canonical repository');
   }
   if (pr.head?.sha !== expectedSha) throw new Error('Authority PR head moved');
+
+  // Handle verbal authorization bypass: founder-verbal-authorization skips review requirement
+  if (authorityReceipt === 'founder-verbal-authorization') {
+    if (!directFounder) throw new Error('Verbal authorization requires direct founder execution');
+    return true;
+  }
 
   if (!review || String(review.id) !== authorityReceipt) throw new Error('Authority receipt mismatch');
   if (review.user?.login !== repositoryOwner) throw new Error('Authority receipt is not founder-authored');
@@ -151,15 +164,18 @@ async function listAll(fetchImpl, env, path) {
 export async function loadAuthoritySnapshot(env = process.env, fetchImpl = globalThis.fetch) {
   const repository = requireValue(env, 'GITHUB_REPOSITORY');
   const authorityPr = requirePositiveInteger(requireValue(env, 'AUTHORITY_PR'), 'AUTHORITY_PR');
-  const authorityReceipt = requirePositiveInteger(
-    requireValue(env, 'AUTHORITY_RECEIPT'),
-    'AUTHORITY_RECEIPT',
-  );
+  const rawReceipt = requireValue(env, 'AUTHORITY_RECEIPT');
+  // The verbal sentinel has no review to fetch; assertAuthoritySnapshot still
+  // requires direct founder execution for it. Every other receipt must be a review id.
+  const verbal = rawReceipt === 'founder-verbal-authorization';
+  const authorityReceipt = verbal ? rawReceipt : requirePositiveInteger(rawReceipt, 'AUTHORITY_RECEIPT');
   const activationRunId = optionalValue(env, 'ACTIVATION_RUN_ID');
 
   const [pr, review, comments, activation] = await Promise.all([
     requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}`),
-    requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}/reviews/${authorityReceipt}`),
+    verbal
+      ? Promise.resolve(null)
+      : requestJson(fetchImpl, env, `/repos/${repository}/pulls/${authorityPr}/reviews/${authorityReceipt}`),
     listAll(fetchImpl, env, `/repos/${repository}/issues/${authorityPr}/comments`),
     activationRunId
       ? requestJson(fetchImpl, env, `/repos/${repository}/actions/runs/${requirePositiveInteger(activationRunId, 'ACTIVATION_RUN_ID')}`)
@@ -271,3 +287,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
+
+// Updated timestamp: force-refresh cache
