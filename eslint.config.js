@@ -24,7 +24,7 @@ export default [
       sourceType: 'module',
       globals: {
         Response: 'readonly', Request: 'readonly', URL: 'readonly', fetch: 'readonly',
-        atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly',
+        atob: 'readonly', btoa: 'readonly', crypto: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly', Blob: 'readonly', DecompressionStream: 'readonly',
         Headers: 'readonly', Uint8Array: 'readonly',
       },
     },
