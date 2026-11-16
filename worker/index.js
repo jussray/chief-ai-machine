@@ -5,7 +5,7 @@ import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runti
 import { handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
 
-function getReleaseSha(env) {
+export function getReleaseSha(env) {
   const bakedReleaseSha = typeof BUILD_RELEASE_SHA === 'string'
     && BUILD_RELEASE_SHA.trim()
     && BUILD_RELEASE_SHA.trim() !== 'unknown'
@@ -83,6 +83,22 @@ export default {
         },
         { headers: { 'Cache-Control': 'no-store' } },
       ));
+    }
+
+    if (url.pathname === '/.well-known/security.txt') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return addSecurityHeaders(new Response(null, {
+          status: 405,
+          headers: { Allow: 'GET, HEAD', 'Cache-Control': 'no-store' },
+        }));
+      }
+      return addSecurityHeaders(new Response(request.method === 'HEAD' ? null : SECURITY_TXT, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      }));
     }
 
     if (url.pathname === '/mcp') {
