@@ -10,7 +10,7 @@ const SECURITY_TXT = [
   'Expires: 2027-06-30T00:00:00.000Z',
   'Preferred-Languages: en',
   'Canonical: https://chief-ai.cloudflare.app/.well-known/security.txt',
-].join('\\n') + '\\n';
+].join('\n') + '\n';
 
 export function getReleaseSha(env, bakedOverride = BUILD_RELEASE_SHA) {
   const bakedReleaseSha = typeof bakedOverride === 'string'
