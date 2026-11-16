@@ -37,3 +37,18 @@ export function applyEvidenceFirstContract(value) {
   if (hasEvidenceFirstContract(value)) return value;
   return `${value.trimEnd()}${EVIDENCE_FIRST_FLOOR}`;
 }
+
+export function renderPromptVariant(prompt, platform, replacements = {}) {
+  const versions = prompt?.versions || {};
+  const fallback = Object.values(versions).find((value) => typeof value === 'string');
+  let rendered = typeof versions[platform] === 'string' ? versions[platform] : fallback || '';
+
+  for (const [placeholder, value] of Object.entries(replacements || {})) {
+    const token = placeholder.startsWith('[') && placeholder.endsWith(']')
+      ? placeholder
+      : `[${placeholder}]`;
+    rendered = rendered.replaceAll(token, String(value ?? ''));
+  }
+
+  return applyEvidenceFirstContract(rendered);
+}
