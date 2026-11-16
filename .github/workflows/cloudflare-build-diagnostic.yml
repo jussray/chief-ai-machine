@@ -1,5 +1,9 @@
 name: Cloudflare Build Diagnostic
 
+concurrency:
+  group: cloudflare-build-diagnostic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:

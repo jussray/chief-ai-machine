@@ -1,5 +1,9 @@
 name: Founder Control Room / Chief AI Pair Contract
 
+concurrency:
+  group: founder-chief-pair-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     paths:
@@ -27,18 +31,18 @@ jobs:
     steps:
       # Controlled PR probe refreshed after accounting-control enforcement.
       - name: Check out Chief AI
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           path: chief-ai-machine
 
       - name: Check out Founder Control Room
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: jussray/founder-control-room
           path: founder-control-room
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
 
