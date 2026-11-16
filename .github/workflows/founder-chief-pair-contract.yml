@@ -33,11 +33,13 @@ jobs:
       - name: Check out Chief AI
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           path: chief-ai-machine
 
       - name: Check out Founder Control Room
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           repository: jussray/founder-control-room
           path: founder-control-room
           persist-credentials: false
