@@ -39,8 +39,29 @@ permissions:
 # uniquely named repository secret so stale org/repo secret collisions cannot
 # masquerade as a successful rotation.
 jobs:
+  contract:
+    name: Verify diagnostic source contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify diagnostic contract without provider credentials
+        run: npx vitest run test/cloudflare-build-diagnostic-contract.test.mjs
+
   inspect:
     name: Redacted provider receipt
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
