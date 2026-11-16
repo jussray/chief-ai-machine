@@ -51,5 +51,6 @@ jobs:
         working-directory: chief-ai-machine
         env:
           PAIR_CONTRACT_PATH: ../founder-control-room/config/founder-chief-pair.contract.json
+          PAIR_NECESSARY_FIX_POLICY_PATH: ../founder-control-room/src/lib/standingFounderPolicy.ts
           PAIR_CROSS_REPO_REQUIRED: 'true'
         run: npm run verify:founder-chief-pair
