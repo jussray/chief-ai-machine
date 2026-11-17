@@ -27,7 +27,7 @@ describe('Chief provider runtime', () => {
       expect(String(url)).toBe('https://api.openai.com/v1/responses');
       expect(init.headers.authorization).toBe('Bearer openai-key');
       expect(String(init.body)).not.toContain('openai-key');
-      return jsonResponse({ id: 'resp_openai_1', output_text: 'OpenAI result' });
+      return jsonResponse({ id: 'resp_openai_1', status: 'completed', output_text: 'OpenAI result' });
     });
     const result = await invokeChiefProvider({ OPENAI_API_KEY: 'openai-key' }, {
       provider: 'openai',

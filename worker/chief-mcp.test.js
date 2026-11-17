@@ -70,7 +70,7 @@ describe('Chief MCP', () => {
       name: 'chief-ai-machine',
       title: 'Chief AI Machine',
     });
-    expect(payload.result.instructions).toContain('Chief composes bounded capability-plan proposals');
+    expect(payload.result.instructions).toContain('Chief is a standalone AI operator');
     expect(payload.result.instructions).toContain('Founder Control Room remains the authority');
   });
 
@@ -87,6 +87,7 @@ describe('Chief MCP', () => {
     expect(payload.result.tools.map((tool) => tool.name)).toEqual([
       'audit_repository',
       'lookup_dependency_docs',
+      'customer_start',
       'compose_capability_plan',
     ]);
     for (const tool of payload.result.tools) {
