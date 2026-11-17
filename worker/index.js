@@ -91,8 +91,6 @@ export default {
         {
           ok: true,
           sha: getReleaseSha(env),
-          branch: getReleaseBranch(env),
-          ...getProviderVersionMetadata(env),
         },
         { headers: { 'Cache-Control': 'no-store' } },
       ));
@@ -189,7 +187,16 @@ export default {
       return addSecurityHeaders(response);
     }
 
+    // Try fetching the requested asset
     const response = await env.ASSETS.fetch(request);
+
+    // If asset not found and request accepts HTML, try index.html as fallback for SPA
+    if (response.status === 404 && request.headers.get('accept')?.includes('text/html')) {
+      const indexRequest = new Request(new URL('/index.html', url), request);
+      const indexResponse = await env.ASSETS.fetch(indexRequest);
+      return addSecurityHeaders(indexResponse);
+    }
+
     return addSecurityHeaders(response);
   },
 };
