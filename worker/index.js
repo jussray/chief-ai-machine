@@ -1,7 +1,7 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
-import { buildChiefMcpServerCard } from './chief-mcp.js';
+import { buildProofModeServerCard } from './proofmode-mcp.js';
 import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
@@ -117,7 +117,7 @@ export default {
     // Serve MCP server card
     if (url.pathname === '/.well-known/mcp/server-card.json') {
       const origin = `${url.protocol}//${url.host}`;
-      const card = buildChiefMcpServerCard(origin);
+      const card = buildProofModeServerCard(origin);
       return addSecurityHeaders(Response.json(card, {
         headers: { 'Cache-Control': 'no-store' },
       }));
