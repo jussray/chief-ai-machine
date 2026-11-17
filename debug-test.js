@@ -1,3 +1,4 @@
+/* global Request, console */
 import worker from './worker/index.js';
 
 const env = {

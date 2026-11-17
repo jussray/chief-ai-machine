@@ -20,9 +20,12 @@ const workerSource = readFileSync(
 
 describe('Chief AI Worker version receipt', () => {
   it('routes runtime endpoints through the Worker before asset fallback', () => {
-    expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*\]/,
-    );
+    expect(JSON.parse(wranglerConfig).assets.run_worker_first).toEqual([
+      '/api/*',
+      '/version',
+      '/mcp',
+      '/.well-known/mcp/*',
+    ]);
   });
 
   it('exposes Cloudflare provider version metadata to the runtime', () => {

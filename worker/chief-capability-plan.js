@@ -164,7 +164,7 @@ export async function handleChiefCapabilityPlan(request) {
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
     const connectionHandoff = createConnectionHandoff(input.connectionRequests);
     // Chief describes the remote founder-control handoff; it never resolves approval itself.
-    const founderControl = founderControlHandoff(capabilityPlan);
+    founderControlHandoff(capabilityPlan);
     const trustTransition = createTrustTransitionProposal(capabilityPlan, input.goalPlan);
 
     return json({
