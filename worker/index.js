@@ -91,6 +91,8 @@ export default {
         {
           ok: true,
           sha: getReleaseSha(env),
+          branch: getReleaseBranch(env),
+          ...getProviderVersionMetadata(env),
         },
         { headers: { 'Cache-Control': 'no-store' } },
       ));
