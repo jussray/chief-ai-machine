@@ -15,6 +15,7 @@ const SOURCE_HASH = 'b'.repeat(64);
 const SOURCE_SHA = '1'.repeat(40);
 
 function draft(overrides = {}) {
+  const { public: publicOverrides, ...topLevelOverrides } = overrides;
   return createPublicSignalPacket({
     public: {
       product: 'Chief AI',
@@ -22,14 +23,14 @@ function draft(overrides = {}) {
       body: 'Chief can now turn verified progress into a public-safe story without publishing the machinery behind it.',
       cta: 'Follow the build.',
       channels: ['linkedin'],
-      ...(overrides.public || {}),
+      ...(publicOverrides || {}),
     },
     evidenceRefs: ['github:chief-ai-machine@abc123:check/ci'],
     currentIntentHash: INTENT_HASH,
     sourceContextHash: SOURCE_HASH,
     policyVersion: 'public-progress-v1',
     confidence: 'high',
-    ...overrides,
+    ...topLevelOverrides,
   });
 }
 
