@@ -64,3 +64,30 @@ test('protected access always validates and does not expose secrets at job scope
   assert.match(job, /node scripts\/proofmode-production-authority\.mjs validate/);
   assert.doesNotMatch(job, /AUTHORITY_RECEIPT" !=/);
 });
+
+test('only four authenticated proof steps receive the Access secret pair', () => {
+  const yaml = readFileSync(new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url), 'utf8');
+  const allowed = {
+    'protected-access': [
+      'Verify protected preview serves exact head',
+      'Run protected ProofMode MCP Playwright proof',
+    ],
+    verify: [
+      'Wait for production runtime to serve exact head',
+      'Run production ProofMode MCP Playwright proof',
+    ],
+  };
+  for (const [jobName, allowedNames] of Object.entries(allowed)) {
+    const job = yaml.split('  ' + jobName + ':')[1]?.split(/\n {2}(?:verify|finalize-authority):/)[0];
+    assert.ok(job, 'Missing ' + jobName + ' job');
+    assert.doesNotMatch(job.split('    steps:')[0], /secrets\.CLOUDFLARE_ACCESS_CLIENT_/);
+    const steps = job.split(/\n {6}- name: /).slice(1);
+    const authorized = steps.filter((section) =>
+      section.includes('CLOUDFLARE_ACCESS_CLIENT_ID: $' + '{{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}'),
+    );
+    assert.deepEqual(authorized.map((section) => section.split('\n')[0].trim()), allowedNames);
+    for (const section of authorized) {
+      assert.ok(section.includes('CLOUDFLARE_ACCESS_CLIENT_SECRET: $' + '{{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}'));
+    }
+  }
+});
