@@ -11,6 +11,10 @@ import {
   getFounderControlRoomServiceVersion,
   ingestFounderControlRoomBipEvidence,
 } from './fcr-service.js';
+import {
+  PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
+  PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
+} from '../src/domain/promptos-command-handoff.js';
 
 const releaseSha = '73c36e61dae96bf1bb94990d3b5e5a6a0bb70b24';
 const spoofedRuntimeSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -97,6 +101,8 @@ describe('Founder Control Room RPC service contract', () => {
       rpcContract: CHIEF_FCR_RPC_CONTRACT,
       capabilityPlanContract: CHIEF_CAPABILITY_PLAN_CONTRACT,
       bipEvidenceContract: BIP_FCR_EVIDENCE_CONTRACT,
+      promptOSCommandIntentContract: PROMPTOS_PUBLIC_COMMAND_INTENT_CONTRACT,
+      promptOSCommandHandoffContract: PROMPTOS_CHIEF_FCR_COMMAND_HANDOFF_CONTRACT,
       releaseSha,
     });
   });
