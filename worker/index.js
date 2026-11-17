@@ -1,6 +1,7 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { buildChiefMcpServerCard } from './chief-mcp.js';
 import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
@@ -110,6 +111,27 @@ export default {
           'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'public, max-age=3600',
         },
+      }));
+    }
+
+    // Serve MCP server card
+    if (url.pathname === '/.well-known/mcp/server-card.json') {
+      const origin = `${url.protocol}//${url.host}`;
+      const card = buildChiefMcpServerCard(origin);
+      return addSecurityHeaders(Response.json(card, {
+        headers: { 'Cache-Control': 'no-store' },
+      }));
+    }
+
+    // Return 404 for unimplemented discovery endpoints
+    if (url.pathname === '/.well-known/api-catalog'
+        || url.pathname === '/.well-known/agent-card.json'
+        || url.pathname === '/.well-known/oauth-protected-resource'
+        || url.pathname === '/.well-known/openid-configuration'
+        || url.pathname === '/auth.md') {
+      return addSecurityHeaders(new Response('Not Found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' },
       }));
     }
 
