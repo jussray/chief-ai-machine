@@ -1,13 +1,17 @@
 import { expect, test } from '@playwright/test';
+import { proofmodeAccessHeaders, proofmodeRequest } from '../scripts/proofmode-access-client.mjs';
 
 const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
 
 if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
+// Fail closed before any request when protected CI credentials are required.
+proofmodeAccessHeaders(process.env, baseURL, process.env.PROOFMODE_ACCESS_REQUIRED === 'true');
 
 async function postMcp(request, message) {
-  return request.post(`${baseURL}/mcp`, {
+  return proofmodeRequest(request, baseURL, '/mcp', process.env, {
+    method: 'POST',
     headers: {
       Accept: 'application/json, text/event-stream',
       'Content-Type': 'application/json',
@@ -19,7 +23,7 @@ async function postMcp(request, message) {
 
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
-    const response = await request.get(`${baseURL}/version`);
+    const response = await proofmodeRequest(request, baseURL, '/version', process.env);
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body).toEqual(expect.objectContaining({ ok: true, sha: expectedHead }));
