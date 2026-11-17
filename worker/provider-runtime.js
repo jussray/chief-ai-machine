@@ -173,6 +173,13 @@ export async function invokeChiefProvider(env, input, fetchImpl = fetch) {
   const raw = await readBoundedText(response);
   let parsed;
   try { parsed = JSON.parse(raw); } catch { throw new Error(`${provider} provider returned invalid JSON`); }
+
+  // Validate response status for providers that use status field
+  if (provider === 'openai' || provider === 'muse') {
+    const status = parsed?.status;
+    if (status !== 'completed') throw new Error(`${provider} provider response status is ${status || 'missing'}, expected completed`);
+  }
+
   const responseId = safeId(parsed?.id);
   if (!responseId) throw new Error(`${provider} provider returned invalid response identity`);
 
