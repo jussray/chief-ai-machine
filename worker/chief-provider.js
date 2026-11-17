@@ -50,8 +50,12 @@ function runtimeConfigured(env) {
  * or approval authority. It only exposes bounded draft inference.
  */
 export async function handleChiefProviderRequest(request, env, fetchImpl = fetch) {
+  // Check operator key is configured
   if (!env?.CHIEF_AI_OPERATOR_KEY) return json({ error: 'operator_not_configured' }, 503);
-  if (!await authorized(request, env.CHIEF_AI_OPERATOR_KEY)) return json({ error: 'unauthorized' }, 401);
+
+  // Check authorization for all requests (GET and POST)
+  const isAuthorized = await authorized(request, env.CHIEF_AI_OPERATOR_KEY);
+  if (!isAuthorized) return json({ error: 'unauthorized' }, 401);
 
   if (request.method === 'GET') {
     return json({

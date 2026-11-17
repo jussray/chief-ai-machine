@@ -74,7 +74,11 @@ function addSecurityHeaders(response) {
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
   headers.set(csp.headerName, csp.value);
-  return new Response(response.body, { ...response, headers });
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
 export default {
