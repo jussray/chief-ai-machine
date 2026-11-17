@@ -11,10 +11,15 @@ const TOKEN = {
   enabled: true,
   tags: { purpose: TAG.value },
 };
-const TAG_POLICY = {
-  id: 'tag-policy-1',
-  name: 'Chief exact-head CI temporary Service Auth',
+const EXACT_POLICY = {
+  id: 'exact-policy-1',
+  name: 'Chief exact-head CI specific Service Auth',
   decision: 'non_identity',
+  include: [{ service_token: { token_id: TOKEN.id } }],
+};
+const TAG_POLICY = {
+  ...EXACT_POLICY,
+  id: 'tag-policy-1',
   include: [{ service_token_tag: TAG }],
 };
 const MEMBER_POLICY = {
@@ -32,7 +37,7 @@ function response(result) {
   };
 }
 
-function fixture({ tokens = [TOKEN], policies = [MEMBER_POLICY, TAG_POLICY], scope = 'preview_worker' } = {}) {
+function fixture({ tokens = [TOKEN], policies = [MEMBER_POLICY, EXACT_POLICY], scope = 'preview_worker' } = {}) {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     const parsed = new URL(url);
@@ -67,34 +72,42 @@ function input(fetchImpl, mode = 'check') {
   };
 }
 
-describe('Chief preview tag-scoped service authentication', () => {
-  it('certifies a single pinned-tag token in a preview-only app, preserving human access', async () => {
+describe('Chief preview exact-token service authentication', () => {
+  it('certifies an explicit single-token rule in a preview-only app, preserving human access', async () => {
     const f = fixture();
     await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).resolves.toMatchObject({
       state: 'configured', changed: false, appId: APP,
-      policyId: TAG_POLICY.id, scope: 'preview_worker',
+      policyId: EXACT_POLICY.id, scope: 'preview_worker',
       serviceTokenId: TOKEN.id,
     });
     expect(f.calls.every(call => call.method === 'GET')).toBe(true);
   });
 
-  it('does not create a duplicate Service Auth grant on repair of a valid tagged policy', async () => {
+  it('does not create a duplicate Service Auth grant on repair of a valid exact-token policy', async () => {
     const f = fixture();
     await expect(ensureProofModeAccessPolicy(input(f.fetchImpl, 'repair')))
       .resolves.toMatchObject({ state: 'configured', changed: false });
     expect(f.calls.every(call => call.method === 'GET')).toBe(true);
   });
 
-  it('fails closed when the configured service token lacks the approved tag', async () => {
-    const f = fixture({ tokens: [{ ...TOKEN, tags: {} }] });
+  it('rejects a tag-only grant even when exactly one token has the matching tag', async () => {
+    const f = fixture({ policies: [MEMBER_POLICY, TAG_POLICY] });
     await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).rejects.toThrow(
       'parallel Service Auth or bypass grant',
     );
     expect(f.calls.every(call => call.method === 'GET')).toBe(true);
   });
 
-  it('rejects another token with the same tag, because tagged policy is not exclusive', async () => {
-    const f = fixture({ tokens: [TOKEN, { ...TOKEN, id: 'other-token', client_id: 'other.access' }] });
+  it('rejects a tag-only policy even when the configured token lacks its tag', async () => {
+    const f = fixture({ tokens: [{ ...TOKEN, tags: {} }], policies: [MEMBER_POLICY, TAG_POLICY] });
+    await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).rejects.toThrow(
+      'parallel Service Auth or bypass grant',
+    );
+    expect(f.calls.every(call => call.method === 'GET')).toBe(true);
+  });
+
+  it('rejects a tag policy shared by multiple tokens', async () => {
+    const f = fixture({ tokens: [TOKEN, { ...TOKEN, id: 'other-token', client_id: 'other.access' }], policies: [MEMBER_POLICY, TAG_POLICY] });
     await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).rejects.toThrow(
       'parallel Service Auth or bypass grant',
     );
@@ -115,19 +128,19 @@ describe('Chief preview tag-scoped service authentication', () => {
   });
 
   it('never certifies the tagged rule on the production Worker scope', async () => {
-    const f = fixture({ scope: 'worker' });
+    const f = fixture({ scope: 'worker', policies: [MEMBER_POLICY, TAG_POLICY] });
     await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).rejects.toThrow(
       'parallel Service Auth or bypass grant',
     );
     expect(f.calls.every(call => call.method === 'GET')).toBe(true);
   });
 
-  it('rejects parallel Service Auth or bypass grants even when the pinned tag is valid', async () => {
+  it('rejects parallel Service Auth or bypass grants even when the exact-token policy is valid', async () => {
     for (const additional of [
       { decision: 'bypass', include: [{ everyone: {} }] },
       { decision: 'non_identity', include: [{ any_valid_service_token: {} }] },
     ]) {
-      const f = fixture({ policies: [MEMBER_POLICY, TAG_POLICY, additional] });
+      const f = fixture({ policies: [MEMBER_POLICY, EXACT_POLICY, additional] });
       await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).rejects.toThrow();
       expect(f.calls.every(call => call.method === 'GET')).toBe(true);
     }
