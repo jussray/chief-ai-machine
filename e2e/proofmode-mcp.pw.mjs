@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createChiefBoundRequest, chiefAccessHeaders } from '../scripts/chief-proof-request.mjs';
 
 const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
@@ -6,8 +7,38 @@ const expectedHead = process.env.EXPECTED_HEAD_SHA;
 if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
 
+function boundProofClient(request) {
+  const accessHeaders = chiefAccessHeaders(process.env, baseURL);
+  const client = {
+    get: (url, options = {}) => request.get(url, {
+      ...options,
+      headers: { ...(options.headers || {}), ...accessHeaders },
+    }),
+    post: (url, options = {}) => request.post(url, {
+      ...options,
+      headers: { ...(options.headers || {}), ...accessHeaders },
+    }),
+  };
+  return createChiefBoundRequest(client, baseURL);
+}
+
+async function readProofJson(response) {
+  const status = response.status();
+  if (status >= 300 && status < 400) {
+    let redirectHost = '';
+    try { redirectHost = new URL(response.headers().location || '').hostname; } catch { /* no location */ }
+    if (redirectHost.endsWith('.cloudflareaccess.com')) {
+      throw new Error('PROOFMODE_ACCESS_DENIED: approved Cloudflare Access CI credentials missing or rejected');
+    }
+    throw new Error('PROOFMODE_UNEXPECTED_REDIRECT');
+  }
+  expect(status).toBe(200);
+  expect((response.headers()['content-type'] || '').toLowerCase()).toContain('application/json');
+  return response.json();
+}
+
 async function postMcp(request, message) {
-  return request.post(`${baseURL}/mcp`, {
+  return boundProofClient(request).post(`${baseURL}/mcp`, {
     headers: {
       Accept: 'application/json, text/event-stream',
       'Content-Type': 'application/json',
@@ -19,9 +50,8 @@ async function postMcp(request, message) {
 
 test.describe('ProofMode live MCP runtime', () => {
   test('serves the exact branch head from /version', async ({ request }) => {
-    const response = await request.get(`${baseURL}/version`);
-    expect(response.status()).toBe(200);
-    const body = await response.json();
+    const response = await boundProofClient(request).get(`${baseURL}/version`);
+    const body = await readProofJson(response);
     expect(body).toEqual(expect.objectContaining({ ok: true, sha: expectedHead }));
     expect(body.version_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
@@ -38,8 +68,7 @@ test.describe('ProofMode live MCP runtime', () => {
       },
     });
 
-    expect(response.status()).toBe(200);
-    const payload = await response.json();
+    const payload = await readProofJson(response);
     expect(payload.result.protocolVersion).toBe('2025-06-18');
     expect(payload.result.serverInfo.name).toBe('proofmode');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
@@ -53,8 +82,7 @@ test.describe('ProofMode live MCP runtime', () => {
       params: {},
     });
 
-    expect(response.status()).toBe(200);
-    const payload = await response.json();
+    const payload = await readProofJson(response);
     expect(payload.result.tools).toHaveLength(1);
     expect(payload.result.tools[0].name).toBe('audit_repository');
     expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
@@ -75,8 +103,7 @@ test.describe('ProofMode live MCP runtime', () => {
       },
     });
 
-    expect(response.status()).toBe(200);
-    const payload = await response.json();
+    const payload = await readProofJson(response);
     expect(payload.result.isError).toBe(false);
     expect(payload.result.structuredContent.repository).toBe('jussray/chief-ai-machine');
     expect(payload.result.structuredContent.headSha).toBe(expectedHead);

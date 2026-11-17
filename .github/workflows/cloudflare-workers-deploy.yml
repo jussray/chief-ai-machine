@@ -61,6 +61,8 @@ jobs:
     name: Verify Production Deployment
     needs: build-and-deploy
     runs-on: ubuntu-22.04
+    environment:
+      name: Cloudflare Production
     timeout-minutes: 15
     if: success()
     steps:
@@ -82,8 +84,21 @@ jobs:
       - name: Install Playwright
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
+      - name: Require scoped Cloudflare Access proof credentials
+        env:
+          HAS_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID != '' }}
+          HAS_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET != '' }}
+        shell: bash
+        run: |
+          if [[ "$HAS_ACCESS_CLIENT_ID" != 'true' || "$HAS_ACCESS_CLIENT_SECRET" != 'true' ]]; then
+            echo 'PROOFMODE_ACCESS_CREDENTIALS_REQUIRED: configure the approved service-token pair in the Cloudflare Production environment' >&2
+            exit 1
+          fi
+
       - name: Run ProofMode production verification
         env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
           PLAYWRIGHT_HTML_OPEN: never
           PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
           CLOUDFLARE_RUNTIME_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
@@ -104,9 +119,9 @@ jobs:
             outputDir: './test-results/deployment-verify',
             reporter: [
               ['line'],
-              ['html', { outputFolder: './playwright-report/deployment-verify', open: 'never' }],
+              ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/deployment-verification-safe.json' }],
             ],
-            use: { trace: 'retain-on-failure' },
+            use: { trace: 'off', screenshot: 'off', video: 'off' },
           });
           EOF
           npx playwright test --config=playwright.deployment-verify.config.mjs
@@ -117,8 +132,7 @@ jobs:
         with:
           name: deployment-verification-${{ github.sha }}
           path: |
-            playwright-report/deployment-verify
-            test-results/deployment-verify
+            artifacts/deployment-verification-safe.json
           retention-days: 14
 
       - name: Report deployment verified
