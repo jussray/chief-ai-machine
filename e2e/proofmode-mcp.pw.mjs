@@ -1,10 +1,24 @@
-import { expect, test } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
+import { chiefAccessHeaders, createChiefBoundRequest } from '../scripts/chief-proof-request.mjs';
 
 const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
 
 if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
+
+// Chief's Worker origins sit behind Cloudflare Access. The constrained request
+// fixture attaches the service-token pair (when CI provides one) only to the
+// approved Chief origin, and never follows a redirect into the Access login page.
+const test = base.extend({
+  request: async ({ playwright }, use) => {
+    const client = await playwright.request.newContext({
+      extraHTTPHeaders: chiefAccessHeaders(process.env, baseURL),
+    });
+    await use(createChiefBoundRequest(client, baseURL));
+    await client.dispose();
+  },
+});
 
 async function postMcp(request, message) {
   return request.post(`${baseURL}/mcp`, {
