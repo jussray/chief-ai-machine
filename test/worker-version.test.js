@@ -24,7 +24,7 @@ describe('Chief AI Worker version receipt', () => {
       '/api/*',
       '/version',
       '/mcp',
-      '/.well-known/mcp/*',
+      '/.well-known/*',
     ]);
   });
 
