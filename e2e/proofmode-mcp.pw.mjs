@@ -9,15 +9,20 @@ if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
 
 function boundProofClient(request) {
   const accessHeaders = chiefAccessHeaders(process.env, baseURL);
+  const send = async (method, url, options = {}) => {
+    try {
+      return await request[method](url, {
+        ...options,
+        headers: { ...(options.headers || {}), ...accessHeaders },
+      });
+    } catch {
+      // Playwright transport errors can include credential-bearing request details.
+      throw new Error('PROOFMODE_HTTP_REQUEST_FAILED');
+    }
+  };
   const client = {
-    get: (url, options = {}) => request.get(url, {
-      ...options,
-      headers: { ...(options.headers || {}), ...accessHeaders },
-    }),
-    post: (url, options = {}) => request.post(url, {
-      ...options,
-      headers: { ...(options.headers || {}), ...accessHeaders },
-    }),
+    get: (url, options) => send('get', url, options),
+    post: (url, options) => send('post', url, options),
   };
   return createChiefBoundRequest(client, baseURL);
 }
