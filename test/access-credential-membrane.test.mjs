@@ -39,6 +39,7 @@ describe('Cloudflare Access credential membrane', () => {
     const e2e = readWorkflow('../e2e/proofmode-mcp.pw.mjs');
 
     expect(deployment).not.toContain('CLOUDFLARE_ACCESS_CLIENT_');
+    expect(deployment).toContain("if: github.ref == 'refs/heads/main'");
     expect(verify).toContain('name: Cloudflare Production');
     expect(verify).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
     expect(verify).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
