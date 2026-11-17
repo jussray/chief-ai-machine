@@ -79,7 +79,7 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
   });
 
-  test('lists only the read-only audit_repository tool', async ({ request }) => {
+  test('advertises the exact current read-only tool contract', async ({ request }) => {
     const response = await postMcp(request, {
       jsonrpc: '2.0',
       id: 2,
@@ -88,9 +88,20 @@ test.describe('ProofMode live MCP runtime', () => {
     });
 
     const payload = await readProofJson(response);
-    expect(payload.result.tools).toHaveLength(1);
-    expect(payload.result.tools[0].name).toBe('audit_repository');
-    expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    const tools = payload.result.tools;
+    expect(tools.map((tool) => tool.name)).toEqual([
+      'audit_repository',
+      'lookup_dependency_docs',
+      'customer_start',
+    ]);
+    for (const tool of tools) {
+      expect(tool.annotations).toEqual(expect.objectContaining({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      }));
+    }
+    expect(tools[0].inputSchema.required).toEqual(['owner', 'repo']);
   });
 
   test('audits the exact public repository head without mutation capability', async ({ request }) => {
