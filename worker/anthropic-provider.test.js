@@ -33,7 +33,7 @@ function request() {
 
 describe('Anthropic provider adapter', () => {
   it('uses the direct Messages contract with server-only credentials', async () => {
-    let captured;
+    let captured = null;
     const fetchImpl = vi.fn(async (url, options) => {
       captured = { url, options };
       return Response.json(successPayload(), {
@@ -47,6 +47,7 @@ describe('Anthropic provider adapter', () => {
       { fetchImpl, now: vi.fn().mockReturnValueOnce(1000).mockReturnValueOnce(1842), timeoutSignal: () => undefined },
     );
 
+    if (!captured) throw new Error('captured is null');
     expect(captured.url).toBe(ANTHROPIC_MESSAGES_ENDPOINT);
     expect(captured.options.headers).toEqual({
       'content-type': 'application/json',
