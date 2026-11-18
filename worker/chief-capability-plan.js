@@ -219,11 +219,7 @@ export async function handleChiefCapabilityPlan(request) {
             nextAuthority: 'founder-control-room',
           },
         },
-        founderControl: {
-          chiefMaySelfAuthorize: false,
-          surfaceMaySelfAuthorize: false,
-          executionAuthorized: false,
-        },
+        founderControl,
       },
       meta: meta(),
       error: null,
