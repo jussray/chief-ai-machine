@@ -106,7 +106,7 @@ jobs:
                       self.path = '/app.html'
                   return super().do_GET()
 
-          os.chdir('/home/user/chief-ai-machine')
+          os.chdir(os.environ['GITHUB_WORKSPACE'])
           with socketserver.TCPServer(("", 4173), AppIndexHandler) as httpd:
               httpd.serve_forever()
           PYEOF
