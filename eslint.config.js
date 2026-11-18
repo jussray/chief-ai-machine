@@ -73,6 +73,7 @@ export default [
         URL: 'readonly', Request: 'readonly', Response: 'readonly', Headers: 'readonly',
         fetch: 'readonly', console: 'readonly', Buffer: 'readonly', process: 'readonly',
         crypto: 'readonly', TextEncoder: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
+        ReadableStream: 'readonly',
       },
     },
     rules: {
