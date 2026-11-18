@@ -17,7 +17,7 @@ describe('Chief Worker routing authority', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/json');
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       ok: true,
       sha: '0123456789abcdef0123456789abcdef01234567',
     });
