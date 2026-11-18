@@ -156,6 +156,11 @@ export async function handleChiefCapabilityPlan(request) {
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
     const connectionHandoff = createConnectionHandoff(input.connectionRequests);
     // Chief describes the remote founder-control handoff; it never resolves approval itself.
+    // Defensive check: ensure capabilityPlan.planHash is valid before calling founderControlHandoff
+    const planHash = capabilityPlan?.planHash;
+    if (!planHash || typeof planHash !== 'string' || !/^[0-9a-f]{64}$/.test(planHash.trim().toLowerCase())) {
+      throw new Error('Chief capability plan hash is required and must be a 64-character SHA-256 hash.');
+    }
     const founderControl = founderControlHandoff(capabilityPlan);
     const trustTransition = createTrustTransitionProposal(capabilityPlan, input.goalPlan);
 
