@@ -1,5 +1,9 @@
 name: Chief AI Control Room Contracts
 
+concurrency:
+  group: control-room-contracts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: [main]
@@ -48,8 +52,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out exact head
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           ref: ${{ env.EXPECTED_HEAD_SHA }}
 
       - name: Record and verify exact head
@@ -60,7 +65,7 @@ jobs:
           test "$actual" = "$EXPECTED_HEAD_SHA"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "24"
           cache: npm
@@ -85,7 +90,7 @@ jobs:
 
       - name: Retain sanitized contract receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: chief-ai-control-room-contracts-${{ env.EXPECTED_HEAD_SHA }}
           path: artifacts/control-room-tests.json

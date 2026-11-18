@@ -15,13 +15,26 @@ const pr = { number: 145, state: 'open', user: { login: 'jussray' },
   head: { sha, repo: { full_name: 'jussray/chief-ai-machine' } } };
 const snapshot = { pr, review: null, comments: [], env };
 
-test('verbal sentinel fails closed before remote API requests', async () => {
-  let calls = 0;
-  await assert.rejects(loadAuthoritySnapshot(env, async () => { calls++; }), /positive integer/);
-  assert.equal(calls, 0);
+test('verbal founder authorization skips review lookup but still loads current PR and consumption comments', async () => {
+  const calls = [];
+  const fakeFetch = async (url) => {
+    calls.push(url);
+    if (url.includes('/pulls/145')) {
+      return new Response(JSON.stringify(pr), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (url.includes('/issues/145/comments')) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  const loaded = await loadAuthoritySnapshot(env, fakeFetch);
+  assert.equal(loaded.review, null);
+  assert.equal(loaded.pr.head.sha, sha);
+  assert.equal(calls.some((url) => url.includes('/reviews/')), false);
 });
-test('verbal sentinel cannot bypass snapshot authorization', () => {
-  assert.throws(() => assertAuthoritySnapshot(snapshot), /positive integer/);
+
+test('direct founder verbal authorization is accepted only at the exact current head', () => {
+  assert.equal(assertAuthoritySnapshot(snapshot), true);
 });
 test('wrong actor fails closed', () => {
   assert.throws(() => assertAuthoritySnapshot({

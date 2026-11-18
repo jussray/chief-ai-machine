@@ -118,11 +118,27 @@ const useContext = {
   current_history_digest: HISTORY_DIGEST,
 };
 
+const visualDirection = {
+  creative_mode: 'cinematic-proof',
+  form: 'hero-still-4x5',
+  emotional_intent: ['tension', 'revelation'],
+  visual_hook: 'A system catches itself recycling stale knowledge',
+  scene_concept: 'A developer watches as truth-decay detection blocks an outdated decision',
+  memory_line: 'Products that know when they are becoming unreliable',
+  human_outcome: 'Technical trust in systems that catch their own drift',
+  proof_object: 'The git commit proving the fix',
+  proof_truth_boundary: 'Bounded to this exact release SHA and test results',
+  targets: ['founder-community', 'technical-operators'],
+  preserves_human_agency: true,
+  uses_manipulative_dark_patterns: false,
+};
+
 describe('strategy-aware founder content package', () => {
   it('composes strategy with the canonical truth proposal while keeping strategy advisory', () => {
     const result = buildStrategyAwareFounderContentPackage({
       proposal_input: proposalInput,
       strategy_input: strategyInput,
+      visual_direction: visualDirection,
       use_context: useContext,
     });
     expect(result.kind).toBe('chief-ai/founder-content-strategy-aware-package');
@@ -142,6 +158,7 @@ describe('strategy-aware founder content package', () => {
     const result = buildStrategyAwareFounderContentPackage({
       proposal_input: proposalInput,
       strategy_input: strategyInput,
+      visual_direction: visualDirection,
       v4_advisory_handoff: V4_HANDOFF,
       use_context: useContext,
     });
@@ -159,6 +176,7 @@ describe('strategy-aware founder content package', () => {
     expect(() => buildStrategyAwareFounderContentPackage({
       proposal_input: proposalInput,
       strategy_input: strategyInput,
+      visual_direction: visualDirection,
       v4_advisory_handoff: { ...V4_HANDOFF, evidenceLevel: 'VERIFIED_CURRENT' },
       use_context: useContext,
     })).toThrow(/ATTESTED ceiling/);
@@ -166,6 +184,7 @@ describe('strategy-aware founder content package', () => {
     expect(() => buildStrategyAwareFounderContentPackage({
       proposal_input: proposalInput,
       strategy_input: strategyInput,
+      visual_direction: visualDirection,
       v4_advisory_handoff: { ...V4_HANDOFF, raw_metrics: { impressions: 999 } },
       use_context: useContext,
     })).toThrow(/non-advisory fields/);
@@ -179,6 +198,7 @@ describe('strategy-aware founder content package', () => {
         verified_public_claim_ids: ['secret-sauce'],
         strategy: { ...strategyInput.strategy, brag_claim_ids: ['secret-sauce'] },
       },
+      visual_direction: visualDirection,
       use_context: useContext,
     })).toThrow(/not backed by a verified public claim/);
   });
@@ -192,6 +212,7 @@ describe('strategy-aware founder content package', () => {
         ...strategyInput,
         own_history: { ...strategyInput.own_history, recent_draft_fingerprints: [fingerprint] },
       },
+      visual_direction: visualDirection,
       use_context: useContext,
     })).toThrow(/repeats a recent normalized draft/);
   });
@@ -203,6 +224,7 @@ describe('strategy-aware founder content package', () => {
         ...strategyInput,
         own_history: { ...strategyInput.own_history, recent_draft_fingerprints: ['not-a-hash'] },
       },
+      visual_direction: visualDirection,
       use_context: useContext,
     })).toThrow(/must contain only sha256 fingerprints/);
   });
@@ -214,6 +236,7 @@ describe('strategy-aware founder content package', () => {
         ...strategyInput,
         market_context: { ...strategyInput.market_context, raw_feed_text: 'private feed capture' },
       },
+      visual_direction: visualDirection,
       use_context: useContext,
     })).toThrow(/raw_feed_text is forbidden/);
   });

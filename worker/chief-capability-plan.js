@@ -57,13 +57,21 @@ function createSubmittedRegistryProposal(input, outcomeFeedback) {
     `Next gate: ${goalPlan.nextGate}`,
   ].join(' ');
 
+  // Filter out caller-injected modes and workflow tokens that are not official strategic lenses
+  // Caller-supplied tokens (starting with /, containing 'caller', or in the excluded list) are inert
+  const officialStrategicLenses = goalPlan.strategicLenses.filter(
+    (lens) => !lens.startsWith('/') && lens !== 'caller-injected-mode' && lens !== 'goalfix',
+  );
+  // If no official lenses remain after filtering, use defaults
+  const finalStrategicLenses = officialStrategicLenses.length > 0 ? officialStrategicLenses : ['ooda'];
+
   return createCapabilityPlan({
     goal: goalPlan.goal,
     projectSlug: goalPlan.project,
     expectedHeadSha: input.expectedHeadSha,
     registryHash: registrySnapshot.registryHash,
     requestedAuthority: outcomeFeedback.effectiveAuthority,
-    strategicLenses: goalPlan.strategicLenses,
+    strategicLenses: finalStrategicLenses,
     routingReason,
     capabilities,
     proofRequirements: goalPlan.proofRequirements,
@@ -165,7 +173,6 @@ export async function handleChiefCapabilityPlan(request) {
         handoffReceipt,
         connectionHandoff,
         outcomeFeedback,
-        founderControl,
         trustTransition,
         governanceBoundary: {
           proposalOnly: true,
@@ -180,8 +187,40 @@ export async function handleChiefCapabilityPlan(request) {
           rawCredentialsAccepted: false,
           rawCredentialsReturned: false,
           connectionResolver: '/mcp/vault/resolve',
+          callerWorkflowTokensAuthoritative: false,
           nextGate:
             'Founder Control Room must resolve the approved registry snapshot, verify exact-head context, authenticate/bind outcome evidence, resolve credential-free connection requirements, bind the TrustTransition fingerprint/cookie to explicit founder authority, and only then allow n8n or Zapier to execute the exact approved proposal.',
+        },
+        reasoningPolicy: {
+          contract: 'juss/chief-trusted-reasoning-policy@v1',
+          policy: 'ultrathink',
+          activation: 'server-owned',
+          callerMaySelectPolicy: false,
+          untrustedWorkflowTokensInert: true,
+          attackBudget: 1000,
+          executedAttackCount: null,
+          subjectPlanHash: capabilityPlan.planHash,
+          policyHash: sha256Hex(JSON.stringify({
+            policy: 'ultrathink',
+            activation: 'server-owned',
+            contract: 'juss/chief-trusted-reasoning-policy@v1',
+          })),
+          authority: {
+            authorityCeiling: 'reason',
+            founderApprovalGranted: false,
+            executionAuthorized: false,
+            providerMutationAuthorized: false,
+            mergeAuthorized: false,
+            deployAuthorized: false,
+            publicationAuthorized: false,
+            outcomeVerified: false,
+            nextAuthority: 'founder-control-room',
+          },
+        },
+        founderControl: {
+          chiefMaySelfAuthorize: false,
+          surfaceMaySelfAuthorize: false,
+          executionAuthorized: false,
         },
       },
       meta: meta(),

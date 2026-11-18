@@ -86,7 +86,7 @@ for (const id of REQUIRED_LOCAL_LEDGER_IDS) {
   if (!ids.has(id)) errors.push(`local ledger catalog missing: ${id}`);
 }
 
-if (canonical.schemaVersion !== '1.0') errors.push('canonical schemaVersion must be 1.0');
+if (canonical.schemaVersion !== '1.1') errors.push('canonical schemaVersion must be 1.1');
 if (canonical.projectId !== EXPECTED_PROJECT_ID) errors.push(`canonical projectId must be ${EXPECTED_PROJECT_ID}`);
 if (canonical.repository?.identifier !== EXPECTED_REPOSITORY) errors.push(`canonical repository must be ${EXPECTED_REPOSITORY}`);
 

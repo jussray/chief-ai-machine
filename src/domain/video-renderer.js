@@ -1,7 +1,12 @@
+// @ts-ignore - Node built-in modules
 import { execFile } from 'node:child_process';
+// @ts-ignore - Node built-in modules
 import { createHash } from 'node:crypto';
+// @ts-ignore - Node built-in modules
 import { createReadStream, existsSync } from 'node:fs';
+// @ts-ignore - Node built-in modules
 import { mkdir, stat } from 'node:fs/promises';
+// @ts-ignore - Node built-in modules
 import { dirname, isAbsolute } from 'node:path';
 
 export const CHIEF_VIDEO_RENDERER = 'chief-ai/local-ffmpeg-video@v1';

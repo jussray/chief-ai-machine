@@ -1,10 +1,24 @@
-import { expect, test } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
+import { chiefAccessHeaders, createChiefBoundRequest } from '../scripts/chief-proof-request.mjs';
 
 const baseURL = process.env.PROOFMODE_BASE_URL;
 const expectedHead = process.env.EXPECTED_HEAD_SHA;
 
 if (!baseURL) throw new Error('PROOFMODE_BASE_URL is required');
 if (!expectedHead) throw new Error('EXPECTED_HEAD_SHA is required');
+
+// Chief's Worker origins sit behind Cloudflare Access. The constrained request
+// fixture attaches the service-token pair (when CI provides one) only to the
+// approved Chief origin, and never follows a redirect into the Access login page.
+const test = base.extend({
+  request: async ({ playwright }, use) => {
+    const client = await playwright.request.newContext({
+      extraHTTPHeaders: chiefAccessHeaders(process.env, baseURL),
+    });
+    await use(createChiefBoundRequest(client, baseURL));
+    await client.dispose();
+  },
+});
 
 async function postMcp(request, message) {
   return request.post(`${baseURL}/mcp`, {
@@ -45,7 +59,7 @@ test.describe('ProofMode live MCP runtime', () => {
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
   });
 
-  test('lists only the read-only audit_repository tool', async ({ request }) => {
+  test('lists only read-only tools, including the audit_repository tool', async ({ request }) => {
     const response = await postMcp(request, {
       jsonrpc: '2.0',
       id: 2,
@@ -55,9 +69,15 @@ test.describe('ProofMode live MCP runtime', () => {
 
     expect(response.status()).toBe(200);
     const payload = await response.json();
-    expect(payload.result.tools).toHaveLength(1);
-    expect(payload.result.tools[0].name).toBe('audit_repository');
-    expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
+    // Same tool set as the unit contract in worker/proofmode-mcp.test.js.
+    expect(payload.result.tools.map((tool) => tool.name).sort())
+      .toEqual(['audit_repository', 'customer_start', 'lookup_dependency_docs']);
+    for (const tool of payload.result.tools) {
+      expect(tool.annotations).toEqual(expect.objectContaining({ readOnlyHint: true, destructiveHint: false }));
+      expect(tool.inputSchema.properties ?? {}).not.toHaveProperty('token');
+    }
+    const auditTool = payload.result.tools.find((tool) => tool.name === 'audit_repository');
+    expect(auditTool.inputSchema.required).toEqual(['owner', 'repo']);
   });
 
   test('audits the exact public repository head without mutation capability', async ({ request }) => {

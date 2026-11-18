@@ -71,19 +71,30 @@ describe('ProofMode MCP transport', () => {
     const payload = await json(response);
     expect(payload.result.protocolVersion).toBe('2025-06-18');
     expect(payload.result.capabilities.tools).toEqual({ listChanged: false });
-    expect(payload.result.instructions).toContain('juss-proof/v1');
+    expect(payload.result.instructions).toContain('ProofMode is read-only');
+    expect(payload.result.instructions).toContain('Customer 5W1H');
   });
 
-  it('lists only the read-only repository audit tool without credential inputs', async () => {
+  it('lists the read-only repository audit and documentation tools without credential inputs', async () => {
     const response = await handleProofModeMcp(
       mcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     );
 
     const payload = await json(response);
-    expect(payload.result.tools).toHaveLength(1);
-    expect(payload.result.tools[0].name).toBe('audit_repository');
-    expect(payload.result.tools[0].inputSchema.required).toEqual(['owner', 'repo']);
-    expect(payload.result.tools[0].inputSchema.properties).not.toHaveProperty('token');
+    expect(payload.result.tools).toHaveLength(3);
+
+    const auditTool = payload.result.tools.find(t => t.name === 'audit_repository');
+    expect(auditTool).toBeDefined();
+    expect(auditTool.inputSchema.required).toEqual(['owner', 'repo']);
+    expect(auditTool.inputSchema.properties).not.toHaveProperty('token');
+
+    const docsTool = payload.result.tools.find(t => t.name === 'lookup_dependency_docs');
+    expect(docsTool).toBeDefined();
+    expect(docsTool.inputSchema.required).toEqual(['libraryId', 'query']);
+    expect(docsTool.inputSchema.properties).not.toHaveProperty('token');
+
+    const customerStartTool = payload.result.tools.find(t => t.name === 'customer_start');
+    expect(customerStartTool).toBeDefined();
   });
 
   it('calls the audit tool without mutation capability and emits a federated receipt', async () => {
@@ -145,13 +156,15 @@ describe('ProofMode MCP transport', () => {
     );
   });
 
-  it('forwards the Worker GitHub credential internally without exposing it to MCP callers', async () => {
+  it('calls audit_repository without exposing Worker credentials to MCP', async () => {
     const evidence = evidenceFixture();
     const deps = {
-      loadPublicRepositoryEvidence: async ({ owner, repo, token }) => {
+      loadPublicRepositoryEvidence: async ({ owner, repo, ref, token }) => {
         expect(owner).toBe('acme');
         expect(repo).toBe('app');
-        expect(token).toBe('server-secret');
+        expect(ref).toBeUndefined();
+        // Token is not passed to public MCP audits
+        expect(token).toBeUndefined();
         return evidence;
       },
       classifyRepositoryEvidence: classifier,

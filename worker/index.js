@@ -1,14 +1,24 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { buildProofModeServerCard } from './proofmode-mcp.js';
+import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
+import { generateNonce, buildCspHeader } from './csp-policy.js';
 
-function getReleaseSha(env) {
-  const bakedReleaseSha = typeof BUILD_RELEASE_SHA === 'string'
-    && BUILD_RELEASE_SHA.trim()
-    && BUILD_RELEASE_SHA.trim() !== 'unknown'
-    ? BUILD_RELEASE_SHA.trim()
+const SECURITY_TXT = [
+  'Contact: mailto:support@jussco.company',
+  'Expires: 2027-06-30T00:00:00.000Z',
+  'Preferred-Languages: en',
+  'Canonical: https://chief-ai.cloudflare.app/.well-known/security.txt',
+].join('\n') + '\n';
+
+export function getReleaseSha(env, bakedOverride = BUILD_RELEASE_SHA) {
+  const bakedReleaseSha = typeof bakedOverride === 'string'
+    && bakedOverride.trim()
+    && bakedOverride.trim() !== 'unknown'
+    ? bakedOverride.trim()
     : null;
 
   const candidates = [
@@ -57,11 +67,19 @@ function getProviderVersionMetadata(env) {
 
 function addSecurityHeaders(response) {
   const headers = new Headers(response.headers);
+  const nonce = generateNonce();
+  const csp = buildCspHeader(nonce, true);
   headers.set('X-Content-Type-Options', 'nosniff');
-  headers.set('X-Frame-Options', 'SAMEORIGIN');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  return new Response(response.body, { ...response, headers });
+  headers.set(csp.headerName, csp.value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
 export default {
@@ -80,6 +98,43 @@ export default {
       ));
     }
 
+    if (url.pathname === '/.well-known/security.txt') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return addSecurityHeaders(new Response(null, {
+          status: 405,
+          headers: { Allow: 'GET, HEAD', 'Cache-Control': 'no-store' },
+        }));
+      }
+      return addSecurityHeaders(new Response(request.method === 'HEAD' ? null : SECURITY_TXT, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      }));
+    }
+
+    // Serve MCP server card
+    if (url.pathname === '/.well-known/mcp/server-card.json') {
+      const origin = `${url.protocol}//${url.host}`;
+      const card = buildProofModeServerCard(origin);
+      return addSecurityHeaders(Response.json(card, {
+        headers: { 'Cache-Control': 'no-store' },
+      }));
+    }
+
+    // Return 404 for unimplemented discovery endpoints
+    if (url.pathname === '/.well-known/api-catalog'
+        || url.pathname === '/.well-known/agent-card.json'
+        || url.pathname === '/.well-known/oauth-protected-resource'
+        || url.pathname === '/.well-known/openid-configuration'
+        || url.pathname === '/auth.md') {
+      return addSecurityHeaders(new Response('Not Found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' },
+      }));
+    }
+
     if (url.pathname === '/mcp') {
       const response = await handleProofModeMcp(request, env);
       return addSecurityHeaders(response);
@@ -92,6 +147,11 @@ export default {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       const response = await handleChiefFounderContentProposal(request);
+      return addSecurityHeaders(response);
+    }
+
+    if (url.pathname === '/api/chief/provider') {
+      const response = await handleChiefProviderRequest(request, env);
       return addSecurityHeaders(response);
     }
 
@@ -129,7 +189,16 @@ export default {
       return addSecurityHeaders(response);
     }
 
+    // Try fetching the requested asset
     const response = await env.ASSETS.fetch(request);
+
+    // If asset not found and request accepts HTML, try index.html as fallback for SPA
+    if (response.status === 404 && request.headers.get('accept')?.includes('text/html')) {
+      const indexRequest = new Request(new URL('/index.html', url), request);
+      const indexResponse = await env.ASSETS.fetch(indexRequest);
+      return addSecurityHeaders(indexResponse);
+    }
+
     return addSecurityHeaders(response);
   },
 };
