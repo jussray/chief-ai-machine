@@ -95,7 +95,22 @@ jobs:
         if: steps.scope.outputs.applicable == 'true'
         shell: bash
         run: |
-          python3 -m http.server 4173 > /tmp/chief-ai-server.log 2>&1 &
+          cat > /tmp/server.py << 'PYEOF'
+          import http.server
+          import socketserver
+          import os
+
+          class AppIndexHandler(http.server.SimpleHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == '/' or self.path == '':
+                      self.path = '/app.html'
+                  return super().do_GET()
+
+          os.chdir('/home/user/chief-ai-machine')
+          with socketserver.TCPServer(("", 4173), AppIndexHandler) as httpd:
+              httpd.serve_forever()
+          PYEOF
+          python3 /tmp/server.py > /tmp/chief-ai-server.log 2>&1 &
           echo $! > /tmp/chief-ai-server.pid
           for attempt in {1..30}; do
             curl --fail --silent http://127.0.0.1:4173/ >/dev/null && exit 0
