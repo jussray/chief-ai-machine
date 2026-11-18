@@ -63,6 +63,11 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     if: success()
+    # chief-ai sits behind Cloudflare Access (account members + the
+    # "Chief ProofMode CI" service-token policy). The service-token pair lives
+    # in this environment; without it every probe lands on the Access login page.
+    environment:
+      name: Cloudflare Production
     steps:
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -91,7 +96,13 @@ jobs:
           EXPECTED_HEAD_BRANCH: main
           CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: '90'
           GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
+          if [ -z "$CLOUDFLARE_ACCESS_CLIENT_ID" ] || [ -z "$CLOUDFLARE_ACCESS_CLIENT_SECRET" ]; then
+            printf 'Cloudflare Access service-token pair is not configured for the Cloudflare Production environment; production cannot be verified.\n' >&2
+            exit 1
+          fi
           cat > playwright.deployment-verify.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
 
@@ -104,9 +115,11 @@ jobs:
             outputDir: './test-results/deployment-verify',
             reporter: [
               ['line'],
-              ['html', { outputFolder: './playwright-report/deployment-verify', open: 'never' }],
+              // Credential-safe receipt; the HTML report can carry request call logs.
+              ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/deployment-verify-safe.json' }],
             ],
-            use: { trace: 'retain-on-failure' },
+            // Traces would capture the credential-bearing Access headers.
+            use: { trace: 'off', screenshot: 'off', video: 'off' },
           });
           EOF
           npx playwright test --config=playwright.deployment-verify.config.mjs
@@ -116,9 +129,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: deployment-verification-${{ github.sha }}
-          path: |
-            playwright-report/deployment-verify
-            test-results/deployment-verify
+          path: artifacts/deployment-verify-safe.json
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Report deployment verified
