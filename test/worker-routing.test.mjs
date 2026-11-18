@@ -20,6 +20,9 @@ describe('Chief Worker routing authority', () => {
     expect(await response.json()).toMatchObject({
       ok: true,
       sha: '0123456789abcdef0123456789abcdef01234567',
+      branch: 'unknown',
+      version_id: null,
+      version_tag: null,
     });
     expect(assets.fetch).not.toHaveBeenCalled();
   });
