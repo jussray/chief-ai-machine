@@ -125,12 +125,13 @@ jobs:
               const url=new URL(raw);
               const h=url.hostname;
               if (url.protocol!=="https:" || url.username || url.password || url.port || url.search || url.hash || (url.pathname!=="/" && url.pathname!=="")) process.exit(1);
-              if (h==="chief.foundercontrolroom.org" || h==="api.chief.foundercontrolroom.org" || h==="chief-ai.mcgill-raylene.workers.dev") {
+              if (h==="chief.foundercontrolroom.org" || h==="api.chief.foundercontrolroom.org" || h==="chief-ai.mcgill-raylene.workers.dev" || /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(h)) {
                 process.stdout.write(url.origin);
               } else {
                 process.exit(1);
               }
-            ' "$1")"
+            ' "$1")" || return 1
+            [ -n "$normalized" ] || return 1
             printf '%s' "$normalized"
           }
           if [ -n "$MANUAL_BASE_URL" ]; then
