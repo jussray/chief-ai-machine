@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('PromptOS stays lazy, filters 5K recipes, and compiles concrete founder context', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app.html');
 
   await expect(page.locator('.promptos-card')).toHaveCount(0);
   await expect(page.locator('#promptosResultCount')).toHaveText('Catalog loads when opened');
@@ -40,7 +40,7 @@ test('PromptOS stays lazy, filters 5K recipes, and compiles concrete founder con
 });
 
 test('PromptOS catalog does not starve compliance recipes', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app.html');
   await page.locator('[data-page="promptos"]:visible').click();
   await page.locator('#promptosFamily').selectOption('compliance.and.security.sentinel');
   await expect(page.locator('#promptosResultCount')).toContainText('493 recipes');

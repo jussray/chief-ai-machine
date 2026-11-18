@@ -14,7 +14,7 @@ async function openPrompt(page, title) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app.html');
 });
 
 test('Goalfix v1 public pack is discoverable, selectable, and truth-bounded', async ({ page }, testInfo) => {

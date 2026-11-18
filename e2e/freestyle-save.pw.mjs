@@ -39,7 +39,7 @@ async function reopenLatestDraft(page) {
 
 test.beforeEach(async ({ context, page }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: ORIGIN });
-  await page.goto('/');
+  await page.goto('/app.html');
   await page.evaluate(() => {
     localStorage.removeItem('chief-custom');
     localStorage.removeItem('chief-stars');
