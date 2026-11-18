@@ -44,7 +44,11 @@ env:
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   EXPECTED_HEAD_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
   CLOUDFLARE_RUNTIME_BASE_URL: ${{ inputs.base_url || '' }}
-  ACCESS_AUTH_CONFIGURED: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID != '' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET != '' }}
+  # Access service-token secrets are only released to founder-dispatched runs.
+  # pull_request runs execute branch code and must stay credential-free.
+  CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}
+  CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}
+  ACCESS_AUTH_CONFIGURED: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID != '' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET != '' }}
 
 jobs:
   verify:
@@ -76,15 +80,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: "30"
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: node scripts/verify-cloudflare-runtime-identity.mjs
 
       - name: Preserve provider-admin block classification
         if: failure() && steps.runtime-identity.outcome == 'failure'
         shell: bash
         run: |
-          printf '%s\n' 'BLOCKED_PROVIDER_AUTHORITY: immutable Cloudflare preview did not pass exact Version ID + SHA + branch verification through the configured Access service-token boundary. Do not weaken Access or treat provider upload as runtime proof.'
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
+            access_state='Cloudflare Access rejected the configured service token'
+          else
+            access_state='privileged service auth is intentionally unavailable on pull_request. Long-lived Access credentials are intentionally withheld from candidate runtime.'
+          fi
+          printf 'BLOCKED_PROVIDER_AUTHORITY: immutable Cloudflare preview did not pass exact Version ID + SHA + branch verification; %s. Do not weaken Access or treat provider upload as runtime proof.\n' "$access_state"
 
       - name: Bind verified runtime to Chief capability test surface
         shell: bash
@@ -99,8 +106,6 @@ jobs:
       - name: Run live Chief capability-plan Playwright proof
         env:
           PLAYWRIGHT_HTML_OPEN: never
-          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           cat > playwright.chief-capability-plan.config.mjs <<'EOF'

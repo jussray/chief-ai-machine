@@ -136,11 +136,19 @@ describe('Control Room Test Ledger workflow contract', () => {
   });
 
   it('keeps candidate runtime proof credential-free', () => {
-    for (const trustedWorkflow of [materializer, capability, proofmode]) {
-      expect(trustedWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_ID');
-      expect(trustedWorkflow).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
-      expect(trustedWorkflow).not.toContain('CF-Access-Client-Id');
-      expect(trustedWorkflow).not.toContain('CF-Access-Client-Secret');
+    // The trusted pull_request_target materializer never touches Access credentials.
+    expect(materializer).not.toContain('CLOUDFLARE_ACCESS_CLIENT_ID');
+    expect(materializer).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+    expect(materializer).not.toContain('CF-Access-Client-Id');
+    expect(materializer).not.toContain('CF-Access-Client-Secret');
+    // Workflows that can also be founder-dispatched may hold Access secrets only
+    // behind a workflow_dispatch gate (founder decision 2026-11-18); a
+    // pull_request candidate run always resolves them to ''.
+    for (const dispatchableWorkflow of [capability, proofmode]) {
+      expect(dispatchableWorkflow).not.toMatch(/CLOUDFLARE_ACCESS_CLIENT_(?:ID|SECRET): \$\{\{ secrets\./);
+      expect(dispatchableWorkflow).toContain("CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}");
+      expect(dispatchableWorkflow).toContain("CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}");
+      expect(dispatchableWorkflow).not.toMatch(/CF-Access-Client-(?:Id|Secret)['"]?:\s*['"][^'"$]/);
     }
     expect(capability).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');
     expect(proofmode).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');

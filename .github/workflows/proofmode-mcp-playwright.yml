@@ -175,7 +175,11 @@ jobs:
           redirect_host="$(node -e 'try{process.stdout.write(new URL(process.argv[1]).host)}catch{}' "$location")"
           printf 'Direct exact-head runtime admission failed. status=%s redirect_host=%s\n' "$status" "$redirect_host" >&2
           if printf '%s' "$redirect_host" | grep -Fq '.cloudflareaccess.com'; then
-            printf 'Cloudflare Access blocks candidate proof. Long-lived Access credentials are intentionally withheld from candidate runtime.\n' >&2
+            if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
+              printf 'Cloudflare Access rejected the configured service token for exact-head proof.\n' >&2
+            else
+              printf 'Cloudflare Access blocks candidate proof: privileged service auth is intentionally unavailable on pull_request. Long-lived Access credentials are intentionally withheld from candidate runtime.\n' >&2
+            fi
           fi
           exit 1
 
