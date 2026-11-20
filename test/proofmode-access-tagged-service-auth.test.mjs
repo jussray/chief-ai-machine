@@ -68,20 +68,36 @@ function input(fetchImpl, mode = 'check') {
 }
 
 describe('Chief preview tag-scoped service authentication', () => {
-  it('certifies a single pinned-tag token in a preview-only app, preserving human access', async () => {
+  it('rejects a broad tag rule, even if only one token currently has its tag', async () => {
+    // A second service token could later inherit a tag grant. Only an explicit,
+    // immutable token ID is acceptable to this exclusive ProofMode gate.
     const f = fixture();
-    await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).resolves.toMatchObject({
-      state: 'configured', changed: false, appId: APP,
-      policyId: TAG_POLICY.id, scope: 'preview_worker',
-      serviceTokenId: TOKEN.id,
-    });
+    await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).rejects.toThrow(
+      'parallel Service Auth or bypass grant',
+    );
     expect(f.calls.every(call => call.method === 'GET')).toBe(true);
   });
 
-  it('does not create a duplicate Service Auth grant on repair of a valid tagged policy', async () => {
+  it('does not widen a tagged Access rule during repair', async () => {
     const f = fixture();
-    await expect(ensureProofModeAccessPolicy(input(f.fetchImpl, 'repair')))
-      .resolves.toMatchObject({ state: 'configured', changed: false });
+    await expect(ensureProofModeAccessPolicy(input(f.fetchImpl, 'repair'))).rejects.toThrow(
+      'parallel Service Auth or bypass grant',
+    );
+    expect(f.calls.every(call => call.method === 'GET')).toBe(true);
+  });
+
+  it('accepts only the pinned token-ID policy, without modifying provider policies', async () => {
+    const exact = {
+      id: 'exact-policy-1',
+      name: 'ProofMode CI service auth',
+      decision: 'non_identity',
+      include: [{ service_token: { token_id: TOKEN.id } }],
+    };
+    const f = fixture({ policies: [MEMBER_POLICY, exact] });
+    await expect(ensureProofModeAccessPolicy(input(f.fetchImpl))).resolves.toMatchObject({
+      state: 'configured', changed: false, appId: APP,
+      policyId: exact.id, scope: 'preview_worker', serviceTokenId: TOKEN.id,
+    });
     expect(f.calls.every(call => call.method === 'GET')).toBe(true);
   });
 

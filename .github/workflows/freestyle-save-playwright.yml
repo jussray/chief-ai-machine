@@ -1,6 +1,9 @@
 name: Freestyle Save Playwright
 
 on:
+  pull_request_target:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -10,33 +13,56 @@ permissions:
   contents: read
 
 concurrency:
-  group: freestyle-save-playwright-${{ github.event.pull_request.number || github.ref }}
+  group: freestyle-save-playwright-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+  PR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+  TRUSTED_EVALUATOR_SHA: ${{ github.sha }}
 
 jobs:
   verify:
-    name: Verify Freestyle, Goalfix, and PromptOS in Chromium
+    name: ${{ github.event_name == 'pull_request_target' && 'Verify Freestyle and Goalfix in Chromium' || 'Verify Freestyle and Goalfix in Chromium (candidate evidence only)' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 18
     steps:
-      - name: Check out exact requested head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.EXPECTED_HEAD_SHA }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Record and verify exact head
+      - name: Verify trusted event boundary
+        if: github.event_name == 'pull_request_target'
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         shell: bash
         run: |
-          actual="$(git rev-parse HEAD)"
-          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD_SHA" "$actual"
-          test "$actual" = "$EXPECTED_HEAD_SHA"
+          set -euo pipefail
+          test "$HEAD_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REPO" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = main
+      - name: Check out appropriate evaluator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && env.TRUSTED_EVALUATOR_SHA || env.EXPECTED_HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind candidate and trusted base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = pull_request_target ]; then
+            test "$(git rev-parse HEAD)" = "$TRUSTED_EVALUATOR_SHA"
+            test "$TRUSTED_EVALUATOR_SHA" = "$PR_BASE_SHA"
+          else
+            test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          fi
+          git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$PR_BASE_SHA"
+          git diff --no-renames --name-only "$PR_BASE_SHA"..."$EXPECTED_HEAD_SHA"
+          if [ "$GITHUB_EVENT_NAME" = pull_request_target ]; then
+            candidate="$RUNNER_TEMP/chief-freestyle-candidate"
+            git worktree add --detach "$candidate" "$EXPECTED_HEAD_SHA"
+            printf 'CHIEF_STATIC_ASSETS_ROOT=%s\n' "$candidate" >> "$GITHUB_ENV"
+          fi
 
       - name: Determine Freestyle and PromptOS applicability
         id: scope
@@ -45,7 +71,7 @@ jobs:
           set -euo pipefail
           applicable=true
           reason=manual-dispatch
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]; then
             applicable=false
             reason=no-freestyle-or-promptos-path-changed
             while IFS= read -r file; do
@@ -83,9 +109,9 @@ jobs:
         if: steps.scope.outputs.applicable == 'true'
         run: npm ci
 
-      - name: Install isolated Playwright runner
+      - name: Verify locked Playwright runner
         if: steps.scope.outputs.applicable == 'true'
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+        run: node -e "const p=require('./node_modules/@playwright/test/package.json');if(p.version!=='1.61.1')process.exit(1);console.log('Locked Playwright',p.version)"
 
       - name: Install Chromium
         if: steps.scope.outputs.applicable == 'true'
@@ -106,7 +132,7 @@ jobs:
                       self.path = '/app.html'
                   return super().do_GET()
 
-          os.chdir('/home/user/chief-ai-machine')
+          os.chdir(os.environ.get('CHIEF_STATIC_ASSETS_ROOT') or os.getcwd())
           with socketserver.TCPServer(("", 4173), AppIndexHandler) as httpd:
               httpd.serve_forever()
           PYEOF
@@ -138,3 +164,32 @@ jobs:
             test-results/freestyle-save
           if-no-files-found: error
           retention-days: 14
+
+  publish-candidate-required-check:
+    name: Publish trusted Freestyle required check
+    if: always() && github.event_name == 'pull_request_target'
+    needs: verify
+    runs-on: ubuntu-22.04
+    permissions:
+      checks: write
+    steps:
+      - name: Publish exact-head trusted Freestyle check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SOURCE_RESULT: ${{ needs.verify.result }}
+          REQUIRED_CHECK_NAME: Verify Freestyle, Goalfix, and PromptOS in Chromium
+        shell: bash
+        run: |
+          node <<'NODE'
+          const sha=process.env.EXPECTED_HEAD_SHA;
+          if(!/^[0-9a-f]{40}$/.test(sha||''))throw Error('INVALID_EXACT_HEAD');
+          const conclusion=process.env.SOURCE_RESULT==='success'?'success':'failure';
+          const res=await fetch('https://api.github.com/repos/'+process.env.GITHUB_REPOSITORY+'/check-runs',{
+            method:'POST',
+            headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+process.env.GITHUB_TOKEN,'Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+            body:JSON.stringify({name:process.env.REQUIRED_CHECK_NAME,head_sha: process.env.EXPECTED_HEAD_SHA,status:'completed',conclusion,output:{title:'Trusted Freestyle: '+conclusion,summary:'Trusted base browser proof against candidate static assets; source job '+process.env.SOURCE_RESULT}}),
+          });
+          if(!res.ok)throw Error('TRUSTED_FREESTYLE_PUBLISH_FAILED: '+res.status);
+          NODE

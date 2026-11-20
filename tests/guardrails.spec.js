@@ -14,7 +14,7 @@ test('declares prototype vision and active guardrails', async ({ page }) => {
     }
   });
 
-  await page.goto('/');
+  await page.goto('/app.html');
   await expect(page.locator('html')).toHaveAttribute('data-guardrails', 'active');
   await expect(page.locator('html')).toHaveAttribute('data-product-stage', 'prototype');
   await expect(page.locator('#guardrailStatus')).toHaveText('Prototype guardrails active');
@@ -33,7 +33,7 @@ test('declares prototype vision and active guardrails', async ({ page }) => {
 });
 
 test('rejects unsafe imported state before persistence', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app.html');
   const result = await page.evaluate(async () => {
     const { validateChiefImportPayload } = await import('/src/config/visionGuardrails.js');
     const outcomes = [];
@@ -57,7 +57,7 @@ test('rejects unsafe imported state before persistence', async ({ page }) => {
 });
 
 test('does not expose privileged actions or obvious secret material', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app.html');
   const text = await page.locator('body').innerText();
   expect(text).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|sk-[A-Za-z0-9_-]{10,}/i);
   await expect(page.getByRole('button', { name: /deploy|merge|rotate secret|change billing/i })).toHaveCount(0);

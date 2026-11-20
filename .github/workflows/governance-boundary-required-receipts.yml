@@ -23,6 +23,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+  CLOUDFLARE_CHECK_APP_ID: '85455'
   MANUAL_BASE_URL: ${{ inputs.base_url || '' }}
   CLOUDFLARE_ACCESS_CLIENT_ID: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_ID || '' }}
   CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ github.event_name == 'workflow_dispatch' && secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET || '' }}
@@ -202,7 +203,11 @@ jobs:
               process.stdin.on("end", () => {
                 if (!input) return;
                 const data = JSON.parse(input);
-                const run = data.check_runs?.find((item) => item.name === "Workers Builds: chief-ai");
+                const run = data.check_runs?.find((item) => (
+                  item.name === "Workers Builds: chief-ai"
+                  && item.head_sha === process.env.EXPECTED_HEAD_SHA
+                  && item.app?.id === Number(process.env.CLOUDFLARE_CHECK_APP_ID)
+                ));
                 if (run) process.stdout.write(`${run.status}:${run.conclusion || ""}`);
               });
             ')"
