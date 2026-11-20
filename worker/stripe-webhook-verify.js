@@ -2,6 +2,32 @@
 // Stripe webhook signature verification (RFC 3104 HMAC-SHA256)
 // Prevents webhook replay attacks by validating the signature
 
+const STRIPE_TOLERANCE_SECONDS = 300;
+
+export async function handleStripeWebhook(request, env) {
+  const jsonHeaders = { 'Cache-Control': 'no-store' };
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'method_not_allowed' }, { status: 405, headers: { ...jsonHeaders, Allow: 'POST' } });
+  }
+
+  const body = await request.text();
+  const signature = request.headers.get('stripe-signature') || '';
+  const timestamp = Number(signature.match(/(?:^|,)t=(\d+)/)?.[1]);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(timestamp) || Math.abs(nowSeconds - timestamp) > STRIPE_TOLERANCE_SECONDS) {
+    return Response.json({ error: 'signature_timestamp_outside_tolerance' }, { status: 401, headers: jsonHeaders });
+  }
+
+  if (!await verifyStripeWebhookSignature(body, signature, env?.STRIPE_WEBHOOK_SECRET)) {
+    return Response.json({ error: 'invalid_signature' }, { status: 401, headers: jsonHeaders });
+  }
+
+  return Response.json(
+    { verified: true, error: 'event_processing_not_implemented' },
+    { status: 501, headers: { ...jsonHeaders, 'X-Chief-Stripe-Signature-Verified': 'true' } },
+  );
+}
+
 export async function verifyStripeWebhookSignature(body, signature, secret) {
   if (!signature || !secret) {
     return false;
@@ -9,8 +35,9 @@ export async function verifyStripeWebhookSignature(body, signature, secret) {
 
   try {
     // Stripe format: t=timestamp,v1=signature
-    const [timestamp, ...signatureParts] = signature.split(',');
-    const computedSignature = signatureParts.find(part => part.startsWith('v1='))?.slice(3);
+    const parts = signature.split(',');
+    const timestamp = parts.find(part => part.startsWith('t='))?.slice(2);
+    const computedSignature = parts.find(part => part.startsWith('v1='))?.slice(3);
 
     if (!timestamp || !computedSignature) {
       return false;

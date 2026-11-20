@@ -6,6 +6,7 @@ import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
+import { handleStripeWebhook } from './stripe-webhook-verify.js';
 
 const SECURITY_TXT = [
   'Contact: mailto:support@jussco.company',
@@ -176,6 +177,10 @@ export default {
         },
         { status: 410, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } },
       ));
+    }
+
+    if (url.pathname === '/api/stripe-webhook') {
+      return addSecurityHeaders(await handleStripeWebhook(request, env));
     }
 
     if (url.pathname.startsWith('/api/')) {
