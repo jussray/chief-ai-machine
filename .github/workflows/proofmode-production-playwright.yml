@@ -227,8 +227,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
-      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
       REPOSITORY_OWNER: ${{ github.repository_owner }}
       TRIGGERING_ACTOR: ${{ github.triggering_actor }}
       AUTHORIZE_PRODUCTION: ${{ github.event_name == 'workflow_dispatch' && inputs.authorize_production || 'false' }}
@@ -351,6 +349,9 @@ jobs:
             -y
 
       - name: Wait for production runtime to serve exact head
+        env:
+          CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+          CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         shell: bash
         run: |
           set -euo pipefail

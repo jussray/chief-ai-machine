@@ -23,23 +23,32 @@ const productionWorkflow = readFileSync(
 );
 
 describe('ProofMode required-check contract', () => {
-  it('keeps required-check materialization separate from proof applicability', () => {
-    expect(workflow).toContain('pull_request:\n    branches:\n      - main');
-    expect(workflow).toContain('Determine ProofMode applicability');
-    expect(workflow).toContain("if: steps.scope.outputs.applicable == 'true'");
+  it('materializes the required candidate check from a trusted evaluator independently of applicability', () => {
+    expect(workflow).toContain('pull_request_target:');
+    expect(workflow).toContain('Classify ProofMode applicability');
+    expect(workflow).toContain("if: steps.scope.outputs.changed == 'true'");
+    const publisher = workflow.split('  publish-candidate-required-check:')[1];
+    expect(publisher).toContain("if: always() && github.event_name == 'pull_request_target'");
+    expect(publisher).toContain('SOURCE_RESULT: ${{ needs.verify.result }}');
+    expect(publisher).toContain("process.env.SOURCE_RESULT === 'success' ? 'success' : 'failure'");
+    expect(publisher).toContain('head_sha: process.env.EXPECTED_HEAD_SHA');
   });
 
-  it('invalidates live proof when either ProofMode proof workflow changes', () => {
-    expect(workflow).toContain(
-      '.github/workflows/proofmode-mcp-playwright.yml|.github/workflows/proofmode-production-playwright.yml)',
-    );
-    expect(workflow).toContain('reason=proofmode-proof-workflow-changed');
+  it('rechecks changed ProofMode production or candidate proof workflows', () => {
+    expect(workflow).toContain('proofmode-mcp-playwright');
+    expect(workflow).toContain('proofmode-production-playwright');
+    expect(workflow).toContain("echo 'changed=true' >> \"$GITHUB_OUTPUT\"");
+    expect(workflow).toContain("echo 'changed=false' >> \"$GITHUB_OUTPUT\"");
+    expect(workflow).toContain('N/A proven from trusted exact-head semantic diff');
   });
 
-  it('binds applicability to the exact pull-request base and head', () => {
-    expect(workflow).toContain("PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}");
-    expect(workflow).toContain('git diff --name-only "$PR_BASE_SHA" "$EXPECTED_HEAD_SHA"');
-    expect(workflow).toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
+  it('binds scope to the PR head and a checked-out trusted base', () => {
+    expect(workflow).toContain('EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.expected_head_sha }}');
+    expect(workflow).toContain('BASE_SHA: ${{ github.sha }}');
+    expect(workflow).toContain('TRUSTED_EVALUATOR_SHA: ${{ github.sha }}');
+    expect(workflow).toContain('test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"');
+    expect(workflow).toContain('git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA"');
+    expect(workflow).toContain('ref: ${{ env.TRUSTED_EVALUATOR_SHA }}');
     expect(workflow).toContain('fetch-depth: 0');
   });
 

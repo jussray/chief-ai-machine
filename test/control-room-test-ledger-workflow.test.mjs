@@ -14,7 +14,12 @@ describe('Control Room exact-head ledger workflow', () => {
   it('materializes the required publish context on pull requests', () => {
     expect(workflow).toContain('pull_request:');
     expect(workflow).toContain('name: Publish exact-head test ledger');
-    expect(workflow).not.toContain("if: github.event_name != 'pull_request'");
+    const publishSection = workflow.split('  publish-ledger:')[1];
+    expect(publishSection).toContain('if: ${{ always() }}');
+    expect(publishSection).toContain('LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}');
+    expect(publishSection).toContain('test "$LEDGER_CONTRACT_RESULT" = \'success\'');
+    // The observer may be disabled on PR events, but not the required job.
+    expect(publishSection).toContain("if: github.event_name == 'pull_request'");
     expect(workflow).toContain('EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}');
   });
 
