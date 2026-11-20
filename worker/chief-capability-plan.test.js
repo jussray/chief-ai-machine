@@ -75,6 +75,20 @@ describe('Chief capability-plan proposal API', () => {
     expect(body.data.handoffReceipt.status).toBe('proposed');
     expect(body.data.handoffReceipt.actionAuthority).toBe(false);
     expect(body.data.handoffReceipt.requiresFounderApproval).toBe(true);
+    expect(body.data.founderControl).toMatchObject({
+      contract: 'juss-v10/founder-control-decision@v1',
+      surfaces: ['fcr', 'chatgpt', 'claude', 'perplexity'],
+      orchestrators: ['n8n', 'zapier'],
+      capabilityPlanHash: body.data.capabilityPlan.planHash,
+      founderDecisionRequired: true,
+      explicitDecisionOnly: true,
+      proposalMutationInvalidatesApproval: true,
+      surfaceMaySelfAuthorize: false,
+      chiefMaySelfAuthorize: false,
+      executionAuthorized: false,
+      receiptRequiredAfterExecution: true,
+    });
+
     expect(body.data.connectionHandoff).toMatchObject({
       contract: 'juss-v10/fcr-connection-requests@v1',
       selectedBy: 'chief-ai-machine',
