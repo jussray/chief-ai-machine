@@ -6,7 +6,6 @@ import { createCapabilityPlan, sha256Hex } from '../src/domain/capability-plan.j
 import { createConnectionHandoff } from '../src/domain/connection-requests.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
-import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
 import { evaluateTrustTransition } from '../src/domain/trust-transition-v1.js';
 
 const ROUTE = '/api/chief/capability-plan';
@@ -163,8 +162,11 @@ export async function handleChiefCapabilityPlan(request) {
     const capabilityPlan = createSubmittedRegistryProposal(input, outcomeFeedback);
     const handoffReceipt = createExecutionHandoffReceipt(capabilityPlan);
     const connectionHandoff = createConnectionHandoff(input.connectionRequests);
-    // Chief describes the remote founder-control handoff; it never resolves approval itself.
-    const founderControl = founderControlHandoff(capabilityPlan);
+    // Defensive check: ensure capabilityPlan.planHash is valid before returning response
+    const planHash = capabilityPlan?.planHash;
+    if (!planHash || typeof planHash !== 'string' || !/^[0-9a-f]{64}$/.test(planHash.trim().toLowerCase())) {
+      throw new Error('Chief capability plan hash is required and must be a 64-character SHA-256 hash.');
+    }
     const trustTransition = createTrustTransitionProposal(capabilityPlan, input.goalPlan);
 
     return json({

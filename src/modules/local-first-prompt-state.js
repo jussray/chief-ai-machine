@@ -10,7 +10,11 @@ import {
   readStoredArrayState,
   remapStarReferences,
 } from './prompt-state.js';
-import { commitLocalFirstValue } from './local-first.js';
+
+function commitLocalFirstValue(storage, { storageKey, value }) {
+  storage.setItem(storageKey, JSON.stringify(value));
+  return { ok: true, storageKey };
+}
 
 export {
   CUSTOM_PROMPTS_UPDATED_EVENT,

@@ -70,7 +70,7 @@ export default [
       globals: {
         describe: 'readonly', it: 'readonly', test: 'readonly', expect: 'readonly',
         window: 'readonly', document: 'readonly', navigator: 'readonly',
-        URL: 'readonly', Request: 'readonly', Response: 'readonly', Headers: 'readonly',
+        URL: 'readonly', Request: 'readonly', Response: 'readonly', Headers: 'readonly', ReadableStream: 'readonly',
         fetch: 'readonly', console: 'readonly', Buffer: 'readonly', process: 'readonly',
         crypto: 'readonly', TextEncoder: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
       },
