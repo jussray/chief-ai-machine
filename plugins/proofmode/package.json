@@ -14,9 +14,9 @@
     "check": "node --check worker.js && node --check src/github.js && node --check src/audit.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.3.0",
     "agents": "^0.20.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
