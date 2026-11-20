@@ -156,7 +156,7 @@ CSP headers generated per-request with unique nonce:
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Email **founder@jussco.company** with a subject beginning `[Security][Chief AI Machine]`. Include the affected URL or repository, observed behavior, possible impact, and minimal safe reproduction steps.
+Email **support@jussco.company** with a subject beginning `[Security][Chief AI Machine]`. Include the affected URL or repository, observed behavior, possible impact, and minimal safe reproduction steps.
 
 Do not send passwords, access tokens, private keys, children's personal information, customer records, or other sensitive data as proof. Redact examples and coordinate privately before sharing any further evidence.
 
