@@ -148,7 +148,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       UNIT_TEST_RESULT: ${{ needs.unit-tests.result }}
-    env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:

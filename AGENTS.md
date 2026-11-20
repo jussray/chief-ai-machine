@@ -54,6 +54,10 @@ This loop supplements the repository OODA and verification rules. It never weake
 
 Turn founder intent into verified, reversible work without inventing repository state, hiding risk, leaking secrets, or confusing a prototype with production.
 
+## Scoped parallel proof routing
+
+For founder-requested skills inventory, cross-project repair, or bounded defensive verification, read `.agents/skills/scoped-parallel-proof-workflow/SKILL.md` before choosing work lanes. Preserve one execution owner per write, project-specific authority, exact-head evidence, and founder approval; this route never grants deployment, credential access, or merge authority.
+
 ## Required Loop
 
 For every nontrivial task:
