@@ -75,7 +75,7 @@ jobs:
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
 
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|\.github/workflows/proofmode-production-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -125,12 +125,13 @@ jobs:
               const url=new URL(raw);
               const h=url.hostname;
               if (url.protocol!=="https:" || url.username || url.password || url.port || url.search || url.hash || (url.pathname!=="/" && url.pathname!=="")) process.exit(1);
-              if (h==="chief.foundercontrolroom.org" || h==="api.chief.foundercontrolroom.org" || h==="chief-ai.mcgill-raylene.workers.dev") {
+              if (h==="chief.foundercontrolroom.org" || h==="api.chief.foundercontrolroom.org" || h==="chief-ai.mcgill-raylene.workers.dev" || /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(h)) {
                 process.stdout.write(url.origin);
               } else {
                 process.exit(1);
               }
-            ' "$1")"
+            ' "$1")" || return 1
+            [ -n "$normalized" ] || return 1
             printf '%s' "$normalized"
           }
           if [ -n "$MANUAL_BASE_URL" ]; then
@@ -175,7 +176,11 @@ jobs:
           redirect_host="$(node -e 'try{process.stdout.write(new URL(process.argv[1]).host)}catch{}' "$location")"
           printf 'Direct exact-head runtime admission failed. status=%s redirect_host=%s\n' "$status" "$redirect_host" >&2
           if printf '%s' "$redirect_host" | grep -Fq '.cloudflareaccess.com'; then
-            printf 'Cloudflare Access blocks candidate proof. Long-lived Access credentials are intentionally withheld from candidate runtime.\n' >&2
+            if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] && [ -n "$CLOUDFLARE_ACCESS_CLIENT_ID" ]; then
+              printf 'Cloudflare Access rejected the configured service token for exact-head proof.\n' >&2
+            else
+              printf 'Cloudflare Access blocks candidate proof: privileged service auth is intentionally unavailable on pull_request. Long-lived Access credentials are intentionally withheld from candidate runtime.\n' >&2
+            fi
           fi
           exit 1
 

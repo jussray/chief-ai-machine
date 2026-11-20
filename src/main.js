@@ -13,6 +13,7 @@ import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
 import { mountPromptOS } from './modules/promptos-ui.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
+import { installChiefGuardrailRuntime } from './config/visionGuardrails.js';
 
 const PUBLIC_PROMPTS = [...PROMPTS, ...GOALFIX_V1_PROMPTS];
 
@@ -26,6 +27,7 @@ function readArray(key) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  installChiefGuardrailRuntime();
   initThemeToggle();
   initFriendMode();
   mountPromptOS();

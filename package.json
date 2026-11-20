@@ -16,10 +16,12 @@
     "verify:gmail-resolve-skill": "node scripts/verify-gmail-resolve-skill.mjs",
     "verify:goalfix-skill": "node scripts/verify-goalfix-skill.mjs",
     "eval:gmail-resolve": "node scripts/run-gmail-resolve-evals.mjs",
-    "generate:promptos": "node scripts/generateCatalog.mjs"
+    "generate:promptos": "node scripts/generateCatalog.mjs",
+    "test:guardrails": "playwright test tests/guardrails.spec.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.61.1",
     "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.11.0",
     "typescript": "^7.0.2",

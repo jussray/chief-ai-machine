@@ -39,12 +39,12 @@ async function reopenLatestDraft(page) {
 
 test.beforeEach(async ({ context, page }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: ORIGIN });
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => {
     localStorage.removeItem('chief-custom');
     localStorage.removeItem('chief-stars');
   });
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
 });
 
 test('Freestyle save, reopen, provider switch, copy, and reload remain governed', async ({ page }, testInfo) => {
@@ -86,7 +86,7 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
   await page.locator('#mClose').click();
   await expect(page.locator('#modalWrap')).not.toHaveClass(/\bopen\b/);
 
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await reopenLatestDraft(page);
   const persistedPerplexity = await assertModalProvider(page, 'Perplexity');
   expect(floorCount(persistedPerplexity)).toBe(1);
@@ -96,4 +96,24 @@ test('Freestyle save, reopen, provider switch, copy, and reload remain governed'
     return drafts.at(-1) || null;
   });
   expect(savedAfterReload).toEqual(savedImmediately);
+});
+
+
+test('Builder saves a collision-safe draft and refuses corrupt local state', async ({ page }) => {
+  await openPage(page, 'builder');
+  await expect(page.locator('#builderOut')).not.toBeEmpty();
+  await page.locator('#saveBuilder').click();
+  await expect(page.locator('#navCustom')).toHaveText('1');
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('chief-custom'))[0]);
+  expect(saved.id).toMatch(/^builder-/);
+  expect(saved.title).toMatch(/^Builder:/);
+  expect(saved.versions.chatgpt.length).toBeGreaterThan(100);
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#navCustom')).toHaveText('1');
+  await openPage(page, 'builder');
+  await page.evaluate(() => localStorage.setItem('chief-custom', '{"corrupt":true}'));
+  await page.locator('#saveBuilder').click();
+  expect(await page.evaluate(() => localStorage.getItem('chief-custom'))).toBe('{"corrupt":true}');
 });

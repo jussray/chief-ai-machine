@@ -169,7 +169,7 @@ export function initFreestyle(PROMPTS) {
   });
   document.getElementById('fsSave')?.addEventListener('click', () => {
     if (!currentResult) return;
-    const current = readCustomPromptState();
+    const current = readCustomPromptState({ reservedIds: PROMPTS.map(prompt => prompt.id) });
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
       return;

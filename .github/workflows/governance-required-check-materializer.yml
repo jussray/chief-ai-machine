@@ -79,7 +79,7 @@ jobs:
           changed_since_receipt="$(git diff --no-renames --name-only "$inherited_sha" "$EXPECTED_HEAD_SHA")"
           printf 'Provider receipt predecessor: %s\n' "$inherited_sha"
           printf 'Changes since provider receipt:\n%s\n' "$changed_since_receipt"
-          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|e2e/|skills/|vitest\.config\.js$|eslint\.config\.js$|.*\.test\.js$)' || true)"
+          unsafe_since_receipt="$(printf '%s\n' "$changed_since_receipt" | grep -Ev '^(\.github/|test/|vitest\.config\.js$|.*\.test\.js$)' || true)"
           if [ -n "$unsafe_since_receipt" ]; then
             printf 'Provider-affecting or unclassified files changed since the last proven receipt:\n%s\n' "$unsafe_since_receipt" >&2
             exit 1
@@ -192,7 +192,7 @@ jobs:
             const expectedHost=new URL(baseUrl).host;
             const versionResponse=await page.goto(`${baseUrl}/version`,{waitUntil:'domcontentloaded'});
             expect(versionResponse).not.toBeNull();
-            console.log(`version-final-url=${page.url()}`);
+            console.log(`version-final-origin=${new URL(page.url()).origin}`);
             console.log(`version-status=${versionResponse.status()}`);
             expect(versionResponse.status()).toBe(200);
             assertExactRuntimeHost(page.url(), expectedHost);
@@ -215,7 +215,7 @@ jobs:
           EOF
           cat > playwright.chief-runtime-exact-head.config.mjs <<'EOF'
           import { defineConfig } from '@playwright/test';
-          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'retain-on-failure',screenshot:'only-on-failure'}});
+          export default defineConfig({testDir:'./e2e',testMatch:/chief-runtime-exact-head\.generated\.pw\.mjs$/,fullyParallel:false,retries:0,workers:1,outputDir:'./test-results/chief-runtime-exact-head',reporter:[['line'],['html',{outputFolder:'./playwright-report/chief-runtime-exact-head',open:'never'}]],use:{trace:'off',screenshot:'off',video:'off'}});
           EOF
           npx playwright test --config=playwright.chief-runtime-exact-head.config.mjs
       - name: Retain credential-free exact-runtime evidence
