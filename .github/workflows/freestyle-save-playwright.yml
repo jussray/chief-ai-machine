@@ -109,9 +109,9 @@ jobs:
         if: steps.scope.outputs.applicable == 'true'
         run: npm ci
 
-      - name: Install isolated Playwright runner
+      - name: Verify locked Playwright runner
         if: steps.scope.outputs.applicable == 'true'
-        run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
+        run: node -e "const p=require('./node_modules/@playwright/test/package.json');if(p.version!=='1.61.1')process.exit(1);console.log('Locked Playwright',p.version)"
 
       - name: Install Chromium
         if: steps.scope.outputs.applicable == 'true'

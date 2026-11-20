@@ -78,7 +78,7 @@ export function initBuilder(PROMPTS) {
   document.getElementById('saveBuilder')?.addEventListener('click', () => {
     const text = out.textContent;
     if (!text) return;
-    const current = readCustomPromptState();
+    const current = readCustomPromptState({ reservedIds: PROMPTS.map(prompt => prompt.id) });
     if (current.state !== 'ready') {
       showToast('Custom prompt state is UNKNOWN. Nothing was saved.');
       return;
