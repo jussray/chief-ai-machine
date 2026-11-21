@@ -1,6 +1,7 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleFounderContentLearning } from './founder-content-learning-route.js';
 import { buildProofModeServerCard } from './proofmode-mcp.js';
 import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
@@ -147,6 +148,11 @@ export default {
 
     if (url.pathname === '/api/chief/founder-content-proposal') {
       const response = await handleChiefFounderContentProposal(request);
+      return addSecurityHeaders(response);
+    }
+
+    if (url.pathname === '/api/chief/founder-content-learning') {
+      const response = await handleFounderContentLearning(request, env);
       return addSecurityHeaders(response);
     }
 
