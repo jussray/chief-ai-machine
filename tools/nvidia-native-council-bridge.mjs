@@ -3,6 +3,7 @@
 // Missing source code, fake reports, or failed validation must never create approval.
 // No filesystem writes, vendor requests, installations, or network calls.
 import { preflightNvidiaCouncilEvidence } from './nvidia-council-evidence-preflight.mjs';
+import { existsSync } from 'node:fs';
 
 const SCHEMA = 'juss/nvidia-native-council-handoff@v1';
 const FIXED_GATE = 'Independent evidence and author identity checks, exact-head review, founder approval, and separate provider/release gates are required.';
@@ -120,6 +121,17 @@ export async function previewNvidiaNativeCouncil(input) {
     return outcome('REJECTED', 'Cannot safely snapshot the specialist submissions');
   }
 
+  // Distinguish absent canonical entrypoints from broken/incompatible modules.
+  // Never expose a raw exception string or source path in the public result.
+  const nativeEntrypoints = [
+    '../src/domain/specialist-report.js',
+    '../src/domain/executive-council.js',
+    '../src/domain/executive-brief.js',
+  ];
+  if (nativeEntrypoints.some((path) => !existsSync(new URL(path, import.meta.url)))) {
+    return outcome('NATIVE_UNAVAILABLE', 'Canonical Chief AI Council modules not available in this workspace');
+  }
+
   let specialist, council, brief;
   try {
     // NEVER substitute mocks in this production API: these are fixed imports
@@ -130,7 +142,7 @@ export async function previewNvidiaNativeCouncil(input) {
       import('../src/domain/executive-brief.js'),
     ]);
   } catch {
-    return outcome('NATIVE_UNAVAILABLE', 'Canonical Chief AI Council modules not available in this workspace');
+    return outcome('NATIVE_IMPORT_ERROR', 'Canonical Chief AI Council modules could not be loaded; inspect local module compatibility');
   }
 
   try {
