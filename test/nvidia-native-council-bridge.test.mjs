@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { previewNvidiaNativeCouncil as preview } from '../tools/nvidia-native-council-bridge.mjs';
 import { existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { URL } from 'node:url';
 
 // Layout precondition (v6.1): the offline bundle has no src/domain, so the
@@ -93,5 +97,31 @@ test('many synthetic bypass attempts remain HOLD', async () => {
   for(let i=0;i<2500;i++){
     const x=await preview({repository:rep,objective:modes[i%modes.length],reports:domains.map(record)});
     assertHold(x); assert.equal(x.state,'INTAKE_HOLD');
+  }
+});
+
+
+
+test('present but broken canonical modules report sanitized import error, never missing', async () => {
+  const root=mkdtempSync(join(tmpdir(),'chief-native-error-'));
+  try {
+    const toolDir=join(root,'tools');
+    const domainDir=join(root,'src','domain');
+    mkdirSync(toolDir,{recursive:true}); mkdirSync(domainDir,{recursive:true});
+    writeFileSync(join(root,'package.json'),'{"type":"module"}');
+    for (const n of ['nvidia-native-council-bridge.mjs','nvidia-council-evidence-preflight.mjs','nvidia-council-review.mjs','nvidia-skill-evaluation.mjs']) {
+      copyFileSync(fileURLToPath(new URL(`../tools/${n}`,import.meta.url)),join(toolDir,n));
+    }
+    for (const n of ['specialist-report.js','executive-council.js','executive-brief.js']) {
+      writeFileSync(join(domainDir,n),'throw new Error("SECRET_DO_NOT_EXPOSE");\n');
+    }
+    const imported=await import(pathToFileURL(join(toolDir,'nvidia-native-council-bridge.mjs')).href);
+    const result=await imported.previewNvidiaNativeCouncil({repository:rep,objective:obj,reports:domains.map(record)});
+    assertHold(result);
+    assert.equal(result.state,'NATIVE_IMPORT_ERROR');
+    assert.equal(result.nativeCouncilExecuted,false);
+    assert.equal(JSON.stringify(result).includes('SECRET_DO_NOT_EXPOSE'),false);
+  } finally {
+    rmSync(root,{recursive:true,force:true});
   }
 });
