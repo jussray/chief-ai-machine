@@ -135,7 +135,6 @@ jobs:
         shell: bash
         env:
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
-          EXPECTED_PROVIDER_VERSION_ID: ${{ inputs.expected_provider_version_id }}
           CHIEF_PREVIEW_ORIGIN: ${{ needs.admission.outputs.preview_origin }}
           EXPECTED_HEAD_BRANCH: ${{ needs.admission.outputs.candidate_branch }}
           EXPECTED_PROVIDER_VERSION_ID: ${{ needs.admission.outputs.provider_version_id }}
