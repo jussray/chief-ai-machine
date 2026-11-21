@@ -156,7 +156,10 @@ describe('Protect Me 2 public-draft pilot membrane', () => {
   const normal = { prompt: 'Synthetic public comparison.', sensitivity: 'public' };
 
   it('does not change the provider route unless the server-owned pilot flag is set', async () => {
-    const mock = vi.fn(async (url) => Response.json(completed));
+    const mock = vi.fn(async (url) => {
+      expect(String(url)).toBe('https://api.openai.com/v1/responses');
+      return Response.json(completed);
+    });
     const response = await handleChiefProviderRequest(request(normal), env, mock);
     expect(response.status).toBe(200);
     expect(mock).toHaveBeenCalledTimes(1);
