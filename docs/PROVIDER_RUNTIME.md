@@ -16,6 +16,47 @@ An authenticated GET reports configuration only (`INTEGRATED` or `ABSENT`), neve
 
 Only an OpenAI Responses API result with `status: completed`, usable assistant text, and a valid response ID returns a draft and `provider:openai:<response-id>` provenance. Failed, incomplete, cancelled, queued, in-progress, or missing-status responses fail closed even if they contain partial text. Every result retains `authority: none`. No tools, storage, retries, automatic fallback, publication, execution, or approvals are granted. Output still requires human review. This is not a browser login, tenant authorization system, or automated agent runtime.
 
+## Protect Me 2 pilot: public draft authorization only
+
+The **existing** operator-authenticated \`POST /api/chief/provider\` route supports an
+opt-in, server-side check against the Juss Protect Me 2 gateway. It grants no
+agent-execution authority. Normal Chief provider behavior is unchanged unless
+\`CHIEF_PROTECT2_PILOT_MODE=enforce-public-draft\` is explicitly configured.
+
+The pilot requires all of the existing Chief provider secrets plus a
+separately issued, active **Model Two** \`CHIEF_PROTECT2_API_KEY\` stored as an
+encrypted Worker secret. This key is provisioned only through the authorized
+membership/test-identity process, **not by bypassing JussPay entitlement**.
+Never copy a customer key, reuse an FCR/provider key, or put any key in source,
+\`.dev.vars\` in production, screenshots, logs, or workflow artifacts.
+
+While enabled:
+
+- Only \`sensitivity: public\` can proceed; internal and restricted input is
+  denied before the Protect Me 2 call.
+- The server sends exactly \`{"tool":"chief.draft.generate"}\` to
+  \`https://protect2.jussco.company/gateway/check\`, with no prompt, personal
+  data, or upstream AI provider credentials.
+- A fresh \`allow\` verdict is required **before** the OpenAI draft call.
+  A \`block\`, missing/bad identity, malformed/stale response, unknown pilot
+  mode, or outage denies the call without fallback or execution.
+- The successful draft includes the gateway check timestamp as evidence;
+  \`authority: none\` remains unchanged. A receipt is not founder approval.
+- The gateway checks tool entitlement only. **It does not inspect Chief's
+  prompt in this pilot.** It cannot be described as full content protection.
+
+**Production gate:** Keep the flag unset until an operator identity,
+approved Model Two test membership, verified access policy, exact release SHA,
+CI + Playwright proof, and a real gateway allow/deny pair are recorded.
+A deployment with the pilot flag unset is not a live connected-agent rollout.
+Do not activate paid enrollment or transfer customer data as part of this pilot.
+
+**Rollback:** Remove \`CHIEF_PROTECT2_PILOT_MODE\` to restore pre-pilot route
+behavior; do not delete or rotate other services' credentials. Disable the
+test identity independently if it is compromised. If code rollback is
+required, revert only the Chief provider pilot module/test changes and redeploy
+through the existing reviewed path.
+
 ## Verification and release
 
 Run `npm run typecheck`, `npm run lint`, and `npm test`. The existing Security Gates Playwright workflow also exercises the real Worker with synthetic credentials: public denial, authenticated configuration, restricted-input denial, and security headers. Completed-provider output and upstream failures are tested with a mocked provider; those tests are not live OpenAI proof.
