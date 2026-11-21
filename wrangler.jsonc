@@ -1,5 +1,10 @@
 {
   "name": "chief-ai",
+  "workers_dev": false,
+  "preview_urls": true,
+  "routes": [
+    { "pattern": "chief.foundercontrolroom.org", "custom_domain": true }
+  ],
   "compatibility_date": "2026-07-11",
   "main": "worker/index.js",
   "build": {
