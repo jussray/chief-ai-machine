@@ -145,3 +145,130 @@ describe('bounded Chief provider HTTP membrane', () => {
     expect(await response.text()).not.toContain('fixture-model');
   });
 });
+
+
+describe('Protect Me 2 public-draft pilot membrane', () => {
+  const pilotEnv = {
+    ...env,
+    CHIEF_PROTECT2_PILOT_MODE: 'enforce-public-draft',
+    CHIEF_PROTECT2_API_KEY: 'jp2_synthetic_fixture_00000001',
+  };
+  const normal = { prompt: 'Synthetic public comparison.', sensitivity: 'public' };
+
+  it('does not change the provider route unless the server-owned pilot flag is set', async () => {
+    const mock = vi.fn(async () => Response.json(completed));
+    const response = await handleChiefProviderRequest(request(normal), env, mock);
+    expect(response.status).toBe(200);
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(String(mock.mock.calls[0][0])).toBe('https://api.openai.com/v1/responses');
+    expect((await response.json()).protection).toBeUndefined();
+  });
+
+  it('fails closed when pilot mode is configured but no Model Two identity exists', async () => {
+    const mock = vi.fn();
+    const response = await handleChiefProviderRequest(
+      request(normal),
+      { ...pilotEnv, CHIEF_PROTECT2_API_KEY: '' },
+      mock,
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: 'protect2_pilot_not_configured' });
+    expect(mock).not.toHaveBeenCalled();
+  });
+
+  it('refuses unknown server-side modes without silent fallback', async () => {
+    const mock = vi.fn();
+    const response = await handleChiefProviderRequest(
+      request(normal),
+      { ...pilotEnv, CHIEF_PROTECT2_PILOT_MODE: 'unexpected' },
+      mock,
+    );
+    expect(response.status).toBe(503);
+    expect(mock).not.toHaveBeenCalled();
+  });
+
+  it('rejects internal prompts locally without ever calling Protect Me 2 or the provider', async () => {
+    const mock = vi.fn();
+    const response = await handleChiefProviderRequest(
+      request({ prompt: 'Private internal material', sensitivity: 'internal' }),
+      pilotEnv,
+      mock,
+    );
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: 'protect2_pilot_public_only' });
+    expect(mock).not.toHaveBeenCalled();
+  });
+
+  it('denies gateway-blocked calls without invoking an AI provider', async () => {
+    const mock = vi.fn(async () => Response.json({
+      decision: 'block', reasons: ['tool_not_allowed'], checkedAt: new Date().toISOString(),
+    }));
+    const response = await handleChiefProviderRequest(request(normal), pilotEnv, mock);
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: 'protect2_gateway_denied' });
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when the gateway is unreachable or answers invalid/stale success', async () => {
+    for (const reply of [
+      async () => { throw new Error('synthetic-outage-secret'); },
+      async () => Response.json({ decision: 'allow', reasons: [], checkedAt: '2020-01-01T00:00:00Z' }),
+      async () => Response.json({ decision: 'allow', reasons: ['unexpected'], checkedAt: new Date().toISOString() }),
+      async () => new Response('not JSON'),
+    ]) {
+      const mock = vi.fn(reply);
+      const response = await handleChiefProviderRequest(request(normal), pilotEnv, mock);
+      expect(response.status).toBe(503);
+      expect(await response.text()).not.toContain('synthetic-outage-secret');
+      expect(mock).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('forwards only a fixed action identifier and returns an evidence-scoped draft on allow', async () => {
+    const urls = [];
+    const mock = vi.fn(async (url, options) => {
+      urls.push(String(url));
+      if (String(url) === 'https://protect2.jussco.company/gateway/check') {
+        expect(options.method).toBe('POST');
+        expect(options.redirect).toBe('error');
+        expect(options.cache).toBe('no-store');
+        expect(options.headers.Authorization).toBe('Bearer ' + pilotEnv.CHIEF_PROTECT2_API_KEY);
+        expect(JSON.parse(options.body)).toEqual({ tool: 'chief.draft.generate' });
+        expect(options.body).not.toContain(normal.prompt);
+        expect(options.body).not.toContain('provider-fixture');
+        return Response.json({ decision: 'allow', reasons: [], checkedAt: new Date().toISOString() });
+      }
+      expect(String(url)).toBe('https://api.openai.com/v1/responses');
+      return Response.json(completed);
+    });
+    const response = await handleChiefProviderRequest(request(normal), pilotEnv, mock);
+    expect(response.status).toBe(200);
+    expect(urls).toEqual([
+      'https://protect2.jussco.company/gateway/check',
+      'https://api.openai.com/v1/responses',
+    ]);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      state: 'draft',
+      authority: 'none',
+      protection: {
+        service: 'juss-protect-me-2',
+        action: 'chief.draft.generate',
+        decision: 'allow',
+        authority: 'none',
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain(pilotEnv.CHIEF_PROTECT2_API_KEY);
+  });
+
+  it('unauthorized Chief callers cannot probe the pilot or its credentials', async () => {
+    const mock = vi.fn();
+    const response = await handleChiefProviderRequest(
+      request(normal, 'Bearer incorrect'),
+      pilotEnv,
+      mock,
+    );
+    expect(response.status).toBe(401);
+    expect(mock).not.toHaveBeenCalled();
+  });
+});
