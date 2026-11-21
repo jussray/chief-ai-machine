@@ -101,7 +101,6 @@ test('many synthetic bypass attempts remain HOLD', async () => {
 });
 
 
-
 test('present but broken canonical modules report sanitized import error, never missing', async () => {
   const root=mkdtempSync(join(tmpdir(),'chief-native-error-'));
   try {
