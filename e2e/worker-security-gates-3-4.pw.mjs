@@ -14,6 +14,17 @@ test.describe('Chief operator-only OpenAI boundary', () => {
       expect(response.headers()['cache-control']).toBe('no-store');
     }
   });
+  test('Protect Me 2 pilot requires a server-owned test identity before any provider call', async ({ request }) => {
+    const response = await request.post(baseURL + '/api/chief/provider', {
+      headers: { Authorization: 'Bearer chief-provider-playwright-fixture' },
+      data: { prompt: 'Synthetic public pilot probe.', sensitivity: 'public' },
+    });
+    expect(response.status()).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: 'protect2_pilot_not_configured' });
+    expect(response.headers()['x-content-type-options']).toBe('nosniff');
+    expect(response.headers()['cache-control']).toBe('no-store');
+  });
+
   test('operator configuration and rejected inputs traverse the real Worker without inference', async ({ request }) => {
     const headers = { Authorization: 'Bearer chief-provider-playwright-fixture' };
     const status = await request.get(baseURL + '/api/chief/provider', { headers });
