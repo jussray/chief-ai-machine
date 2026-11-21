@@ -227,6 +227,25 @@ describe('Protect Me 2 public-draft pilot membrane', () => {
     }
   });
 
+  it('cancels oversized streamed gateway replies before buffering the full body', async () => {
+    let chunksRead = 0;
+    let canceled = false;
+    const stream = new globalThis.ReadableStream({
+      pull(controller) {
+        chunksRead += 1;
+        controller.enqueue(new globalThis.TextEncoder().encode('x'.repeat(4096)));
+      },
+      cancel() { canceled = true; },
+    });
+    const mock = vi.fn(async () => new Response(stream, { status: 200 }));
+    const response = await handleChiefProviderRequest(request(normal), pilotEnv, mock);
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: 'protect2_gateway_invalid_response' });
+    expect(canceled).toBe(true);
+    expect(chunksRead).toBeLessThan(10);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
   it('forwards only a fixed action identifier and returns an evidence-scoped draft on allow', async () => {
     const urls = [];
     const mock = vi.fn(async (url, options) => {
