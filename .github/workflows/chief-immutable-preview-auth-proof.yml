@@ -9,6 +9,10 @@ on:
         description: "Exact open PR head SHA to prove"
         type: string
         required: true
+      expected_provider_version_id:
+        description: "Cloudflare provider Version ID from the exact-head Workers Builds check"
+        type: string
+        required: true
       authority_pr:
         description: "Open pull request number"
         type: string
@@ -35,6 +39,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       preview_origin: ${{ steps.admission.outputs.preview_origin }}
+      provider_version_id: ${{ steps.admission.outputs.provider_version_id }}
+      candidate_branch: ${{ steps.admission.outputs.candidate_branch }}
     steps:
       - name: Check out current trusted main only
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -51,6 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          EXPECTED_PROVIDER_VERSION_ID: ${{ inputs.expected_provider_version_id }}
           AUTHORITY_PR: ${{ inputs.authority_pr }}
           AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
@@ -81,17 +88,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          EXPECTED_PROVIDER_VERSION_ID: ${{ inputs.expected_provider_version_id }}
           AUTHORITY_PR: ${{ inputs.authority_pr }}
           AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
           ADMITTED_PREVIEW_ORIGIN: ${{ needs.admission.outputs.preview_origin }}
+          ADMITTED_PROVIDER_VERSION_ID: ${{ needs.admission.outputs.provider_version_id }}
+          ADMITTED_CANDIDATE_BRANCH: ${{ needs.admission.outputs.candidate_branch }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          origin="$(node scripts/chief-trusted-preview-admission.mjs | sed -n 's/^preview_origin=//p')"
+          identity="$(node scripts/chief-trusted-preview-admission.mjs)"
+          origin="$(printf '%s\n' "$identity" | sed -n 's/^preview_origin=//p')"
+          version="$(printf '%s\n' "$identity" | sed -n 's/^provider_version_id=//p')"
+          branch="$(printf '%s\n' "$identity" | sed -n 's/^candidate_branch=//p')"
           test -n "$origin"
+          test -n "$version"
+          test -n "$branch"
           test "$origin" = "$ADMITTED_PREVIEW_ORIGIN"
+          test "$version" = "$ADMITTED_PROVIDER_VERSION_ID"
+          test "$branch" = "$ADMITTED_CANDIDATE_BRANCH"
       - name: Install isolated trusted browser runner
         shell: bash
         run: |
@@ -114,11 +131,13 @@ jobs:
           });
           EOF
           echo "TRUSTED_BROWSER_RUNNER=$proof_dir" >> "$GITHUB_ENV"
-      - name: Prove exact SHA, rendered app and stylesheet with bounded service auth
+      - name: Prove exact SHA, provider Version ID, branch and rendered UI with bounded service auth
         shell: bash
         env:
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
           CHIEF_PREVIEW_ORIGIN: ${{ needs.admission.outputs.preview_origin }}
+          EXPECTED_HEAD_BRANCH: ${{ needs.admission.outputs.candidate_branch }}
+          EXPECTED_PROVIDER_VERSION_ID: ${{ needs.admission.outputs.provider_version_id }}
           CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
           CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
@@ -153,6 +172,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          EXPECTED_PROVIDER_VERSION_ID: ${{ inputs.expected_provider_version_id }}
           AUTHORITY_PR: ${{ inputs.authority_pr }}
           AUTHORIZE_PROOF: ${{ inputs.authorize_proof }}
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}

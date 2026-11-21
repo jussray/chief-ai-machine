@@ -5,10 +5,15 @@ const immutableChiefOrigin = /^https:\/\/[0-9a-f]{8}-chief-ai\.mcgill-raylene\.w
 test('founder-authenticated immutable Chief preview proves SHA, SPA, and CSS', async ({ page }) => {
   const origin = process.env.CHIEF_PREVIEW_ORIGIN;
   const expectedSha = process.env.EXPECTED_HEAD_SHA;
+  const expectedVersionId = process.env.EXPECTED_PROVIDER_VERSION_ID;
+  const expectedBranch = process.env.EXPECTED_HEAD_BRANCH;
   const accessClientId = process.env.CLOUDFLARE_ACCESS_CLIENT_ID;
   const accessClientSecret = process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET;
   expect(origin).toMatch(immutableChiefOrigin);
   expect(expectedSha).toMatch(/^[0-9a-f]{40}$/);
+  expect(expectedVersionId).toMatch(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
+  expect(expectedBranch).toMatch(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,159}$/);
+  expect(new URL(origin).hostname.split('-')[0]).toBe(expectedVersionId.slice(0, 8));
   expect(accessClientId).toBeTruthy();
   expect(accessClientSecret).toBeTruthy();
 
@@ -39,6 +44,8 @@ test('founder-authenticated immutable Chief preview proves SHA, SPA, and CSS', a
   expect(version.headers()['content-type'] || '').toContain('application/json');
   const payload = await version.json();
   expect(payload?.sha).toBe(expectedSha);
+  expect(payload?.version_id).toBe(expectedVersionId);
+  expect(payload?.branch).toBe(expectedBranch);
 
   const app = await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
   expect(app).not.toBeNull();

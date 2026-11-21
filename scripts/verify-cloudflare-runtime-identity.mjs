@@ -161,6 +161,30 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     }
     observations.set(parsedRuntimeUrl.origin, observation);
   }
+  // This is an admission failure, not a SHA/version mismatch. Without
+  // authorized service credentials no number of retries can read /version.
+  const accessBlocked = runtimeCandidates.every((candidate) => {
+    const observation = observations.get(candidate.origin);
+    return observation?.status >= 300 && observation.status < 400
+      && typeof observation.redirectHost === 'string'
+      && observation.redirectHost.endsWith('.cloudflareaccess.com');
+  });
+  if (accessBlocked) {
+    const kind = accessClientId && accessClientSecret
+      ? 'CLOUDFLARE_ACCESS_SERVICE_AUTH_REJECTED'
+      : 'CLOUDFLARE_ACCESS_AUTH_NOT_AVAILABLE';
+    console.error(`Runtime proof blocked: ${kind}. No provider Version ID, SHA, or branch was observed at the protected runtime.`);
+    console.error('Cloudflare Access remains enabled. Use an authorized trusted proof context; do not treat the protected login page as runtime evidence.');
+    console.error(`Expected runtime SHA: ${expectedHeadSha}`);
+    console.error(`Expected runtime branch: ${expectedHeadBranch}`);
+    for (const candidate of runtimeCandidates) {
+      const observation = observations.get(candidate.origin);
+      console.error(`Protected candidate runtime: ${candidate.origin}`);
+      console.error(`Observed HTTP status: ${observation?.status || 'unavailable'}`);
+      console.error(`Observed redirect host: ${observation?.redirectHost || 'unavailable'}`);
+    }
+    process.exit(1);
+  }
   if (attempt < maxAttempts) await sleep(sleepMs);
 }
 

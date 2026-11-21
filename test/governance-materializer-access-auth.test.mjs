@@ -30,6 +30,21 @@ describe('trusted candidate runtime Access safety boundary', () => {
     expect(browserProof).toContain('expect(payload?.sha).toBe(expectedSha)');
   });
 
+  it('waits for the exact Cloudflare provider SHA before even considering predecessor proof', () => {
+    const providerSection = source.split('  provider-receipt:')[1]?.split('  runtime-proof:')[0] || '';
+    const poll = providerSection.indexOf('for attempt in $(seq 1 25); do');
+    const inherited = providerSection.indexOf('inherited_sha=""');
+    expect(poll).toBeGreaterThan(0);
+    expect(inherited).toBeGreaterThan(poll);
+    expect(providerSection).toContain('if has_provider_receipt "$EXPECTED_HEAD_SHA"; then');
+    expect(providerSection).toContain('if [ "$attempt" -lt 25 ]; then sleep 3; fi');
+    expect(providerSection).toContain('x.head_sha===expected');
+    expect(providerSection).toContain('x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID)');
+    expect(providerSection).toContain("x.status===\"completed\" && x.conclusion===\"success\"");
+    expect(providerSection).toContain('Provider-affecting or unclassified files changed');
+    expect(providerSection).not.toContain('secrets.');
+  });
+
   it('redacts Access redirect query strings and does not save network traces', () => {
     expect(browserProof).toContain('version-final-origin=${new URL(page.url()).origin}');
     expect(browserProof).not.toContain('version-final-url=${page.url()}');
