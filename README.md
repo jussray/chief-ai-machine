@@ -1,5 +1,20 @@
 # Chief AI Prompt Machine
 
+<!-- public-summary:start -->
+## Product overview
+
+**Chief AI Machine is a founder-controlled intelligence workspace for structuring requests, organizing prompts, and producing reviewable work proposals.** Its goal is to help a human coordinate AI capabilities while keeping the human responsible for approvals, consequential actions, and final decisions.
+
+**What to show today:** available prompt workflows and source-backed intelligence demonstrations. Chief AI Machine is an independent product, not a disguised module of PromptOS or Founder Control Room.
+
+**Evidence boundary (21 November 2026):** `main` at `b9c34b8` recorded successful build, unit-test, lint, and typecheck checks, alongside failures in the exact-head evidence ledger and security gates. Some browser-based production proof was skipped. **Do not describe the production execution path as fully verified.**
+
+**Public demonstration rule:** use synthetic data and keep private prompt content, customer information, credentials, authority grants, and unpublished operating procedures out of presentations.
+
+---
+<!-- public-summary:end -->
+
+
 > **Copyright © 2024–2026 Juss Ray. All rights reserved.**
 > This is proprietary software. No license to use, copy, modify, distribute,
 > sublicense, or create derivative works is granted. See [LICENSE](LICENSE).
