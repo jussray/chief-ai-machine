@@ -83,7 +83,7 @@ async function checkProtect2PublicDraft(env, sensitivity, fetchImpl) {
       body: JSON.stringify({ tool: PROTECT2_PILOT_TOOL }),
       redirect: 'error',
       cache: 'no-store',
-      signal: AbortSignal.timeout(PROTECT2_TIMEOUT_MS),
+      signal: globalThis.AbortSignal.timeout(PROTECT2_TIMEOUT_MS),
     });
   } catch {
     return { allowed: false, status: 503, error: 'protect2_gateway_unavailable' };
