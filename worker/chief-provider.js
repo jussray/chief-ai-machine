@@ -104,7 +104,7 @@ async function checkProtect2PublicDraft(env, sensitivity, fetchImpl) {
     // Bound what is accepted from an external response before parsing.
     const declared = Number(response.headers.get('content-length') || 0);
     if (declared > 2048) return { allowed: false, status: 503, error: 'protect2_gateway_invalid_response' };
-    const raw = await response.text();
+    const raw = await boundedText(response.body, 2048);
     if (raw.length > 2048) return { allowed: false, status: 503, error: 'protect2_gateway_invalid_response' };
     const verdict = JSON.parse(raw);
     if (verdict?.decision === 'block') {
