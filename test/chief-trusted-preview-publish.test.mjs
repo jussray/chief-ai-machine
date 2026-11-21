@@ -4,12 +4,15 @@ import { publishTrustedChiefPreviewReceipt, TRUSTED_PROOF_NAME } from '../script
 
 const mainSha = 'a'.repeat(40);
 const headSha = 'b'.repeat(40);
+const providerVersionId = '1234abcd-1111-4222-8333-444444444444';
+const candidateBranch = 'fix/chief-protect2-gate-pilot-20261120';
 const repo = 'jussray/chief-ai-machine';
 const env = {
   GITHUB_EVENT_NAME: 'workflow_dispatch',
   GITHUB_REF: 'refs/heads/main',
   GITHUB_SHA: mainSha,
   EXPECTED_HEAD_SHA: headSha,
+  EXPECTED_PROVIDER_VERSION_ID: providerVersionId,
   AUTHORITY_PR: '281',
   AUTHORIZE_PROOF: 'true',
   GITHUB_RUN_ATTEMPT: '1',
@@ -41,13 +44,13 @@ function fixture({ changedHead = false, rejectWrite = false } = {}) {
     else if (url.endsWith('/pulls/281')) body = {
       number: 281, state: 'open',
       base: { ref: 'main', repo: { full_name: repo } },
-      head: { sha: changedHead ? 'c'.repeat(40) : headSha, repo: { full_name: repo } },
+      head: { sha: changedHead ? 'c'.repeat(40) : headSha, ref: candidateBranch, repo: { full_name: repo } },
     };
     else if (url.endsWith('/commits/' + headSha + '/check-runs?per_page=100')) body = {
       check_runs: [{
         name: 'Workers Builds: chief-ai', head_sha: headSha,
         app: { id: 85455 }, status: 'completed', conclusion: 'success',
-        output: { summary: '\nPreview URL: https://1234abcd-chief-ai.mcgill-raylene.workers.dev\n' },
+        output: { summary: '\nVersion ID: ' + providerVersionId + '\nPreview URL: https://1234abcd-chief-ai.mcgill-raylene.workers.dev\n' },
       }],
     };
     else throw new Error('Unexpected test URL');
@@ -69,6 +72,8 @@ describe('Chief trusted authenticated preview proof receipt', () => {
       details_url: 'https://github.com/' + repo + '/actions/runs/' + env.GITHUB_RUN_ID,
     });
     expect(f.writes[0].body.output.summary).toContain('not the required runtime gate');
+    expect(f.writes[0].body.output.summary).toContain(providerVersionId);
+    expect(f.writes[0].body.output.summary).toContain(candidateBranch);
   });
 
   it('refuses unproven, rerun and nonfounder publication before POST', async () => {
@@ -79,6 +84,7 @@ describe('Chief trusted authenticated preview proof receipt', () => {
       { GITHUB_ACTOR: 'github-actions[bot]' },
       { GITHUB_REF: 'refs/heads/feature' },
       { GITHUB_RUN_ID: '0' },
+      { EXPECTED_PROVIDER_VERSION_ID: 'a'.repeat(36) },
     ]) {
       const f = fixture();
       await expect(publishTrustedChiefPreviewReceipt({ ...env, ...override }, f.fetchImpl))
