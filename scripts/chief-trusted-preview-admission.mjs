@@ -4,6 +4,8 @@
  * and never opens Cloudflare credentials. No branch mutation or deploy here.
  */
 const SHA = /^[0-9a-f]{40}$/;
+const VERSION_ID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+const BRANCH = /^(?!.*(?:\.\.|\/\/))[A-Za-z0-9][A-Za-z0-9._/-]{0,159}$/;
 const PREVIEW_HOST = /^[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/;
 const CLOUDFLARE_CHECK_APP_ID = 85455;
 
@@ -51,9 +53,10 @@ export async function discoverTrustedChiefPreview(env, fetchImpl = globalThis.fe
   }
   const trustedMain = requireExact(env.GITHUB_SHA, 'GITHUB_SHA');
   const expectedHead = requireExact(env.EXPECTED_HEAD_SHA, 'EXPECTED_HEAD_SHA');
+  const expectedVersionId = requireExact(env.EXPECTED_PROVIDER_VERSION_ID, 'EXPECTED_PROVIDER_VERSION_ID').toLowerCase();
   const prNumber = requireExact(env.AUTHORITY_PR, 'AUTHORITY_PR');
-  if (!SHA.test(trustedMain) || !SHA.test(expectedHead) || !/^[1-9]\d*$/.test(prNumber)) {
-    throw new Error('Invalid trusted main, candidate SHA or PR number');
+  if (!SHA.test(trustedMain) || !SHA.test(expectedHead) || !VERSION_ID.test(expectedVersionId) || !/^[1-9]\d*$/.test(prNumber)) {
+    throw new Error('Invalid trusted main, candidate SHA, provider Version ID or PR number');
   }
   requireExact(env.GH_TOKEN, 'GH_TOKEN');
   const [main, pr, provider] = await Promise.all([
@@ -68,6 +71,7 @@ export async function discoverTrustedChiefPreview(env, fetchImpl = globalThis.fe
     || pr.base?.ref !== 'main'
     || pr.base?.repo?.full_name !== env.GITHUB_REPOSITORY
     || pr.head?.sha !== expectedHead
+    || !BRANCH.test(pr.head?.ref || '')
     || pr.head?.repo?.full_name !== env.GITHUB_REPOSITORY
   ) throw new Error('Open same-repository PR exact-head admission failed');
   const approvedBuild = (provider.check_runs || []).find(x => (
@@ -79,15 +83,30 @@ export async function discoverTrustedChiefPreview(env, fetchImpl = globalThis.fe
   ));
   if (!approvedBuild) throw new Error('No exact-head Cloudflare provider build receipt');
   const summary = String(approvedBuild.output?.summary || '');
+  // Bind the founder-supplied Version ID to Cloudflare's exact-head build.
+  // A URL supplied by the caller is never treated as provider authority.
+  const versionMatch = summary.match(/(?:^|\n)Version ID:\s*([0-9a-f-]{36})(?:\s|$)/i);
+  if (!versionMatch || versionMatch[1].toLowerCase() !== expectedVersionId) {
+    throw new Error('Cloudflare provider Version ID does not match founder-approved candidate');
+  }
   const previewMatch = summary.match(/(?:^|\n)Preview URL:\s*(https:\/\/[0-9a-f]{8}-chief-ai\.mcgill-raylene\.workers\.dev)(?:\s|$)/);
   if (!previewMatch) throw new Error('Provider build has no immutable Chief preview URL');
-  return { previewOrigin: validatePreviewOrigin(previewMatch[1]), trustedMain, expectedHead };
+  const previewOrigin = validatePreviewOrigin(previewMatch[1]);
+  if (new URL(previewOrigin).hostname.split('-')[0] !== expectedVersionId.slice(0, 8)) {
+    throw new Error('Immutable preview URL does not match the provider Version ID');
+  }
+  return {
+    previewOrigin, trustedMain, expectedHead,
+    providerVersionId: expectedVersionId, candidateBranch: pr.head.ref,
+  };
 }
 
 if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
-  discoverTrustedChiefPreview(process.env).then(({ previewOrigin }) => {
+  discoverTrustedChiefPreview(process.env).then(({ previewOrigin, providerVersionId, candidateBranch }) => {
     // Do not log tokens or Cloudflare authentication headers.
-    process.stdout.write('preview_origin=' + previewOrigin + '\n');
+    process.stdout.write('preview_origin=' + previewOrigin + '\n'
+      + 'provider_version_id=' + providerVersionId + '\n'
+      + 'candidate_branch=' + candidateBranch + '\n');
   }).catch((error) => {
     process.stderr.write('Trusted preview admission rejected: ' + (error.message || 'unknown') + '\n');
     process.exitCode = 1;
