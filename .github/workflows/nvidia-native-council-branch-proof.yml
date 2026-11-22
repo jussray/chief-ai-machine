@@ -1,0 +1,57 @@
+name: NVIDIA native Council branch proof
+
+on:
+  push:
+    branches:
+      - fix/nvidia-council-diagnostics-20261121
+    paths:
+      - '.github/workflows/nvidia-native-council-branch-proof.yml'
+      - 'tools/nvidia-native-council-bridge.mjs'
+      - 'tools/nvidia-council-evidence-preflight.mjs'
+      - 'tools/nvidia-council-review.mjs'
+      - 'tools/nvidia-skill-evaluation.mjs'
+      - 'src/domain/specialist-report.js'
+      - 'src/domain/executive-council.js'
+      - 'src/domain/executive-brief.js'
+      - 'test/nvidia-native-council-bridge.test.mjs'
+      - 'test/nvidia-v6-locked-fields.test.mjs'
+      - 'verification/nvidia-native-council-in-repo.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvidia-native-council-branch-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_HEAD_SHA: ${{ github.sha }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  native-council:
+    name: Native Council exact-head regression proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Assert candidate identity
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Set up Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - name: Verify bridge syntax
+        run: node --check tools/nvidia-native-council-bridge.mjs
+      - name: Run real-repository native Council regression and integration tests
+        run: >-
+          node --test
+          test/nvidia-native-council-bridge.test.mjs
+          test/nvidia-v6-locked-fields.test.mjs
+          verification/nvidia-native-council-in-repo.test.mjs
