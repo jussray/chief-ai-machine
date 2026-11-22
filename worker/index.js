@@ -8,7 +8,7 @@ import { handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
 
 const SECURITY_TXT = [
-  'Contact: mailto:support@jussco.company',
+  'Contact: mailto:founder@jussco.company',
   'Expires: 2027-06-30T00:00:00.000Z',
   'Preferred-Languages: en',
   'Canonical: https://chief-ai.cloudflare.app/.well-known/security.txt',
