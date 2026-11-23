@@ -18,7 +18,6 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     });
     expect(versionResponse.status()).toBe(200);
     const version = await versionResponse.json();
-    console.log('CHIEF_PRODUCTION_VERSION_SHA=' + String(version.sha || 'missing'));
     expect(version).toMatchObject({ ok: true, sha: expectedHead });
     expect(version.version_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   } finally {
