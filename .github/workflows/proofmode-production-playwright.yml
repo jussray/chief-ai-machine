@@ -44,7 +44,7 @@ env:
   AUTHORITY_PR: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_pr || '' }}
   AUTHORITY_RECEIPT: ${{ github.event_name == 'workflow_dispatch' && inputs.authority_receipt || '' }}
   ACTIVATION_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_run_id || '' }}
-  PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+  PROOFMODE_BASE_URL: https://chief.foundercontrolroom.org
 
 jobs:
   protected-access:
