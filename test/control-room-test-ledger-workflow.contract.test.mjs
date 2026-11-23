@@ -61,7 +61,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(promptRemix).toContain('Verify Chief prompt remix workflows in Chromium');
     expect(providerWorker).toContain('Verify Chief provider Worker route with synthetic fixtures');
     expect(promptRemix).toContain('npx playwright test --config=e2e/playwright.freestyle.config.mjs');
-    expect(promptRemix).toContain('playwright.chief-provider-worker.config.mjs');
+    expect(providerWorker).toContain('playwright.chief-provider-worker.config.mjs');
   });
 
   it('keeps Access-protected live proof outside candidate-controlled execution', () => {
