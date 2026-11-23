@@ -45,6 +45,11 @@ jobs:
     name: Verify Chief domain authority
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && 'Cloudflare Production' || 'none' }}
+    env:
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
     steps:
       - name: Check out exact head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -81,7 +86,7 @@ jobs:
           expected="$EXPECTED_HEAD_SHA"
 
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            origin="https://chief.foundercontrolroom.org"
+            # Pushes verify the committed contract only; live browsing is a\n            # separate founder-dispatched, Access-authenticated proof.\n            origin=""
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             origin="$MANUAL_ORIGIN"
             if [ -n "$MANUAL_SHA" ]; then
