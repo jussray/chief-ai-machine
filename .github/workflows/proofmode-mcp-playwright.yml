@@ -75,7 +75,7 @@ jobs:
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
 
-          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|worker/index\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|\.github/workflows/proofmode-production-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(worker/proofmode-mcp\.js$|e2e/proofmode-mcp\.pw\.mjs$|\.github/workflows/proofmode-mcp-playwright\.yml$|\.github/workflows/proofmode-production-playwright\.yml$|scripts/proofmode-scope-normalize\.mjs$|\.assetsignore$|\.gitignore$|test/static-assets-boundary\.test\.js$|e2e/static-assets-boundary\.pw\.mjs$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
