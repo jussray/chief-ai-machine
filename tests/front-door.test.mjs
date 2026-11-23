@@ -26,6 +26,7 @@ test('FCR hostname serves the FCR-branded Chief integration front door', async (
   expect(html).toContain('Chief intelligence inside Founder Control Room.');
   expect(html).toContain('FCR retains founder governance, evidence, approval, and execution authority.');
   expect(html).toContain('Founder Control Room retains its own identity');
+  expect(html).toContain('href="/app">Open Chief workspace');
   expect(response.headers.get('Content-Security-Policy')).toMatch(/script-src 'none'/);
   expect(html).toBe(readFileSync(new URL('../public-face.html', import.meta.url), 'utf8'));
 });
