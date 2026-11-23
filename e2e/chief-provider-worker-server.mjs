@@ -1,3 +1,4 @@
+/* global Request, Response */
 import { Buffer } from 'node:buffer';
 import http from 'node:http';
 import process from 'node:process';
