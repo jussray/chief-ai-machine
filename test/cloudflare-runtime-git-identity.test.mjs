@@ -24,7 +24,9 @@ describe('Cloudflare runtime git identity contract', () => {
     expect(verifier).toContain("observation.versionId === providerIdentity.versionId");
     expect(verifier).toContain("observation.sha === expectedHeadSha");
     expect(verifier).toContain("observation.branch === expectedHeadBranch");
-    expect(verifier).toContain('Expected runtime branch:');
+    expect(verifier).toContain("observation.branch === expectedHeadBranch");
+    expect(verifier).toContain("console.error('CLOUDFLARE_RUNTIME_IDENTITY_MISMATCH')");
+    expect(verifier).not.toContain('Expected runtime branch:');
   });
 
   it('keeps each candidate proof bound to its correct trusted execution context', () => {
