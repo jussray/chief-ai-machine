@@ -20,6 +20,17 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     const version = await versionResponse.json();
     expect(version).toMatchObject({ ok: true, sha: expectedHead });
     expect(version.version_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
+    const appResponse = await client.get(`${baseURL}/app`, { maxRedirects: 0 });
+    const appBody = await appResponse.text();
+    console.log('Chief /app API diagnostic', JSON.stringify({
+      status: appResponse.status(),
+      contentType: appResponse.headers()['content-type'] || null,
+      server: appResponse.headers()['server'] || null,
+      cfRay: appResponse.headers()['cf-ray'] || null,
+      bodyPrefix: appBody.slice(0, 240),
+    }));
+    expect(appResponse.status(), 'Chief /app API request must succeed with the same Access service token as /version').toBe(200);
   } finally {
     await client.dispose();
   }
