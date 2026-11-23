@@ -58,7 +58,7 @@ test('Prompt Library filters reusable prompts and opens a model-ready draft', as
   await page.locator('#search').fill(firstTitle);
   await expect(cards).toHaveCount(1);
   await cards.first().locator('.mini-btn.push').click();
-  await expect(page.locator('#modalWrap')).toHaveClass(/\\bopen\\b/);
+  await expect(page.locator('#modalWrap')).toHaveClass(/\bopen\b/);
   await expect(page.locator('#mBody')).not.toBeEmpty();
   await expect(page.locator('#mTabs .ptab').first()).toBeVisible();
 });
