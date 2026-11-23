@@ -50,7 +50,7 @@ remoteTest('explicit canonical Chief origin serves UI and exact Worker identity'
   expect(navigation, `${explicitOrigin} returned no browser response`).not.toBeNull();
   expect(navigation.status(), `${explicitOrigin} returned a server error`).toBeLessThan(500);
   expect(new URL(page.url()).origin).toBe(new URL(canonicalOrigin).origin);
-  await expect(page).toHaveTitle('Chief AI — Founder Intelligence OS');
+  await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
 
   const versionUrl = new URL(contract.worker.versionPath || '/version', canonicalOrigin).toString();
   const versionResponse = await request.get(versionUrl, {
