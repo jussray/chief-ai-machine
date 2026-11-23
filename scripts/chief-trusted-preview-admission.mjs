@@ -1,3 +1,5 @@
+import { appendFile } from 'node:fs/promises';
+
 /**
  * Read-only, trusted-main admission for manual authenticated Chief preview proof.
  * Never evaluates candidate source, never accepts an unsigned deployment URL,
@@ -102,13 +104,13 @@ export async function discoverTrustedChiefPreview(env, fetchImpl = globalThis.fe
 }
 
 if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
-  discoverTrustedChiefPreview(process.env).then(({ previewOrigin, providerVersionId, candidateBranch }) => {
-    // Do not log tokens or Cloudflare authentication headers.
-    process.stdout.write('preview_origin=' + previewOrigin + '\n'
+  discoverTrustedChiefPreview(process.env).then(async ({ previewOrigin, providerVersionId, candidateBranch }) => {
+    const outputPath = requireExact(process.env.GITHUB_OUTPUT, 'GITHUB_OUTPUT');
+    await appendFile(outputPath, 'preview_origin=' + previewOrigin + '\n'
       + 'provider_version_id=' + providerVersionId + '\n'
-      + 'candidate_branch=' + candidateBranch + '\n');
-  }).catch((error) => {
-    process.stderr.write('Trusted preview admission rejected: ' + (error.message || 'unknown') + '\n');
+      + 'candidate_branch=' + candidateBranch + '\n', 'utf8');
+  }).catch(() => {
+    console.error('CHIEF_TRUSTED_PREVIEW_ADMISSION_REJECTED');
     process.exitCode = 1;
   });
 }
