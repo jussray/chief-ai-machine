@@ -86,7 +86,9 @@ jobs:
           expected="$EXPECTED_HEAD_SHA"
 
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            # Pushes verify the committed contract only; live browsing is a\n            # separate founder-dispatched, Access-authenticated proof.\n            origin=""
+            # Pushes verify the committed contract only; live browsing is a
+            # separate founder-dispatched, Access-authenticated proof.
+            origin=""
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             origin="$MANUAL_ORIGIN"
             if [ -n "$MANUAL_SHA" ]; then
