@@ -1,4 +1,5 @@
-const allowedHost = (hostname) => hostname === 'chief-ai.mcgill-raylene.workers.dev'
+const allowedHost = (hostname) => hostname === 'chief.foundercontrolroom.org'
+  || hostname === 'chief-ai.mcgill-raylene.workers.dev'
   || /^[a-f0-9]{8}-chief-ai\.mcgill-raylene\.workers\.dev$/.test(hostname);
 
 function validChiefOrigin(raw) {
