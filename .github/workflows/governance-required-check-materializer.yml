@@ -128,7 +128,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA"
           echo 'changed=false' >> "$GITHUB_OUTPUT"
-          echo 'N/A: candidate-safe Chief Prompt Remix and Provider Worker Playwright suites run without privileged credentials. Protected live runtime proof remains a separate founder-authorized workflow.'
+          echo 'N/A: live Cloudflare Access proof is not executed from pull_request_target. Candidate-safe Chief Prompt Remix and Provider Worker Playwright suites run without privileged credentials; protected live runtime proof remains a separate founder-authorized workflow.'
 
   production-proofmode-phase:
     name: Production ProofMode phase receipt
