@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { chiefAccessHeaders } from '../scripts/chief-proof-request.mjs';
 
 const contract = JSON.parse(
   readFileSync(new URL('../config/domain-authority.json', import.meta.url), 'utf8'),
@@ -46,6 +47,20 @@ const remoteTest = explicitOrigin ? test : test.skip;
 remoteTest('explicit canonical Chief origin serves UI and exact Worker identity', async ({ page, request }) => {
   expect(explicitOrigin).toBe(canonicalOrigin);
 
+  // Cloudflare Access protects the canonical origin. Attach its service-token
+  // pair only to requests whose origin exactly matches the approved Chief URL.
+  const accessHeaders = chiefAccessHeaders(process.env, canonicalOrigin);
+  await page.route('**/*', async (route) => {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.origin === canonicalOrigin) {
+      await route.continue({
+        headers: { ...route.request().headers(), ...accessHeaders },
+      });
+      return;
+    }
+    await route.continue();
+  });
+
   const navigation = await page.goto(explicitOrigin, { waitUntil: 'domcontentloaded' });
   expect(navigation, `${explicitOrigin} returned no browser response`).not.toBeNull();
   expect(navigation.status(), `${explicitOrigin} returned a server error`).toBeLessThan(500);
@@ -53,12 +68,6 @@ remoteTest('explicit canonical Chief origin serves UI and exact Worker identity'
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
 
   const versionUrl = new URL(contract.worker.versionPath || '/version', canonicalOrigin).toString();
-  const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-    ? {
-        'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-        'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-      }
-    : {};
   const versionResponse = await request.get(versionUrl, {
     headers: { Accept: 'application/json', ...accessHeaders },
     maxRedirects: 0,
