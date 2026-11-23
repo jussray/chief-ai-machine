@@ -104,6 +104,10 @@ describe('Chief trusted-only authenticated preview admission', () => {
     expect(workflow).toContain('environment: proofmode-access-admin');
     expect(workflow).toContain('ref: ${{ github.sha }}');
     expect(workflow).toContain('node scripts/chief-trusted-preview-admission.mjs');
+    const admission = readFileSync(new URL('../scripts/chief-trusted-preview-admission.mjs', import.meta.url), 'utf8');
+    expect(admission).toContain("appendFile(outputPath");
+    expect(admission).not.toContain('process.stdout.write');
+    expect(admission).not.toContain('process.stderr.write');
     expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
     expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
     const proofStep = workflow.split('      - name: Prove exact SHA, provider Version ID, branch and rendered UI with bounded service auth')[1];
