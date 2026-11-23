@@ -5,8 +5,9 @@ const publicSurfaces = [
   { role: 'fcr', origin: 'https://chief.foundercontrolroom.org', title: 'Founder Control Room | Chief Intelligence' },
 ];
 const protectedPaths = ['/app', '/api/chief/provider'];
+const remoteTest = process.env.CHIEF_PUBLIC_ORIGIN ? test : test.skip;
 
-test('both Chief public front doors are anonymous and host-specific', async ({ page }) => {
+remoteTest('both Chief public front doors are anonymous and host-specific', async ({ page }) => {
   for (const surface of publicSurfaces) {
     const response = await page.goto(surface.origin, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     expect(response, JSON.stringify(surface)).not.toBeNull();
@@ -16,7 +17,7 @@ test('both Chief public front doors are anonymous and host-specific', async ({ p
   }
 });
 
-test('both Chief application hosts keep app and API paths behind Worker Access', async ({ page }) => {
+remoteTest('both Chief application hosts keep app and API paths behind Worker Access', async ({ page }) => {
   const observations = [];
   for (const surface of publicSurfaces) {
     for (const path of protectedPaths) {
