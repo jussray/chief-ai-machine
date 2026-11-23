@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          node scripts/chief-trusted-preview-admission.mjs >> "$GITHUB_OUTPUT"
+          node scripts/chief-trusted-preview-admission.mjs
 
   protected-preview-proof:
     name: Authenticated immutable Chief runtime (trusted founder dispatch)
@@ -99,10 +99,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          identity="$(node scripts/chief-trusted-preview-admission.mjs)"
-          origin="$(printf '%s\n' "$identity" | sed -n 's/^preview_origin=//p')"
-          version="$(printf '%s\n' "$identity" | sed -n 's/^provider_version_id=//p')"
-          branch="$(printf '%s\n' "$identity" | sed -n 's/^candidate_branch=//p')"
+          admission_file="$RUNNER_TEMP/chief-preview-admission"
+          GITHUB_OUTPUT="$admission_file" node scripts/chief-trusted-preview-admission.mjs
+          origin="$(sed -n 's/^preview_origin=//p' "$admission_file")"
+          version="$(sed -n 's/^provider_version_id=//p' "$admission_file")"
+          branch="$(sed -n 's/^candidate_branch=//p' "$admission_file")"
           test -n "$origin"
           test -n "$version"
           test -n "$branch"
