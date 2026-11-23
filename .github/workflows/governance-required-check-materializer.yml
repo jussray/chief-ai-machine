@@ -125,7 +125,7 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|worker/|wrangler\.jsonc$|package\.json$|package-lock\.json$|e2e/|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|app\.html$|package\.json$|package-lock\.json$|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
