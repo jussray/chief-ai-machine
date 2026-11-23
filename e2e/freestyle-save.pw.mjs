@@ -47,6 +47,22 @@ test.beforeEach(async ({ context, page }) => {
   await page.reload({ waitUntil: 'domcontentloaded' });
 });
 
+test('Prompt Library filters reusable prompts and opens a model-ready draft', async ({ page }) => {
+  await openPage(page, 'library');
+  const cards = page.locator('#grid .pcard');
+  await expect(cards.first()).toBeVisible();
+  const initialCount = await cards.count();
+  expect(initialCount).toBeGreaterThan(0);
+
+  const firstTitle = await cards.first().locator('h3').innerText();
+  await page.locator('#search').fill(firstTitle);
+  await expect(cards).toHaveCount(1);
+  await cards.first().locator('.mini-btn.push').click();
+  await expect(page.locator('#modalWrap')).toHaveClass(/\\bopen\\b/);
+  await expect(page.locator('#mBody')).not.toBeEmpty();
+  await expect(page.locator('#mTabs .ptab').first()).toBeVisible();
+});
+
 test('Freestyle save, reopen, provider switch, copy, and reload remain governed', async ({ page }, testInfo) => {
   await openPage(page, 'freestyle');
 
