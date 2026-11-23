@@ -47,6 +47,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Bake exact GitHub commit identity into Worker bundle
+        env:
+          WORKERS_CI_COMMIT_SHA: ${{ github.sha }}
+          WORKERS_CI_BRANCH: main
+        run: node scripts/bake-worker-release-sha.mjs
+
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
