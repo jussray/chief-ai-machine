@@ -2,13 +2,6 @@
 
 import { defineConfig } from '@playwright/test';
 
-const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-  ? {
-      'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-      'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-    }
-  : {};
-
 export default defineConfig({
   testDir: '.',
   testMatch: ['domain-authority.pw.mjs'],
@@ -25,6 +18,5 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    extraHTTPHeaders: accessHeaders,
   },
 });
