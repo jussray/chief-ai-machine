@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: ['domain-authority.pw.mjs'],
+  testMatch: ['domain-authority.pw.mjs', 'chief-domain-access.pw.mjs'],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,

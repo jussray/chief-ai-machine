@@ -11,6 +11,12 @@ on:
       - 'index.html'
       - '.assetsignore'
       - 'wrangler.jsonc'
+      - 'wrangler.front-door.jsonc'
+      - 'front-door/worker.mjs'
+      - 'public-face.html'
+      - 'config/domain-authority.json'
+      - 'e2e/domain-authority.pw.mjs'
+      - 'tests/front-door.test.mjs'
       - 'package.json'
       - 'package-lock.json'
       - 'e2e/prompt-remix-production.pw.mjs'
@@ -52,7 +58,7 @@ jobs:
       - name: Bake exact GitHub commit identity into Worker bundle
         env:
           WORKERS_CI_COMMIT_SHA: ${{ github.sha }}
-          WORKERS_CI_BRANCH: main
+          WORKERS_CI_BRANCH: ${{ github.ref_name }}
         run: node scripts/bake-worker-release-sha.mjs
 
       - name: Deploy to Cloudflare Workers
@@ -62,10 +68,16 @@ jobs:
           WORKERS_CI_BRANCH: main
         run: npx wrangler deploy
 
+      - name: Deploy host-specific public front doors
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --config wrangler.front-door.jsonc
+
       - name: Log deployment success
         run: |
           echo "✓ Deployment to Cloudflare Workers completed"
-          echo "Production URL: https://chief.foundercontrolroom.org"
+          echo "Standalone Chief URL: https://chief.jussco.company"
+          echo "FCR integration URL: https://chief.foundercontrolroom.org"
 
   verify-production:
     name: Verify Production Prompt Remix App
@@ -99,7 +111,7 @@ jobs:
       - name: Run production Prompt Remix verification
         env:
           PLAYWRIGHT_HTML_OPEN: never
-          CHIEF_PRODUCTION_BASE_URL: https://chief.foundercontrolroom.org
+          CHIEF_PRODUCTION_BASE_URL: https://chief.jussco.company
           EXPECTED_HEAD_SHA: ${{ github.sha }}
           CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
           CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}

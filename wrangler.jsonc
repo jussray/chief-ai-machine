@@ -3,6 +3,7 @@
   "workers_dev": false,
   "preview_urls": true,
   "routes": [
+    { "pattern": "chief.jussco.company", "custom_domain": true },
     { "pattern": "chief.foundercontrolroom.org", "custom_domain": true }
   ],
   "compatibility_date": "2026-07-11",

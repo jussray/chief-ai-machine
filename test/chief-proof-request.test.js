@@ -21,14 +21,20 @@ describe('Chief privileged proof request boundary', () => {
     expect(() => chiefAccessHeaders(credentials, 'http://127.0.0.1:8789')).toThrow();
   });
 
-  it('accepts the canonical Chief product domain for bounded Access proof', () => {
-    const canonical = 'https://chief.foundercontrolroom.org';
+  it('accepts both standalone and FCR Chief domains for bounded Access proof', () => {
+    const canonical = 'https://chief.jussco.company';
+    const fcr = 'https://chief.foundercontrolroom.org';
     expect(chiefAccessHeaders(credentials, canonical)).toEqual({
+      'CF-Access-Client-Id': 'mock-id',
+      'CF-Access-Client-Secret': 'mock-secret',
+    });
+    expect(chiefAccessHeaders(credentials, fcr)).toEqual({
       'CF-Access-Client-Id': 'mock-id',
       'CF-Access-Client-Secret': 'mock-secret',
     });
     const bound = createChiefBoundRequest(mockClient(), canonical);
     expect(bound.get(`${canonical}/version`)).toBeDefined();
+    expect(createChiefBoundRequest(mockClient(), fcr).get(`${fcr}/version`)).toBeDefined();
   });
 
   it('sends approved Chief URLs only and turns off redirects for both verbs', async () => {

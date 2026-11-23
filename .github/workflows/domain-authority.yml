@@ -5,14 +5,25 @@ on:
     branches: [main]
     paths:
       - "wrangler.jsonc"
+      - "wrangler.front-door.jsonc"
+      - "front-door/worker.mjs"
+      - "public-face.html"
+      - "tests/front-door.test.mjs"
       - "config/domain-authority.json"
       - "e2e/domain-authority.pw.mjs"
+      - "e2e/chief-domain-access.pw.mjs"
       - "e2e/playwright.domain.config.mjs"
       - ".github/workflows/domain-authority.yml"
   push:
     branches: [main]
     paths:
       - "wrangler.jsonc"
+      - "wrangler.front-door.jsonc"
+      - "front-door/worker.mjs"
+      - "public-face.html"
+      - "tests/front-door.test.mjs"
+      - "test/chief-proof-request.test.js"
+      - "scripts/chief-proof-request.mjs"
       - "config/domain-authority.json"
       - "e2e/domain-authority.pw.mjs"
       - "e2e/playwright.domain.config.mjs"
@@ -22,7 +33,7 @@ on:
       origin:
         description: Canonical Chief origin to verify
         required: false
-        default: "https://chief.foundercontrolroom.org"
+        default: ""
         type: string
       expected_sha:
         description: Exact deployed SHA; defaults to workflow SHA
@@ -46,7 +57,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     environment:
-      name: ${{ github.event_name == 'workflow_dispatch' && 'Cloudflare Production' || 'none' }}
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.origin != '' && 'Cloudflare Production' || 'none' }}
     env:
       CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
       CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
@@ -71,6 +82,9 @@ jobs:
 
       - name: Install locked application dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run focused domain contract tests
+        run: npm test -- tests/front-door.test.mjs test/chief-proof-request.test.js
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0

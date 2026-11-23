@@ -5,6 +5,10 @@
   "preview_urls": false,
   "routes": [
     {
+      "pattern": "chief.jussco.company/",
+      "zone_name": "jussco.company"
+    },
+    {
       "pattern": "chief.foundercontrolroom.org/",
       "zone_name": "foundercontrolroom.org"
     },

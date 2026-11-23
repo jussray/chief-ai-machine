@@ -33,3 +33,18 @@ The public document now opens on Welcome. Its primary link opens a script-free o
 Scoped provider configuration readback on November 5 returned exact `/` and `/__frontdoor_home*` routes bound to `chief-public-front-door`, and the enabled `chief.foundercontrolroom.org` custom domain bound to `chief-ai` production. Main Worker source forwards `/index.html` to its asset binding. This establishes the intended route owner, not live app rendering. No matching Chief domain appeared in the available account Access-application readback; current protection is UNKNOWN and the older October browser proof is historical. Do not claim current Cloudflare Access, authenticated delivery, or a working live workspace from source inspection.
 
 The entry change is an unmerged source candidate carried on existing PR #232 after preserving current main and the original front-door additions. New exact-head checks remain required; earlier branch proof is historical. Browser proof is required for desktop/mobile Welcome → Onboarding → existing workspace and retained capabilities. The local Playwright browser executable is unavailable. No deployment, secret, provider, domain or Access mutation was performed. Rollback only this entry document/embedded HTML and its corresponding tests; preserve all current-main and original feature history.
+
+
+## November 23, 2026 — dual-domain Chief surface contract
+
+The product identity and hostname roles are distinct:
+
+- `chief.jussco.company` is the standalone Chief public front door. Its root is served by the presentation-only `chief-public-front-door` Worker; application and API paths are served by the shared `chief-ai` Worker under Worker-level Cloudflare Access.
+- `chief.foundercontrolroom.org` is the FCR-branded Chief integration. Its root is served by the same presentation-only front-door Worker with FCR-specific branding; application and API paths reach the same `chief-ai` Worker under the same Worker-level Access boundary.
+- Both hostnames use one Chief runtime and must return the same exact `/version` SHA. Neither hostname transfers identity, governance, execution authority, or receipts to the other system.
+- No `app.chief.*` or `api.chief.*` subdomains are part of this design.
+- Public routes are exact root-only routes. Do not add a public catchall. `/app`, `/api/*`, and `/mcp` remain behind the Chief Worker Access boundary.
+
+The November 23 provider readback found that `chief.jussco.company` was still a proxied CNAME to `chief.foundercontrolroom.org`, and a Juss&Co redirect rule sent both the apex and `www` host to the FCR hostname. That made the standalone hostname an alias rather than an independent front door. The repair must remove only the apex alias/redirect behavior, bind the standalone hostname to the existing `chief-ai` Worker, and route its exact root to `chief-public-front-door`. Keep `www.chief.jussco.company` as a redirect to the standalone apex. Preserve the FCR custom domain, its root-only front-door routes, and the Worker-level Access application.
+
+Source verification is not provider verification. The live domain migration is complete only after Cloudflare readback confirms both Worker domains and root routes, the old apex CNAME/redirect are gone, anonymous root requests show their distinct brands, and authenticated `/app` plus `/version` checks prove the same exact Worker SHA on both hosts.

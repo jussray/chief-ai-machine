@@ -4,7 +4,7 @@ Allow: /app
 Disallow: /api/
 Disallow: /mcp
 
-Sitemap: https://chief.foundercontrolroom.org/sitemap.xml
+Sitemap: https://chief.jussco.company/sitemap.xml
 
 # Answer Engine Optimization
 User-agent: GPTBot

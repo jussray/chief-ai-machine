@@ -81,7 +81,7 @@ function addSecurityHeaders(response) {
 User-agent: *
 Allow: /
 Disallow: /api/
-Sitemap: https://chief.foundercontrolroom.org/sitemap.xml
+Sitemap: https://chief.jussco.company/sitemap.xml
 
 User-agent: GPTBot
 Allow: /
@@ -94,8 +94,8 @@ Allow: /
 **sitemap.xml:**
 ```xml
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://chief.foundercontrolroom.org/</loc><priority>1.0</priority></url>
-  <url><loc>https://chief.foundercontrolroom.org/app</loc><priority>0.9</priority></url>
+  <url><loc>https://chief.jussco.company/</loc><priority>1.0</priority></url>
+  <url><loc>https://chief.jussco.company/app</loc><priority>0.9</priority></url>
   <!-- Feature pages / sections -->
 </urlset>
 ```
@@ -125,8 +125,8 @@ git push -u origin main
 
 **Check live deployment:**
 ```bash
-curl -I https://chief.foundercontrolroom.org/
-curl -I https://chief.foundercontrolroom.org/app
+curl -I https://chief.jussco.company/
+curl -I https://chief.jussco.company/app
 ```
 
 **Verify structured data:**

@@ -1,24 +1,48 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "project": "chief-ai-machine",
-  "mode": "production-target",
+  "mode": "dual-domain-single-worker",
   "worker": {
     "name": "chief-ai",
     "versionPath": "/version"
   },
-  "canonicalOrigin": "https://chief.foundercontrolroom.org",
+  "frontDoorWorker": "chief-public-front-door",
+  "canonicalOrigin": "https://chief.jussco.company",
+  "fcrIntegrationOrigin": "https://chief.foundercontrolroom.org",
+  "surfaces": {
+    "standalone": {
+      "origin": "https://chief.jussco.company",
+      "role": "standalone-product",
+      "publicRootWorker": "chief-public-front-door",
+      "applicationWorker": "chief-ai",
+      "brand": "Chief AI",
+      "independent": true
+    },
+    "fcr": {
+      "origin": "https://chief.foundercontrolroom.org",
+      "role": "fcr-branded-integration",
+      "publicRootWorker": "chief-public-front-door",
+      "applicationWorker": "chief-ai",
+      "brand": "Founder Control Room",
+      "independent": true
+    }
+  },
   "providerPolicy": {
     "productionWorkersDev": false,
     "previewUrls": true,
-    "providerPreviewIsCanonical": false
+    "providerPreviewIsCanonical": false,
+    "oneSharedChiefWorker": true,
+    "publicFrontDoorsAreHostSpecific": true,
+    "privateApplicationUsesWorkerLevelAccess": true
   },
   "publicClaimAuthorized": false,
   "requirementsBeforePublicClaim": [
-    "merge the reviewed production-domain binding",
-    "Cloudflare custom domain is active for chief.foundercontrolroom.org",
-    "browser loads the canonical origin",
-    "/version returns JSON from the chief-ai Worker",
-    "/version sha equals the intended exact deployment SHA",
+    "both custom domains are active on the same chief-ai Worker",
+    "chief.jussco.company root serves the standalone Chief public front door",
+    "chief.foundercontrolroom.org root serves the FCR-branded Chief integration front door",
+    "both application paths remain protected by the chief-ai Worker Access boundary",
+    "/version returns the same exact Worker SHA on both hostnames",
+    "Playwright verifies both public roots and both protected application paths",
     "set publicClaimAuthorized true only in a later evidence-backed change"
   ]
 }
