@@ -21,6 +21,7 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     expect(version).toMatchObject({ ok: true, sha: expectedHead });
     expect(version.version_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
+    let appStatus = null;
     for (const path of ['/app', '/app.html', '/index.html']) {
       const response = await client.get(`${baseURL}${path}`, { maxRedirects: 0 });
       const body = await response.text();
@@ -30,12 +31,12 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
         contentType: response.headers()['content-type'] || null,
         server: response.headers()['server'] || null,
         cfRay: response.headers()['cf-ray'] || null,
+        location: response.headers()['location'] || null,
         bodyPrefix: body.slice(0, 160),
       }));
-      if (path === '/app') {
-        expect(response.status(), 'Chief /app API request must succeed with the same Access service token as /version').toBe(200);
-      }
+      if (path === '/app') appStatus = response.status();
     }
+    expect(appStatus, 'Chief /app API request must succeed with the same Access service token as /version').toBe(200);
   } finally {
     await client.dispose();
   }
