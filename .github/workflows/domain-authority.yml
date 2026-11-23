@@ -44,6 +44,11 @@ jobs:
   verify:
     name: Verify Chief domain authority
     runs-on: ubuntu-22.04
+    environment:
+      name: Cloudflare Production
+    env:
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
     timeout-minutes: 15
     steps:
       - name: Check out exact head
