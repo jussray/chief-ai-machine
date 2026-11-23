@@ -67,6 +67,7 @@ remoteTest('explicit canonical Chief origin serves UI and exact Worker identity'
   const versionUrl = new URL(contract.worker.versionPath || '/version', canonicalOrigin).toString();
   const versionResponse = await request.get(versionUrl, {
     headers: { Accept: 'application/json', ...accessHeaders },
+    maxRedirects: 0,
   });
   expect(versionResponse.ok(), `${versionUrl} returned ${versionResponse.status()}`).toBeTruthy();
   expect(versionResponse.headers()['content-type'] || '').toContain('application/json');
