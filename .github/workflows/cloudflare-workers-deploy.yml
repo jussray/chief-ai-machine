@@ -55,7 +55,7 @@ jobs:
       - name: Log deployment success
         run: |
           echo "✓ Deployment to Cloudflare Workers completed"
-          echo "Production URL: https://chief-ai.mcgill-raylene.workers.dev"
+          echo "Production URL: https://chief.foundercontrolroom.org"
 
   verify-production:
     name: Verify Production Deployment
@@ -90,8 +90,8 @@ jobs:
       - name: Run ProofMode production verification
         env:
           PLAYWRIGHT_HTML_OPEN: never
-          PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
-          CLOUDFLARE_RUNTIME_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+          PROOFMODE_BASE_URL: https://chief.foundercontrolroom.org
+          CLOUDFLARE_RUNTIME_BASE_URL: https://chief.foundercontrolroom.org
           EXPECTED_HEAD_SHA: ${{ github.sha }}
           EXPECTED_HEAD_BRANCH: main
           CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: '90'
