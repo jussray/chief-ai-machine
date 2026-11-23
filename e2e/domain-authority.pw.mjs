@@ -53,8 +53,15 @@ remoteTest('explicit canonical Chief origin serves UI and exact Worker identity'
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
 
   const versionUrl = new URL(contract.worker.versionPath || '/version', canonicalOrigin).toString();
+  const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
+    ? {
+        'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
+        'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
+      }
+    : {};
   const versionResponse = await request.get(versionUrl, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...accessHeaders },
+    maxRedirects: 0,
   });
   expect(versionResponse.ok(), `${versionUrl} returned ${versionResponse.status()}`).toBeTruthy();
   expect(versionResponse.headers()['content-type'] || '').toContain('application/json');
