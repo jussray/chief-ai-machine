@@ -50,22 +50,23 @@ jobs:
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WORKERS_CI_COMMIT_SHA: ${{ github.sha }}
+          WORKERS_CI_BRANCH: main
         run: npx wrangler deploy
 
       - name: Log deployment success
         run: |
           echo "✓ Deployment to Cloudflare Workers completed"
-          echo "Production URL: https://chief-ai.mcgill-raylene.workers.dev"
+          echo "Production URL: https://chief.foundercontrolroom.org"
 
   verify-production:
-    name: Verify Production Deployment
+    name: Verify Production Prompt Remix App
     needs: build-and-deploy
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     if: success()
-    # chief-ai sits behind Cloudflare Access (account members + the
-    # "Chief ProofMode CI" service-token policy). The service-token pair lives
-    # in this environment; without it every probe lands on the Access login page.
+    # Verify the actual Chief prompt-remix product, not the optional ProofMode MCP integration.
+    # The Access pair is scoped to the canonical Chief origin in the production environment.
     environment:
       name: Cloudflare Production
     steps:
@@ -87,15 +88,11 @@ jobs:
       - name: Install Playwright
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
-      - name: Run ProofMode production verification
+      - name: Run production Prompt Remix verification
         env:
           PLAYWRIGHT_HTML_OPEN: never
-          PROOFMODE_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
-          CLOUDFLARE_RUNTIME_BASE_URL: https://chief-ai.mcgill-raylene.workers.dev
+          CHIEF_PRODUCTION_BASE_URL: https://chief.foundercontrolroom.org
           EXPECTED_HEAD_SHA: ${{ github.sha }}
-          EXPECTED_HEAD_BRANCH: main
-          CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS: '90'
-          GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
           CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
         run: |
@@ -108,7 +105,7 @@ jobs:
 
           export default defineConfig({
             testDir: './e2e',
-            testMatch: /proofmode-mcp\.pw\.mjs$/,
+            testMatch: /prompt-remix-production\.pw\.mjs$/,
             fullyParallel: false,
             retries: 0,
             workers: 1,
@@ -136,5 +133,5 @@ jobs:
       - name: Report deployment verified
         if: success()
         run: |
-          echo "✓ Production deployment verified with ProofMode tests"
+          echo "✓ Production Prompt Remix app verified against the exact deployed commit"
           echo "Deployment ready for production use"
