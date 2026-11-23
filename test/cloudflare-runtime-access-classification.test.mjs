@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const expectedSha = '1c81a5b685cebc51a953b76bcec0aa4f0e902d42';
 const expectedBranch = 'fix/chief-protect2-gate-pilot-20261120';
-const versionId = 'bbabe675-5e8a-46b7-8177-bd17cfd9076c';
 
 // No provider token or Cloudflare Access secret is read or sent in this test.
 // Every fetch is replaced before the verifier starts, even GitHub check reads.
