@@ -2,7 +2,7 @@ name: Chief Domain Authority
 
 on:
   pull_request:
-    branches: [main]
+    branches: ['**']
     paths:
       - "wrangler.jsonc"
       - "wrangler.front-door.jsonc"
