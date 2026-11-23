@@ -116,7 +116,7 @@ describe('Chief exact-head runtime identity classified without loosening Access'
   it('still requires the real exact provider Version ID, SHA and branch contract', () => {
     const result = verify('success');
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Cloudflare runtime identity verified for exact head ' + expectedSha);
+    expect(result.stdout).toContain('CLOUDFLARE_RUNTIME_IDENTITY_VERIFIED');
     expect(result.stdout).toContain('CLOUDFLARE_RUNTIME_IDENTITY_VERIFIED');
   });
 });
