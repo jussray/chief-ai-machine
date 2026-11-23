@@ -51,7 +51,7 @@ describe('trusted candidate runtime proof boundary', () => {
     expect(runtime).not.toContain('cloudflareaccess.com');
     expect(runtime).not.toContain('CF-Access-Client-Secret');
     expect(productionProof).toContain('workflow_dispatch:');
-    expect(productionProof).toContain('environment: proofmode-access-admin');
+    expect(productionProof).toContain('CLOUDFLARE_ACCESS_CLIENT_ID');
     expect(productionProof).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(productionProof).toContain("trace: 'off'");
   });
