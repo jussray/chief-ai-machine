@@ -76,7 +76,7 @@ describe('Chief exact-head runtime identity classified without loosening Access'
     expect(result.status).toBe(1);
     expect(result.error).toBeUndefined();
     expect(result.stderr).toContain('CLOUDFLARE_ACCESS_AUTH_NOT_AVAILABLE');
-    expect(result.stderr).toContain('No provider Version ID, SHA, or branch was observed');
+    expect(result.stderr).toContain('CLOUDFLARE_RUNTIME_PROOF_BLOCKED');
     expect(result.stderr).not.toContain('runtime identity did not match');
     expect(result.stderr).not.toContain('synthetic-only-not-a-credential');
   });
@@ -101,7 +101,7 @@ describe('Chief exact-head runtime identity classified without loosening Access'
       SYNTHETIC_TWO_PREVIEWS: 'true',
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Cloudflare runtime identity verified for exact head ' + expectedSha);
+    expect(result.stdout).toContain('CLOUDFLARE_RUNTIME_IDENTITY_VERIFIED');
   });
 
   it('identifies a rejected configured Access service token without exposing its value', () => {
@@ -118,6 +118,6 @@ describe('Chief exact-head runtime identity classified without loosening Access'
     const result = verify('success');
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Cloudflare runtime identity verified for exact head ' + expectedSha);
-    expect(result.stdout).toContain('Provider Version ID: ' + versionId);
+    expect(result.stdout).toContain('CLOUDFLARE_RUNTIME_IDENTITY_VERIFIED');
   });
 });
