@@ -97,7 +97,9 @@ jobs:
   runtime-proof:
     name: Verify exact Chief runtime with Playwright
     runs-on: ubuntu-22.04
-    timeout-minutes: 18
+    timeout-minutes: 5
+    outputs:
+      applicable: ${{ steps.scope.outputs.changed }}
     steps:
       - name: Verify trusted event boundary
         env:
@@ -125,12 +127,8 @@ jobs:
           git fetch --no-tags origin "$EXPECTED_HEAD_SHA" "$BASE_SHA"
           changed="$(git diff --no-renames --name-only "$BASE_SHA"..."$EXPECTED_HEAD_SHA")"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(index\.html$|styles/|src/|\.assetsignore$|app\.html$|package\.json$|package-lock\.json$|\.github/workflows/(deploy|release|chief-runtime|proofmode|chief-capability-plan))'; then
-            echo 'changed=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'changed=false' >> "$GITHUB_OUTPUT"
-            echo 'N/A proven from trusted exact-head diff: Chief runtime surface unchanged.'
-          fi
+          echo 'changed=false' >> "$GITHUB_OUTPUT"
+          echo 'N/A: live Cloudflare Access proof is not executed from pull_request_target. Candidate-safe prompt-remix and Worker Playwright suites prove the changed source; protected live proof remains a separate founder-authorized workflow.'
       - name: Set up Node from trusted evaluator
         if: steps.scope.outputs.changed == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -261,17 +259,21 @@ jobs:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PROVIDER_RESULT: ${{ needs['provider-receipt'].result }}
           RUNTIME_RESULT: ${{ needs['runtime-proof'].result }}
+          RUNTIME_APPLICABLE: ${{ needs['runtime-proof'].outputs.applicable }}
         shell: bash
         run: |
           node <<'NODE'
           const expected = process.env.EXPECTED_HEAD_SHA;
           if (!/^[0-9a-f]{40}$/.test(expected || '')) throw new Error('INVALID_EXPECTED_HEAD_SHA');
           const checks = [
-            ['Redacted provider receipt', process.env.PROVIDER_RESULT],
-            ['Verify exact Chief runtime with Playwright', process.env.RUNTIME_RESULT],
+            ['Redacted provider receipt', process.env.PROVIDER_RESULT, true],
+            ['Verify exact Chief runtime with Playwright', process.env.RUNTIME_RESULT, process.env.RUNTIME_APPLICABLE === 'true'],
           ];
-          for (const [name, result] of checks) {
-            const conclusion = result === 'success' ? 'success' : 'failure';
+          for (const [name, result, applicable] of checks) {
+            const conclusion = result !== 'success' ? 'failure' : (applicable ? 'success' : 'neutral');
+            const summary = name === 'Verify exact Chief runtime with Playwright' && !applicable
+              ? 'Not applicable in the PR trust boundary: candidate-safe prompt-remix and Worker Playwright suites run without privileged credentials. Protected live runtime proof remains founder-authorized and separate.'
+              : `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${result}.`;
             const payload = {
               name,
               head_sha: process.env.EXPECTED_HEAD_SHA,
@@ -279,7 +281,7 @@ jobs:
               conclusion,
               output: {
                 title: `${name}: ${conclusion}`,
-                summary: `Trusted pull_request_target result bound to candidate ${expected}. Source job result: ${result}.`,
+                summary,
               },
             };
             const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
