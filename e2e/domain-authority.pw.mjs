@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { chiefAccessHeaders } from '../scripts/chief-proof-request.mjs';
 
 const contract = JSON.parse(
   readFileSync(new URL('../config/domain-authority.json', import.meta.url), 'utf8'),
@@ -46,6 +47,17 @@ const remoteTest = explicitOrigin ? test : test.skip;
 remoteTest('explicit canonical Chief origin serves UI and exact Worker identity', async ({ page, request }) => {
   expect(explicitOrigin).toBe(canonicalOrigin);
 
+  const accessHeaders = chiefAccessHeaders(process.env, canonicalOrigin);
+  // Attach Access credentials only to requests for the approved canonical origin.
+  // Never forward them to a Cloudflare Access redirect or third-party resource.
+  await page.route('**/*', async (route) => {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.origin === canonicalOrigin) {
+      await route.continue({ headers: { ...route.request().headers(), ...accessHeaders } });
+    } else {
+      await route.continue();
+    }
+  });
   const navigation = await page.goto(explicitOrigin, { waitUntil: 'domcontentloaded' });
   expect(navigation, `${explicitOrigin} returned no browser response`).not.toBeNull();
   expect(navigation.status(), `${explicitOrigin} returned a server error`).toBeLessThan(500);
@@ -54,7 +66,7 @@ remoteTest('explicit canonical Chief origin serves UI and exact Worker identity'
 
   const versionUrl = new URL(contract.worker.versionPath || '/version', canonicalOrigin).toString();
   const versionResponse = await request.get(versionUrl, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...accessHeaders },
   });
   expect(versionResponse.ok(), `${versionUrl} returned ${versionResponse.status()}`).toBeTruthy();
   expect(versionResponse.headers()['content-type'] || '').toContain('application/json');
