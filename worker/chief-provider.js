@@ -44,6 +44,85 @@ function runtimeConfigured(env) {
   return Boolean(env?.OPENAI_API_KEY?.trim() && env?.CHIEF_OPENAI_MODEL?.trim());
 }
 
+const PROTECT2_GATE_URL = 'https://protect2.jussco.company/gateway/check';
+const PROTECT2_PILOT_TOOL = 'chief.draft.generate';
+const PROTECT2_TIMEOUT_MS = 4_000;
+
+/**
+ * Opt-in, non-consequential pilot. Never forwards prompts or private content.
+ * A gate decision is evidence for this one draft action, not execution authority.
+ */
+async function checkProtect2PublicDraft(env, sensitivity, fetchImpl) {
+  const mode = typeof env?.CHIEF_PROTECT2_PILOT_MODE === 'string'
+    ? env.CHIEF_PROTECT2_PILOT_MODE.trim()
+    : '';
+  if (!mode) return { allowed: true, enforced: false };
+  if (mode !== 'enforce-public-draft') {
+    return { allowed: false, status: 503, error: 'protect2_pilot_invalid_mode' };
+  }
+  if (sensitivity !== 'public') {
+    return { allowed: false, status: 403, error: 'protect2_pilot_public_only' };
+  }
+
+  const key = typeof env?.CHIEF_PROTECT2_API_KEY === 'string'
+    ? env.CHIEF_PROTECT2_API_KEY.trim()
+    : '';
+  if (!/^jp2_[A-Za-z0-9_-]{8,252}$/.test(key)) {
+    return { allowed: false, status: 503, error: 'protect2_pilot_not_configured' };
+  }
+
+  let response;
+  try {
+    response = await fetchImpl(PROTECT2_GATE_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + key,
+        'Content-Type': 'application/json',
+      },
+      // No user prompt, customer data, or model/provider credentials cross this boundary.
+      body: JSON.stringify({ tool: PROTECT2_PILOT_TOOL }),
+      redirect: 'error',
+      cache: 'no-store',
+      signal: globalThis.AbortSignal.timeout(PROTECT2_TIMEOUT_MS),
+    });
+  } catch {
+    return { allowed: false, status: 503, error: 'protect2_gateway_unavailable' };
+  }
+
+  if (!response.ok) {
+    try { await response.body?.cancel(); } catch { /* deny regardless */ }
+    return {
+      allowed: false,
+      status: [401, 403, 429].includes(response.status) ? 403 : 503,
+      error: [401, 403, 429].includes(response.status)
+        ? 'protect2_gateway_denied'
+        : 'protect2_gateway_unavailable',
+    };
+  }
+
+  try {
+    // Bound what is accepted from an external response before parsing.
+    const declared = Number(response.headers.get('content-length') || 0);
+    if (declared > 2048) return { allowed: false, status: 503, error: 'protect2_gateway_invalid_response' };
+    const raw = await boundedText(response.body, 2048);
+    if (raw.length > 2048) return { allowed: false, status: 503, error: 'protect2_gateway_invalid_response' };
+    const verdict = JSON.parse(raw);
+    if (verdict?.decision === 'block') {
+      return { allowed: false, status: 403, error: 'protect2_gateway_denied' };
+    }
+    const checkedAt = Date.parse(verdict?.checkedAt);
+    const ageMs = Date.now() - checkedAt;
+    if (verdict?.decision !== 'allow' || !Array.isArray(verdict?.reasons)
+        || verdict.reasons.length !== 0 || !Number.isFinite(checkedAt)
+        || ageMs < -15_000 || ageMs > 60_000) {
+      return { allowed: false, status: 503, error: 'protect2_gateway_invalid_response' };
+    }
+    return { allowed: true, enforced: true, checkedAt: verdict.checkedAt };
+  } catch {
+    return { allowed: false, status: 503, error: 'protect2_gateway_invalid_response' };
+  }
+}
+
 /**
  * Operator-authenticated HTTP membrane for Chief's shared provider runtime.
  * The wrapper grants no provider tools, storage, merge, deploy, publish, spend,
@@ -88,6 +167,9 @@ export async function handleChiefProviderRequest(request, env, fetchImpl = fetch
     return json({ error: 'invalid_request' }, 400);
   }
 
+  const protection = await checkProtect2PublicDraft(env, input.sensitivity, fetchImpl);
+  if (!protection.allowed) return json({ error: protection.error }, protection.status);
+
   try {
     const result = await invokeChiefProvider(env, {
       provider: 'openai',
@@ -104,6 +186,15 @@ export async function handleChiefProviderRequest(request, env, fetchImpl = fetch
       evidence_ref: result.evidenceRef,
       state: 'draft',
       authority: 'none',
+      ...(protection.enforced ? {
+        protection: {
+          service: 'juss-protect-me-2',
+          action: PROTECT2_PILOT_TOOL,
+          decision: 'allow',
+          checked_at: protection.checkedAt,
+          authority: 'none',
+        },
+      } : {}),
     });
   } catch {
     return json({ error: 'provider_failed' }, 502);

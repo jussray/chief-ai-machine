@@ -63,10 +63,18 @@ jobs:
               });
             '
           }
-          if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
-            echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA}"
-            exit 0
-          fi
+          # Cloudflare Workers Builds and GitHub PR checks start independently.
+          # Wait for a successful *exact-head* provider receipt before considering
+          # unchanged-tree inheritance. Never promote pending/failed provider
+          # builds, never lower provenance checks, and keep the timeout bounded.
+          for attempt in $(seq 1 25); do
+            if has_provider_receipt "$EXPECTED_HEAD_SHA"; then
+              echo "Verified exact-head Cloudflare provider receipt for ${EXPECTED_HEAD_SHA} (attempt ${attempt}/25)"
+              exit 0
+            fi
+            if [ "$attempt" -lt 25 ]; then sleep 3; fi
+          done
+          echo 'No successful exact-head Cloudflare provider receipt after 25 bounded checks; evaluating immutable predecessor only for non-runtime changes.'
           inherited_sha=""
           while IFS= read -r candidate; do
             [ -n "$candidate" ] || continue

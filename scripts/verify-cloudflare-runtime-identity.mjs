@@ -11,8 +11,8 @@ const accessClientSecret = process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET?.trim();
 const maxAttempts = Number.parseInt(process.env.CLOUDFLARE_RUNTIME_PROOF_ATTEMPTS || '30', 10);
 const sleepMs = Number.parseInt(process.env.CLOUDFLARE_RUNTIME_PROOF_SLEEP_MS || '2000', 10);
 
-function fail(message) {
-  console.error(message);
+function fail() {
+  console.error('CLOUDFLARE_RUNTIME_PROOF_CONFIGURATION_INVALID');
   process.exit(1);
 }
 
@@ -144,10 +144,7 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           && observation.sha === expectedHeadSha
           && observation.branch === expectedHeadBranch
         ) {
-          console.log(`Cloudflare runtime identity verified for exact head ${expectedHeadSha}.`);
-          console.log(`Provider Version ID: ${providerIdentity.versionId}`);
-          console.log(`Runtime branch: ${expectedHeadBranch}`);
-          console.log(`Runtime: ${parsedRuntimeUrl.origin}`);
+          console.log('CLOUDFLARE_RUNTIME_IDENTITY_VERIFIED');
           if (process.env.GITHUB_ENV) {
             await appendFile(process.env.GITHUB_ENV, `CLOUDFLARE_RUNTIME_BASE_URL=${parsedRuntimeUrl.origin}\n`, 'utf8');
             await appendFile(process.env.GITHUB_ENV, `EXPECTED_CLOUDFLARE_VERSION_ID=${providerIdentity.versionId}\n`, 'utf8');
@@ -161,20 +158,28 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     }
     observations.set(parsedRuntimeUrl.origin, observation);
   }
+  // This is an admission failure, not a SHA/version mismatch. Without
+  // authorized service credentials no number of retries can read /version.
+  const accessBlocked = runtimeCandidates.every((candidate) => {
+    const observation = observations.get(candidate.origin);
+    return observation?.status >= 300 && observation.status < 400
+      && typeof observation.redirectHost === 'string'
+      && observation.redirectHost.endsWith('.cloudflareaccess.com');
+  });
+  if (accessBlocked) {
+    const kind = accessClientId && accessClientSecret
+      ? 'CLOUDFLARE_ACCESS_SERVICE_AUTH_REJECTED'
+      : 'CLOUDFLARE_ACCESS_AUTH_NOT_AVAILABLE';
+    if (kind === 'CLOUDFLARE_ACCESS_SERVICE_AUTH_REJECTED') {
+      console.error('CLOUDFLARE_ACCESS_SERVICE_AUTH_REJECTED');
+    } else {
+      console.error('CLOUDFLARE_ACCESS_AUTH_NOT_AVAILABLE');
+    }
+    console.error('CLOUDFLARE_RUNTIME_PROOF_BLOCKED');
+    process.exit(1);
+  }
   if (attempt < maxAttempts) await sleep(sleepMs);
 }
 
-console.error(`Cloudflare runtime identity did not match provider Version ID + exact SHA + branch for ${expectedHeadSha}.`);
-console.error(`Expected provider Version ID: ${providerIdentity.versionId}`);
-console.error(`Expected runtime SHA: ${expectedHeadSha}`);
-console.error(`Expected runtime branch: ${expectedHeadBranch}`);
-for (const candidate of runtimeCandidates) {
-  const observation = observations.get(candidate.origin) || {};
-  console.error(`Candidate runtime: ${candidate.origin}`);
-  console.error(`Observed provider Version ID: ${observation.versionId || 'missing'}`);
-  console.error(`Observed runtime SHA: ${observation.sha || 'missing'}`);
-  console.error(`Observed runtime branch: ${observation.branch || 'missing'}`);
-  console.error(`Observed HTTP status: ${observation.status || 'unavailable'}`);
-  if (observation.redirectHost) console.error(`Observed redirect host: ${observation.redirectHost}`);
-}
+console.error('CLOUDFLARE_RUNTIME_IDENTITY_MISMATCH');
 process.exit(1);
