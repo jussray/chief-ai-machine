@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { chiefAccessHeaders } from '../scripts/chief-proof-request.mjs';
 
 const contract = JSON.parse(
   readFileSync(new URL('../config/domain-authority.json', import.meta.url), 'utf8'),
@@ -64,12 +65,6 @@ remoteTest('explicit canonical Chief origin serves UI and exact Worker identity'
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
 
   const versionUrl = new URL(contract.worker.versionPath || '/version', canonicalOrigin).toString();
-  const accessHeaders = process.env.CLOUDFLARE_ACCESS_CLIENT_ID && process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET
-    ? {
-        'CF-Access-Client-Id': process.env.CLOUDFLARE_ACCESS_CLIENT_ID,
-        'CF-Access-Client-Secret': process.env.CLOUDFLARE_ACCESS_CLIENT_SECRET,
-      }
-    : {};
   const versionResponse = await request.get(versionUrl, {
     headers: { Accept: 'application/json', ...accessHeaders },
     maxRedirects: 0,
