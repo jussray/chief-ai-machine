@@ -31,7 +31,8 @@ describe('trusted candidate runtime proof boundary', () => {
     expect(runtime).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(runtime).not.toContain('CF-Access-Client-Id');
     expect(runtime).not.toContain('CF-Access-Client-Secret');
-    expect(runtime).not.toContain('actions/checkout@');
+    expect(runtime).toContain('Check out trusted evaluator snapshot only');
+    expect(runtime).not.toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
   });
 
   it('runs candidate-safe Chief product Playwright suites without secrets', () => {
