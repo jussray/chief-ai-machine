@@ -10,6 +10,7 @@ const capability = await readFile('.github/workflows/chief-capability-plan-playw
 const proofmode = await readFile('.github/workflows/proofmode-mcp-playwright.yml', 'utf8');
 const productionProof = await readFile('.github/workflows/proofmode-production-playwright.yml', 'utf8');
 const promptRemix = await readFile('.github/workflows/chief-prompt-remix-playwright.yml', 'utf8');
+const providerWorker = await readFile('.github/workflows/chief-provider-route-playwright.yml', 'utf8');
 const manifest = JSON.parse(await readFile('.control-room/test-ledger.manifest.json', 'utf8'));
 
 const FREESTYLE_REQUIRED = 'Verify Freestyle, Goalfix, and PromptOS in Chromium';
@@ -58,7 +59,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).not.toContain('Run trusted exact-runtime browser proof');
     expect(promptRemix).toContain('pull_request:');
     expect(promptRemix).toContain('Verify Chief prompt remix workflows in Chromium');
-    expect(promptRemix).toContain('Verify Chief provider Worker route with synthetic fixtures');
+    expect(providerWorker).toContain('Verify Chief provider Worker route with synthetic fixtures');
     expect(promptRemix).toContain('npx playwright test --config=e2e/playwright.freestyle.config.mjs');
     expect(promptRemix).toContain('playwright.chief-provider-worker.config.mjs');
   });
@@ -68,7 +69,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(runtimeSection).toContain('live Cloudflare Access proof is not executed from pull_request_target');
     expect(runtimeSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(runtimeSection).not.toContain('CF-Access-Client-Secret');
-    expect(promptRemix).toContain('synthetic fixtures');
+    expect(providerWorker).toContain('synthetic fixtures');
     expect(productionProof).toContain('workflow_dispatch:');
   });
 
@@ -78,10 +79,10 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(promptRemix).toContain("'src/modules/library.js'");
     expect(promptRemix).toContain("'src/modules/builder.js'");
     expect(promptRemix).toContain("'src/modules/freestyle.js'");
-    expect(promptRemix).toContain("'worker/chief-provider.js'");
-    expect(promptRemix).toContain("'worker/index.js'");
+    expect(providerWorker).toContain("'worker/chief-provider.js'");
+    expect(providerWorker).toContain("'worker/index.js'");
     expect(promptRemix).toContain("'e2e/freestyle-save.pw.mjs'");
-    expect(promptRemix).toContain("'e2e/chief-provider-worker.pw.mjs'");
+    expect(providerWorker).toContain("'e2e/chief-provider-worker.pw.mjs'");
   });
 
   it('authenticates Cloudflare provenance and includes the base in inheritance search', () => {
