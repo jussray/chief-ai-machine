@@ -13,6 +13,8 @@ on:
       - 'wrangler.jsonc'
       - 'package.json'
       - 'package-lock.json'
+      - 'e2e/prompt-remix-production.pw.mjs'
+      - 'scripts/chief-proof-request.mjs'
       - '.github/workflows/cloudflare-workers-deploy.yml'
   workflow_dispatch:
 
