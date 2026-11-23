@@ -46,6 +46,17 @@ const remoteTest = explicitOrigin ? test : test.skip;
 remoteTest('explicit canonical Chief origin serves UI and exact Worker identity', async ({ page, request }) => {
   expect(explicitOrigin).toBe(canonicalOrigin);
 
+  const accessHeaders = chiefAccessHeaders(process.env, canonicalOrigin);
+  // Attach Access credentials only to the approved canonical origin.
+  // Never forward them to redirects or third-party resources.
+  await page.route('**/*', async (route) => {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.origin === canonicalOrigin) {
+      await route.continue({ headers: { ...route.request().headers(), ...accessHeaders } });
+    } else {
+      await route.continue();
+    }
+  });
   const navigation = await page.goto(explicitOrigin, { waitUntil: 'domcontentloaded' });
   expect(navigation, `${explicitOrigin} returned no browser response`).not.toBeNull();
   expect(navigation.status(), `${explicitOrigin} returned a server error`).toBeLessThan(500);
