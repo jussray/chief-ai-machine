@@ -14,4 +14,4 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
-      - run: node --test discovery/validate.test.mjs
+      - run: node --test discovery/*.test.mjs

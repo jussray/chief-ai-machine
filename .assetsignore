@@ -81,3 +81,5 @@ front-door/
 SECURITY.md
 THIRD_PARTY_NOTICES.md
 INVESTMENT_EVALUATION_NOTICE.md
+# ADRP source-only candidates must not ship as assets.
+discovery/
