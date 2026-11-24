@@ -48,7 +48,7 @@ describe('Worker static asset boundary', () => {
       'scripts/',
       'e2e/',
       'tools/',
-      'config/',
+      '/config/',
       '.control-room/',
       '.claude/',
       '.cursor/',
@@ -62,6 +62,7 @@ describe('Worker static asset boundary', () => {
     for (const path of required) {
       expect(ignored.has(path), `missing .assetsignore boundary for ${path}`).toBe(true);
     }
+    expect(ignored.has('config/'), 'nested src/config/ must remain deployable').toBe(false);
   });
 
   it('keeps only the browser carriers needed by the current root-hosted SPA unblocked', () => {
