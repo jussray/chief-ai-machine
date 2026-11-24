@@ -15,7 +15,7 @@ on:
       - "e2e/playwright.domain.config.mjs"
       - ".github/workflows/domain-authority.yml"
   push:
-    branches: [main]
+    branches: [main, fix/chief-standalone-and-fcr-domains]
     paths:
       - "wrangler.jsonc"
       - "wrangler.front-door.jsonc"
