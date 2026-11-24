@@ -9,7 +9,7 @@ function renderForHost(hostname) {
       .replaceAll("Chief AI · Public product definition", "Chief AI · Standalone product")
       .replaceAll("Founder intelligence that keeps its boundaries.", "Independent founder intelligence that keeps its boundaries.")
       .replaceAll("Chief AI can reason, synthesize, recommend, and prepare bounded plans. It does not gain execution authority merely because a model or repository check succeeds. Founder Control Room remains the governed execution, approval, evidence, and publication authority for portfolio actions.", "Chief AI is an independent Juss&Co product with its own identity, lifecycle, receipts, and authority boundaries. It can cooperate with Founder Control Room, PromptOS, and SolContinuity through governed contracts without transferring authority.")
-      .replaceAll("href=\\"./index.html\\">Open Chief workspace", "href=\\"/app\\">Open Chief workspace")
+      .replaceAll('href="./index.html">Open Chief workspace', 'href="/app">Open Chief workspace')
       .replaceAll("Chief AI © 2026 Founder Control Room. Portable data. Provider neutral. Built for founders.", "Chief AI © 2026 Juss&Co. Independent product. Portable data. Provider neutral.");
   } else if (hostname === "chief.foundercontrolroom.org") {
     page = page
