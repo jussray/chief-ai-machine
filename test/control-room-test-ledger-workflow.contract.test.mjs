@@ -22,7 +22,7 @@ describe('Control Room Test Ledger workflow contract', () => {
     const publishSection = workflow.split('  publish-ledger:')[1];
     expect(workflow).toContain('pull_request:');
     expect(workflow).toContain('# The exact-head ledger requires this named check on every main push.');
-    expect(workflow).toMatch(/\n  push:\n    branches: \[main\]\n  workflow_dispatch:/);
+    expect(workflow).toContain('  push:\n    branches: [main]\n  workflow_dispatch:');
     expect(publishSection).toContain('name: Publish exact-head test ledger');
     expect(publishSection).toContain('if: ${{ always() }}');
     expect(publishSection).toContain('LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}');
