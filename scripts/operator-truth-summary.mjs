@@ -97,7 +97,7 @@ export function buildOperatorTruthSummary({ ledger, runtimeWitness = null }) {
       state,
       detailsUrl: clean(check?.detailsUrl) || null,
     };
-    if (state === 'warning') nonBlockingSignals.push(signal);
+    if (state === 'warning' || state === 'skipped') nonBlockingSignals.push(signal);
     else failures.push(signal);
   }
 
@@ -148,7 +148,7 @@ export function buildOperatorTruthSummary({ ledger, runtimeWitness = null }) {
     metrics: {
       totalChecks: checks.length,
       failureClassCounts,
-      warnings: Number(ledger?.aggregate?.counts?.warning || 0),
+      warnings: Number(ledger?.aggregate?.counts?.warning || 0) + nonBlockingSignals.length,
       failed: Number(ledger?.aggregate?.counts?.failed || 0),
       pending: Number(ledger?.aggregate?.counts?.queued || 0)
         + Number(ledger?.aggregate?.counts?.running || 0),
