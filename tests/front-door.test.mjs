@@ -49,15 +49,22 @@ test('public front door refuses private paths, unknown hosts, and mutations', as
   expect((await worker.fetch(new Request('https://evil.example/'))).status).toBe(404);
 });
 
-test('public routes are exact roots only; private paths are not caught', () => {
-  const config = JSON.parse(readFileSync(new URL('../wrangler.front-door.jsonc', import.meta.url), 'utf8'));
-  expect(config.routes.map(r => r.pattern)).toEqual([
+test('public roots override only root paths; Chief app path overrides the JussCo wildcard', () => {
+  const frontDoor = JSON.parse(readFileSync(new URL('../wrangler.front-door.jsonc', import.meta.url), 'utf8'));
+  const runtime = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'));
+  expect(frontDoor.routes.map(r => r.pattern)).toEqual([
     'chief.jussco.company/',
     'chief.foundercontrolroom.org/',
     'chief.foundercontrolroom.org/__frontdoor_home*',
   ]);
-  expect(config.routes.every(r => !r.pattern.includes('/api') && !r.pattern.includes('/admin'))).toBe(true);
-  expect(config.preview_urls).toBe(false);
+  expect(frontDoor.routes.every(r => !r.pattern.includes('/api') && !r.pattern.includes('/admin'))).toBe(true);
+  expect(frontDoor.preview_urls).toBe(false);
+
+  expect(runtime.routes).toContainEqual({ pattern: 'chief.jussco.company/*', zone_name: 'jussco.company' });
+  expect(runtime.routes.filter(r => r.custom_domain === true)).toEqual([
+    { pattern: 'chief.jussco.company', custom_domain: true },
+    { pattern: 'chief.foundercontrolroom.org', custom_domain: true },
+  ]);
 
   const deployment = readFileSync(new URL('../.github/workflows/cloudflare-workers-deploy.yml', import.meta.url), 'utf8');
   expect(deployment).toContain("'wrangler.front-door.jsonc'");
