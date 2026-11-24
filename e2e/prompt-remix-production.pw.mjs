@@ -37,6 +37,9 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
       if (path === '/app') appStatus = response.status();
     }
     expect(appStatus, 'Chief /app API request must succeed with the same Access service token as /version').toBe(200);
+    const guardrailAsset = await client.get(`${baseURL}/src/config/visionGuardrails.js`, { maxRedirects: 0 });
+    expect(guardrailAsset.status()).toBe(200);
+    expect(guardrailAsset.headers()['content-type']).toMatch(/javascript/);
   } finally {
     await client.dispose();
   }
@@ -70,6 +73,7 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     const navigation = await page.goto(`${baseURL}/app`, { waitUntil: 'domcontentloaded' });
     expect(navigation, 'Chief production app returned no browser response').not.toBeNull();
     expect(navigation.status(), 'Chief production app returned an HTTP error').toBe(200);
+    await page.waitForLoadState('networkidle');
   expect(new URL(page.url()).origin).toBe(baseURL);
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
   await expect(page.locator('#page-library')).toBeVisible();
@@ -79,6 +83,7 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
   expect(await promptCards.count()).toBeGreaterThan(0);
     await expect(page.locator('#search')).toBeVisible();
   } finally {
+    await page.unrouteAll({ behavior: 'wait' });
     await browserAssetClient.dispose();
   }
 });
