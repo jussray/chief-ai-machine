@@ -11,12 +11,14 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ['line'],
-    ['html', { outputFolder: '../playwright-report/domain-authority', open: 'never' }],
+    ['./../scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/domain-authority-safe.json' }],
   ],
   outputDir: '../test-results/domain-authority',
+  // Access service-token headers are injected into protected app requests.
+  // Disable traces, screenshots, and video so credentials cannot enter artifacts.
   use: {
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
   },
 });
