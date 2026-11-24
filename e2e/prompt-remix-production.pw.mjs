@@ -42,14 +42,9 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
   }
 
   const accessHeaders = chiefAccessHeaders(process.env, baseURL);
-  await page.route('**/*', async (route) => {
-    const requestUrl = new URL(route.request().url());
-    if (requestUrl.origin === baseURL) {
-      await route.continue({ headers: { ...route.request().headers(), ...accessHeaders } });
-    } else {
-      await route.continue();
-    }
-  });
+  // Set the service-token pair on the browser context before navigation.
+  // Route interception can accidentally omit headers on the initial document request.
+  await page.context().setExtraHTTPHeaders(accessHeaders);
 
   const navigation = await page.goto(`${baseURL}/app`, { waitUntil: 'domcontentloaded' });
   expect(navigation, 'Chief production app returned no browser response').not.toBeNull();
