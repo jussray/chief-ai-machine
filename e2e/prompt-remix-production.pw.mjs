@@ -49,8 +49,6 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     extraHTTPHeaders: chiefAccessHeaders(process.env, baseURL),
   });
   try {
-    page.on('pageerror', (error) => console.log('Chief browser page error', error.message));
-    page.on('console', (message) => { if (message.type() === 'error') console.log('Chief browser console error', message.text()); });
     await page.route('**/*', async (route) => {
       const request = route.request();
       const requestUrl = new URL(request.url());
@@ -59,7 +57,6 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
         return;
       }
       const upstream = await browserAssetClient.get(requestUrl.href, { maxRedirects: 0 });
-      console.log('Chief production browser asset', JSON.stringify({ path: requestUrl.pathname, status: upstream.status(), contentType: upstream.headers()['content-type'] || null }));
       await route.fulfill({
         status: upstream.status(),
         headers: {
@@ -76,6 +73,7 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
   expect(new URL(page.url()).origin).toBe(baseURL);
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
   await expect(page.locator('#page-library')).toBeVisible();
+  await expect(page.locator('[data-testid="guardrail-status"]')).toBeAttached();
   const promptCards = page.locator('#grid .pcard');
   await expect(promptCards.first()).toBeVisible();
   expect(await promptCards.count()).toBeGreaterThan(0);
