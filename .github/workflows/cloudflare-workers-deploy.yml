@@ -16,6 +16,7 @@ on:
       - 'public-face.html'
       - 'config/domain-authority.json'
       - 'e2e/domain-authority.pw.mjs'
+      - 'e2e/playwright.domain.config.mjs'
       - 'tests/front-door.test.mjs'
       - 'package.json'
       - 'package-lock.json'
@@ -39,8 +40,10 @@ jobs:
     name: Build & Deploy to Cloudflare Workers
     runs-on: ubuntu-22.04
     timeout-minutes: 20
+    environment:
+      name: Cloudflare Production
     steps:
-      - name: Check out code
+      - name: Check out exact selected commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -61,21 +64,26 @@ jobs:
           WORKERS_CI_BRANCH: ${{ github.ref_name }}
         run: node scripts/bake-worker-release-sha.mjs
 
-      - name: Deploy to Cloudflare Workers
+      - name: Deploy shared Chief runtime
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           WORKERS_CI_COMMIT_SHA: ${{ github.sha }}
-          WORKERS_CI_BRANCH: main
-        run: npx wrangler deploy
+          WORKERS_CI_BRANCH: ${{ github.ref_name }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          npx wrangler deploy
 
       - name: Deploy host-specific public front doors
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy --config wrangler.front-door.jsonc
-
-      - name: Log deployment success
         run: |
-          echo "✓ Deployment to Cloudflare Workers completed"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          npx wrangler deploy --config wrangler.front-door.jsonc
+
+      - name: Log deployed commit identity
+        run: |
+          echo "Runtime commit: ${{ github.sha }}"
+          echo "Selected branch: ${{ github.ref_name }}"
           echo "Standalone Chief URL: https://chief.jussco.company"
           echo "FCR integration URL: https://chief.foundercontrolroom.org"
 
@@ -85,12 +93,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     if: success()
-    # Verify the actual Chief prompt-remix product, not the optional ProofMode MCP integration.
-    # The Access pair is scoped to the canonical Chief origin in the production environment.
     environment:
       name: Cloudflare Production
     steps:
-      - name: Check out code
+      - name: Check out exact deployed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -132,16 +138,14 @@ jobs:
             outputDir: './test-results/deployment-verify',
             reporter: [
               ['line'],
-              // Credential-safe receipt; the HTML report can carry request call logs.
               ['./scripts/proofmode-safe-reporter.mjs', { outputFile: './artifacts/deployment-verify-safe.json' }],
             ],
-            // Traces would capture the credential-bearing Access headers.
             use: { trace: 'off', screenshot: 'off', video: 'off' },
           });
           EOF
           npx playwright test --config=playwright.deployment-verify.config.mjs
 
-      - name: Upload verification report
+      - name: Upload verification receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -150,8 +154,57 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Report deployment verified
-        if: success()
+  verify-dual-domain:
+    name: Verify both Chief domains and Access boundaries
+    needs: build-and-deploy
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    if: success()
+    environment:
+      name: Cloudflare Production
+    env:
+      CHIEF_PUBLIC_ORIGIN: https://chief.jussco.company
+      DOMAIN_EXPECTED_SHA: ${{ github.sha }}
+      EXPECTED_HEAD_SHA: ${{ github.sha }}
+      CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+    steps:
+      - name: Check out exact deployed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Require the production Access credential pair
+        shell: bash
         run: |
-          echo "✓ Production Prompt Remix app verified against the exact deployed commit"
-          echo "Deployment ready for production use"
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_ID"
+          test -n "$CLOUDFLARE_ACCESS_CLIENT_SECRET"
+          printf 'Dual-domain proof target: %s and %s\n' \
+            'https://chief.jussco.company' 'https://chief.foundercontrolroom.org'
+          printf 'Expected runtime SHA: %s\n' "$DOMAIN_EXPECTED_SHA"
+
+      - name: Install Chromium for two-host Playwright proof
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify public roots, shared runtime SHA, and protected app paths
+        run: npx playwright test --config=e2e/playwright.domain.config.mjs --grep "both public roots and protected app/API"
+
+      - name: Upload credential-safe dual-domain receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: chief-dual-domain-verification-${{ github.sha }}
+          path: artifacts/domain-authority-safe.json
+          if-no-files-found: warn
+          retention-days: 14
