@@ -75,6 +75,37 @@ describe('operator truth summary', () => {
     expect(summary.primaryBlocker.nextAction).toContain('structured runtime witness');
   });
 
+  it('keeps intentionally skipped post-merge ProofMode checks visible but nonblocking on main pushes', () => {
+    const summary = buildOperatorTruthSummary({
+      ledger: {
+        ...baseLedger,
+        aggregate: {
+          state: 'passed',
+          counts: { warning: 0, failed: 0, queued: 0, running: 0, unknown: 0 },
+        },
+        checks: [
+          {
+            name: 'Verify production ProofMode MCP with Playwright',
+            state: 'skipped',
+            conclusion: 'skipped',
+          },
+        ],
+      },
+    });
+
+    expect(summary.primaryBlocker).toBeNull();
+    expect(summary.nonBlockingSignals).toEqual([
+      expect.objectContaining({
+        failureClass: 'runtime_unknown',
+        state: 'skipped',
+        checkName: 'Verify production ProofMode MCP with Playwright',
+      }),
+    ]);
+    expect(summary.metrics.warnings).toBe(1);
+    expect(summary.repositoryChecksGreen).toBe(true);
+    expect(summary.publicClaimAuthorized).toBe(false);
+  });
+
   it('counts a softened provider retry failure but keeps it nonblocking', () => {
     const summary = buildOperatorTruthSummary({
       ledger: {
