@@ -1,0 +1,30 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://jussco.company/#organization",
+      "name": "Juss & Co",
+      "url": "https://jussco.company"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://chief.jussco.company/#website",
+      "name": "Chief AI Machine",
+      "url": "https://chief.jussco.company",
+      "publisher": {
+        "@id": "https://jussco.company/#organization"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://chief.jussco.company/#application",
+      "name": "Chief AI Machine",
+      "url": "https://chief.jussco.company",
+      "description": "Standalone founder intelligence and bounded capability planning",
+      "publisher": {
+        "@id": "https://jussco.company/#organization"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "protocol": "JSC-ADRP",
+  "version": "1.0.0-draft",
+  "project": "chief-ai-machine",
+  "name": "Chief AI Machine",
+  "url": "https://chief.jussco.company",
+  "description": "Standalone founder intelligence and bounded capability planning",
+  "useCases": [
+    "Reasoning and synthesis",
+    "Bounded capability proposals and handoffs"
+  ],
+  "publicationStatus": "draft",
+  "verifiedCapabilities": [],
+  "evidence": []
+}
