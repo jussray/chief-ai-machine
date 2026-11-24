@@ -58,4 +58,8 @@ test('public routes are exact roots only; private paths are not caught', () => {
   ]);
   expect(config.routes.every(r => !r.pattern.includes('/api') && !r.pattern.includes('/admin'))).toBe(true);
   expect(config.preview_urls).toBe(false);
+
+  const deployment = readFileSync(new URL('../.github/workflows/cloudflare-workers-deploy.yml', import.meta.url), 'utf8');
+  expect(deployment).toContain("'wrangler.front-door.jsonc'");
+  expect(deployment).toContain('npx wrangler deploy --config wrangler.front-door.jsonc');
 });
