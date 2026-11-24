@@ -10,6 +10,7 @@ on:
       - "front-door/worker.mjs"
       - "public-face.html"
       - "tests/front-door.test.mjs"
+      - "test/static-assets-boundary.test.js"
       - "config/domain-authority.json"
       - "e2e/domain-authority.pw.mjs"
       - "e2e/chief-domain-access.pw.mjs"
@@ -26,6 +27,7 @@ on:
       - "public-face.html"
       - "tests/front-door.test.mjs"
       - "test/chief-proof-request.test.js"
+      - "test/static-assets-boundary.test.js"
       - "scripts/chief-proof-request.mjs"
       - "config/domain-authority.json"
       - "e2e/domain-authority.pw.mjs"
@@ -88,7 +90,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run focused domain contract tests
-        run: npm test -- tests/front-door.test.mjs test/chief-proof-request.test.js
+        run: npm test -- tests/front-door.test.mjs test/chief-proof-request.test.js test/static-assets-boundary.test.js
 
       - name: Install isolated Playwright runner
         run: npm install --no-save --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
