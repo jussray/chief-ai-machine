@@ -4,7 +4,8 @@
   "preview_urls": true,
   "routes": [
     { "pattern": "chief.jussco.company", "custom_domain": true },
-    { "pattern": "chief.foundercontrolroom.org", "custom_domain": true }
+    { "pattern": "chief.foundercontrolroom.org", "custom_domain": true },
+    { "pattern": "chief.jussco.company/*", "zone_name": "jussco.company" }
   ],
   "compatibility_date": "2026-07-11",
   "compatibility_flags": ["nodejs_compat"],
