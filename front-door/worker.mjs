@@ -14,7 +14,7 @@ function renderForHost(hostname) {
   } else if (hostname === "chief.foundercontrolroom.org") {
     page = page
       .replaceAll("Chief AI | Founder Intelligence OS", "Founder Control Room | Chief Intelligence")
-      .replaceAll("href=\\\"./index.html\\\">Open Chief workspace", "href=\\\"/app\\\">Open Chief workspace")
+      .replaceAll('href="./index.html">Open Chief workspace', 'href="/app">Open Chief workspace')
       .replaceAll("Chief AI turns founder intent, company context, prompts, workflows, research, and decisions into portable, versioned operating intelligence.", "Founder Control Room uses Chief for bounded reasoning and synthesis while retaining its own governance, evidence, approval, and execution authority.")
       .replaceAll("A founder intelligence operating system for bounded planning, portable company knowledge, evidence requirements, rollback, and clear authority boundaries.", "A Founder Control Room integration powered by Chief intelligence, with FCR retaining founder authority and evidence ownership.")
       .replaceAll("Chief AI · A clear next step", "Founder Control Room · Chief intelligence")
