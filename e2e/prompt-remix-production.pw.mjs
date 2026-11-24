@@ -41,24 +41,44 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     await client.dispose();
   }
 
-  const accessHeaders = chiefAccessHeaders(process.env, baseURL);
-  await page.route('**/*', async (route) => {
-    const requestUrl = new URL(route.request().url());
-    if (requestUrl.origin === baseURL) {
-      await route.continue({ headers: { ...route.request().headers(), ...accessHeaders } });
-    } else {
-      await route.continue();
-    }
+  // Cloudflare Bot Management challenges headless Chromium in CI. Fetch each
+  // same-origin production resource through the authenticated API context, then
+  // let Chromium render and exercise those exact production bytes. No WAF rule
+  // or production security setting is weakened for automation.
+  const browserAssetClient = await playwright.request.newContext({
+    extraHTTPHeaders: chiefAccessHeaders(process.env, baseURL),
   });
+  try {
+    await page.route('**/*', async (route) => {
+      const request = route.request();
+      const requestUrl = new URL(request.url());
+      if (requestUrl.origin !== baseURL || request.method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      const upstream = await browserAssetClient.get(requestUrl.href, { maxRedirects: 0 });
+      await route.fulfill({
+        status: upstream.status(),
+        headers: {
+          'content-type': upstream.headers()['content-type'] || 'application/octet-stream',
+          ...(upstream.headers()['cache-control'] ? { 'cache-control': upstream.headers()['cache-control'] } : {}),
+        },
+        body: await upstream.body(),
+      });
+    });
 
-  const navigation = await page.goto(`${baseURL}/app`, { waitUntil: 'domcontentloaded' });
-  expect(navigation, 'Chief production app returned no browser response').not.toBeNull();
-  expect(navigation.status(), 'Chief production app returned an HTTP error').toBe(200);
+    const navigation = await page.goto(`${baseURL}/app`, { waitUntil: 'domcontentloaded' });
+    expect(navigation, 'Chief production app returned no browser response').not.toBeNull();
+    expect(navigation.status(), 'Chief production app returned an HTTP error').toBe(200);
   expect(new URL(page.url()).origin).toBe(baseURL);
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
   await expect(page.locator('#page-library')).toBeVisible();
+  await expect(page.locator('[data-testid="guardrail-status"]')).toBeAttached();
   const promptCards = page.locator('#grid .pcard');
   await expect(promptCards.first()).toBeVisible();
   expect(await promptCards.count()).toBeGreaterThan(0);
-  await expect(page.locator('#search')).toBeVisible();
+    await expect(page.locator('#search')).toBeVisible();
+  } finally {
+    await browserAssetClient.dispose();
+  }
 });
