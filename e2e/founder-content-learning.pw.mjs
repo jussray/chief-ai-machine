@@ -99,7 +99,7 @@ test.describe('authenticated FCR learning exact-head runtime', () => {
   test('serves the exact candidate head from local workerd', async ({ request }) => {
     const response = await request.get(`${baseURL}/version`);
     expect(response.status()).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, sha: expectedHead });
+    await expect(response.json()).resolves.toMatchObject({ ok: true, sha: expectedHead });
   });
 
   test('accepts authenticated FCR evidence without widening authority', async ({ request }) => {

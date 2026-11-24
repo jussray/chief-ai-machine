@@ -8,13 +8,13 @@ async function openPage(page, name) {
 async function openPrompt(page, title) {
   const card = page.locator('#grid .pcard', { hasText: title });
   await expect(card).toHaveCount(1);
-  await card.click();
+  await card.getByRole('button', { name: /^Open/ }).click();
   await expect(page.locator('#modalWrap')).toHaveClass(/\bopen\b/);
   return page.locator('#mBody');
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 });
 
 test('Goalfix v1 public pack is discoverable, selectable, and truth-bounded', async ({ page }, testInfo) => {

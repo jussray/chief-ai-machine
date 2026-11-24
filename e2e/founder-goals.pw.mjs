@@ -12,6 +12,7 @@ const NEXT_GATE = 'Founder approves merge.';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
+  await page.locator('[data-page="goals"]:visible').click();
 });
 
 test('founder goal front door exposes Chief reasoning and carries the bounded plan into Builder', async ({ page }, testInfo) => {

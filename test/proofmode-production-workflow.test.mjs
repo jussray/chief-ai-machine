@@ -110,7 +110,11 @@ describe('ProofMode production governance workflow', () => {
 
   it('promotes the exact prebuilt Cloudflare version instead of rebuilding or weakening governance', () => {
     expect(workflow).toContain('Workers Builds: chief-ai');
-    expect(workflow).toContain('Version ID:');
+    // The parser authenticates provider app, exact head and preview-Version-ID
+    // consistency, rather than trusting a free-form summary substring.
+    expect(workflow).toContain('node scripts/validate-chief-preview.mjs version');
+    expect(workflow).toContain("CLOUDFLARE_CHECK_APP_ID: '85455'");
+    expect(workflow).toContain('No trusted Cloudflare Version ID for exact head');
     expect(workflow).toContain('CLOUDFLARE_VERSION_ID');
     expect(workflow).toContain('npx wrangler versions deploy');
     expect(workflow).toContain('$CLOUDFLARE_VERSION_ID@100%');
@@ -122,7 +126,7 @@ describe('ProofMode production governance workflow', () => {
   });
 
   it('requires protected Access proof before founder-dispatched production proof', () => {
-    expect(workflow).toContain('needs: protected-access');
+    expect(workflow).toContain('needs: [protected-access]');
     expect(workflow).toContain("needs.protected-access.result == 'success'");
     expect(workflow).toContain('CF-Access-Client-Id');
     expect(workflow).toContain('CF-Access-Client-Secret');

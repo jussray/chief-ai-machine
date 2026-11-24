@@ -62,7 +62,7 @@ coverage/
 scripts/
 e2e/
 tools/
-config/
+/config/
 .control-room/
 .claude/
 .cursor/

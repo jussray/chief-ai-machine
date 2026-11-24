@@ -27,6 +27,8 @@ jobs:
     name: "Typecheck"
     runs-on: ubuntu-latest
     steps:
+      - name: Install upstream Git security release before checkout
+        uses: jussray/founder-control-room/.github/actions/refresh-git-security@0a739664e85443fb79cfe58202e2eea6ce01d7ff
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -49,6 +51,8 @@ jobs:
     name: "Lint"
     runs-on: ubuntu-latest
     steps:
+      - name: Install upstream Git security release before checkout
+        uses: jussray/founder-control-room/.github/actions/refresh-git-security@0a739664e85443fb79cfe58202e2eea6ce01d7ff
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -80,6 +84,8 @@ jobs:
     name: "Unit Tests"
     runs-on: ubuntu-latest
     steps:
+      - name: Install upstream Git security release before checkout
+        uses: jussray/founder-control-room/.github/actions/refresh-git-security@0a739664e85443fb79cfe58202e2eea6ce01d7ff
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -120,6 +126,8 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
+      - name: Install upstream Git security release before checkout
+        uses: jussray/founder-control-room/.github/actions/refresh-git-security@0a739664e85443fb79cfe58202e2eea6ce01d7ff
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -144,11 +152,20 @@ jobs:
   sonarqube:
     name: "SonarQube – Founder Intelligence"
     needs: unit-tests
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     env:
+      UNIT_TEST_RESULT: ${{ needs.unit-tests.result }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:
+      - name: Fail closed on failed unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$UNIT_TEST_RESULT" = 'success'
+      - name: Install upstream Git security release before checkout
+        uses: jussray/founder-control-room/.github/actions/refresh-git-security@0a739664e85443fb79cfe58202e2eea6ce01d7ff
       - name: Check out exact head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
