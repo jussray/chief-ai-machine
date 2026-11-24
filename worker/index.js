@@ -188,9 +188,11 @@ export default {
       return addSecurityHeaders(new Response('Not implemented', { status: 501 }));
     }
 
-    // Route /app to the app.html (authenticated founder application)
+    // Cloudflare's asset router maps app.html to the clean URL /app.
+    // Fetch that canonical asset URL directly; requesting /app.html here
+    // triggers the asset router's 307 redirect back to /app (a loop).
     if (url.pathname === '/app' || url.pathname === '/app/') {
-      const appRequest = new Request(new URL('/app.html', url), request);
+      const appRequest = new Request(new URL('/app', url), request);
       const response = await env.ASSETS.fetch(appRequest);
       return addSecurityHeaders(response);
     }
