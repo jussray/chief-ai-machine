@@ -11,6 +11,7 @@ const wrangler = JSON.parse(
 const frontDoor = JSON.parse(
   readFileSync(new URL('../wrangler.front-door.jsonc', import.meta.url), 'utf8'),
 );
+const runtimeSource = readFileSync(new URL('../worker/index.js', import.meta.url), 'utf8');
 
 const standaloneOrigin = String(contract.canonicalOrigin || '').trim();
 const fcrOrigin = String(contract.fcrIntegrationOrigin || '').trim();
@@ -66,6 +67,8 @@ test('Chief owns two hostname-specific surfaces on one Worker', () => {
     'chief.foundercontrolroom.org/',
     'chief.foundercontrolroom.org/__frontdoor_home*',
   ]);
+  expect(runtimeSource).toContain("new URL('/app', url)");
+  expect(runtimeSource).not.toContain("new URL('/app.html', url)");
   expect(contract.providerPolicy).toMatchObject({
     productionWorkersDev: false,
     previewUrls: true,
