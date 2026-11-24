@@ -21,7 +21,7 @@ function checks(m, identities, implementation, graphImplementation) {
  ];
  for(const mutate of mutations){const x=copy();mutate(x);let rejected=false;try{implementation(x,identities)}catch{rejected=true}check(rejected,"reject mutation")}
  const g=graphImplementation(m,identities);
- check(g["@graph"][0]["@id"]==="https://jussco.company/#organization","shared identity");
+ check(g["@graph"][0]["@id"]==="https://www.jussco.company/#organization","shared identity");
  check(g["@graph"].length===(m.project==="jussray"?2:3),"standalone product boundary");
  check(!JSON.stringify(g).includes("verifiedCapabilities"),"no capability assertions in graph");
  return passed;

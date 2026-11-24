@@ -1,7 +1,7 @@
 export const identities = {
   "jussray": {
     "name": "Juss & Co",
-    "url": "https://jussco.company",
+    "url": "https://www.jussco.company/",
     "description": "Technology product development and engineering",
     "useCases": [
       "Explore independently branded technology products",
@@ -10,7 +10,7 @@ export const identities = {
   },
   "founder-control-room": {
     "name": "Founder Control Room",
-    "url": "https://foundercontrolroom.org",
+    "url": "https://www.foundercontrolroom.org/",
     "description": "Standalone founder operating environment for governance and evidence",
     "useCases": [
       "Governed actions and approvals",
@@ -18,8 +18,8 @@ export const identities = {
     ]
   },
   "chief-ai-machine": {
-    "name": "Chief AI Machine",
-    "url": "https://chief.jussco.company",
+    "name": "Chief AI",
+    "url": "https://chief.foundercontrolroom.org/",
     "description": "Standalone founder intelligence and bounded capability planning",
     "useCases": [
       "Reasoning and synthesis",
@@ -28,7 +28,7 @@ export const identities = {
   },
   "solcontinuity": {
     "name": "SolContinuity",
-    "url": "https://sol.foundercontrolroom.org",
+    "url": "https://sol.foundercontrolroom.org/evidence.html",
     "description": "Application-layer infrastructure continuity and resilience tooling",
     "useCases": [
       "Provider-aware JSON-RPC quorum and failover",
@@ -37,7 +37,7 @@ export const identities = {
   },
   "promptos": {
     "name": "PromptOS",
-    "url": "https://promptos.jussco.company",
+    "url": "https://promptos.jussco.company/",
     "description": "Standalone human-AI instruction governance product",
     "useCases": [
       "Prompt, skill and instruction lifecycle governance",
@@ -59,10 +59,6 @@ export function validate(m, identities) {
  return true;
 }
 export function graph(m, identities) {
- validate(m,identities);
- const org={"@type":"Organization","@id":"https://jussco.company/#organization","name":"Juss & Co","url":"https://jussco.company"};
- const website={"@type":"WebSite","@id":m.url+"/#website","name":m.name,"url":m.url,"publisher":{"@id":org["@id"]}};
- const entries=[org,website];
- if(m.project!=="jussray") entries.push({"@type":"SoftwareApplication","@id":m.url+"/#application","name":m.name,"url":m.url,"description":m.description,"publisher":{"@id":org["@id"]}});
- return {"@context":"https://schema.org","@graph":entries};
+ validate(m, identities);
+ return (function graph(m){const origin=m.url.match(/^https:\/\/[^/]+/)[0];const org='https://www.jussco.company/#organization';const publisher={"@id":org};const entries=[{"@type":"Organization","@id":org,"name":"Juss & Co","url":"https://www.jussco.company/"},{"@type":"WebSite","@id":origin+"/#website","name":m.name,"url":origin+"/","publisher":publisher}];if(m.project!=="jussray")entries.push({"@type":"SoftwareApplication","@id":origin+"/#application","name":m.name,"url":m.url,"description":m.description,"publisher":publisher});return {"@context":"https://schema.org","@graph":entries}})(m);
 }

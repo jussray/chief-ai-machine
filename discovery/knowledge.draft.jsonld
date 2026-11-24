@@ -3,27 +3,27 @@
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://jussco.company/#organization",
+      "@id": "https://www.jussco.company/#organization",
       "name": "Juss & Co",
-      "url": "https://jussco.company"
+      "url": "https://www.jussco.company/"
     },
     {
       "@type": "WebSite",
-      "@id": "https://chief.jussco.company/#website",
-      "name": "Chief AI Machine",
-      "url": "https://chief.jussco.company",
+      "@id": "https://chief.foundercontrolroom.org/#website",
+      "name": "Chief AI",
+      "url": "https://chief.foundercontrolroom.org/",
       "publisher": {
-        "@id": "https://jussco.company/#organization"
+        "@id": "https://www.jussco.company/#organization"
       }
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://chief.jussco.company/#application",
-      "name": "Chief AI Machine",
-      "url": "https://chief.jussco.company",
+      "@id": "https://chief.foundercontrolroom.org/#application",
+      "name": "Chief AI",
+      "url": "https://chief.foundercontrolroom.org/",
       "description": "Standalone founder intelligence and bounded capability planning",
       "publisher": {
-        "@id": "https://jussco.company/#organization"
+        "@id": "https://www.jussco.company/#organization"
       }
     }
   ]

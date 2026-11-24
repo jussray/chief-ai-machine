@@ -2,8 +2,8 @@
   "protocol": "JSC-ADRP",
   "version": "1.0.0-draft",
   "project": "chief-ai-machine",
-  "name": "Chief AI Machine",
-  "url": "https://chief.jussco.company",
+  "name": "Chief AI",
+  "url": "https://chief.foundercontrolroom.org/",
   "description": "Standalone founder intelligence and bounded capability planning",
   "useCases": [
     "Reasoning and synthesis",
