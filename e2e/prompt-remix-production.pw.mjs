@@ -41,37 +41,43 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     await client.dispose();
   }
 
-  const accessHeaders = chiefAccessHeaders(process.env, baseURL);
-  // Set the service-token pair on the browser context before navigation.
-  // Route interception can accidentally omit headers on the initial document request.
-  await page.context().setExtraHTTPHeaders(accessHeaders);
-
-  page.on('request', (request) => {
-    if (new URL(request.url()).origin === baseURL) {
-      const headers = request.headers();
-      console.log('Chief browser request auth diagnostic', JSON.stringify({
-        path: new URL(request.url()).pathname,
-        hasAccessClientId: Boolean(headers['cf-access-client-id']),
-        hasAccessClientSecret: Boolean(headers['cf-access-client-secret']),
-      }));
-    }
+  // Cloudflare Bot Management challenges headless Chromium in CI. Fetch each
+  // same-origin production resource through the authenticated API context, then
+  // let Chromium render and exercise those exact production bytes. No WAF rule
+  // or production security setting is weakened for automation.
+  const browserAssetClient = await playwright.request.newContext({
+    extraHTTPHeaders: chiefAccessHeaders(process.env, baseURL),
   });
-  const navigation = await page.goto(`${baseURL}/app`, { waitUntil: 'domcontentloaded' });
-  expect(navigation, 'Chief production app returned no browser response').not.toBeNull();
-  if (navigation.status() !== 200) {
-    console.log('Chief browser navigation failure', JSON.stringify({
-      status: navigation.status(),
-      cfRay: navigation.headers()['cf-ray'] || null,
-      server: navigation.headers()['server'] || null,
-      bodyPrefix: (await navigation.text()).slice(0, 240),
-    }));
-  }
-  expect(navigation.status(), 'Chief production app returned an HTTP error').toBe(200);
+  try {
+    await page.route('**/*', async (route) => {
+      const request = route.request();
+      const requestUrl = new URL(request.url());
+      if (requestUrl.origin !== baseURL || request.method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      const upstream = await browserAssetClient.get(requestUrl.href, { maxRedirects: 0 });
+      await route.fulfill({
+        status: upstream.status(),
+        headers: {
+          'content-type': upstream.headers()['content-type'] || 'application/octet-stream',
+          ...(upstream.headers()['cache-control'] ? { 'cache-control': upstream.headers()['cache-control'] } : {}),
+        },
+        body: await upstream.body(),
+      });
+    });
+
+    const navigation = await page.goto(`${baseURL}/app`, { waitUntil: 'domcontentloaded' });
+    expect(navigation, 'Chief production app returned no browser response').not.toBeNull();
+    expect(navigation.status(), 'Chief production app returned an HTTP error').toBe(200);
   expect(new URL(page.url()).origin).toBe(baseURL);
   await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
   await expect(page.locator('#page-library')).toBeVisible();
   const promptCards = page.locator('#grid .pcard');
   await expect(promptCards.first()).toBeVisible();
   expect(await promptCards.count()).toBeGreaterThan(0);
-  await expect(page.locator('#search')).toBeVisible();
+    await expect(page.locator('#search')).toBeVisible();
+  } finally {
+    await browserAssetClient.dispose();
+  }
 });
