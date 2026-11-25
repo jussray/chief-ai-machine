@@ -114,13 +114,17 @@ export function initFreestyle(PROMPTS) {
     });
   }
 
+  function kaelStatus(message,busy=false){const p=document.getElementById('kaelPet'),s=document.getElementById('kaelStatus');if(p)p.dataset.busy=String(busy);if(s)s.textContent=message;}
   function generate() {
     const ask = askEl?.value?.trim();
     if (!ask) return;
     const platforms = getChecked();
+    kaelStatus('Selecting a local prompt…',true);
+    try {
     const base = selectFreestylePrompt(PROMPTS, ask, platforms);
     const avail = (base.platforms || []).filter(platform => platforms.includes(platform));
     if (!avail.length) {
+      kaelStatus('No local match found.');
       showToast('No match for selected platforms.');
       return;
     }
@@ -149,6 +153,8 @@ export function initFreestyle(PROMPTS) {
     fsBody.textContent = renderCurrent();
     placeholder.style.display = 'none';
     preview.classList.add('on');
+    kaelStatus('Local prompt ready.');
+    } catch(error){kaelStatus('Prompt selection failed.');throw error;}
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
@@ -161,6 +167,7 @@ export function initFreestyle(PROMPTS) {
     placeholder.style.display = '';
     currentResult = null;
     currentPlatform = null;
+    kaelStatus('Ready for local prompt selection.');
   });
   document.getElementById('fsCopy')?.addEventListener('click', async () => {
     if (!currentResult || !currentPlatform) return;
