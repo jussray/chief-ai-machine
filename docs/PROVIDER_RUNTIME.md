@@ -7,14 +7,17 @@ Required runtime configuration:
 | Name | Handling |
 | --- | --- |
 | `CHIEF_AI_OPERATOR_KEY` | Existing Chief-specific server-side caller secret. Never send it to public-page JavaScript. |
-| `OPENAI_API_KEY` | Existing Chief-specific provider secret; never copy a different project's key. |
-| `CHIEF_OPENAI_MODEL` | Explicit approved OpenAI model identifier. No model is silently selected. |
+| `CHIEF_LIVE_PROVIDER` | Server-owned selector: `openai` or `anthropic`. An absent selector preserves legacy OpenAI behavior; an invalid selector fails closed. |
+| `OPENAI_API_KEY` | Existing Chief-specific provider secret, required when OpenAI is selected. |
+| `CHIEF_OPENAI_MODEL` | Explicit approved OpenAI model identifier when selected. |
+| `ANTHROPIC_API_KEY` | Existing Chief-specific provider secret, required when Anthropic is selected. |
+| `CHIEF_ANTHROPIC_MODEL` | Explicit approved Anthropic model identifier when selected. |
 
 No values belong in source, static assets, screenshots, logs, issues, or PRs. The current static Worker remains deployable without this optional lane; missing operator/provider configuration fails closed. Wrangler preserves provider-held secrets during code deployment. Reuse existing keys; this patch creates and rotates none.
 
-An authenticated GET reports configuration only (`INTEGRATED` or `ABSENT`), never key validity. An authenticated POST accepts exactly `prompt` (1–8000 characters) and `sensitivity` (`public` or `internal`). The trusted operator must classify and minimize context before calling; labels are not a private-data detector. Restricted, teen, family, journal, customer-private, and credential-bearing context must not be submitted. The adapter bounds request/response bytes, disables redirects, uses a 30-second provider timeout, makes one request with `store: false` and at most 1000 output tokens, and exposes neither upstream error bodies nor transport exceptions.
+An authenticated GET reports configuration only (`INTEGRATED` or `ABSENT`), never key validity. An authenticated POST accepts exactly `prompt` (1–8000 characters) and `sensitivity` (`public` or `internal`). The trusted operator must classify and minimize context before calling; labels are not a private-data detector. Restricted, teen, family, journal, customer-private, and credential-bearing context must not be submitted. The adapter bounds request/response bytes, disables redirects, uses a 60-second provider timeout, makes one request with at most 2000 output tokens and sets `store: false` for OpenAI, and exposes neither upstream error bodies nor transport exceptions.
 
-Only an OpenAI Responses API result with `status: completed`, usable assistant text, and a valid response ID returns a draft and `provider:openai:<response-id>` provenance. Failed, incomplete, cancelled, queued, in-progress, or missing-status responses fail closed even if they contain partial text. Every result retains `authority: none`. No tools, storage, retries, automatic fallback, publication, execution, or approvals are granted. Output still requires human review. This is not a browser login, tenant authorization system, or automated agent runtime.
+OpenAI Responses API results require `status: completed`, usable assistant text and a valid response ID. Anthropic Messages API results require usable text and a valid response ID under the shared adapter contract. Successful results return `provider:<selected-provider>:<response-id>` provenance. OpenAI failed, incomplete, cancelled, queued, in-progress, or missing-status responses fail closed even if they contain partial text. No provider fallback is permitted. Every result retains `authority: none`. No tools, storage, retries, automatic fallback, publication, execution, or approvals are granted. Output still requires human review. This is not a browser login, tenant authorization system, or automated agent runtime.
 
 ## Protect Me 2 pilot: public draft authorization only
 
@@ -37,7 +40,7 @@ While enabled:
 - The server sends exactly \`{"tool":"chief.draft.generate"}\` to
   \`https://protect2.jussco.company/gateway/check\`, with no prompt, personal
   data, or upstream AI provider credentials.
-- A fresh \`allow\` verdict is required **before** the OpenAI draft call.
+- A fresh \`allow\` verdict is required **before** the selected provider draft call.
   A \`block\`, missing/bad identity, malformed/stale response, unknown pilot
   mode, or outage denies the call without fallback or execution.
 - The successful draft includes the gateway check timestamp as evidence;
@@ -61,6 +64,6 @@ through the existing reviewed path.
 
 Run `npm run typecheck`, `npm run lint`, and `npm test`. The existing Security Gates Playwright workflow also exercises the real Worker with synthetic credentials: public denial, authenticated configuration, restricted-input denial, and security headers. Completed-provider output and upstream failures are tested with a mocked provider; those tests are not live OpenAI proof.
 
-Use the existing reviewed Worker deployment path after exact-candidate approval. Preserve the current `chief-ai` Worker identity, assets, domain bindings, and FCR ownership boundaries. Before calling production provider execution verified, observe the exact `/version` release and retain one authenticated, approved, non-sensitive request with a real OpenAI response ID. Missing keys/model remain a deployment/configuration blocker; successful source checks do not resolve it.
+Use the existing reviewed Worker deployment path after exact-candidate approval. Preserve the current `chief-ai` Worker identity, assets, domain bindings, and FCR ownership boundaries. Before calling production provider execution verified, observe the exact `/version` release and retain one authenticated, approved, non-sensitive request with a real selected-provider response ID. Missing keys/model remain a deployment/configuration blocker; successful source checks do not resolve it.
 
 Rollback: revert the provider module and its single route registration through the same reviewed deployment path. Other Chief routes and static assets remain independent. Do not delete or rotate existing secrets as a side effect.
