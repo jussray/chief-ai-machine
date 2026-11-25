@@ -294,3 +294,63 @@ describe('Protect Me 2 public-draft pilot membrane', () => {
     expect(mock).not.toHaveBeenCalled();
   });
 });
+
+
+describe('explicit server-owned provider selection', () => {
+  const anthropicEnv = {
+    CHIEF_AI_OPERATOR_KEY: 'operator-fixture',
+    CHIEF_LIVE_PROVIDER: 'anthropic',
+    ANTHROPIC_API_KEY: 'anthropic-fixture',
+    CHIEF_ANTHROPIC_MODEL: 'anthropic-model-fixture',
+  };
+  const anthropicReply = { id: 'msg_fixture', content: [{ type: 'text', text: 'Synthetic draft.' }] };
+
+  it('reports Anthropic configuration without a provider call', async () => {
+    const response = await handleChiefProviderRequest(request(undefined, 'Bearer operator-fixture', 'GET'), anthropicEnv, async () => { throw new Error('unexpected provider call'); });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ provider: 'anthropic', model: 'anthropic-model-fixture', state: 'INTEGRATED', authority: 'none' });
+  });
+
+  it('executes the selected Anthropic adapter and returns a draft receipt', async () => {
+    const call = vi.fn(async (url, options) => {
+      expect(String(url)).toBe('https://api.anthropic.com/v1/messages');
+      expect(options.headers['x-api-key']).toBe('anthropic-fixture');
+      expect(JSON.parse(options.body)).toMatchObject({ model: 'anthropic-model-fixture', max_tokens: 2000 });
+      return Response.json(anthropicReply);
+    });
+    const response = await handleChiefProviderRequest(request(), anthropicEnv, call);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ provider: 'anthropic', response_id: 'msg_fixture', evidence_ref: 'provider:anthropic:msg_fixture', authority: 'none', state: 'draft' });
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fall back to OpenAI when selected Anthropic lacks a key or explicit model', async () => {
+    const call = vi.fn();
+    for (const missing of [{ ANTHROPIC_API_KEY: '' }, { CHIEF_ANTHROPIC_MODEL: '' }]) {
+      const response = await handleChiefProviderRequest(request(), { ...env, ...anthropicEnv, ...missing }, call);
+      expect(response.status).toBe(503);
+    }
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported selectors and keeps the operator authentication boundary', async () => {
+    const call = vi.fn();
+    expect((await handleChiefProviderRequest(request(), { ...env, CHIEF_LIVE_PROVIDER: 'unknown' }, call)).status).toBe(503);
+    expect((await handleChiefProviderRequest(request(undefined, 'Bearer wrong'), anthropicEnv, call)).status).toBe(401);
+    expect((await handleChiefProviderRequest(request(), { ...anthropicEnv, CHIEF_AI_OPERATOR_KEY: '' }, call)).status).toBe(503);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('keeps provider choice server-owned and honors Protect Me 2 denial for Anthropic', async () => {
+    const call = vi.fn();
+    expect((await handleChiefProviderRequest(request({ prompt: 'Public fixture', sensitivity: 'public', provider: 'openai' }), anthropicEnv, call)).status).toBe(400);
+    expect((await handleChiefProviderRequest(request({ prompt: 'Internal fixture', sensitivity: 'internal' }), { ...anthropicEnv, CHIEF_PROTECT2_PILOT_MODE: 'enforce-public-draft' }, call)).status).toBe(403);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('does not retry or switch providers after an Anthropic failure', async () => {
+    const call = vi.fn(async () => new Response('upstream error', { status: 502 }));
+    expect((await handleChiefProviderRequest(request(), { ...env, ...anthropicEnv }, call)).status).toBe(502);
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+});
