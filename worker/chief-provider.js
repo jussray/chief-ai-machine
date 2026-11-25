@@ -40,8 +40,20 @@ async function boundedText(body, maximum) {
   }
 }
 
-function runtimeConfigured(env) {
-  return Boolean(env?.OPENAI_API_KEY?.trim() && env?.CHIEF_OPENAI_MODEL?.trim());
+// Preserve the legacy OpenAI selection only when the selector is absent.
+// An explicitly configured but unsupported provider never falls back.
+function selectedRuntime(env) {
+  const provider = env?.CHIEF_LIVE_PROVIDER === undefined
+    ? 'openai'
+    : typeof env.CHIEF_LIVE_PROVIDER === 'string'
+      ? env.CHIEF_LIVE_PROVIDER.trim().toLowerCase()
+      : '';
+  if (provider !== 'openai' && provider !== 'anthropic') return null;
+  const key = provider === 'openai' ? env?.OPENAI_API_KEY : env?.ANTHROPIC_API_KEY;
+  const configuredModel = provider === 'openai' ? env?.CHIEF_OPENAI_MODEL : env?.CHIEF_ANTHROPIC_MODEL;
+  const model = typeof configuredModel === 'string' ? configuredModel.trim() : '';
+  const configured = typeof key === 'string' && Boolean(key.trim()) && Boolean(model);
+  return { provider, model, configured };
 }
 
 const PROTECT2_GATE_URL = 'https://protect2.jussco.company/gateway/check';
@@ -136,17 +148,19 @@ export async function handleChiefProviderRequest(request, env, fetchImpl = fetch
   const isAuthorized = await authorized(request, env.CHIEF_AI_OPERATOR_KEY);
   if (!isAuthorized) return json({ error: 'unauthorized' }, 401);
 
+  if (request.method !== 'GET' && request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+  const runtime = selectedRuntime(env);
+  if (!runtime) return json({ error: 'provider_not_configured' }, 503);
   if (request.method === 'GET') {
     return json({
       service: 'chief-ai',
-      provider: 'openai',
-      state: runtimeConfigured(env) ? 'INTEGRATED' : 'ABSENT',
-      model: runtimeConfigured(env) ? env.CHIEF_OPENAI_MODEL.trim() : null,
+      provider: runtime.provider,
+      state: runtime.configured ? 'INTEGRATED' : 'ABSENT',
+      model: runtime.configured ? runtime.model : null,
       authority: 'none',
     });
   }
-  if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-  if (!runtimeConfigured(env)) return json({ error: 'provider_not_configured' }, 503);
+  if (!runtime.configured) return json({ error: 'provider_not_configured' }, 503);
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
     return json({ error: 'json_required' }, 415);
   }
@@ -172,14 +186,14 @@ export async function handleChiefProviderRequest(request, env, fetchImpl = fetch
 
   try {
     const result = await invokeChiefProvider(env, {
-      provider: 'openai',
+      provider: runtime.provider,
       prompt: input.prompt,
       sensitivity: input.sensitivity,
     }, fetchImpl);
 
     return json({
       service: 'chief-ai',
-      provider: 'openai',
+      provider: result.provider,
       model: result.model,
       text: result.text,
       response_id: result.responseId,
