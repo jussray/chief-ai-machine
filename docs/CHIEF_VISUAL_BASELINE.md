@@ -1,0 +1,7 @@
+# CHIEF visual baseline — phase 1
+
+Source: founder-approved auto-fit prototype, palette and outlined crown. This candidate intentionally ports presentation to the existing landing, workspace and public front door; it does not replace the application with demo code. The cinematic lion asset and animated character scenes are not bundled in this candidate. Existing routes, scripts, server authority and data behavior remain unchanged.
+
+Proof: source-level assertions check preserved scripts and navigation attributes, crown, viewport and front-door handler. The added Vitest contract must pass alongside the repository's complete checks. Desktop/mobile browser and actual authenticated runtime verification remain required before merge or deploy. Do not claim production authentication or provider activation from this visual change.
+
+Rollback: revert this candidate commit after the applicable approval, or leave the branch unmerged. No migration, secrets, dependencies or service configuration changed.

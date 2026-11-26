@@ -2,20 +2,21 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Chief AI — Prompt Remix Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles/main.css" />
   <link rel="stylesheet" href="./styles/goals.css" />
+  <link rel="stylesheet" href="./styles/chief-visual-baseline.css" />
 </head>
-<body>
+<body class="chief-brand-workspace">
 <div class="app" id="app">
   <header class="topbar">
     <div class="logo">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Chief AI" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="24" height="24" rx="6" fill="currentColor" opacity="0.12"/><path d="M8 14h12M14 8v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="currentColor"/></svg>
-      <span>Chief<b>AI</b></span>
+      <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l8 8 9-15 9 15 8-8-5 20H10L5 13zm5 24h24M12 29h20"/><circle cx="5" cy="11" r="2"/><circle cx="22" cy="5" r="2"/><circle cx="39" cy="11" r="2"/></svg>
+      <span>CHIEF</span>
     </div>
     <div class="search-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input class="search" id="search" placeholder="Search the prompt library…" autocomplete="off"></div>
     <div class="top-actions"><span class="count-pill" id="countPill">— prompts</span><button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button></div>

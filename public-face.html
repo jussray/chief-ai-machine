@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Chief AI | Founder Intelligence OS</title>
   <meta name="description" content="Chief AI turns founder intent, company context, prompts, workflows, research, and decisions into portable, versioned operating intelligence." />
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large" />
@@ -34,9 +34,86 @@
     .button{min-height:44px;align-items:center;justify-content:center;overflow-wrap:anywhere}.button:focus-visible{outline:3px solid var(--gold);outline-offset:5px}
     @media(max-width:600px){main{padding:28px 0 56px}.entry-screen{min-height:calc(100svh - 84px)}.entry-screen .actions{flex-direction:column}}
   </style>
+<style>
+/* CHIEF visual baseline — extracted palette and emblem from the approved auto-fit prototype.
+   Presentation only; no changes to authentication, authority, storage or execution. */
+:root {
+  --chief-gold: #efbd70;
+  --chief-muted: #c1b8c9;
+  --chief-edge: #b8996554;
+  --chief-glass: rgba(13,12,22,.66);
+  --chief-purple: #9764b9;
+  --chief-night: #0c0910;
+  --chief-gold-button: linear-gradient(130deg,#ffe2a0,#c78533 65%,#f5c77b);
+}
+.chief-brand-public, [data-theme="dark"] .chief-brand-workspace {
+  color-scheme: dark;
+  color: #faf4ef;
+  background: radial-gradient(ellipse at 74% 18%,rgba(151,100,185,.25),transparent 52%),radial-gradient(ellipse at 12% 48%,rgba(239,189,112,.13),transparent 42%),var(--chief-night);
+  min-height: 100vh;
+  min-height: 100svh;
+}
+.chief-brand-public .logo, .chief-brand-workspace .logo, .chief-wordmark {
+  display:flex;align-items:center;gap:10px;color:var(--chief-gold);
+  font-family:system-ui,sans-serif;font-weight:800;letter-spacing:.09em;
+}
+.chief-brand-public .logo svg,.chief-brand-workspace .logo svg,.chief-wordmark svg {width:34px;height:34px;flex:none}
+.chief-brand-public .header {background:rgba(12,9,16,.87);border-color:var(--chief-edge);backdrop-filter:blur(16px)}
+.chief-brand-public .hero h1,.chief-brand-public .welcome-screen h1 {color:var(--chief-gold);font-size:clamp(2.6rem,6vw,5.6rem);line-height:1.05;overflow-wrap:anywhere}
+.chief-brand-public .subheading,.chief-brand-public .lede,.chief-brand-public .muted {color:var(--chief-muted)}
+.chief-brand-public :is(.feature-card,.model-card,.workflow-item,.cta-section,.panel) {background:var(--chief-glass);border:1px solid var(--chief-edge);border-radius:16px;backdrop-filter:blur(13px);box-shadow:0 12px 36px #0004;min-width:0}
+.chief-brand-public :is(.cta,.btn-primary,.button.primary) {background:var(--chief-gold-button);color:#1c1107;border:1px solid #ffde9d;font-weight:750;min-height:44px}
+.chief-brand-public .workflow-item .num,.chief-brand-public .eyebrow {color:var(--chief-gold)}
+.chief-brand-public :is(.btn-secondary,.button:not(.primary)) {border:1px solid var(--chief-edge);color:#faf4ef;background:var(--chief-glass);min-height:44px}
+.chief-brand-public :is(a,button):focus-visible,.chief-brand-workspace :is(a,button,input,textarea,select):focus-visible {outline:2px solid var(--chief-gold);outline-offset:3px}
+[data-theme="dark"] .chief-brand-workspace {
+  --bg:var(--chief-night);--surface:var(--chief-glass);--surface-2:#211a29b8;--surface-3:#322739;
+  --border:var(--chief-edge);--border-2:#b8996580;--primary:var(--chief-gold);--primary-dim:#efbd7020;--primary-glow:#efbd7050;
+  --text:#faf4ef;--text-muted:var(--chief-muted);--text-faint:#a89eaf;
+}
+.chief-brand-workspace .app {grid-template-columns:248px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100svh}
+.chief-brand-workspace :is(.main,.search-wrap,.top-actions,.page,.stat,.panel,.split>*,.layer>*) {min-width:0}
+.chief-brand-workspace .topbar {min-height:64px;padding-top:env(safe-area-inset-top,0px);padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+.chief-brand-workspace .sidebar {top:64px;height:calc(100svh - 64px)}
+[data-theme="dark"] .chief-brand-workspace :is(.topbar,.sidebar,.mobile-nav,.stat,.panel,.card,.citem,.tbl-wrap) {backdrop-filter:blur(13px);border-color:var(--chief-edge)}
+[data-theme="dark"] .chief-brand-workspace .page-head h2 {color:var(--chief-gold);font-family:system-ui,sans-serif}
+.chief-brand-workspace :is(.page-head,.stat,.panel,.card) {overflow-wrap:anywhere}
+.chief-brand-workspace :is(input,textarea,select) {max-width:100%}
+.chief-brand-workspace .stat-row {grid-template-columns:repeat(4,minmax(0,1fr))}
+.chief-brand-workspace .tbl-wrap {max-width:100%;overflow-x:auto}
+.chief-brand-public .entry-screen {min-height:calc(100svh - 84px)}
+.chief-brand-public .actions {flex-wrap:wrap}
+.chief-brand-public :is(.feature-grid,.workflow-grid,.models-grid) {grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.chief-brand-public img,.chief-brand-workspace img {max-width:100%;height:auto}
+@media(max-width:900px) {
+ .chief-brand-workspace .app {grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 1fr}
+ .chief-brand-workspace .mobile-nav {position:static;max-width:100%;padding:8px 12px}
+ .chief-brand-workspace .stat-row {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .chief-brand-workspace .split {grid-template-columns:minmax(0,1fr)}
+ .chief-brand-workspace .main {padding-bottom:max(24px,env(safe-area-inset-bottom,0px))}
+}
+@media(max-width:600px) {
+ .chief-brand-public .header-wrap {padding:0 14px;gap:10px}
+ .chief-brand-public .hero {padding:32px 16px}
+ .chief-brand-public .hero-ctas {flex-wrap:wrap}
+ .chief-brand-workspace .topbar {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding-bottom:10px;padding-top:max(10px,env(safe-area-inset-top,0px))}
+ .chief-brand-workspace .topbar .search-wrap {grid-row:2;grid-column:1/-1;max-width:none}
+ .chief-brand-workspace .topbar .top-actions {grid-row:1;grid-column:2}
+ .chief-brand-workspace .mobile-nav .nav-item {min-height:44px}
+ .chief-brand-workspace .stat .n {font-size:clamp(15px,4vw,22px)}
+}
+@media(prefers-reduced-motion:reduce) {
+ .chief-brand-public *, .chief-brand-workspace * {animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+@media(prefers-reduced-transparency:reduce) {
+ .chief-brand-public :is(.header,.panel,.feature-card,.model-card,.workflow-item,.cta-section),
+ [data-theme="dark"] .chief-brand-workspace :is(.topbar,.sidebar,.mobile-nav,.panel,.stat,.card,.citem,.tbl-wrap) {background:#15121e;backdrop-filter:none}
+}
+</style>
 </head>
-<body>
+<body class="chief-brand-public">
 <main>
+  <div class="chief-wordmark"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l8 8 9-15 9 15 8-8-5 20H10L5 13zm5 24h24M12 29h20"/><circle cx="5" cy="11" r="2"/><circle cx="22" cy="5" r="2"/><circle cx="39" cy="11" r="2"/></svg><span>CHIEF · INTELLIGENCE PARTNER</span></div>
   <section class="entry-screen onboarding-screen" id="onboarding" tabindex="-1" aria-labelledby="onboarding-heading">
     <div class="eyebrow">Getting started · Chief AI</div>
     <h2 id="onboarding-heading">Start with one clear goal.</h2>
