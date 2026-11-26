@@ -98,6 +98,19 @@ describe('Founder Research & Verification Operator', () => {
     }, NOW)).toThrow('Finding 1 references an unknown source: missing-source');
   });
 
+  it('requires a source-backed VERIFIED finding before review', () => {
+    expect(() => createFounderResearchTask({
+      ...BASE_INPUT,
+      status: 'ready_for_review',
+      findings: [{
+        state: 'INFERRED',
+        statement: 'The current evidence suggests the boundary is sound.',
+        sourceRefs: ['repo:src/domain/evidence-decision-loop.js'],
+        confidence: 60,
+      }],
+    }, NOW)).toThrow('Research tasks require a source-backed VERIFIED finding before review');
+  });
+
   it('rejects a domain that does not match its deployment context', () => {
     const task = createFounderResearchTask(BASE_INPUT, NOW);
     expect(validateFounderResearchTask({
