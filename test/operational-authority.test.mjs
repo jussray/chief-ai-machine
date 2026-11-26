@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import {
   applyWorkflowAuthorityWaivers,
   auditActionReference,
@@ -9,6 +11,44 @@ import {
 } from '../scripts/verify-operational-authority.mjs';
 
 describe('operational authority contract', () => {
+
+  it('executes the materializer trusted-main event membrane and rejects untrusted identity', () => {
+    const workflow = readFileSync(new URL('../.github/workflows/governance-required-check-materializer.yml', import.meta.url), 'utf8');
+    const block = workflow.split('      - name: Check trusted event boundary\n')[1]
+      ?.split('      - name: Check out trusted evaluator snapshot only')[0];
+    expect(block).toBeTruthy();
+    const shell = block.split('        run: |\n')[1].split('\n').map(line => line.replace(/^ {10}/, '')).join('\n');
+    const valid = {
+      GITHUB_EVENT_NAME: 'pull_request_target',
+      GITHUB_REF: 'refs/heads/main',
+      BASE_REF: 'main',
+      BASE_REPO: 'owner/chief',
+      HEAD_REPO: 'owner/chief',
+      GITHUB_REPOSITORY: 'owner/chief',
+      EXPECTED_HEAD_SHA: 'a'.repeat(40),
+      BASE_SHA: 'b'.repeat(40),
+      GITHUB_SHA: 'b'.repeat(40),
+      TRUSTED_EVALUATOR_SHA: 'b'.repeat(40),
+    };
+    const status = overrides => spawnSync('bash', ['-c', shell], {
+      env: { PATH: process.env.PATH, ...valid, ...overrides }, encoding: 'utf8',
+    }).status;
+    expect(status({})).toBe(0);
+    for (const invalid of [
+      { GITHUB_EVENT_NAME: 'pull_request' },
+      { GITHUB_REF: 'refs/pull/304/merge' },
+      { BASE_REF: 'feature' },
+      { BASE_REPO: 'other/chief' },
+      { HEAD_REPO: 'other/chief' },
+      { EXPECTED_HEAD_SHA: 'bad' },
+      { BASE_SHA: 'bad' },
+      { GITHUB_SHA: 'c'.repeat(40) },
+      { TRUSTED_EVALUATOR_SHA: 'c'.repeat(40) },
+    ]) {
+      expect(status(invalid), JSON.stringify(invalid)).toBe(1);
+    }
+  });
+
   it('accepts local actions and full-SHA third-party actions', () => {
     expect(auditActionReference('./.github/actions/local')).toMatchObject({ ok: true });
     expect(auditActionReference('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'))

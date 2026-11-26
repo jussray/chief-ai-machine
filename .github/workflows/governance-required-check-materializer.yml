@@ -105,13 +105,21 @@ jobs:
         env:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$GITHUB_EVENT_NAME" == "pull_request_target" ]]
-          [[ "$GITHUB_REF" == refs/pull/*/merge ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$BASE_REF" == "main" ]]
+          [[ "$BASE_REPO" == "$GITHUB_REPOSITORY" ]]
+          [[ "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]
           [[ "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_SHA" == "$BASE_SHA" ]]
+          [[ "$TRUSTED_EVALUATOR_SHA" == "$BASE_SHA" ]]
       - name: Check out trusted evaluator snapshot only
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

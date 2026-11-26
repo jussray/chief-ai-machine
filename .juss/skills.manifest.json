@@ -5,7 +5,7 @@
   "registry": {
     "repository": "jussray/promptos",
     "manifestPath": "manifests/apps/chief-ai-machine.json",
-    "revision": "1fd1225ca0c4cbb6e9a2f24824c378b424298cd3",
+    "revision": "78cbc9b41c7f592b19d19fd844c7fa8059c5699f",
     "sourceRef": "feat/app-skill-registry-v2-20261125",
     "status": "candidate"
   },
@@ -27,7 +27,7 @@
         "lifecycle": "candidate",
         "mode": "reference-only",
         "authority": "advisory",
-        "owner": "ultrathink",
+        "owner": "promptos",
         "compatibility": {
           "apps": [
             "*"
@@ -47,7 +47,7 @@
         "lifecycle": "candidate",
         "mode": "reference-only",
         "authority": "advisory",
-        "owner": "ultrathink",
+        "owner": "promptos",
         "compatibility": {
           "apps": [
             "*"
@@ -67,7 +67,7 @@
         "lifecycle": "candidate",
         "mode": "reference-only",
         "authority": "advisory",
-        "owner": "ultrathink",
+        "owner": "promptos",
         "compatibility": {
           "apps": [
             "*"
@@ -87,7 +87,7 @@
         "lifecycle": "candidate",
         "mode": "reference-only",
         "authority": "advisory",
-        "owner": "ultrathink",
+        "owner": "promptos",
         "compatibility": {
           "apps": [
             "*"
