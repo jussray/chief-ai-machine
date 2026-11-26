@@ -1,0 +1,314 @@
+{
+  "schemaVersion": "1.0",
+  "registryVersion": "2.0.0",
+  "appId": "chief-ai-machine",
+  "registry": {
+    "repository": "jussray/promptos",
+    "manifestPath": "manifests/apps/chief-ai-machine.json",
+    "revision": "667ba485a051417f4ca6d00810b9732d08c095e0",
+    "sourceRef": "feat/app-skill-registry-v2-20261125",
+    "status": "candidate"
+  },
+  "source": {
+    "repository": "jussray/ULTRATHINK-",
+    "revision": "4e650bdb2ca3a372300ca99bbf8af18c75a1d5ca",
+    "sourceRef": "feat/portable-skill-packages-20261125",
+    "status": "candidate"
+  },
+  "skills": {
+    "shared": [
+      {
+        "id": "goalfix",
+        "sourceRepository": "jussray/ULTRATHINK-",
+        "sourcePath": "skills/goalfix/SKILL.md",
+        "sourceRevision": "4e650bdb2ca3a372300ca99bbf8af18c75a1d5ca",
+        "sourceRef": "feat/portable-skill-packages-20261125",
+        "status": "source-path-verified",
+        "lifecycle": "candidate",
+        "mode": "reference-only",
+        "authority": "advisory",
+        "owner": "ultrathink",
+        "compatibility": {
+          "apps": [
+            "*"
+          ],
+          "surfaces": [
+            "*"
+          ]
+        }
+      },
+      {
+        "id": "ultrathink",
+        "sourceRepository": "jussray/ULTRATHINK-",
+        "sourcePath": "skills/ultrathink/SKILL.md",
+        "sourceRevision": "4e650bdb2ca3a372300ca99bbf8af18c75a1d5ca",
+        "sourceRef": "feat/portable-skill-packages-20261125",
+        "status": "source-path-verified",
+        "lifecycle": "candidate",
+        "mode": "reference-only",
+        "authority": "advisory",
+        "owner": "ultrathink",
+        "compatibility": {
+          "apps": [
+            "*"
+          ],
+          "surfaces": [
+            "*"
+          ]
+        }
+      },
+      {
+        "id": "redteam",
+        "sourceRepository": "jussray/ULTRATHINK-",
+        "sourcePath": "skills/redteam/SKILL.md",
+        "sourceRevision": "4e650bdb2ca3a372300ca99bbf8af18c75a1d5ca",
+        "sourceRef": "feat/portable-skill-packages-20261125",
+        "status": "source-path-verified",
+        "lifecycle": "candidate",
+        "mode": "reference-only",
+        "authority": "advisory",
+        "owner": "ultrathink",
+        "compatibility": {
+          "apps": [
+            "*"
+          ],
+          "surfaces": [
+            "*"
+          ]
+        }
+      },
+      {
+        "id": "proofmode",
+        "sourceRepository": "jussray/ULTRATHINK-",
+        "sourcePath": "skills/proofmode/SKILL.md",
+        "sourceRevision": "4e650bdb2ca3a372300ca99bbf8af18c75a1d5ca",
+        "sourceRef": "feat/portable-skill-packages-20261125",
+        "status": "source-path-verified",
+        "lifecycle": "candidate",
+        "mode": "reference-only",
+        "authority": "advisory",
+        "owner": "ultrathink",
+        "compatibility": {
+          "apps": [
+            "*"
+          ],
+          "surfaces": [
+            "*"
+          ]
+        }
+      }
+    ],
+    "owned": [
+      {
+        "id": "chief-ai-operator",
+        "sourceRepository": "jussray/chief-ai-machine",
+        "sourcePath": ".agents/skills/chief-ai-operator/SKILL.md",
+        "sourceRevision": "87442c39702f6716a962f15253ed6ee4d244d03a",
+        "sourceRef": "main",
+        "status": "source-path-verified",
+        "lifecycle": "current-main",
+        "mode": "app-native",
+        "authority": "advisory",
+        "owner": "chief-ai-machine",
+        "compatibility": {
+          "apps": [
+            "chief-ai-machine"
+          ],
+          "surfaces": [
+            "web",
+            "worker",
+            "api",
+            "mobile"
+          ]
+        }
+      },
+      {
+        "id": "scoped-parallel-proof-workflow",
+        "sourceRepository": "jussray/chief-ai-machine",
+        "sourcePath": ".agents/skills/scoped-parallel-proof-workflow/SKILL.md",
+        "sourceRevision": "87442c39702f6716a962f15253ed6ee4d244d03a",
+        "sourceRef": "main",
+        "status": "source-path-verified",
+        "lifecycle": "current-main",
+        "mode": "app-native",
+        "authority": "advisory",
+        "owner": "chief-ai-machine",
+        "compatibility": {
+          "apps": [
+            "chief-ai-machine"
+          ],
+          "surfaces": [
+            "web",
+            "worker",
+            "api",
+            "mobile"
+          ]
+        }
+      },
+      {
+        "id": "goalfix",
+        "sourceRepository": "jussray/chief-ai-machine",
+        "sourcePath": ".claude/skills/goalfix/SKILL.md",
+        "sourceRevision": "87442c39702f6716a962f15253ed6ee4d244d03a",
+        "sourceRef": "main",
+        "status": "source-path-verified",
+        "lifecycle": "current-main",
+        "mode": "app-native",
+        "authority": "advisory",
+        "owner": "chief-ai-machine",
+        "compatibility": {
+          "apps": [
+            "chief-ai-machine"
+          ],
+          "surfaces": [
+            "web",
+            "worker",
+            "api",
+            "mobile"
+          ]
+        }
+      },
+      {
+        "id": "ultrathink-devil",
+        "sourceRepository": "jussray/chief-ai-machine",
+        "sourcePath": ".claude/skills/ultrathink-devil/SKILL.md",
+        "sourceRevision": "87442c39702f6716a962f15253ed6ee4d244d03a",
+        "sourceRef": "main",
+        "status": "source-path-verified",
+        "lifecycle": "current-main",
+        "mode": "app-native",
+        "authority": "advisory",
+        "owner": "chief-ai-machine",
+        "compatibility": {
+          "apps": [
+            "chief-ai-machine"
+          ],
+          "surfaces": [
+            "web",
+            "worker",
+            "api",
+            "mobile"
+          ]
+        }
+      },
+      {
+        "id": "evidence-decision-loop",
+        "sourceRepository": "jussray/chief-ai-machine",
+        "sourcePath": ".claude/skills/evidence-decision-loop/SKILL.md",
+        "sourceRevision": "87442c39702f6716a962f15253ed6ee4d244d03a",
+        "sourceRef": "main",
+        "status": "source-path-verified",
+        "lifecycle": "current-main",
+        "mode": "app-native",
+        "authority": "advisory",
+        "owner": "chief-ai-machine",
+        "compatibility": {
+          "apps": [
+            "chief-ai-machine"
+          ],
+          "surfaces": [
+            "web",
+            "worker",
+            "api",
+            "mobile"
+          ]
+        }
+      }
+    ],
+    "ownedSkillsStatus": "source-audited"
+  },
+  "plugins": [
+    {
+      "id": "github",
+      "provider": "GitHub",
+      "purpose": "Repository, PR, review, and CI evidence.",
+      "mode": "operator-tooling",
+      "status": "declared",
+      "connectionState": "runtime-discovery-required",
+      "authority": "none",
+      "compatibleApps": [
+        "chief-ai-machine"
+      ],
+      "capabilities": [
+        "repository.read",
+        "branch.read",
+        "pull-request.read",
+        "checks.read"
+      ],
+      "writePolicy": "explicit-action-approval-required",
+      "secretsPolicy": "never-store-in-manifest"
+    },
+    {
+      "id": "cloudflare",
+      "provider": "Cloudflare",
+      "purpose": "Worker, deployment, and runtime metadata.",
+      "mode": "operator-tooling",
+      "status": "declared",
+      "connectionState": "runtime-discovery-required",
+      "authority": "none",
+      "compatibleApps": [
+        "chief-ai-machine"
+      ],
+      "capabilities": [
+        "worker.read",
+        "deployment.read",
+        "runtime.read"
+      ],
+      "writePolicy": "explicit-action-approval-required",
+      "secretsPolicy": "never-store-in-manifest"
+    },
+    {
+      "id": "openai-platform",
+      "provider": "OpenAI Platform",
+      "purpose": "Model project and API configuration inspection.",
+      "mode": "operator-tooling",
+      "status": "declared",
+      "connectionState": "runtime-discovery-required",
+      "authority": "none",
+      "compatibleApps": [
+        "chief-ai-machine"
+      ],
+      "capabilities": [
+        "model-project.read",
+        "model-config.read"
+      ],
+      "writePolicy": "explicit-action-approval-required",
+      "secretsPolicy": "never-store-in-manifest"
+    },
+    {
+      "id": "aws-core",
+      "provider": "AWS Core",
+      "purpose": "AWS workload and infrastructure inspection when authorized.",
+      "mode": "operator-tooling",
+      "status": "declared",
+      "connectionState": "runtime-discovery-required",
+      "authority": "none",
+      "compatibleApps": [
+        "chief-ai-machine"
+      ],
+      "capabilities": [
+        "aws.resource.read",
+        "aws.infrastructure.inspect"
+      ],
+      "writePolicy": "explicit-action-approval-required",
+      "secretsPolicy": "never-store-in-manifest"
+    }
+  ],
+  "compatibility": {
+    "surfaces": [
+      "web",
+      "worker",
+      "api",
+      "mobile"
+    ],
+    "requiresPlaywrightForUi": true,
+    "observedSkillDirectories": [
+      ".agents/skills/",
+      ".claude/skills/",
+      "skills/"
+    ]
+  },
+  "authority": "catalog-and-compatibility-only",
+  "installationState": "not-asserted",
+  "executionAuthority": "none"
+}

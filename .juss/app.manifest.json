@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "registryVersion": "2.0.0",
+  "id": "chief-ai-machine",
+  "name": "Chief AI Machine",
+  "repository": "chief-ai-machine",
+  "defaultBranch": "main",
+  "sourceHeadAtAudit": "87442c39702f6716a962f15253ed6ee4d244d03a",
+  "identityStatus": "source-verified",
+  "role": "standalone-agent-orchestration-cognition-and-capability-proposal-layer",
+  "authorityOwner": "chief-ai-machine",
+  "authorityScope": "Agent identity, orchestration, capability composition, and proposals; FCR retains founder approval and portfolio release authority.",
+  "surfaces": [
+    "web",
+    "worker",
+    "api",
+    "mobile"
+  ],
+  "localManifestPaths": [
+    ".juss/app.manifest.json",
+    ".juss/skills.manifest.json"
+  ]
+}
