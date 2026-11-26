@@ -114,7 +114,7 @@ export function initFreestyle(PROMPTS) {
     });
   }
 
-  function kaelStatus(message,busy=false){const p=document.getElementById('kaelPet'),s=document.getElementById('kaelStatus');if(p)p.dataset.busy=String(busy);if(s)s.textContent=message;}
+  function kaelStatus(message,busy=false,pose='idle'){const p=document.getElementById('kaelPet'),s=document.getElementById('kaelStatus');if(p){p.dataset.busy=String(busy);p.dataset.pose=pose;}if(s)s.textContent=message;}
   function generate() {
     const ask = askEl?.value?.trim();
     if (!ask) return;
@@ -124,7 +124,7 @@ export function initFreestyle(PROMPTS) {
     const base = selectFreestylePrompt(PROMPTS, ask, platforms);
     const avail = (base.platforms || []).filter(platform => platforms.includes(platform));
     if (!avail.length) {
-      kaelStatus('No local match found.');
+      kaelStatus('No local match found.',false,'error');
       showToast('No match for selected platforms.');
       return;
     }
@@ -153,8 +153,8 @@ export function initFreestyle(PROMPTS) {
     fsBody.textContent = renderCurrent();
     placeholder.style.display = 'none';
     preview.classList.add('on');
-    kaelStatus('Local prompt ready.');
-    } catch(error){kaelStatus('Prompt selection failed.');throw error;}
+    kaelStatus('Local prompt ready.',false,'ready');
+    } catch(error){kaelStatus('Prompt selection failed.',false,'error');throw error;}
   }
 
   document.getElementById('fsGenerate')?.addEventListener('click', generate);
