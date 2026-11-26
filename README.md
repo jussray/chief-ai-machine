@@ -4,9 +4,11 @@
 > This is proprietary software. No license to use, copy, modify, distribute,
 > sublicense, or create derivative works is granted. See [LICENSE](LICENSE).
 
-Chief AI Prompt Machine is Jussray’s founder prompt-operations system for Se’kret Bip, Think Tank, Juss Beautiful Hair, and L99.
+Chief AI Machine is Juss Ray’s standalone executive-intelligence and capability-orchestration product. It turns company reality, founder intent, specialist input, and verified evidence into coordinated reasoning, council synthesis, capability plans, and founder-ready recommendations.
 
-The current application is a vanilla JavaScript SPA containing the prompt library, Builder, Freestyle template selection, benchmarks, and browser-local custom prompt state. Treat it as a prototype until private access control, server-side prompt storage, and real model execution are implemented and verified.
+Chief owns the reasoning and capability-selection plane: company intelligence, cross-examination, prioritization, specialist/model/agent/skill/tool routing, and evidence-backed recommendations. It does not own repository truth, approvals, deployment, or execution authority; Founder Control Room retains those responsibilities. PromptOS is a separate, independent instruction-governance product. Chief may integrate with PromptOS through explicit peer contracts, but PromptOS catalogs, mission compilation, and instruction governance are not Chief’s product identity or embedded application surface.
+
+The current repository contains prototype UI and domain slices. Do not describe provider execution, autonomous council runtime, durable multi-tenant storage, or complete production integrations as implemented unless exact repository and runtime evidence proves them.
 
 ## Global operating contracts
 
