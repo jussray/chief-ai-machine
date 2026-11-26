@@ -5,7 +5,7 @@
   "registry": {
     "repository": "jussray/promptos",
     "manifestPath": "manifests/apps/chief-ai-machine.json",
-    "revision": "78cbc9b41c7f592b19d19fd844c7fa8059c5699f",
+    "revision": "e8e16ba6c197dfbf5a36131d83a990effff20955",
     "sourceRef": "feat/app-skill-registry-v2-20261125",
     "status": "candidate"
   },
