@@ -3,7 +3,7 @@
   "registryVersion": "2.0.0",
   "id": "chief-ai-machine",
   "name": "Chief AI Machine",
-  "repository": "chief-ai-machine",
+  "repository": "jussray/chief-ai-machine",
   "defaultBranch": "main",
   "sourceHeadAtAudit": "c154767b8e570cf50bfb7f5d8d042dbab76d7358",
   "identityStatus": "source-verified",
