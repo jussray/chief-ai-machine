@@ -86,6 +86,17 @@ describe('Founder Research & Verification Operator', () => {
     }, NOW)).toThrow('Finding 1 in state VERIFIED requires source evidence');
   });
 
+  it('requires capture timestamps for every source reference', () => {
+    expect(() => createFounderResearchTask({
+      ...BASE_INPUT,
+      sources: [{
+        ref: 'repo:src/domain/evidence-decision-loop.js',
+        kind: 'repository-file',
+        trust: 'repository',
+      }],
+    }, NOW)).toThrow('Research source repo:src/domain/evidence-decision-loop.js requires a valid capture timestamp');
+  });
+
   it('rejects findings that cite a source not present in the task', () => {
     expect(() => createFounderResearchTask({
       ...BASE_INPUT,
