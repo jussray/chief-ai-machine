@@ -149,8 +149,8 @@ export function validateFounderResearchTask(task) {
     if (source?.contentHash && !HASH.test(source.contentHash)) {
       errors.push(`Research source ${source?.ref || '<unknown>'} has an invalid content hash`);
     }
-    if (source?.capturedAt && !Number.isFinite(Date.parse(source.capturedAt))) {
-      errors.push(`Research source ${source?.ref || '<unknown>'} has an invalid capture timestamp`);
+    if (!source?.capturedAt || !Number.isFinite(Date.parse(source.capturedAt))) {
+      errors.push(`Research source ${source?.ref || '<unknown>'} requires a valid capture timestamp`);
     }
   }
 
