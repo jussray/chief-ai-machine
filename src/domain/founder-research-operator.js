@@ -169,7 +169,7 @@ export function validateFounderResearchTask(task) {
     if (!Number.isInteger(finding?.confidence) || finding.confidence < 0 || finding.confidence > 100) {
       errors.push(`Finding ${index + 1} confidence must be an integer from 0 to 100`);
     }
-    if (['VERIFIED', 'OBSERVED'].includes(finding?.state) && (!finding.sourceRefs || finding.sourceRefs.length === 0)) {
+    if (['VERIFIED', 'OBSERVED'].includes(finding?.state) && (!Array.isArray(finding.sourceRefs) || finding.sourceRefs.length === 0)) {
       errors.push(`Finding ${index + 1} in state ${finding.state} requires source evidence`);
     }
   }
