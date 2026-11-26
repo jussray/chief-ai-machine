@@ -19,10 +19,11 @@ const workerSource = readFileSync(
 );
 
 describe('Chief AI Worker version receipt', () => {
-  it('routes runtime endpoints through the Worker before asset fallback', () => {
-    expect(wranglerConfig).toMatch(
-      /"run_worker_first":\s*\[\s*"\/api\/\*"\s*,\s*"\/version"\s*,\s*"\/mcp"\s*,\s*"\/.well-known\/\*"\s*\]/,
-    );
+  it('routes every asset and runtime response through the Worker security headers', () => {
+    const config = JSON.parse(wranglerConfig);
+    expect(config.assets.run_worker_first).toBe(true);
+    expect(workerSource).toContain('headers.set(csp.headerName, csp.value)');
+    expect(workerSource).toContain('return addSecurityHeaders(response)');
   });
 
   it('exposes Cloudflare provider version metadata to the runtime', () => {

@@ -20,21 +20,10 @@ on:
       - "worker/**"
       - "test/worker-version.test.js"
       - ".github/workflows/control-room-contracts.yml"
+  # The exact-head ledger requires this named check on every main push.
+  # Keep path filtering on pull requests, but never omit the main-branch signal.
   push:
     branches: [main]
-    paths:
-      - "control-room.manifest.json"
-      - ".control-room/repository.manifest.json"
-      - "scripts/verify-control-room-tests.mjs"
-      - "scripts/verify-mcp-config.mjs"
-      - "scripts/verify-cookie-contract.mjs"
-      - "scripts/verify-founder-chief-pair.mjs"
-      - "scripts/bake-worker-release-sha.mjs"
-      - "package.json"
-      - "wrangler.jsonc"
-      - "worker/**"
-      - "test/worker-version.test.js"
-      - ".github/workflows/control-room-contracts.yml"
   workflow_dispatch:
 
 permissions:

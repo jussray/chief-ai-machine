@@ -5,11 +5,14 @@ import { discoverTrustedChiefPreview, validatePreviewOrigin } from '../scripts/c
 const trustedSha = 'a'.repeat(40);
 const candidateSha = 'b'.repeat(40);
 const preview = 'https://1234abcd-chief-ai.mcgill-raylene.workers.dev';
+const providerVersionId = '1234abcd-1111-4222-8333-444444444444';
+const candidateBranch = 'fix/chief-protect2-gate-pilot-20261120';
 const env = {
   GITHUB_EVENT_NAME: 'workflow_dispatch',
   GITHUB_REF: 'refs/heads/main',
   GITHUB_SHA: trustedSha,
   EXPECTED_HEAD_SHA: candidateSha,
+  EXPECTED_PROVIDER_VERSION_ID: providerVersionId,
   AUTHORITY_PR: '281',
   AUTHORIZE_PROOF: 'true',
   GITHUB_RUN_ATTEMPT: '1',
@@ -20,7 +23,7 @@ const env = {
   GH_TOKEN: 'test-github-token',
 };
 
-function fixture({ movedMain = false, wrongHead = false, wrongProvider = false, maliciousPreview = false } = {}) {
+function fixture({ movedMain = false, wrongHead = false, wrongProvider = false, maliciousPreview = false, wrongBranch = false, wrongVersion = false, forgedPrefix = false } = {}) {
   const calls = [];
   const fetchImpl = async (url) => {
     calls.push(url);
@@ -29,7 +32,7 @@ function fixture({ movedMain = false, wrongHead = false, wrongProvider = false, 
     else if (url.endsWith('/pulls/281')) payload = {
       number: 281, state: 'open',
       base: { ref: 'main', repo: { full_name: 'jussray/chief-ai-machine' } },
-      head: { sha: wrongHead ? 'd'.repeat(40) : candidateSha, repo: { full_name: 'jussray/chief-ai-machine' } },
+      head: { sha: wrongHead ? 'd'.repeat(40) : candidateSha, ref: wrongBranch ? '..bad-ref' : candidateBranch, repo: { full_name: 'jussray/chief-ai-machine' } },
     };
     else if (url.includes('/check-runs?')) payload = {
       check_runs: [{
@@ -37,8 +40,8 @@ function fixture({ movedMain = false, wrongHead = false, wrongProvider = false, 
         app: { id: wrongProvider ? 123 : 85455 },
         head_sha: candidateSha,
         status: 'completed', conclusion: 'success',
-        output: { summary: 'Build ID: 123\nPreview URL: ' +
-          (maliciousPreview ? 'https://evil.example.com' : preview) + '\n' },
+        output: { summary: 'Build ID: 123\nVersion ID: ' + (wrongVersion ? '1234abcd-1111-4222-8333-555555555555' : providerVersionId) + '\nPreview URL: ' +
+          (maliciousPreview ? 'https://evil.example.com' : forgedPrefix ? 'https://ffffffff-chief-ai.mcgill-raylene.workers.dev' : preview) + '\n' },
       }],
     };
     else throw new Error('Unexpected URL ' + url);
@@ -52,6 +55,7 @@ describe('Chief trusted-only authenticated preview admission', () => {
     const f = fixture();
     await expect(discoverTrustedChiefPreview(env, f.fetchImpl)).resolves.toEqual({
       previewOrigin: preview, trustedMain: trustedSha, expectedHead: candidateSha,
+      providerVersionId, candidateBranch,
     });
     expect(f.calls).toHaveLength(3);
   });
@@ -65,6 +69,8 @@ describe('Chief trusted-only authenticated preview admission', () => {
       { AUTHORIZE_PROOF: 'false' },
       { GITHUB_RUN_ATTEMPT: '2' },
       { EXPECTED_HEAD_SHA: 'invalid' },
+      { EXPECTED_PROVIDER_VERSION_ID: 'invalid' },
+      { EXPECTED_PROVIDER_VERSION_ID: '' },
     ]) {
       const f = fixture();
       await expect(discoverTrustedChiefPreview({ ...env, ...override }, f.fetchImpl)).rejects.toThrow();
@@ -75,7 +81,8 @@ describe('Chief trusted-only authenticated preview admission', () => {
   it('refuses moved main, moved PR head, wrong provider app and non-immutable URLs', async () => {
     for (const config of [
       { movedMain: true }, { wrongHead: true }, { wrongProvider: true },
-      { maliciousPreview: true },
+      { maliciousPreview: true }, { wrongBranch: true },
+      { wrongVersion: true }, { forgedPrefix: true },
     ]) {
       const f = fixture(config);
       await expect(discoverTrustedChiefPreview(env, f.fetchImpl)).rejects.toThrow();
@@ -88,21 +95,31 @@ describe('Chief trusted-only authenticated preview admission', () => {
     const workflow = readFileSync(new URL('../.github/workflows/chief-immutable-preview-auth-proof.yml', import.meta.url), 'utf8');
     const browser = readFileSync(new URL('../scripts/chief-trusted-preview-browser.pw.mjs', import.meta.url), 'utf8');
     expect(workflow).toContain('workflow_dispatch:');
+    expect(workflow).toContain('expected_provider_version_id:');
+    expect(workflow).toContain('EXPECTED_PROVIDER_VERSION_ID: ${{ inputs.expected_provider_version_id }}');
+    expect(workflow).toContain('candidate_branch: ${{ steps.admission.outputs.candidate_branch }}');
+    expect(workflow).toContain('provider_version_id: ${{ steps.admission.outputs.provider_version_id }}');
     expect(workflow).not.toContain('pull_request_target:');
     expect(workflow).not.toContain('  pull_request:');
     expect(workflow).toContain('environment: proofmode-access-admin');
     expect(workflow).toContain('ref: ${{ github.sha }}');
     expect(workflow).toContain('node scripts/chief-trusted-preview-admission.mjs');
+    const admission = readFileSync(new URL('../scripts/chief-trusted-preview-admission.mjs', import.meta.url), 'utf8');
+    expect(admission).toContain("appendFile(outputPath");
+    expect(admission).not.toContain('process.stdout.write');
+    expect(admission).not.toContain('process.stderr.write');
     expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}');
     expect(workflow).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}');
-    const proofStep = workflow.split('      - name: Prove exact SHA, rendered app and stylesheet with bounded service auth')[1];
+    const proofStep = workflow.split('      - name: Prove exact SHA, provider Version ID, branch and rendered UI with bounded service auth')[1];
     expect(proofStep).toContain('secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET');
-    expect(workflow.split('      - name: Prove exact SHA, rendered app and stylesheet with bounded service auth')[0])
+    expect(workflow.split('      - name: Prove exact SHA, provider Version ID, branch and rendered UI with bounded service auth')[0])
       .not.toContain('secrets.CLOUDFLARE_ACCESS_CLIENT_');
     expect(browser).toContain('if (u.origin !== origin)');
     expect(browser).toContain('await route.abort()');
     expect(browser).toContain('maxRedirects: 0');
     expect(browser).toContain("expect(payload?.sha).toBe(expectedSha)");
+    expect(browser).toContain("expect(payload?.version_id).toBe(expectedVersionId)");
+    expect(browser).toContain("expect(payload?.branch).toBe(expectedBranch)");
     expect(workflow).toContain("trace: 'off', screenshot: 'off', video: 'off'");
     expect(workflow).not.toContain('ref: ${{ inputs.expected_head_sha }}');
   });

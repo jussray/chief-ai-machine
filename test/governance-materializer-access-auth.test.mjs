@@ -5,35 +5,67 @@ const source = readFileSync(
   new URL('../.github/workflows/governance-required-check-materializer.yml', import.meta.url),
   'utf8',
 );
-
 const runtime = source.split('  runtime-proof:')[1]?.split('  production-proofmode-phase:')[0] || '';
-const browserProof = runtime.split('      - name: Run trusted exact-runtime browser proof')[1]
-  ?.split('      - name: Retain credential-free exact-runtime evidence')[0] || '';
+const provider = source.split('  provider-receipt:')[1]?.split('  runtime-proof:')[0] || '';
+const promptRemix = readFileSync(
+  new URL('../.github/workflows/chief-prompt-remix-playwright.yml', import.meta.url),
+  'utf8',
+);
+const providerWorker = readFileSync(
+  new URL('../.github/workflows/chief-provider-route-playwright.yml', import.meta.url),
+  'utf8',
+);
+const productionProof = readFileSync(
+  new URL('../.github/workflows/proofmode-production-playwright.yml', import.meta.url),
+  'utf8',
+);
 
-describe('trusted candidate runtime Access safety boundary', () => {
-  it('keeps pull_request_target candidate proofs free of Access credentials', () => {
+describe('trusted candidate runtime proof boundary', () => {
+  it('keeps pull_request_target evaluation on a trusted base snapshot without candidate credentials', () => {
     expect(source).toContain('pull_request_target:');
     expect(source).toContain('TRUSTED_EVALUATOR_SHA: ${{ github.sha }}');
-    expect(runtime).toContain('ref: ${{ env.TRUSTED_EVALUATOR_SHA }}');
-    expect(runtime).toContain('test "$TRUSTED_EVALUATOR_SHA" = "$BASE_SHA"');
-    expect(runtime).not.toContain('environment: proofmode-access-admin');
-    expect(runtime).not.toContain('secrets.CLOUDFLARE_ACCESS_CLIENT_');
+    expect(runtime).toContain('ref: ${{ github.sha }}');
+    expect(runtime).toContain('live Cloudflare Access proof is not executed from pull_request_target');
+    expect(runtime).toContain("echo 'changed=false'");
+    expect(runtime).not.toContain('CLOUDFLARE_ACCESS_CLIENT_ID');
+    expect(runtime).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(runtime).not.toContain('CF-Access-Client-Id');
     expect(runtime).not.toContain('CF-Access-Client-Secret');
-    expect(runtime).not.toContain('route.fetch(');
+    expect(runtime).toContain('Check out trusted evaluator snapshot only');
+    expect(runtime).not.toContain('ref: ${{ env.EXPECTED_HEAD_SHA }}');
   });
 
-  it('fails closed on Access redirects instead of accepting login as proof', () => {
-    expect(browserProof).toContain("actualHost.endsWith('.cloudflareaccess.com')");
-    expect(browserProof).toContain('Cloudflare Access blocks candidate proof');
-    expect(browserProof).toContain('assertExactRuntimeHost(page.url(), expectedHost)');
-    expect(browserProof).toContain('expect(payload?.sha).toBe(expectedSha)');
+  it('runs candidate-safe Chief product Playwright suites without secrets', () => {
+    expect(promptRemix).toContain('pull_request:');
+    expect(promptRemix).toContain('permissions:\n  contents: read');
+    expect(promptRemix).toContain('npx playwright test --config=e2e/playwright.freestyle.config.mjs');
+    expect(providerWorker).toContain('pull_request:');
+    expect(providerWorker).toContain('permissions:\n  contents: read');
+    expect(providerWorker).toContain('synthetic fixtures');
+    expect(providerWorker).toContain('playwright.chief-provider-worker.config.mjs');
+    expect(promptRemix).not.toContain('secrets.');
+    expect(providerWorker).not.toContain('secrets.');
   });
 
-  it('redacts Access redirect query strings and does not save network traces', () => {
-    expect(browserProof).toContain('version-final-origin=${new URL(page.url()).origin}');
-    expect(browserProof).not.toContain('version-final-url=${page.url()}');
-    expect(browserProof).toContain("trace:'off'");
-    expect(browserProof).not.toContain("trace:'retain-on-failure'");
+  it('keeps protected live Access proof separate from candidate execution', () => {
+    expect(runtime).not.toContain('cloudflareaccess.com');
+    expect(runtime).not.toContain('CF-Access-Client-Secret');
+    expect(productionProof).toContain('workflow_dispatch:');
+    expect(productionProof).toContain('CLOUDFLARE_ACCESS_CLIENT_ID');
+    expect(productionProof).toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
+    expect(productionProof).toContain("trace: 'off'");
+  });
+
+  it('waits for exact-head Cloudflare provider provenance before predecessor inheritance', () => {
+    const poll = provider.indexOf('for attempt in $(seq 1 25); do');
+    const inherited = provider.indexOf('inherited_sha=""');
+    expect(poll).toBeGreaterThan(0);
+    expect(inherited).toBeGreaterThan(poll);
+    expect(provider).toContain('if has_provider_receipt "$EXPECTED_HEAD_SHA"; then');
+    expect(provider).toContain('if [ "$attempt" -lt 25 ]; then sleep 3; fi');
+    expect(provider).toContain('x.head_sha===expected');
+    expect(provider).toContain('x.app?.id===Number(process.env.CLOUDFLARE_CHECK_APP_ID)');
+    expect(provider).toContain('Provider-affecting or unclassified files changed');
+    expect(provider).not.toContain('secrets.');
   });
 });

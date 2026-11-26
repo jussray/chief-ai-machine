@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 const workflow = await readFile('.github/workflows/control-room-test-ledger.yml', 'utf8');
+const contractsWorkflow = await readFile('.github/workflows/control-room-contracts.yml', 'utf8');
 const quality = await readFile('.github/workflows/quality-gate.yml', 'utf8');
 const materializer = await readFile('.github/workflows/governance-required-check-materializer.yml', 'utf8');
 const founderGoals = await readFile('.github/workflows/founder-goals-playwright.yml', 'utf8');
@@ -9,6 +10,8 @@ const freestyle = await readFile('.github/workflows/freestyle-save-playwright.ym
 const capability = await readFile('.github/workflows/chief-capability-plan-playwright.yml', 'utf8');
 const proofmode = await readFile('.github/workflows/proofmode-mcp-playwright.yml', 'utf8');
 const productionProof = await readFile('.github/workflows/proofmode-production-playwright.yml', 'utf8');
+const promptRemix = await readFile('.github/workflows/chief-prompt-remix-playwright.yml', 'utf8');
+const providerWorker = await readFile('.github/workflows/chief-provider-route-playwright.yml', 'utf8');
 const manifest = JSON.parse(await readFile('.control-room/test-ledger.manifest.json', 'utf8'));
 
 const FREESTYLE_REQUIRED = 'Verify Freestyle, Goalfix, and PromptOS in Chromium';
@@ -19,6 +22,8 @@ describe('Control Room Test Ledger workflow contract', () => {
   it('materializes the ruleset-required ledger check and fails closed on prerequisite failure', () => {
     const publishSection = workflow.split('  publish-ledger:')[1];
     expect(workflow).toContain('pull_request:');
+    expect(contractsWorkflow).toContain('# The exact-head ledger requires this named check on every main push.');
+    expect(contractsWorkflow).toContain('  push:\n    branches: [main]\n  workflow_dispatch:');
     expect(publishSection).toContain('name: Publish exact-head test ledger');
     expect(publishSection).toContain('if: ${{ always() }}');
     expect(publishSection).toContain('LEDGER_CONTRACT_RESULT: ${{ needs.ledger-contract.result }}');
@@ -48,38 +53,39 @@ describe('Control Room Test Ledger workflow contract', () => {
     expect(materializer).toContain('test "$HEAD_REPO" = "$GITHUB_REPOSITORY"');
   });
 
-  it('provides a real exact-runtime browser path without candidate packages or candidate secrets', () => {
+  it('routes candidate browser proof through Chief prompt-remix and synthetic Worker Playwright suites', () => {
     const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
     expect(runtimeSection).toContain('name: Verify exact Chief runtime with Playwright');
-    expect(runtimeSection).toContain('Resolve authenticated exact-head Cloudflare preview');
-    expect(runtimeSection).toContain('Install isolated trusted Playwright runner');
-    expect(runtimeSection).toContain('Run trusted exact-runtime browser proof');
-    expect(runtimeSection).toContain('page.goto(`${baseUrl}/version`');
-    expect(runtimeSection).toContain('page.goto(`${baseUrl}/`');
-    expect(runtimeSection).toContain("getByRole('heading',{name:'What are we trying to accomplish?'})");
-    expect(runtimeSection).toContain('page.goto(`${baseUrl}/styles/main.css`');
+    expect(runtimeSection).toContain("echo 'changed=false'");
+    expect(runtimeSection).toContain('live Cloudflare Access proof is not executed from pull_request_target');
+    expect(runtimeSection).not.toContain('Resolve authenticated exact-head Cloudflare preview');
+    expect(runtimeSection).not.toContain('Run trusted exact-runtime browser proof');
+    expect(promptRemix).toContain('pull_request:');
+    expect(promptRemix).toContain('Verify Chief prompt remix workflows in Chromium');
+    expect(providerWorker).toContain('Verify Chief provider Worker route with synthetic fixtures');
+    expect(promptRemix).toContain('npx playwright test --config=e2e/playwright.freestyle.config.mjs');
+    expect(providerWorker).toContain('playwright.chief-provider-worker.config.mjs');
+  });
+
+  it('keeps Access-protected live proof outside candidate-controlled execution', () => {
+    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
+    expect(runtimeSection).toContain('live Cloudflare Access proof is not executed from pull_request_target');
     expect(runtimeSection).not.toContain('CLOUDFLARE_ACCESS_CLIENT_SECRET');
     expect(runtimeSection).not.toContain('CF-Access-Client-Secret');
+    expect(providerWorker).toContain('synthetic fixtures');
+    expect(productionProof).toContain('workflow_dispatch:');
   });
 
-  it('labels a Cloudflare Access redirect as a receipted provider blocker instead of a raw host-mismatch assertion', () => {
-    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
-    expect(runtimeSection).toContain('function assertExactRuntimeHost(pageUrl, expectedHost)');
-    expect(runtimeSection).toContain("actualHost.endsWith('.cloudflareaccess.com')");
-    expect(runtimeSection).toContain('Cloudflare Access blocks candidate proof');
-    expect(runtimeSection).toContain('Long-lived Access credentials are intentionally withheld from candidate runtime.');
-    expect(runtimeSection).not.toContain('expect(new URL(page.url()).host).toBe(expectedHost)');
-    const assertionCalls = runtimeSection.match(/assertExactRuntimeHost\(page\.url\(\), expectedHost\);/g) || [];
-    expect(assertionCalls.length).toBe(3);
-  });
-
-  it('treats deployed SPA assets and both sides of renames as runtime changes', () => {
-    const runtimeSection = materializer.split('  runtime-proof:')[1].split('  production-proofmode-phase:')[0];
-    expect(runtimeSection).toContain('index\\.html$');
-    expect(runtimeSection).toContain('styles/');
-    expect(runtimeSection).toContain('src/');
-    expect(runtimeSection).toContain('\\.assetsignore$');
-    expect(runtimeSection).toContain('git diff --no-renames --name-only');
+  it('routes product surfaces to the prompt-remix browser suite and provider code to Worker proof', () => {
+    expect(promptRemix).toContain("'app.html'");
+    expect(promptRemix).toContain("'styles/**'");
+    expect(promptRemix).toContain("'src/modules/library.js'");
+    expect(promptRemix).toContain("'src/modules/builder.js'");
+    expect(promptRemix).toContain("'src/modules/freestyle.js'");
+    expect(providerWorker).toContain("'worker/chief-provider.js'");
+    expect(providerWorker).toContain("'worker/index.js'");
+    expect(promptRemix).toContain("'e2e/freestyle-save.pw.mjs'");
+    expect(providerWorker).toContain("'e2e/chief-provider-worker.pw.mjs'");
   });
 
   it('authenticates Cloudflare provenance and includes the base in inheritance search', () => {

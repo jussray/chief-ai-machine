@@ -1,6 +1,7 @@
 import { BUILD_RELEASE_BRANCH, BUILD_RELEASE_SHA } from './release-sha.js';
 import { handleChiefCapabilityPlan } from './chief-capability-plan.js';
 import { handleChiefFounderContentProposal } from './chief-founder-content-proposal.js';
+import { handleFounderContentLearning } from './founder-content-learning-route.js';
 import { buildProofModeServerCard } from './proofmode-mcp.js';
 import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
@@ -150,6 +151,11 @@ export default {
       return addSecurityHeaders(response);
     }
 
+    if (url.pathname === '/api/chief/founder-content-learning') {
+      const response = await handleFounderContentLearning(request, env);
+      return addSecurityHeaders(response);
+    }
+
     if (url.pathname === '/api/chief/provider') {
       const response = await handleChiefProviderRequest(request, env);
       return addSecurityHeaders(response);
@@ -182,9 +188,11 @@ export default {
       return addSecurityHeaders(new Response('Not implemented', { status: 501 }));
     }
 
-    // Route /app to the app.html (authenticated founder application)
+    // Cloudflare's asset router maps app.html to the clean URL /app.
+    // Fetch that canonical asset URL directly; requesting /app.html here
+    // triggers the asset router's 307 redirect back to /app (a loop).
     if (url.pathname === '/app' || url.pathname === '/app/') {
-      const appRequest = new Request(new URL('/app.html', url), request);
+      const appRequest = new Request(new URL('/app', url), request);
       const response = await env.ASSETS.fetch(appRequest);
       return addSecurityHeaders(response);
     }

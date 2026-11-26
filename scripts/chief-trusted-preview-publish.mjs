@@ -10,7 +10,7 @@ export async function publishTrustedChiefPreviewReceipt(env, fetchImpl = globalT
   if (!/^[1-9]\d*$/.test(runId)) throw new Error('Trusted proof run ID required');
 
   // Independent post-proof admission closes moved-PR and moved-main races.
-  const { previewOrigin, trustedMain, expectedHead } =
+  const { previewOrigin, trustedMain, expectedHead, providerVersionId, candidateBranch } =
     await discoverTrustedChiefPreview(env, fetchImpl);
   const repo = env.GITHUB_REPOSITORY;
   const response = await fetchImpl('https://api.github.com/repos/' + repo + '/check-runs', {
@@ -32,6 +32,8 @@ export async function publishTrustedChiefPreviewReceipt(env, fetchImpl = globalT
         title: 'Protected exact-head browser proof passed',
         summary: 'Trusted main: ' + trustedMain
           + '\nPR head: ' + expectedHead
+          + '\nProvider Version ID: ' + providerVersionId
+          + '\nCandidate branch: ' + candidateBranch
           + '\nImmutable preview: ' + previewOrigin
           + '\nAuthorized browser-proof run: ' + runId
           + '\nSupplementary evidence only; not the required runtime gate.',

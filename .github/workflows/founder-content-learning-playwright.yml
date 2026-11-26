@@ -69,7 +69,7 @@ jobs:
           FCR_LEARNING_HMAC_KEY_ID="$FCR_LEARNING_TEST_KEY_ID"
           EOF
 
-          RELEASE_SHA="$EXPECTED_HEAD_SHA" \
+          WORKERS_CI_COMMIT_SHA="$EXPECTED_HEAD_SHA" RELEASE_SHA="$EXPECTED_HEAD_SHA" \
             npx wrangler dev --local --ip 127.0.0.1 --port 8788 --show-interactive-dev-session=false \
             > "$RUNNER_TEMP/founder-content-learning-wrangler.log" 2>&1 &
           printf '%s\n' "$!" > "$RUNNER_TEMP/founder-content-learning-wrangler.pid"
