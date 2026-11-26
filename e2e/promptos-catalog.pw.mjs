@@ -4,7 +4,8 @@ test('Chief keeps PromptOS outside its product surface', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   await expect(page).toHaveTitle('Chief AI Machine — Executive Intelligence Workspace');
-  await expect(page.locator('#page-goals')).toBeAttached();
+  await expect(page.locator('#page-goals')).toBeVisible();
+  await expect(page.locator('#page-goals')).toHaveClass(/on/);
   await expect(page.locator('#page-brain')).toBeAttached();
   await expect(page.locator('#page-library')).toBeAttached();
 
