@@ -11,7 +11,6 @@ import { initModal } from './modules/modal.js';
 import { initBrain, INTELLIGENCE_STORAGE_KEY } from './modules/brain.js';
 import { initFriendMode } from './modules/friend-mode.js';
 import { initGoals, GOAL_STORAGE_KEY } from './modules/goals.js';
-import { mountPromptOS } from './modules/promptos-ui.js';
 import { createPortableSnapshot, parsePortableSnapshot } from './domain/intelligence.js';
 import { installChiefGuardrailRuntime } from './config/visionGuardrails.js';
 
@@ -30,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
   installChiefGuardrailRuntime();
   initThemeToggle();
   initFriendMode();
-  mountPromptOS();
   initNav();
   const modal = initModal(PUBLIC_PROMPTS);
   initGoals();
