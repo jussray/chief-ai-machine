@@ -7,7 +7,7 @@ const expectedHead = String(process.env.EXPECTED_HEAD_SHA || '');
 if (!baseURL) throw new Error('CHIEF_PRODUCTION_BASE_URL is required');
 if (!/^[0-9a-f]{40}$/.test(expectedHead)) throw new Error('EXPECTED_HEAD_SHA must be an exact commit SHA');
 
-test('production serves the exact Chief Prompt Remix build and usable Prompt Library', async ({ page, playwright }) => {
+test('production serves the exact Chief executive-intelligence workspace', async ({ page, playwright }) => {
   const client = await playwright.request.newContext({
     extraHTTPHeaders: chiefAccessHeaders(process.env, baseURL),
   });
@@ -75,7 +75,11 @@ test('production serves the exact Chief Prompt Remix build and usable Prompt Lib
     expect(navigation.status(), 'Chief production app returned an HTTP error').toBe(200);
     await page.waitForLoadState('networkidle');
   expect(new URL(page.url()).origin).toBe(baseURL);
-  await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
+  await expect(page).toHaveTitle('Chief AI Machine — Executive Intelligence Workspace');
+  await expect(page.locator('#page-goals')).toBeAttached();
+  await expect(page.locator('#page-brain')).toBeAttached();
+  await expect(page.locator('[data-page="promptos"]')).toHaveCount(0);
+  await expect(page.locator('#page-promptos')).toHaveCount(0);
   await expect(page.locator('#page-library')).toBeVisible();
   await expect(page.locator('[data-testid="guardrail-status"]')).toBeAttached();
   const promptCards = page.locator('#grid .pcard');
