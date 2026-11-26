@@ -48,7 +48,7 @@ test.beforeEach(async ({ context, page }) => {
 });
 
 test('Prompt Library filters reusable prompts and opens a model-ready draft', async ({ page }) => {
-  await expect(page).toHaveTitle('Chief AI — Prompt Remix Studio');
+  await expect(page).toHaveTitle('Chief AI Machine — Executive Intelligence Workspace');
   await openPage(page, 'library');
   const cards = page.locator('#grid .pcard');
   await expect(cards.first()).toBeVisible();
