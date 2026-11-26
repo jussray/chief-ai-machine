@@ -388,3 +388,26 @@ Monitor via Cloudflare Logpush or local listener.
 - [Founder Control Room CLAUDE.md](/CLAUDE.md)
 - [Review Verify Merge Skill](/.claude/skills/review-verify-merge/SKILL.md)
 - [GoalFix Skill](/.claude/skills/goalfix/SKILL.md)
+
+### Founder Research & Verification Operator
+
+**Purpose:** Provide a first-class, evidence-first research role inside Chief AI Machine. The operator investigates claims, preserves provenance, tests contradictions, red-teams conclusions, and hands verified findings to Chief for synthesis.
+
+**Deployment contexts:** One shared operator contract serves both `chief.jussco.company` (standalone Chief) and `chief.foundercontrolroom.org` (FCR-branded Chief). Domain context changes the product surface, not the operator's identity or evidence rules.
+
+**Boundaries:**
+- Research operator: read, compare, verify, classify evidence, and recommend.
+- Chief: reason, synthesize, route capabilities, and coordinate authorized work.
+- Founder Control Room: owns founder authority, governance decisions, approvals, execution evidence, and outcome receipts.
+- PromptOS: owns instruction governance.
+- SolContinuity: owns durable continuity and resumable handoffs.
+- Research findings never grant execution authority.
+
+**Contract:** `juss/founder-research-verification-operator@v1` in `src/domain/founder-research-operator.js`.
+
+**Authority:** Research-only. The contract explicitly denies external writes, publishing, spending, deployment, merge, and access changes. Consequential actions remain gated by Founder Control Room and action-specific founder authority.
+
+**State:** Domain contract and focused validation tests are implemented. Runtime routing, durable task storage, provider/source adapters, and FCR receipt integration are not yet claimed as implemented.
+
+**Operator instructions:** `.agents/skills/founder-research-verification-operator/SKILL.md`.
+
