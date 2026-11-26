@@ -174,6 +174,15 @@ export function validateFounderResearchTask(task) {
     }
   }
 
+  if (task.status === 'ready_for_review') {
+    const hasVerifiedFinding = Array.isArray(task.findings)
+      && task.findings.some((finding) => finding?.state === 'VERIFIED'
+        && Array.isArray(finding.sourceRefs)
+        && finding.sourceRefs.length > 0
+        && finding.sourceRefs.every((ref) => sourceRefs.has(ref)));
+    if (!hasVerifiedFinding) errors.push('Research tasks require a source-backed VERIFIED finding before review');
+  }
+
   for (const [index, item] of (Array.isArray(task.redTeam) ? task.redTeam : []).entries()) {
     if (!cleanText(item?.risk, 2000)) errors.push(`Red-team finding ${index + 1} requires a risk statement`);
     if (!SEVERITIES.has(item?.severity)) errors.push(`Red-team finding ${index + 1} has an unsupported severity`);
