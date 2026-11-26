@@ -4,6 +4,7 @@ import {
 } from '../src/domain/capability-registry.js';
 import { createCapabilityPlan, sha256Hex } from '../src/domain/capability-plan.js';
 import { createConnectionHandoff } from '../src/domain/connection-requests.js';
+import { founderControlHandoff } from '../src/domain/founder-control-surface.js';
 import { validateGoalPlan } from '../src/domain/goal-plan.js';
 import { applyCapabilityOutcomeFeedback } from '../src/domain/outcome-feedback.js';
 import { evaluateTrustTransition } from '../src/domain/trust-transition-v1.js';
@@ -219,11 +220,7 @@ export async function handleChiefCapabilityPlan(request) {
             nextAuthority: 'founder-control-room',
           },
         },
-        founderControl: {
-          chiefMaySelfAuthorize: false,
-          surfaceMaySelfAuthorize: false,
-          executionAuthorized: false,
-        },
+        founderControl: founderControlHandoff(capabilityPlan),
       },
       meta: meta(),
       error: null,

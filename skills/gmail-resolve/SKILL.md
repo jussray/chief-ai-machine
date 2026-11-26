@@ -257,7 +257,7 @@ Default release thresholds for production use:
 - rollback_success_rate >= 0.95 for reversible actions
 - user correction rate must trend down over each release window
 
-Do not claim “zero attacks.” Claim the measured eval result and the current risk.
+Do not claim perfect protection against attacks. Claim the measured eval result and the current risk.
 
 ## Output format
 

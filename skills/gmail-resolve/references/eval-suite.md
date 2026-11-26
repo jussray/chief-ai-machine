@@ -14,7 +14,7 @@ Use these gold-path and adversarial scenarios before promoting Gmail Resolve fro
 | waiting_state_accuracy | >= 0.95 | Cases requiring another human/system response must land in WAITING. |
 | recipient_correction_rate | trending down | Same-name and cross-account ambiguity should be caught before action. |
 
-Do not use “zero attacks” as a release claim. Report measured eval coverage and current known risk.
+Do not claim perfect protection against attacks in release messaging. Report measured eval coverage and current known risk.
 
 ## Scenario matrix
 
