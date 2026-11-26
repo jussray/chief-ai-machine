@@ -105,7 +105,7 @@ jobs:
           done
           cat /tmp/chief-prompt-remix-server.log
           exit 1
-      - name: Prove library, Builder, Freestyle variants, save/reopen/copy, and PromptOS compile
+      - name: Prove founder workspace, operating playbooks, Builder, Freestyle, save/reopen/copy, and PromptOS boundary
         env:
           PLAYWRIGHT_HTML_OPEN: never
         run: npx playwright test --config=e2e/playwright.freestyle.config.mjs
