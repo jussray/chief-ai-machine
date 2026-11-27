@@ -5,3 +5,5 @@ Source: founder-approved auto-fit prototype, palette and outlined crown. This ca
 Proof: source-level assertions check preserved scripts and navigation attributes, crown, viewport and front-door handler. The added Vitest contract must pass alongside the repository's complete checks. Desktop/mobile browser and actual authenticated runtime verification remain required before merge or deploy. Do not claim production authentication or provider activation from this visual change.
 
 Rollback: revert this candidate commit after the applicable approval, or leave the branch unmerged. No migration, secrets, dependencies or service configuration changed.
+
+Integration follow-up: latest main changes to the landing and workspace have been preserved. The Founder Goals test previously opened the public landing page on the static Python server; the candidate test now opens app.html. The base-controlled workflow cannot consume this evaluator change until independently reviewed and admitted to main. Do not expose workspace content at the public root or weaken the trusted workflow to make this candidate pass.
