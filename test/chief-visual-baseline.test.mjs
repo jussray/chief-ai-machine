@@ -9,7 +9,7 @@ describe('CHIEF shared visual baseline', () => {
     expect(html).toContain(path === 'app.html' ? 'chief-brand-workspace' : 'chief-brand-public');
   });
   it('provides a real public goal-first entry into the default workspace', () => {
-    expect(read('index.html')).toMatch(/<a\\b[^>]*data-page="goals"[^>]*href="\\/app\\.html"[^>]*>Define your goal/);
+    expect(read('index.html')).toContain('<a class="btn-primary" data-page="goals" href="/app.html">Define your goal');
     expect(read('app.html')).toContain('class="page on" id="page-goals"');
     expect(read('index.html')).not.toContain('PromptOS Catalog');
     expect(read('index.html')).toContain('Founder Control Room retains governed execution authority');
