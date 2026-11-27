@@ -4,7 +4,7 @@ import worker from '../worker/index.js';
 
 const origin = 'https://chief-ai.cloudflare.app';
 const policy = [
-  'Contact: mailto:support@jussco.company',
+  'Contact: mailto:founder@jussco.company',
   'Expires: 2027-06-30T00:00:00.000Z',
   'Preferred-Languages: en',
   'Canonical: https://chief-ai.cloudflare.app/.well-known/security.txt',
