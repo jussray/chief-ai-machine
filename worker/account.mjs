@@ -1,14 +1,15 @@
 /* global URL, Response, fetch, URLSearchParams */
 import { workspaceAction } from './workspace.mjs';
+import { accountScene, accountPresence, accountSceneCss, accountPageCss } from './account-visual.mjs';
 const ORIGIN='https://chief.foundercontrolroom.org';
 const COOKIE='__Host-chief_session';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN=/^[\w-]+\.[\w-]+\.[\w-]+$/;
-export const accountPaths=new Set(['/login','/signup','/workspace','/account/request-code','/account/verify','/account/logout','/account/me','/account/start','/account/record']);
+export const accountPaths=new Set(['/login','/signup','/workspace','/account/request-code','/account/verify','/account/logout','/account/me','/account/start','/account/record','/account/council']);
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"};
 const escape=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function page(title,body,status=200){
- return new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+escape(title)+' | CHIEF</title><style>body{background:#090c17;color:#edf1ff;font:16px system-ui;max-width:48rem;margin:6vh auto;padding:1.5rem}main{border:1px solid #ffffff30;background:#ffffff0b;border-radius:18px;padding:1.5rem}a{color:#e9d5a0}input,button,select,textarea{font:inherit;padding:.8rem;margin:.5rem 0 1rem;width:100%;box-sizing:border-box;border-radius:8px}button{background:#e9d5a0;color:#090c17;border:0;cursor:pointer}input,select,textarea{background:#161b2a;color:white;border:1px solid #ffffff45}label{display:block}article{border-top:1px solid #ffffff25;padding:.6rem 0}small{color:#e9d5a0}textarea{min-height:6rem}p{line-height:1.6}</style></head><body><p><a href="/">CHIEF · Founder Intelligence OS</a></p><main><h1>'+escape(title)+'</h1>'+body+'</main></body></html>',{status,headers:{...headers,'Content-Type':'text/html; charset=utf-8'}});
+function page(title,body,status=200,workspaceView=false){
+ return new Response('<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>'+escape(title)+' | CHIEF</title><style>'+accountSceneCss+accountPageCss+'</style></head><body class="chief-brand-workspace chief-account-page">'+accountScene+'<header class="chief-account-bar"><a href="/">CHIEF · Founder Intelligence OS</a><label class="chief-scene-control"><input type="checkbox" id="chief-scene-pause"> Pause scenery motion</label></header><main><h1>'+escape(title)+'</h1>'+(workspaceView?accountPresence:'')+body+'</main></body></html>',{status,headers:{...headers,'Content-Type':'text/html; charset=utf-8'}});
 }
 function redirect(to,cookie){return new Response(null,{status:303,headers:{...headers,Location:to,...(cookie?{'Set-Cookie':cookie}:{})}});}
 function sessionCookie(value,maxAge){return COOKIE+'='+value+'; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age='+maxAge;}
@@ -83,6 +84,6 @@ export async function handleAccount(request,env,fetchImpl=fetch){
   if(p==='/account/me')return Response.json({id:identity.id,role:identity.role},{headers});
   const result=await workspaceAction(p,request,c,readToken(request),identity,fetchImpl);
   if(result.redirect)return redirect(result.redirect);
-  return page(result.title,result.body||'',result.status||200);
+  return page(result.title,result.body||'',result.status||200,(!result.status||result.status===200)&&(p==='/workspace'||p==='/account/council'));
  }catch{return page('Account service unavailable','<a href="/login">Return to sign in</a>',503);}
 }
