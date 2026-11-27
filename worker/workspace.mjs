@@ -1,3 +1,4 @@
+/* global URL, crypto, URLSearchParams */
 // First-party CHIEF business workspace. User JWT only; never use a service-role key.
 const kinds = new Map([['objective','proposed'],['knowledge','user_reported'],['decision','proposed'],['measurement','user_reported']]);
 const seed = [
