@@ -1,0 +1,46 @@
+/* Phase 2: independent ambient scene layers from the living-workspace study.
+   Presentation only. No simulated agents, voice, provider calls or authority. */
+.chief-brand-workspace{isolation:isolate}
+.chief-living-scene{display:none;position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#1b1529}
+[data-theme="dark"] .chief-living-scene{display:block}
+.chief-sky{position:absolute;inset:0;background:linear-gradient(180deg,#11172f 0%,#5b3e63 29%,#da9574 52%,#543b50 77%);animation:chief-sky-cycle 90s ease-in-out infinite alternate}
+.chief-sun{position:absolute;top:26%;right:22%;width:clamp(75px,12vw,170px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#ffe6a8 10%,#ffd08c 55%,#e9a86c 70%);box-shadow:0 0 100px 40px #f8b56e47;animation:chief-solar-glow 16s ease-in-out infinite alternate}
+.chief-cloud{position:absolute;width:64%;height:12%;border-radius:50%;background:radial-gradient(ellipse,#d8a9ad4a,transparent 70%);filter:blur(17px);animation:chief-cloud-drift 42s linear infinite alternate}
+.chief-cloud-a{left:-15%;top:17%}
+.chief-cloud-b{right:-20%;top:31%;animation-duration:61s;animation-direction:alternate-reverse}
+.chief-mountains{position:absolute;inset:0;width:100%;height:100%}
+.chief-window-frame{position:absolute;inset:0;background:linear-gradient(90deg,transparent 32.9%,#16121d65 33%,#16121d65 33.4%,transparent 33.5%,transparent 66.2%,#16121d65 66.3%,#16121d65 66.7%,transparent 66.8%);box-shadow:inset 0 0 100px #0a0716a0}
+.chief-water-shimmer{position:absolute;inset:58% 30% 0;background:repeating-linear-gradient(0deg,transparent 0 22px,#ffda9a22 23px,transparent 25px);clip-path:polygon(40% 0,75% 10%,53% 30%,75% 60%,100% 100%,0 100%);animation:chief-water-flow 7s ease-in-out infinite alternate}
+.chief-scene-shade{position:absolute;inset:0;background:linear-gradient(90deg,#09091490,transparent 65%),linear-gradient(0deg,#080a14e0,transparent 85%)}
+@keyframes chief-sky-cycle{to{filter:hue-rotate(24deg) brightness(.67)}}
+@keyframes chief-solar-glow{to{transform:translateY(15px);opacity:.72}}
+@keyframes chief-cloud-drift{to{transform:translateX(24vw)}}
+@keyframes chief-water-flow{to{transform:translateY(12px);opacity:.38}}
+@keyframes chief-sigil-spin{to{transform:rotate(360deg)}}
+.chief-goal-intro{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(220px,1fr);gap:16px;align-items:center;margin-bottom:18px;padding:clamp(16px,3vw,32px);border:1px solid var(--border-2);border-radius:18px;background:var(--surface)}
+.chief-goal-intro .page-head{margin:0;min-width:0}
+[data-theme="dark"] .chief-goal-intro{background:linear-gradient(105deg,#11101be8,#15102191);backdrop-filter:blur(9px)}
+.chief-presence{display:grid;grid-template-columns:80px minmax(0,1fr);gap:14px;align-items:center;min-width:0;padding:16px;border:1px solid var(--border-2);border-radius:17px;background:var(--surface)}
+[data-theme="dark"] .chief-presence{background:#100d1a9c}
+.chief-presence-sigil{position:relative;display:grid;place-items:center;width:76px;aspect-ratio:1;border:1px solid var(--primary);border-radius:50%;color:var(--primary);background:radial-gradient(circle,var(--primary-dim),transparent 65%)}
+.chief-presence-sigil svg{width:38px;height:38px}
+.chief-presence-sigil:before{content:'';position:absolute;inset:6px;border:1px dashed var(--primary);border-radius:50%;animation:chief-sigil-spin 24s linear infinite;pointer-events:none}
+.chief-presence-copy{min-width:0;overflow-wrap:anywhere}
+.chief-presence-eyebrow{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);font-weight:700}
+.chief-presence h3{font-size:25px;line-height:1.15;margin:4px 0 8px;color:var(--primary)}
+.chief-presence p:not(.chief-presence-eyebrow),.chief-specialist-roles{color:var(--text-muted);font-size:12px}
+.chief-specialist-roles{margin-top:8px}.chief-specialist-roles summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--primary)}
+.chief-specialist-roles ul{padding-left:18px}.chief-specialist-roles li{margin:4px 0}
+.chief-scene-control{display:flex;align-items:center;gap:6px;min-height:44px;font-size:11px;color:var(--text);cursor:pointer}
+.chief-scene-control input{accent-color:var(--primary);width:18px;height:18px;flex:none}
+.chief-brand-workspace:has(#chief-scene-pause:checked) .chief-living-scene *,
+.chief-brand-workspace:has(#chief-scene-pause:checked) .chief-presence-sigil:before{animation-play-state:paused}
+[data-theme="light"] .chief-scene-control{display:none}
+[data-theme="light"] .chief-presence-sigil:before{animation:none}
+[data-theme="dark"] .chief-brand-workspace{--chief-glass:rgba(13,12,22,.74)}
+[data-theme="dark"] .chief-brand-workspace :is(.topbar,.sidebar,.mobile-nav){background:rgba(11,9,16,.91)}
+@media(max-width:1000px){.chief-goal-intro{grid-template-columns:minmax(0,1fr) minmax(190px,.8fr);gap:12px}.chief-presence{grid-template-columns:1fr;text-align:center}.chief-presence-sigil{margin:auto}}
+@media(max-width:700px){.chief-goal-intro{grid-template-columns:minmax(0,1fr)}.chief-presence{grid-template-columns:64px minmax(0,1fr);text-align:left;gap:12px}.chief-presence-sigil{width:62px}.chief-presence-sigil svg{width:32px;height:32px}.chief-window-frame{background:none}.chief-sun{right:14%;top:21%}}
+@media(max-width:380px){.chief-scene-control{font-size:10px;max-width:104px}.chief-brand-workspace .top-actions{gap:4px}}
+@media(prefers-reduced-motion:reduce){.chief-living-scene *, .chief-presence-sigil:before{animation:none!important}}
+@media(prefers-reduced-transparency:reduce){[data-theme="dark"] .chief-brand-workspace :is(.chief-goal-intro,.chief-presence,.topbar,.sidebar,.mobile-nav,.panel,.stat,.card,.citem,.tbl-wrap){background:#15121e;backdrop-filter:none}}

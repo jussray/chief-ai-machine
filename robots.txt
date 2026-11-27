@@ -1,20 +1,18 @@
 User-agent: *
 Allow: /
-Allow: /app
+Disallow: /app
+Disallow: /account/
+Disallow: /workspace
+Disallow: /admin
 Disallow: /api/
 Disallow: /mcp
+Disallow: /counsel
+Disallow: /intelligence
+Disallow: /company-brain
+Disallow: /workspaces
+Disallow: /proof
+Disallow: /decisions
+Disallow: /performance
+Disallow: /goalfix
 
 Sitemap: https://chief.foundercontrolroom.org/sitemap.xml
-
-# Answer Engine Optimization
-User-agent: GPTBot
-Allow: /
-
-User-agent: Claude-Web
-Allow: /
-
-User-agent: Perplexity
-Allow: /
-
-User-agent: CCBot
-Allow: /

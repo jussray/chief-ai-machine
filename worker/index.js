@@ -7,6 +7,7 @@ import { handleChiefProviderRequest } from './chief-provider.js';
 import { handleFederatedRelayV3BoundToRuntime } from './federated-relay-v3-runtime.js';
 import { handleProofModeMcp } from './proofmode-mcp.js';
 import { generateNonce, buildCspHeader } from './csp-policy.js';
+import { accountPaths, handleAccount } from './account.mjs';
 
 const SECURITY_TXT = [
   'Contact: mailto:founder@jussco.company',
@@ -86,6 +87,15 @@ function addSecurityHeaders(response) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // New personal-account routes do not change existing FCR/MCP/provider authority.
+    // They fail closed until CHIEF-specific identity infrastructure is activated.
+    let accountPath;
+    try { accountPath = decodeURIComponent(url.pathname).toLowerCase().replace(/\/+$/, '') || '/'; }
+    catch { return addSecurityHeaders(new Response('Invalid path', { status: 400, headers: { 'Cache-Control': 'no-store' } })); }
+    if (accountPaths.has(accountPath) || accountPath.startsWith('/account/')) {
+      return addSecurityHeaders(await handleAccount(request, env));
+    }
 
     if (url.pathname === '/version') {
       return addSecurityHeaders(Response.json(
@@ -194,7 +204,10 @@ export default {
     if (url.pathname === '/app' || url.pathname === '/app/') {
       const appRequest = new Request(new URL('/app', url), request);
       const response = await env.ASSETS.fetch(appRequest);
-      return addSecurityHeaders(response);
+      const privateHeaders = new Headers(response.headers);
+      privateHeaders.set('X-Robots-Tag', 'noindex, nofollow');
+      privateHeaders.set('Cache-Control', 'private, no-store');
+      return addSecurityHeaders(new Response(response.body, { status: response.status, statusText: response.statusText, headers: privateHeaders }));
     }
 
     // Try fetching the requested asset
