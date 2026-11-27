@@ -5,7 +5,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "node --test discovery/*.test.mjs && vitest run",
     "deploy:api:production": "npx wrangler deploy",
     "verify:v10-capability-kernel": "vitest run src/domain/capability-plan.test.js src/domain/capability-security.test.js src/domain/capability-outcome.test.js",
     "verify:mcp": "node scripts/verify-mcp-config.mjs",

@@ -1,0 +1,20 @@
+name: ADRP draft validation
+on:
+  push:
+    branches: [feat/jsc-adrp-v1]
+    paths: ['discovery/**', '.github/workflows/jsc-adrp-draft.yml']
+  pull_request:
+    paths: ['discovery/**', '.github/workflows/jsc-adrp-draft.yml']
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - run: node --test discovery/*.test.mjs

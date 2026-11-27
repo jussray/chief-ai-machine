@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     exclude: [
       ...configDefaults.exclude,
+      // Discovery uses node:test; npm test executes these before Vitest.
+      'discovery/*.test.mjs',
       'test/pr-continuity.attack20.test.mjs',
       'test/full-attack-unit.test.mjs',
       'test/reciprocal-defense.test.mjs',

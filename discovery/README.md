@@ -1,0 +1,3 @@
+# JSC-ADRP 1.0.0 draft
+
+Source-only discovery candidates. Product positioning is design intent, not live proof. Do not serve this directory or include it in static deployment assets. No production routing, crawler policy, or credentials are changed. Do not publish draft JSON-LD. Public publication requires explicit approval, matching public page content, verified claims with approved evidence, route/authentication review, and live anonymous fetch checks. FCR may coordinate validation through explicit contracts; all products retain independent identities and authority. This is custom metadata, not a universal AI recommendation protocol. Run `node --test discovery/validate.test.mjs`.

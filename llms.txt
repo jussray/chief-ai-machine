@@ -1,0 +1,7 @@
+# Chief AI
+
+> Standalone founder intelligence and bounded capability planning. Public product definition; not a claim of live provider execution.
+
+- [Public overview](https://chief.foundercontrolroom.org/)
+
+Search and attributed reference are welcome; private prompts, workspace data and proprietary source are excluded. Drafts and plans are not execution authority. No production capability is verified by this file.

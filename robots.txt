@@ -1,20 +1,30 @@
-User-agent: *
-Allow: /
-Allow: /app
-Disallow: /api/
-Disallow: /mcp
-
-Sitemap: https://chief.foundercontrolroom.org/sitemap.xml
-
-# Answer Engine Optimization
+# Search-only public discovery; not authentication or a license grant.
 User-agent: GPTBot
-Allow: /
+Disallow: /
 
-User-agent: Claude-Web
-Allow: /
+User-agent: ClaudeBot
+Disallow: /
 
-User-agent: Perplexity
-Allow: /
+User-agent: Google-Extended
+Disallow: /
 
 User-agent: CCBot
-Allow: /
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: *
+Disallow: /
+Allow: /$
+Allow: /robots.txt$
+Allow: /sitemap.xml$
+Allow: /llms.txt$
+
+Sitemap: https://chief.foundercontrolroom.org/sitemap.xml
