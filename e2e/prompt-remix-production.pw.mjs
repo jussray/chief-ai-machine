@@ -80,6 +80,12 @@ test('production serves the exact Chief executive-intelligence workspace', async
   await expect(page.locator('#page-brain')).toBeAttached();
   await expect(page.locator('[data-page="promptos"]')).toHaveCount(0);
   await expect(page.locator('#page-promptos')).toHaveCount(0);
+  // Landing is goal-first; Library must be opened through the real UI,
+  // not assumed to be the initial active screen.
+  await expect(page.locator('#page-goals')).toBeVisible();
+  await expect(page.locator('#goalForm textarea[name="goal"]')).toBeVisible();
+  await expect(page.locator('#page-library')).toBeHidden();
+  await page.locator('aside.sidebar [data-page="library"]').click();
   await expect(page.locator('#page-library')).toBeVisible();
   await expect(page.locator('[data-testid="guardrail-status"]')).toBeAttached();
   const promptCards = page.locator('#grid .pcard');
