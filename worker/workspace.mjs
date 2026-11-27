@@ -9,6 +9,7 @@ const seed = [
 const escape = x => String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function data(c,token,identity,fetchImpl,rows){
   const url=new URL('/rest/v1/chief_business_records',c.url);
+ /** @type {Record<string,string>} */
   const headers={apikey:c.key,Authorization:'Bearer '+token,Accept:'application/json'};
   if(rows){url.searchParams.set('on_conflict','owner_id,record_key');headers.Prefer='resolution=ignore-duplicates,return=minimal';headers['Content-Type']='application/json';}
   else {url.searchParams.set('owner_id','eq.'+identity.id);url.searchParams.set('select','owner_id,record_key,kind,title,detail,classification');url.searchParams.set('order','created_at.desc');url.searchParams.set('limit','100');}
