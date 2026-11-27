@@ -1,4 +1,5 @@
 /* global URL, crypto, URLSearchParams */
+import { councilForm, synthesizeAccountCouncil } from './account-council.mjs';
 // First-party CHIEF business workspace. User JWT only; never use a service-role key.
 const kinds = new Map([['objective','proposed'],['knowledge','user_reported'],['decision','proposed'],['measurement','user_reported']]);
 const seed = [
@@ -22,6 +23,7 @@ async function data(c,token,identity,fetchImpl,rows){
 }
 function record(identity,key,kind,title,detail){return {owner_id:identity.id,record_key:key,kind,title,detail,classification:kinds.get(kind)};}
 export async function workspaceAction(path,request,c,token,identity,fetchImpl){
+  if(path==='/account/council')return synthesizeAccountCouncil(request,identity);
   if(path==='/account/start'){
     if(identity.role!=='founder')return {status:403,title:'Founder access required'};
     await data(c,token,identity,fetchImpl,seed.map(([key,kind,title,detail])=>record(identity,'first-client-'+key,kind,title,detail)));
@@ -38,5 +40,5 @@ export async function workspaceAction(path,request,c,token,identity,fetchImpl){
   const rows=await data(c,token,identity,fetchImpl);
   const labels={objective:'Objectives',knowledge:'Company Brain',decision:'Decision intelligence',measurement:'Business measurements'};
   const cards=Array.from(kinds.keys(),kind=>'<section><h2>'+labels[kind]+'</h2>'+(rows.filter(r=>r.kind===kind).map(r=>'<article><h3>'+escape(r.title)+'</h3><p>'+escape(r.detail)+'</p><small>'+escape(r.classification.replace('_',' '))+' · not independently verified</small></article>').join('')||'<p>No entries in this section.</p>')+'</section>').join('');
-  return {title:identity.role==='founder'?'Founder workspace':'Business workspace',body:'<p>Signed in. Your identity has been verified.</p>'+(identity.role==='founder'?'<p><strong>First client · Founder</strong></p><form method="post" action="/account/start"><button>Initialize first-client objectives</button></form>':'')+'<p>Your business records belong to this account. Account role does not grant execution authority.</p>'+cards+'<section><h2>Add business intelligence</h2><form method="post" action="/account/record"><label>Record type<select name="kind"><option value="objective">Objective</option><option value="knowledge">Company knowledge</option><option value="decision">Decision proposal</option><option value="measurement">Reported measurement</option></select></label><label>Title<input name="title" maxlength="200" required></label><label>Details<textarea name="detail" maxlength="2000" required></textarea></label><button>Save private record</button></form></section><p>CHIEF does not infer achieved results from unsupported entries.</p><form method="post" action="/account/logout"><button>Sign out</button></form>'};
+  return {title:identity.role==='founder'?'Founder workspace':'Business workspace',body:'<p>Signed in. Your identity has been verified.</p>'+(identity.role==='founder'?'<p><strong>First client · Founder</strong></p><form method="post" action="/account/start"><button>Initialize first-client objectives</button></form>':'')+'<p>Your business records belong to this account. Account role does not grant execution authority.</p>'+cards+councilForm+'<section><h2>Add business intelligence</h2><form method="post" action="/account/record"><label>Record type<select name="kind"><option value="objective">Objective</option><option value="knowledge">Company knowledge</option><option value="decision">Decision proposal</option><option value="measurement">Reported measurement</option></select></label><label>Title<input name="title" maxlength="200" required></label><label>Details<textarea name="detail" maxlength="2000" required></textarea></label><button>Save private record</button></form></section><p>CHIEF does not infer achieved results from unsupported entries.</p><form method="post" action="/account/logout"><button>Sign out</button></form>'};
 }
