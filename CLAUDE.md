@@ -244,3 +244,10 @@ Work is done only when:
 - documentation matches the implementation;
 - rollback or recovery is understood;
 - the founder can tell what happened without decoding machine theater.
+
+
+## Cinematic composition — visual-task rule (candidate)
+
+For any authorized UI, app, web, game, story scene or visual design job, apply **one cohesive cinematic composition** across every actual in-scope screen and related state. Inspect current approved founder artwork, product tokens, source UI and rendering first; preserve the product's own brand instead of generic parent-company styling. Chief must route the check to the real product owner and require an observed downstream load receipt. A claim of orchestration is not execution. Product-specific canon is mandatory.
+
+Include purposeful hierarchy, lighting, depth, type, motion and transitions without sacrificing keyboard/focus, contrast, mobile, reduced-motion, consent, performance, truthfulness or protected functionality. For a QA claim require approved reference plus real exact-head desktop/mobile screenshots, interaction and accessibility/performance evidence. An instructions-only edit, a written storyboard, a screenshot reference or a generated prompt is not proof of a deployed implementation. Do not infer permissions for publishing, provider writes, spending, access, merge, or deletion. Review the staged long-form skill in `jussray/founder-control-room/skills/cinematic-composition/SKILL.md` on `feat/cinematic-composition-contract-20261126`; reading a pointer is not runtime adoption.
