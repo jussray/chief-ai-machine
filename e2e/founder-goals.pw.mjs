@@ -11,9 +11,7 @@ const NEXT_GATE = 'Founder approves merge.';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
-  // Static candidate server serves index.html as the public landing page.
-  // Enter the workspace asset directly; Cloudflare's clean production URL is /app.
-  await page.goto('/app.html');
+  await page.goto('/');
   await page.locator('[data-page="goals"]:visible').click();
 });
 
