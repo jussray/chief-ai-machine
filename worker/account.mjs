@@ -19,6 +19,7 @@ function config(env){
 }
 function readToken(request){const list=(request.headers.get('cookie')||'').split(';').map(s=>s.trim()).filter(s=>s.startsWith(COOKIE+'='));const t=list.length===1?list[0].slice(COOKIE.length+1):'';return t.length<4096&&TOKEN.test(t)?t:null;}
 async function call(c,path,fetchImpl,data,token){
+ /** @type {Record<string,string>} */
  const h={apikey:c.key,Accept:'application/json'};
  if(token)h.Authorization='Bearer '+token;
  if(data!==undefined)h['Content-Type']='application/json';
