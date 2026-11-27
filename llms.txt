@@ -1,0 +1,7 @@
+# Chief AI — Founder Intelligence OS
+
+> Chief AI focuses on organizational knowledge, business objectives, coordinated reasoning and evidence-backed decision support.
+
+- [Public product definition](https://chief.foundercontrolroom.org/)
+
+Chief AI and PromptOS are separate products. PromptOS focuses on instruction engineering. Founder Control Room independently governs authorized execution. The public site distinguishes existing browser-local planning from capabilities requiring activation and verification. Private workspaces, account data, credentials and customer records are excluded.
