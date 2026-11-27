@@ -1,3 +1,4 @@
+/* global URLSearchParams */
 import { readFileSync } from 'node:fs';
 import { test, expect } from 'vitest';
 import { handleAccount } from '../worker/account.mjs';
