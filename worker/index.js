@@ -204,7 +204,10 @@ export default {
     if (url.pathname === '/app' || url.pathname === '/app/') {
       const appRequest = new Request(new URL('/app', url), request);
       const response = await env.ASSETS.fetch(appRequest);
-      return addSecurityHeaders(response);
+      const privateHeaders = new Headers(response.headers);
+      privateHeaders.set('X-Robots-Tag', 'noindex, nofollow');
+      privateHeaders.set('Cache-Control', 'private, no-store');
+      return addSecurityHeaders(new Response(response.body, { status: response.status, statusText: response.statusText, headers: privateHeaders }));
     }
 
     // Try fetching the requested asset
