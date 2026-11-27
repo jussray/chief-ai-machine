@@ -214,3 +214,16 @@ never parked as a report. Never merge over a blocked mandatory gate or a
 red exact head. A credential- or founder-gated red gets a full diagnosis
 plus the one unblocking action named — never silence, never a faked fix.
 Full charter: `.github/agents/reds-implant.agent.md`.
+
+
+## Portfolio cinematic composition — staged agent design requirement
+
+For any **authorized** app, game, site, page, screen, creative or delegated design job, produce **one cohesive cinematic composition**: a unified purpose, environment, focal hierarchy, depth, lighting, type, imagery, motion, pacing and primary action. Carry the product's *own* art direction across every actual related route/state, including navigation, auth, dashboard, commerce, loading/error and mobile where they exist. **Never** impose one portfolio palette, invent branding, or promote provisional mockups to founder-approved canon.
+
+Inspect the actual source, approved original visual, tokens, routes and current rendered behavior first. Respect contrast, keyboard/focus, touch, reduced motion, media optimization and sound consent. Do not weaken functionality, accuracy, security, privacy, teen/family protection, auth, payment, ownership, or creator rights for visual effects.
+
+Chief AI orchestrates authorized visual tasks: route the requirement to the actual product-owning agent, verify local brand canon, and request exact-head browser evidence. Do not treat a routed instruction or council response as proof a downstream model loaded the rule.
+
+For any visual PASS claim require the **exact candidate branch and head**, product-specific approved reference, observed rendered desktop/mobile screenshots, interaction checks, keyboard/reduced-motion/contrast/performance evidence, and a responsible human design review. Treat absent proof as UNKNOWN/BLOCKED, not green. Keep AUTHORED, TESTED, VISUAL_REVIEWED, AGENT_LOADED, MERGED, DEPLOYED and USER_OUTCOME separate. A staged file is not runtime integration or release approval.
+
+Long-form local-source candidate: `jussray/founder-control-room/skills/cinematic-composition/SKILL.md` at `feat/cinematic-composition-contract-20261126`; portable agent candidate: `jussray/ULTRATHINK-/.claude/skills/cinematic-composition/SKILL.md` at the same branch. Neither cross-repository pointer automatically installs or executes a skill. All stronger founder and local approval, non-deletion, privacy and separate provider gates remain in force.
