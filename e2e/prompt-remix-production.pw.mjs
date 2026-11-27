@@ -76,16 +76,29 @@ test('production serves the exact Chief executive-intelligence workspace', async
     await page.waitForLoadState('networkidle');
   expect(new URL(page.url()).origin).toBe(baseURL);
   await expect(page).toHaveTitle('Chief AI Machine — Executive Intelligence Workspace');
-  await expect(page.locator('#page-goals')).toBeAttached();
+  // Chief starts with business intent; supporting playbooks are navigated to.
+  await expect(page.locator('#page-goals')).toBeVisible();
+  await expect(page.locator('#goalForm')).toBeVisible();
   await expect(page.locator('#page-brain')).toBeAttached();
   await expect(page.locator('[data-page="promptos"]')).toHaveCount(0);
   await expect(page.locator('#page-promptos')).toHaveCount(0);
+  await expect(page.locator('#page-library')).toBeHidden();
+
+  await page.locator('[data-page="brain"]:visible').first().click();
+  await expect(page.locator('#page-brain')).toBeVisible();
+  await expect(page.locator('#page-goals')).toBeHidden();
+
+  await page.locator('[data-page="library"]:visible').first().click();
   await expect(page.locator('#page-library')).toBeVisible();
+  await expect(page.locator('#page-brain')).toBeHidden();
   await expect(page.locator('[data-testid="guardrail-status"]')).toBeAttached();
   const promptCards = page.locator('#grid .pcard');
   await expect(promptCards.first()).toBeVisible();
   expect(await promptCards.count()).toBeGreaterThan(0);
     await expect(page.locator('#search')).toBeVisible();
+    await page.locator('[data-page="goals"]:visible').first().click();
+    await expect(page.locator('#page-goals')).toBeVisible();
+    await expect(page.locator('#page-library')).toBeHidden();
   } finally {
     await page.unrouteAll({ behavior: 'wait' });
     await browserAssetClient.dispose();
